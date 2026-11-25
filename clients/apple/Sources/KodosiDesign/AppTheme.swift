@@ -35,7 +35,7 @@ public extension AppTheme {
         public let lifted: Color
         public let well: Color
         public let terminal: Color
-        /// The header bar of a terminal's body.
+        /// Background color for the terminal header bar.
         public let band: Color
         public let hairline: Color
 
@@ -139,7 +139,7 @@ public extension AppTheme {
 }
 
 public extension AppTheme.Colors {
-    /// The ground of what shows beside the work: a project's conversation and a canvas.
+    /// Surface color for side panels (project conversation and canvas).
     var sheet: Color {
         raised.mix(with: surface, by: 0.45)
     }
@@ -212,7 +212,7 @@ public extension EnvironmentValues {
     @Entry var theme: AppTheme = .dark
     @Entry var chromeTheme: AppTheme?
     @Entry var bezelPressed = false
-    /// Whether the person can see the window of the view: on a Mac it is not minimized, hidden or
-    /// fully covered, and on an iPhone or iPad the app is not in the background.
+    /// Whether the view's window is actually visible (unminimized and unoccluded on macOS;
+    /// foregrounded on iOS).
     @Entry var onScreen = true
 }

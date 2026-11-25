@@ -70,7 +70,7 @@
         private let alongside = TapAlongside()
         private var clipboardPromptOpen = false
 
-        /// A tap is a person's act on the terminal also when the view has the focus already.
+        /// Reports user taps even when the terminal is already first responder.
         func hearTaps() {
             let tap = UITapGestureRecognizer(target: self, action: #selector(tapped))
             tap.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
@@ -117,8 +117,8 @@
         }
     }
 
-    /// The terminal view's own recognizers take the same taps, but a long press that selects text is
-    /// no tap: UIKit would count it as one when the finger lifts within about a second and a half.
+    /// Shares touches with the terminal's own recognizers while ignoring long-press text
+    /// selections, which UIKit otherwise also delivers as taps if released within ~1.5s.
     @MainActor
     private final class TapAlongside: NSObject, UIGestureRecognizerDelegate {
         func gestureRecognizer(_: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith _: UIGestureRecognizer) -> Bool {

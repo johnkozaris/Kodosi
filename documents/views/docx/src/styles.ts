@@ -68,7 +68,7 @@ const COUNTER_STYLES: Record<string, string> = {
   upperRoman: "upper-roman",
 };
 
-/** A bullet in a symbol font has a private letter that other fonts draw as a box. */
+// Word bullets often use Private Use Area code points (Symbol/Wingdings) that render as tofu.
 function bulletOf(text: string | undefined): string {
   const code = text?.codePointAt(0) ?? 0;
   return !text || (code >= 0xe000 && code <= 0xf8ff) ? "•" : text;

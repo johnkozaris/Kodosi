@@ -1,4 +1,4 @@
-/// The built-in number formats of .xlsx, which a file names by their id alone.
+/// Standard OOXML built-in number formats referenced by ID without a `<numFmt>` entry.
 const BUILT_IN: [(u32, &str); 27] = [
     (1, "0"),
     (2, "0.00"),
@@ -29,7 +29,7 @@ const BUILT_IN: [(u32, &str); 27] = [
     (49, "@"),
 ];
 
-/// The first id that a file's own formats can have.
+/// First `numFmtId` reserved by OOXML for custom workbook formats.
 pub(crate) const FIRST_OWN: u32 = 164;
 
 pub(crate) fn built_in_code(id: u32) -> Option<&'static str> {

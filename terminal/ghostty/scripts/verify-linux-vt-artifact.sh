@@ -111,7 +111,7 @@ exported = {
             text=True,
         ).splitlines()
     )
-    # A version node of the export map is an absolute symbol, not a function.
+    # Skip linker version-script nodes, which nm reports as absolute ('A') symbols.
     if len(fields) == 3 and fields[1] != "A"
 }
 if exported != declared:

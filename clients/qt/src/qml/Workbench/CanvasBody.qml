@@ -54,8 +54,8 @@ Item {
             return valley(0, dipTop, reach) + " L " + n(to) + " 0";
         return " L " + n(to) + " 0";
     }
-    // From the top edge at `start` around the right side, the bottom and the left side, back to
-    // the top edge at `finish`.
+    // Traces clockwise from top-edge `start` around the right, bottom, and left edges back to
+    // top-edge `finish`.
     function around(start: real, finish: real): string {
         const w = width, h = height;
         let path = topEdge(start, w - r) + corner(w - r, 0, w, r, w, 0) + " L " + n(w) + " " + n(h - r)
@@ -70,7 +70,7 @@ Item {
     function lobes(): string {
         return "M " + n(r) + " 0" + around(r, r) + " Z";
     }
-    // The point of the left half of the waist's top curve where it reaches `x`.
+    // Subdivides the left half of the top waist Bezier curve at horizontal coordinate `x`.
     function onValley(x: real): var {
         const p0 = [seam - reach, 0], p1 = [seam - reach / 2, 0], p2 = [seam - reach / 2, dipTop], p3 = [seam, dipTop];
         const at = t => {

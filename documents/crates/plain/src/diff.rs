@@ -1,9 +1,8 @@
-//! Which lines two texts share: the shortest way from one to the other, as Myers found it.
+//! Myers shortest-edit-script line diff.
 
 use std::{collections::HashMap, hash::Hash, ops::Range};
 
-/// Past this many edits, two texts share only their first and last lines, and the rest counts as
-/// one change.
+/// Cap on edit distance searched before treating the differing middle as a single replacement.
 const MOST_EDITS: usize = 1000;
 
 pub(crate) fn kept<T: Eq + Hash>(old: &[T], new: &[T]) -> Vec<(usize, usize)> {
@@ -46,7 +45,7 @@ pub(crate) fn changed<T: Eq + Hash>(old: &[T], new: &[T]) -> Vec<(Range<usize>, 
     stretches
 }
 
-/// A diagonal `k` is `x - y`, kept at `k + offset` so that each index stays positive.
+/// Diagonal `k = x - y` is stored at `k + offset` to keep indices non-negative.
 fn shortest(old: &[u32], new: &[u32]) -> Option<Vec<(usize, usize)>> {
     let (n, m) = (old.len(), new.len());
     let limit = MOST_EDITS.min(n + m);

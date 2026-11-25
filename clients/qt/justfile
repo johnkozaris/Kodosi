@@ -26,11 +26,11 @@ build: configure
 lint: configure
     "{{ cmake }}" --build build/dev --target all_qmllint
 
-# Add the new texts of the sources to the translation files.
+# Update translation files with new source strings.
 strings-sync: configure
     "{{ cmake }}" --build build/dev --target kodosi-translations-update
 
-# Check that the translation files have each text of the sources, with its words.
+# Verify that translation files contain all source strings and translations.
 strings-check: configure
     "{{ cmake }}" --build build/dev --target kodosi-translations-check
     diff -rq i18n build/dev/src/translations-check || { echo "Run just linux-strings-sync." >&2; exit 1; }
@@ -41,7 +41,7 @@ test: build
     "{{ cmake }}" --build build/dev --target test_prep/all
     "{{ ctest }}" --preset dev
 
-# Check that the copied CMake and Qt versions match dependencies.lock.json.
+# Check that CMake and Qt version pins match dependencies.lock.json.
 dependency-pins-check:
     python3 scripts/build/verify-dependency-pins.py
 
@@ -86,12 +86,12 @@ windows-package: tools-install
             --build-dir build/windows-release \
             --qt-root ".tools/Qt/$KODOSI_QT_ARCH"
 
-# Sign a package or the bundle with the key of packaging/windows/Kodosi.cer from the user's certificate store.
+# Sign a package or bundle with the key for packaging/windows/Kodosi.cer in the user's certificate store.
 windows-sign package:
     source ../../scripts/windows-env.sh && kodosi_windows_env && \
         ./scripts/release/sign-msix.sh "{{ package }}"
 
-# Put the packages from windows-package in build/release/Kodosi-<version>.msixbundle.
+# Bundle the windows-package outputs into build/release/Kodosi-<version>.msixbundle.
 windows-bundle:
     source ../../scripts/windows-env.sh && kodosi_windows_env && \
         ./scripts/release/bundle-msix.sh "build/release/Kodosi-{{ version }}.msixbundle" \

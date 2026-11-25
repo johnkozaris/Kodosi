@@ -7,7 +7,7 @@ import { inTable } from "./tables";
 export type Align = "left" | "center" | "right" | "both";
 export type MarkName = "bold" | "italic" | "underline" | "strike" | "superscript" | "subscript";
 
-/** A color is hex, and a size is in half points. */
+/** Run styling attributes: color is 6-digit hex (no #), size is in half-points. */
 interface TextLook {
   color?: string | null;
   size?: string | null;
@@ -27,9 +27,9 @@ const LOOK_MARKS = [
   "textStyle",
 ];
 const MOST_LEVEL = 8;
-/** A step of indent: half an inch, in the twentieths of a point that a file counts. */
+// 0.5 in in twips (1/20 pt), matching OOXML indent units.
 const INDENT_STEP = 720;
-/** The page of a file that does not say, in points: A4 with margins of an inch. */
+// Default A4 page width and 1 in margins, in points.
 const PAGE = { width: 595, left: 72, right: 72 };
 const EMAIL = /^[^\s@/:]+@[^\s@/]+\.[^\s@/]+$/;
 const HOST = /^[^\s@/:]+\.[^\s@/:]+([:/?#]|$)/;
@@ -207,7 +207,7 @@ function levelled(paragraph: ProseNode, step: 1 | -1): Attrs | null {
   return next === level ? null : { ilvl: String(next) };
 }
 
-/** In twentieths of a point. */
+/** In twips (1/20 pt). */
 function indentOf(view: DocxView, paragraph: ProseNode): number {
   const own = paragraph.attrs.indent as string | null | undefined;
   if (own != null) return Number(own) || 0;
@@ -256,7 +256,7 @@ interface Tracked {
   mark: Mark;
 }
 
-/** The attributes of a paragraph that say whether the mark that ends it is a tracked change. */
+// Paragraph attributes tracking whether the paragraph break itself was inserted or deleted.
 const ENDS = ["inserted", "deleted"] as const;
 
 interface TrackedEnd {
@@ -277,10 +277,10 @@ function hasChangedEnd(node: ProseNode): boolean {
 }
 
 /**
- * The runs of changed text of a textblock whose content starts at `start`, with neighbors
- * joined, so a replacement (a deletion next to an insertion) is one change. XML of its own
- * between them, such as a bookmark, does not part them. A changed mark at the end of the block
- * is a run of no length there.
+ * Returns tracked-change ranges in a textblock (content starting at `start`). Adjacent changes
+ * (e.g. a deletion next to an insertion) are merged into a single replacement, bridging any
+ * intervening inlineOpaque nodes such as bookmarks. A tracked paragraph break is represented as a
+ * zero-length range at the end of the block.
  */
 function changeRunsIn(block: ProseNode, start: number): { from: number; to: number }[] {
   const runs: { from: number; to: number }[] = [];
@@ -368,10 +368,10 @@ export function canDecide(state: EditorState): boolean {
 }
 
 /**
- * Takes away the mark that ends the paragraph at `pos`. The paragraph goes when nothing but XML of
- * its own is left of it, as a deleted block does, and else its content goes to the start of the
- * paragraph after it, whose mark stays and keeps its look. The last block of the body or of a
- * cell, and a paragraph before a table, keep their mark and lose only its change.
+ * Removes a tracked paragraph break at `pos`. Deletes the paragraph if only inlineOpaque nodes
+ * remain, unless it is the only block; otherwise merges its content into the start of the next
+ * paragraph so that paragraph keeps its formatting. If there is no following paragraph (end of
+ * body/cell, or before a table), clears only the tracked-change attribute.
  */
 function removeEnd(transaction: Transaction, pos: number, name: TrackedEnd["name"]): void {
   const node = transaction.doc.nodeAt(pos);
@@ -392,8 +392,8 @@ function removeEnd(transaction: Transaction, pos: number, name: TrackedEnd["name
 }
 
 /**
- * One step, so that undo takes the decision back. An accepted insertion and a rejected deletion
- * lose their mark. The text of the others goes, and then the marks that end paragraphs.
+ * Applies an accept/reject decision in a single transaction so undo reverses it atomically:
+ * strips marks from kept changes first, then deletes discarded content and paragraph breaks.
  */
 export function decision(state: EditorState, accept: boolean, all: boolean): Transaction | null {
   const { words, ends } = changesAt(state, all);
@@ -420,7 +420,7 @@ export function decide(editor: Editor, accept: boolean, all: boolean): void {
   if (transaction) editor.view.dispatch(transaction);
 }
 
-/** A web or e-mail address gets the scheme that it lacks. Other schemes make no link. */
+/** Normalizes http(s) and mailto links, adding missing schemes; rejects other schemes. */
 export function linkAddress(typed: string): string | null {
   const text = typed.trim();
   let address = text;

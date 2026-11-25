@@ -259,7 +259,7 @@ public sealed partial class ProjectService
     private sealed record PreparedKeys(byte[] Body, byte[] Signature, KeyStateBody State);
     private sealed record SealedBody(string Nonce, string Ciphertext);
     private sealed record RecipientBody(Guid UserId, string DeviceId, string KemCiphertext, SealedBody Sealed);
-    // The devices signed these two bodies with the name roomId, and each key state names the hash of the one before it.
+    // Wire format keeps "roomId" because clients sign these JSON bodies and hash prior key states.
     private sealed record KeyStateBody([property: JsonPropertyName("roomId")] Guid ProjectId, Guid OwnerUserId, Guid AuthorId, string DeviceId,
         long Version, long Epoch, long CreatedAtMs, string PreviousHash, Dictionary<Guid, JsonElement> Members,
         RecipientBody[] Recipients, SealedBody? PreviousKey);

@@ -2,13 +2,11 @@ import KodosiBridge
 import KodosiLinks
 import SwiftUI
 
-/// The chat of a terminal in the place of its screen. It is a conversation of Kodosi, as a
-/// project's, in the look of what holds it: a terminal's tile or the app. Its rows keep the name of
-/// the agent that wrote them after the agent ends, and `agent`, the terminal's program, names them
-/// until the agent reports. `me` is the account of this app: the messages of other people show
-/// their names. `modelKey` gets the agent's model and effort, and the app makes them the key of its
-/// action that changes them, which `/model` also opens. `showTerminal` shows the terminal's screen
-/// in the place of the chat. A link opens by the rules of a link in the terminal, and
+/// Rows keep the name of the agent that wrote them after the agent ends; until the agent reports,
+/// `agent` (the terminal's program) names them. Pass the signed-in user ID as `me` so messages
+/// from other participants display their names. `modelKey` builds the control that changes the
+/// agent's model and effort, which `/model` also opens. `showTerminal` shows the terminal's screen
+/// in place of the chat. Links open by the same rules as links in the terminal, and
 /// `otherComputer` names the computer of a terminal that is not on this device, where its files
 /// are.
 public struct TerminalChatView<ModelKey: View>: View {
@@ -56,7 +54,6 @@ public struct TerminalChatView<ModelKey: View>: View {
     }
 }
 
-/// The switch between a terminal's screen and its chat.
 public struct TerminalFaceSwitch: View {
     @Binding var face: TerminalFace
     let identifier: String

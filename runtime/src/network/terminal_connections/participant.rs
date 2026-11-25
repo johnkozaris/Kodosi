@@ -21,10 +21,9 @@ fn picture_not_confirmed() -> Text {
     text!("The other computer did not confirm the picture. Paste it again.")
 }
 
-/// In transit are twice the bytes that the link carries in the shortest round trip of a part, and
-/// at most half a second of them, as of output: so the link stays full, and input waits behind
-/// the parts for about one round trip. The speed is how fast the parts arrived on the host's
-/// clock, which answers that come late or together do not change.
+/// Paces picture uploads at 2x BDP (capped at `PICTURE_TRANSIT_SECONDS`) so the link stays full
+/// without queuing more than ~1 RTT ahead of keystrokes. Delivery rate is computed from the
+/// host's arrival timestamps so ack jitter or coalescing does not distort it.
 struct Upload {
     id: Uuid,
     picture: crate::terminal::Picture,
@@ -32,9 +31,9 @@ struct Upload {
     asked: bool,
     sent: u64,
     received: u64,
-    /// Each part in transit: where it ends and when it left.
+    /// In-flight parts as `(end_offset, sent_at)`.
     parts: VecDeque<(u64, tokio::time::Instant)>,
-    /// The host's recent answers: when it had the bytes, in microseconds, and how many.
+    /// Recent host acks as `(host_elapsed_us, total_received_bytes)`.
     arrivals: VecDeque<(u64, u64)>,
     round_trip: Duration,
     speed: f64,
@@ -409,8 +408,8 @@ impl<T: Transport> Viewer<T> {
         }
     }
 
-    /// A close that waits when its terminal is gone did its work. Its answer can lose the race
-    /// with the end of the terminal, and the service drops the pipe of a terminal that is gone.
+    /// Resolves pending close requests as succeeded when the terminal has ended or the service
+    /// answers 404, since session teardown can race ahead of the close reply.
     fn settle(&mut self, error: &Error) {
         if !self.ended && !matches!(error, Error::Backend { status: 404, .. }) {
             return;
@@ -451,8 +450,8 @@ impl<T: Transport> Viewer<T> {
         }
     }
 
-    /// Hearing the host moves its deadline later with each frame, so the timer is set again only
-    /// for an earlier deadline, and one that goes off early finds nothing due.
+    /// Only resets `timer` when `due` moves earlier; because every host frame pushes the silence
+    /// deadline forward, an earlier timer firing early is a cheap no-op in `expire()`.
     async fn step(
         &mut self,
         mut timer: std::pin::Pin<&mut tokio::time::Sleep>,
@@ -663,7 +662,8 @@ impl<T: Transport> Viewer<T> {
         Ok(())
     }
 
-    /// A slow view loses its pipe and joins again, so the terminal never waits for it.
+    /// Drops the pipe instead of blocking if the viewer's consumer queue is full, so slow document
+    /// views cannot stall terminal output.
     async fn pipe_part(&mut self, pipe: Uuid, more: bool, part: &[u8]) -> Result<()> {
         let Some(open) = self.pipes.get_mut(&pipe) else {
             return Ok(());
@@ -892,7 +892,7 @@ impl<T: Transport> Viewer<T> {
     }
 
     async fn tell_stalled(&mut self) -> Result<()> {
-        // The remote terminal holds typing back while a control of its view waits for an answer.
+        // Pending controls also stall typing because `RemoteTerminal` queues input behind them.
         let waits = self.input_sent > self.input_confirmed || !self.pending.is_empty();
         let stalled = waits && self.late.as_ref().is_some_and(|late| *late.borrow());
         if stalled == self.stalled {

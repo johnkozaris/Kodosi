@@ -171,7 +171,6 @@ impl Drop for Subscription {
     }
 }
 
-/// When a view asks its terminal again for a new screen that it did not get.
 #[derive(Default)]
 pub struct RefreshRetry {
     failures: u32,
@@ -179,7 +178,7 @@ pub struct RefreshRetry {
 }
 
 impl RefreshRetry {
-    /// The wait before the next ask, or none when the terminal or the view is gone.
+    /// Returns the backoff delay before retrying, or `None` if the terminal or the view is gone.
     pub fn failed(&mut self, session: Uuid, error: &Error) -> Option<Duration> {
         let gone = matches!(error, Error::NotFound | Error::Stale | Error::Stopped);
         if self.failure.new_failure(error) {
@@ -373,9 +372,8 @@ impl Subscribers {
         self.entries.values().any(Subscriber::reading_behind)
     }
 
-    /// Ends when a view that fell behind has read all that waited for it: only then does its
-    /// queue have room for all that it holds. A view can read up on another thread before the
-    /// wait starts, so the wait then ends at once.
+    /// Resolves once any lagging subscriber empties its data queue (`reserve_many(max_capacity())`
+    /// completes only when empty, or immediately if another thread already drained it).
     pub(crate) async fn read_up(&self) {
         let mut reading = self
             .entries

@@ -60,7 +60,7 @@ public enum ChatChange: Decodable, Equatable, Sendable {
     case remove(id: String)
     case asks([ChatAsk])
     case queued([ChatQueued])
-    /// The agent's list of its work, whole.
+    /// The agent's task list, whole.
     case tasks([ChatTask])
     /// The agent's slash commands, whole.
     case commands([ChatCommand])
@@ -91,7 +91,6 @@ public enum ChatChange: Decodable, Equatable, Sendable {
     }
 }
 
-/// A step of the list that the agent keeps of its work.
 public struct ChatTask: Decodable, Equatable, Sendable {
     public let text: String
     public let state: TaskState
@@ -107,15 +106,13 @@ public enum TaskState: String, Decodable, Sendable {
 }
 
 public enum ChatState: String, Decodable, Sendable {
-    /// No agent of the terminal reports to the chat.
+    /// No agent is currently attached to the terminal chat.
     case away
     case idle
     case working
-    /// The agent waits for a person's answer.
     case asking
 }
 
-/// What the agent does at this moment.
 public enum ChatNow: Decodable, Equatable, Sendable {
     case thinking
     case writing
@@ -141,17 +138,16 @@ public enum ChatNow: Decodable, Equatable, Sendable {
 
 public struct ChatItem: Decodable, Equatable, Identifiable, Sendable {
     public let id: String
-    /// In milliseconds since 1970 on the terminal's computer.
+    /// Unix timestamp in milliseconds from the terminal host's clock.
     public let at: UInt64
     public var body: ChatBody
 }
 
 public enum ChatBody: Decodable, Equatable, Sendable {
-    /// A message without a sender was typed in the terminal.
+    /// `by` is `nil` when the message was typed directly in the terminal.
     case person(text: String, by: ChatPerson?)
     case text(String, live: Bool)
     case tool(ChatTool)
-    /// The agent's turn ended here.
     case turn(TurnEnd, ms: UInt64)
     case note(ChatNote)
 
@@ -179,13 +175,11 @@ public enum TurnEnd: String, Decodable, Sendable {
 }
 
 public enum ChatNote: Decodable, Equatable, Sendable {
-    /// The agent made its conversation shorter to free its context.
     case compacted
-    /// The agent is not signed in, and signs in with its own steps in its terminal.
     case signedOut
     /// What the agent says happened while the person was away.
     case recap(String)
-    /// The agent could not continue. `error` is the agent's word for the cause.
+    /// `error` is the agent's cause string; `text` carries any additional detail.
     case failed(error: String, text: String)
 
     private enum Key: String, CodingKey {
@@ -207,11 +201,10 @@ public enum ChatNote: Decodable, Equatable, Sendable {
 }
 
 public struct ChatTool: Decodable, Equatable, Sendable {
-    /// The agent's name of the tool.
     public let name: String
     public let kind: ChatToolKind
     public let state: ChatToolState
-    /// The short subject: a command, the name of a file, a pattern, an address.
+    /// Short summary of what the tool operates on (command, file path, pattern, or URL).
     public let target: String
     public let detail: ChatToolDetail?
 
@@ -239,15 +232,13 @@ public struct ChatTool: Decodable, Equatable, Sendable {
 
 public enum ChatToolKind: String, Decodable, Sendable, CaseIterable {
     case command, read, edit, write, search, web
-    /// A helper: another agent that the agent starts for a part of its work.
     case agent
     case skill, question, plan, other
 }
 
 public enum ChatToolState: String, Decodable, Sendable {
-    /// The agent writes the call.
+    /// Tool call arguments are still streaming.
     case preparing
-    /// The call waits for a person's permission or answer.
     case asking
     case running, done, failed, denied, stopped
 
@@ -257,15 +248,13 @@ public enum ChatToolState: String, Decodable, Sendable {
 }
 
 public enum ChatToolDetail: Decodable, Equatable, Sendable {
-    /// `background`: the command runs on after its call ended.
     case command(command: String, output: String, background: Bool)
     case change(path: String, added: Int, removed: Int, lines: [ChangeLine])
     case output(String)
-    /// For each question in order, what the person chose or wrote.
+    /// `answers` aligns with `questions` by index.
     case question([ChatQuestion], answers: [String])
     case plan(String)
-    /// A helper of the agent: its kind's name, its steps so far, its last step and the start of
-    /// what it wrote last.
+    /// Subagent progress: role name, step count, latest step, and a prefix of its last output.
     case agent(name: String, steps: Int, doing: ChatStep?, said: String)
 
     private enum Key: String, CodingKey {
@@ -323,8 +312,8 @@ public enum ChangeSign: String, Decodable, Sendable {
 public struct ChatQueued: Decodable, Equatable, Identifiable, Sendable {
     public let id: String
     public let text: String
-    /// The agent did not take the message, in the agent's words. The message waits until a person
-    /// sends another, removes it, or writes to the agent in the terminal.
+    /// Provider's rejection reason if the agent declined the message. The entry stays queued until
+    /// removed or superseded by another chat or terminal message.
     public let refused: String?
     /// The agent shows this command in its terminal, where a person finishes it.
     public let terminal: Bool
@@ -373,7 +362,7 @@ public enum ChatControl: String, Decodable, Sendable {
     case usage
 }
 
-/// A person of the terminal: the account, or for a person with no account the view that sent.
+/// Sender of a chat message: either a signed-in user or an anonymous viewer.
 public struct ChatPerson: Decodable, Equatable, Sendable {
     public let id: String
     public let name: String
@@ -389,9 +378,9 @@ public struct ChatFacts: Decodable, Equatable, Sendable {
     public var mode: ChatMode?
     public var context: ChatContext?
     public var limits: [UsageLimit]
-    /// What the agent estimates that the conversation cost, in US dollars.
+    /// Estimated conversation cost in USD.
     public var cost: Double?
-    /// Commands that run on after their calls ended.
+    /// Running background command count.
     public var background: Int
 
     private enum Key: String, CodingKey {

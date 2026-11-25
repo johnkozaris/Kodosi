@@ -21,16 +21,15 @@ struct DocumentCommand {
 pub(crate) enum DocumentAction {
     #[command(flatten)]
     Edit(Command),
-    /// Draws each page, slide, sheet or screen of text as people see it, and prints the paths of
-    /// the pictures.
+    /// Render each page, slide, sheet, or text screen as an image and print the image paths.
     Render(RenderArguments),
 }
 
 #[derive(Args)]
 pub(crate) struct RenderArguments {
-    /// A document, sheet, presentation, PDF or text file.
+    /// Document, spreadsheet, presentation, PDF, or text file to render.
     pub file: PathBuf,
-    /// The folder of the pictures. Without it, they go to a private folder of the terminal.
+    /// Output directory for rendered images (defaults to a private terminal folder).
     #[arg(long)]
     pub out: Option<PathBuf>,
 }

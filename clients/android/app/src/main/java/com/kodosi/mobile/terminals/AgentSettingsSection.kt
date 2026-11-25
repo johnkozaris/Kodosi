@@ -36,7 +36,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 
-/** The models that the agent offers on its computer, with their levels of effort. */
 internal class AgentModels(
     val models: List<AgentModel>?,
     val efforts: List<String>,
@@ -78,7 +77,7 @@ internal fun RuntimeSession.changesAgent(): Boolean {
     return canControl && (readsModels(live) || live.fast || live.permissions.isNotEmpty())
 }
 
-/** Only the owner's computer tells the models of its agents. */
+// Only the session owner's host exposes provider.agentModels.
 private fun RuntimeSession.readsModels(live: AgentLive) = isOwner && hostDeviceId != null && (live.model || live.effort)
 
 @Composable

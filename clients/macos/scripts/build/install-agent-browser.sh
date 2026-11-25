@@ -6,7 +6,7 @@ if [[ $# -ne 3 ]]; then
     exit 64
 fi
 repository=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)
-# Xcode gives its build phases a PATH without the Rust tools.
+# Xcode build phases run with a minimal PATH that excludes Cargo/Rust tools.
 export PATH="$HOME/.cargo/bin:$PATH"
 MACOSX_DEPLOYMENT_TARGET=$(<"$repository/clients/macos/Config/macOSDeploymentTarget")
 export MACOSX_DEPLOYMENT_TARGET

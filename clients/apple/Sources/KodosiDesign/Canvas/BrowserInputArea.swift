@@ -27,8 +27,8 @@ private extension BrowserFeed {
 }
 
 extension BrowserKeys {
-    /// An on-screen keyboard gives only text, so the key is the one that types this character on
-    /// a US keyboard.
+    /// Maps ASCII characters to US-layout key codes for software keyboards, which only provide
+    /// text and no physical key codes.
     static func key(character: Character) -> Key? {
         guard let ascii = character.asciiValue else { return nil }
         switch character {
@@ -85,8 +85,8 @@ extension BrowserKeys {
             }
         }
 
-        /// A page opens its list on the press, so the menu can come while the button is still
-        /// down; the menu then takes the release, and the page gets it here instead.
+        /// `<select>` menus open on mouse-down, so `NSMenu.popUp` swallows the matching mouse-up.
+        /// Synthesize releases for any held buttons first so the page does not get stuck pressed.
         private func pop(_ menu: BrowserWindow.Menu) {
             guard menu == pageMenu, shownMenu == nil, window != nil,
                   let place = feed.viewPoint(x: menu.x, y: menu.y, in: bounds.size) else { return }
@@ -268,8 +268,8 @@ extension BrowserKeys {
             key(event, down: false)
         }
 
-        /// macOS asks the person before an app reads the pasteboard, unless one of their pastes
-        /// reads it, so a menu looks only at the type and its Paste is the paste action.
+        /// macOS skips the pasteboard permission prompt only when reading inside a `paste:`
+        /// action; the context menu therefore checks `availableType` only and targets this method.
         @objc func paste(_ sender: Any?) {
             if let menu = (sender as? NSMenuItem)?.representedObject as? Int {
                 feed.send(.choose(menu: menu, choice: nil))
@@ -340,7 +340,7 @@ extension BrowserKeys {
             run()
         }
 
-        /// A menu item holds its target weakly, so the item also keeps it.
+        /// Retains the action via `representedObject` because `NSMenuItem.target` is weak.
         static func item(_ title: String, enabled: Bool = true, run: @escaping () -> Void) -> NSMenuItem {
             let action = MenuAction(run)
             let item = NSMenuItem(title: title, action: #selector(choose), keyEquivalent: "")
@@ -406,10 +406,8 @@ extension BrowserKeys {
             nil
         }
 
-        /// SwiftUI updates its views while UIKit changes the first responder, so a view that takes
-        /// the keyboard in an update starts the next update, and takes the keyboard from the
-        /// address field. The view takes or gives back the keyboard only when the person switches
-        /// it, after the update.
+        /// Defers first-responder changes past the current SwiftUI update and only applies them
+        /// when `wanted` changes, avoiding reentrant updates that steal focus from the address bar.
         func wantsKeyboard(_ wanted: Bool) {
             guard wanted != keyboard else { return }
             keyboard = wanted
@@ -512,7 +510,6 @@ extension BrowserKeys {
             }
         }
 
-        /// A mouse or a trackpad presses, drags and clicks as on a computer.
         private func pointer(_ touches: Set<UITouch>, _ type: BrowserInput.MouseEvent, _ event: UIEvent?) -> Bool {
             guard let touch = touches.first(where: { $0.type == .indirectPointer }) else { return false }
             if type == .mousePressed {
@@ -538,8 +535,8 @@ extension BrowserKeys {
             click(at: gesture.location(in: self), button: .right)
         }
 
-        /// A press that rests and then moves drags with the left button, which selects text as a
-        /// mouse does; a press that rests and lets go opens the menu of the page.
+        /// Long-press then drag simulates a left-button drag (for text selection); releasing
+        /// without dragging simulates a right-click to open the page context menu.
         @objc private func held(_ gesture: UILongPressGestureRecognizer) {
             let location = gesture.location(in: self)
             switch gesture.state {
@@ -593,7 +590,7 @@ extension BrowserKeys {
             mouse(.mouseMoved, at: gesture.location(in: self), button: .none, modifiers: Self.modifiers(gesture.modifierFlags))
         }
 
-        /// The page moves as far as the finger, so the place under the finger stays under it.
+        /// Converts view-point pan deltas to page CSS pixels so scrolling tracks the finger 1:1.
         private func scroll(by moved: CGPoint, at location: CGPoint) {
             let page = feed.window.size
             guard moved != .zero, page.width > 0, page.height > 0, bounds.width > 0, bounds.height > 0,

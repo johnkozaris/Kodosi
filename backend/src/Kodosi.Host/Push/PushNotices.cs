@@ -72,7 +72,8 @@ internal sealed partial class PushNotices(TerminalAlerts alerts, PushDelivery de
         }
     }
 
-    // Each notice carries the whole list of a person's pushes, so the notices of one person go out in order and the newest list arrives last.
+    // Shard by OwnerId so each user's notices are delivered in order and the newest snapshot
+    // arrives last.
     private void Queue(PushNotice notice)
     {
         if (!lanes[(uint)notice.OwnerId.GetHashCode() % MostSending].Writer.TryWrite(notice)) Dropped(logger);

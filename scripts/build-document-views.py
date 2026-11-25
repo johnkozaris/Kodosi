@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds the view bundle of live documents, when its sources changed, and copies it."""
+"""Build the live-documents view bundle when its sources change and copy it to <output-dir>."""
 
 # Xcode runs this with its own Python 3.9.
 import argparse

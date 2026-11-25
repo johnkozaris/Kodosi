@@ -85,7 +85,7 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
     }
     var part by rememberSaveable(sessionId) { mutableStateOf(if (selected == "browser") "browser" else "files") }
 
-    // The screen comes again after a rotation, which is no act of the person.
+    // Remembered across config changes so rotation does not re-claim the shared browser viewport.
     var opening by rememberSaveable(sessionId) { mutableStateOf(true) }
     var shelf by rememberSaveable(sessionId) { mutableStateOf(false) }
     var followedShow by rememberSaveable(sessionId) { mutableLongStateOf(canvas?.open?.at ?: 0L) }
@@ -206,7 +206,7 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
             model.canvas.saw(terminal)
         }
     }
-    // A newest file that shows in place of a removed or unchosen one stays when another file changes.
+    // Pin the fallback file in selected so edits to other files do not switch the active view.
     LaunchedEffect(item?.key) { item?.let { selected = it.key } }
     val parts = listOfNotNull(
         if (!canvas?.items.isNullOrEmpty() && "files" !in closed) {
@@ -380,7 +380,7 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
     }
 }
 
-/** A new revision replaces the shown content only when its bytes arrive, so an agent's edits keep the reader's place. */
+// Keep showing the previous revision until the new bytes load so live edits do not reset scroll.
 @Composable
 private fun CanvasFile(
     model: AppModel,

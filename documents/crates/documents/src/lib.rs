@@ -1,4 +1,4 @@
-//! One task owns each document and does its disk and timer work, so a document needs no locks.
+//! Each open document is owned by a single task handling its I/O and timers without locks.
 
 mod journal;
 mod live;
@@ -53,7 +53,7 @@ struct Shared {
     formats: Formats,
     memory: Arc<Memory>,
     open: Mutex<HashMap<PathBuf, Open>>,
-    /// One document starts at a time, so viewers of one file never start it twice.
+    /// Serializes document startup so concurrent opens of the same file share one task.
     starting: tokio::sync::Mutex<()>,
     next_pipe: AtomicU64,
 }
@@ -147,8 +147,8 @@ impl Documents {
         }
     }
 
-    /// Call it before a file goes: the file takes its last changes along, and no later save makes
-    /// it again.
+    /// Flush pending edits and close the document before deleting the file so a delayed save
+    /// cannot recreate it.
     pub async fn close_for_removal(&self, path: &Path) {
         let Ok(path) = real_path(path) else { return };
         let open = self.lock().remove(&path);
@@ -165,8 +165,8 @@ async fn finish(commands: mpsc::Sender<Command>, reason: ClosedReason) {
     }
 }
 
-/// The one path of a file, so that each spelling of it, such as one through `..` or a link, opens
-/// the same document.
+/// Canonicalizes a path (stripping the Windows `\\?\` prefix) so symlinks and relative spellings
+/// map to the same document.
 pub fn real_path(path: &Path) -> io::Result<PathBuf> {
     let real = std::fs::canonicalize(path)?;
     #[cfg(windows)]
@@ -209,7 +209,7 @@ impl Pipe {
         Some(frame)
     }
 
-    /// The document let go of this pipe: it closed, or the pipe fell behind.
+    /// True once the document task has dropped this pipe (either on close or due to backpressure).
     pub fn is_closed(&self) -> bool {
         self.incoming.is_closed()
     }

@@ -25,16 +25,17 @@ impl Endpoint {
         imp::Endpoint::new(namespace, role).map(Self)
     }
 
-    /// An endpoint at a socket file in the user's private folder of local addresses. Some
-    /// programs reach a local endpoint only by the path of a socket file, also on Windows, where
-    /// the other endpoints are named pipes.
+    /// Creates a Unix socket-file endpoint in the user's private folder, even on
+    /// Windows (where `new` uses named pipes), for external programs that only
+    /// connect by socket path.
     pub fn socket_file(namespace: &str, role: &str) -> io::Result<Self> {
         checked(namespace)?;
         checked(role)?;
         imp::Endpoint::socket_file(namespace, role).map(Self)
     }
 
-    /// Where a program reaches the endpoint: the path of its socket file, or the name of its pipe.
+    /// The address external programs connect to: the socket file's path, or the
+    /// pipe's name.
     pub fn address(&self) -> &Path {
         self.0.address()
     }
@@ -74,8 +75,8 @@ pub async fn connect(endpoint: &Endpoint) -> io::Result<Stream> {
     imp::connect(&endpoint.0).await.map(Stream)
 }
 
-/// Connects to a socket file that another program of this user serves, such as a file that it
-/// names by a link.
+/// Connects to an external Unix socket path without Kodosi's endpoint
+/// ownership or symlink checks (for example, a symlinked socket).
 pub async fn connect_file(path: &Path) -> io::Result<Stream> {
     imp::connect_file(path).await.map(Stream)
 }

@@ -172,7 +172,7 @@ public extension View {
         background(WellBackground(shape: Capsule(), fill: fill))
     }
 
-    /// What is part of a terminal takes the terminal's look, whatever the app's appearance is.
+    /// Applies the terminal's own light/dark theme to this subtree, independent of app appearance.
     func terminalScope(_ look: TerminalLook) -> some View {
         modifier(TerminalScope(look: look))
     }

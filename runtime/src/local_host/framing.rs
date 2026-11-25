@@ -13,8 +13,8 @@ pub(super) const REFRESH: u8 = 7;
 
 #[derive(Debug)]
 pub enum TerminalFrame {
-    /// `ended` tells that the input reached a terminal that is gone, and `shown` that the
-    /// terminal says itself that the input did not go out.
+    /// `ended` means the target terminal no longer exists; `shown` means the terminal already
+    /// surfaces the unsent-input notice itself.
     InputAck {
         accepted: bool,
         ended: bool,

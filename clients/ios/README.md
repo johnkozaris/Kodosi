@@ -1,32 +1,36 @@
 # Kodosi for iPhone and iPad
 
-The native iOS app follows your terminals and projects. It embeds the viewer build of the
-Rust runtime and Ghostty's terminal view, and shares code with the Mac app through the
+Native iOS app for monitoring and controlling remote terminals and projects. It embeds the viewer
+build of the Rust runtime and Ghostty's terminal view, sharing core Swift code with macOS via the
 [shared Swift package](../apple/Package.swift).
 
-Besides the [shared tools](../../docs/DEVELOPMENT.md#toolchains), you need Xcode 27.2 or
-later with its iOS simulator and the pinned Rust toolchain with the iOS targets
-(`just ios-rust-targets-install`). The first build puts the SwiftLint, SwiftFormat and
-XcodeGen that [Tools.env](../apple/Tools.env) pins in `clients/apple/.tools/`.
+## Build and run
+
+In addition to the [shared toolchains](../../docs/DEVELOPMENT.md#toolchains), you need Xcode
+27.2+ with the iOS simulator and the pinned Rust toolchain with iOS targets installed
+(`just ios-rust-targets-install`). The first build installs pinned SwiftLint, SwiftFormat, and
+XcodeGen versions (from [Tools.env](../apple/Tools.env)) into `clients/apple/.tools/`.
 
 ```sh
 just ios-build
 ```
 
-Then run the `KodosiMobile` scheme in Xcode. Debug builds use a
-[local backend](../../docs/DEVELOPMENT.md#run-the-backend) at `127.0.0.1:5180` that signs
-in with the disposable Keycloak of `sign-in/keycloak.sh` at `localhost:8284`, or the
-`KODOSI__AUTH__ISSUER` that the app starts with. A simulator can reach them and a device
-cannot.
+Then run the `KodosiMobile` scheme in Xcode. Debug builds target a
+[local backend](../../docs/DEVELOPMENT.md#run-the-backend) at `127.0.0.1:5180` with the
+disposable Keycloak from `sign-in/keycloak.sh` at `localhost:8284` (override via
+`KODOSI__AUTH__ISSUER`). Note that the iOS Simulator can reach loopback addresses, while a
+physical device cannot.
 
-`just ios-check` lints, runs the unit tests on the `Kodosi iPhone 17 Pro` simulator
-(`KODOSI_IOS_SIMULATOR` names another) and builds Release for devices. A device build
-needs the App IDs `com.kodosi.mobile` and `com.kodosi.mobile.notifications` with Push
-Notifications and the App Group `group.com.kodosi.mobile`; with Xcode signed in to the
-team, the device build registers them. App Store Connect
-takes each build number of a version once: `KODOSI_BUILD` sets it, and it is 1 when you do
-not set it. Raise it to upload the same version again. Update
-[PrivacyInfo.xcprivacy](Resources/PrivacyInfo.xcprivacy) when the app starts to use
-another
+## Checks and distribution
+
+`just ios-check` runs linters, unit tests on the `Kodosi iPhone 17 Pro` simulator (override with
+`KODOSI_IOS_SIMULATOR`), and a Release device build.
+
+Device builds require the App IDs `com.kodosi.mobile` and `com.kodosi.mobile.notifications` with
+Push Notifications enabled and the App Group `group.com.kodosi.mobile` (Xcode registers these
+automatically when signed in to the team). App Store Connect accepts each build number for a
+version only once; set `KODOSI_BUILD` (defaults to `1`) and increment it when re-uploading the
+same version. Update [PrivacyInfo.xcprivacy](Resources/PrivacyInfo.xcprivacy) whenever the app
+starts using a new
 [required reason API](https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api)
-or sends new data to the service.
+or sending new categories of data to the server.

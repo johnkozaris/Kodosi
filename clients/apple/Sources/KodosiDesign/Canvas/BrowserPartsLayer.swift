@@ -1,8 +1,8 @@
 import KodosiBridge
 import SwiftUI
 
-/// The app draws a page's dialogs, and on iPhone and iPad its menus, because the browser never
-/// reaches the screen. The Mac shows menus natively, from the input area.
+/// Renders headless-browser dialogs (and menus on iOS) inside SwiftUI; macOS presents menus
+/// natively via `NSMenu` in `BrowserInputArea`.
 struct BrowserPartsLayer: View {
     @Environment(\.theme) private var theme
     let feed: BrowserFeed

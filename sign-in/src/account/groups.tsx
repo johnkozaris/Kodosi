@@ -602,11 +602,11 @@ function DetailRow({
           spellCheck={false}
           onChange={(event) => onChange(event.target.value)}
           onBlur={() => {
-            // A window that loses focus blurs the field too; that is no leave of the row.
+            // Ignore blur caused by switching windows or tabs rather than leaving the field.
             if (document.hasFocus()) onLeave();
           }}
           onKeyDown={(event) => {
-            // Safari marks the key that ends an IME composition only with keyCode 229.
+            // Safari reports keyCode 229 instead of isComposing when confirming an IME entry.
             if (event.nativeEvent.isComposing || event.keyCode === 229) return;
             if (event.key === "Enter") event.currentTarget.blur();
             if (event.key === "Escape") onCancel();
@@ -669,7 +669,7 @@ export function Details({
       return;
     }
     try {
-      // Keycloak validates every detail at each save, so the changed rows go together.
+      // Keycloak validates the entire profile on every save, so submit all edited fields together.
       await service.save(waiting);
     } catch (error) {
       const refused = error instanceof Refused ? error : null;

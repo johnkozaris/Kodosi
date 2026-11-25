@@ -7,9 +7,9 @@ type Sizing = Fitting | number;
 
 interface Zoomable {
   area: HTMLElement;
-  /** The space inside the area that keeps its size at each scale. */
+  /** Unscaled padding (in px) inside the scroll area. */
   inset: number;
-  /** A view without fits has no fitting: it starts at its actual size. */
+  /** Omit for views without fit modes; those start at 100% (actual size). */
   fits?(): Record<Fitting, number>;
   scale(scale: number): void;
 }
@@ -19,7 +19,7 @@ interface Point {
   clientY: number;
 }
 
-/** A pinch on a trackpad or a touch screen in WebKit. */
+/** Non-standard WebKit gesture event for trackpad and touch pinch-to-zoom. */
 interface GestureEvent extends UIEvent, Point {
   scale: number;
 }
@@ -29,9 +29,9 @@ const STEPS = [
 ] as const;
 const LEAST = 0.1;
 const MOST = 4;
-/** Chromium sends a pinch as wheel steps with Ctrl, each 100 times the log of its scale. */
+// Chromium reports trackpad pinch as Ctrl+wheel with deltaY ~= -100 * ln(scale).
 const PINCH_STEP = 100;
-/** The most of one wheel step, so that a mouse wheel with Ctrl zooms in steps that one can follow. */
+// Clamp single wheel ticks so Ctrl+mouse-wheel zooms in manageable steps.
 const MOST_WHEEL = 25;
 const SAME = 0.001;
 

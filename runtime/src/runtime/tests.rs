@@ -629,8 +629,8 @@ fn changes_of(runtime: &mut Runtime) -> mpsc::Receiver<SessionChange> {
     receiver
 }
 
-/// The account starts before the loop, as its start reads the disk in real time and would wake
-/// the loop at a moment that a test does not choose.
+/// Initializes the network/account before starting the runtime loop so real-time disk I/O does
+/// not race with paused-clock tests.
 async fn loop_fixture() -> (Runtime, tempfile::TempDir, mpsc::Receiver<SessionChange>) {
     let (mut runtime, root) = registry_fixture();
     drop(runtime.network.initialize().await);
@@ -1966,7 +1966,6 @@ fn reports(runtime: &mut Runtime, remote: &RemoteSession, online: bool, status: 
     });
 }
 
-/// An app keeps the list that it got last.
 fn calls(
     events: &mut broadcast::Receiver<Event>,
     listed: &mut Option<SessionEntry>,

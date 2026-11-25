@@ -21,116 +21,113 @@ pub(super) struct Arguments {
 }
 #[derive(Subcommand)]
 enum ProjectAction {
-    /// List your projects and your invitations to projects.
+    /// List your projects and pending project invitations.
     List,
-    /// Make a project.
+    /// Create a new project.
     Create { name: String },
-    /// Give the project a new name.
+    /// Rename the project.
     Rename { name: String },
-    /// Delete the project. Its terminals keep running.
+    /// Delete the project (its terminals keep running).
     Delete,
     /// Invite a friend to the project.
     Invite { friend: String },
-    /// Accept the invitation to a project.
+    /// Accept a project invitation.
     Accept {
         #[arg(help = INVITATION)]
         name: String,
     },
-    /// Reject the invitation to a project.
+    /// Reject a project invitation.
     Reject {
         #[arg(help = INVITATION)]
         name: String,
     },
     /// Remove a member from the project.
     RemoveMember {
-        /// The member: the username of a friend, or the user ID that `kodosi project context`
-        /// shows.
+        /// Friend username or user ID from `kodosi project context`.
         member: String,
     },
     /// Leave the project.
     Leave,
-    /// Show the project, its members, terminals, tasks and repositories.
+    /// Show the project's details, members, terminals, tasks, and repositories.
     Context,
     /// Open the project in the Kodosi app.
     Show,
-    /// Read the conversation.
+    /// Read the project conversation.
     Read {
-        /// Print only the messages after this position.
+        /// Only show messages after this position.
         #[arg(long)]
         since: Option<u64>,
-        /// Print the messages before this position.
+        /// Only show messages before this position.
         #[arg(long)]
         before: Option<u64>,
     },
-    /// Post a message.
+    /// Post a message to the project conversation.
     Post {
         text: String,
-        /// The name of the agent that writes, for example Claude Code.
+        /// Name of the posting agent (e.g., Claude Code).
         #[arg(long)]
         agent: Option<String>,
     },
-    /// Delete a message that you or your agent posted. The members see that it was deleted.
+    /// Delete a message you or your agent posted (members see a deleted placeholder).
     DeleteMessage {
-        /// The message: its ID or the end of its ID that `kodosi project read` shows.
+        /// Message ID or short ID from `kodosi project read`.
         message: String,
     },
-    /// Clear the conversation up to now for you, on all your devices. The members keep it.
+    /// Clear conversation history up to now for yourself on all devices (other members keep it).
     Clear,
-    /// Wait for activity in the project.
+    /// Wait for new activity in the project.
     Wait {
-        /// The longest wait, in seconds.
+        /// Maximum wait time in seconds.
         #[arg(long, default_value_t = 60)]
         timeout: u64,
         /// Wait for activity after this sequence number.
         #[arg(long)]
         after: Option<u64>,
     },
-    /// Give every member full control of a terminal, by default this one.
+    /// Share full control of a terminal with all project members (defaults to this terminal).
     Share {
         #[arg(help = super::TERMINAL)]
         terminal: Option<String>,
     },
-    /// Take a terminal out of its project, by default this one.
+    /// Remove a terminal from its project (defaults to this terminal).
     Unshare {
         #[arg(help = super::TERMINAL)]
         terminal: Option<String>,
     },
-    /// Work with the project's tasks.
+    /// Manage project tasks.
     #[command(subcommand)]
     Task(TaskAction),
-    /// Work with the project's repositories.
+    /// Manage project repositories.
     #[command(subcommand)]
     Repo(RepoAction),
 }
 #[derive(Subcommand)]
 enum TaskAction {
-    /// List the tasks.
+    /// List project tasks.
     List {
-        /// List only the open tasks that nobody claimed.
+        /// Only list open, unclaimed tasks.
         #[arg(long)]
         available: bool,
     },
-    /// Put a task up for grabs.
+    /// Create a new unclaimed task.
     Create {
         title: String,
-        /// What the task needs.
+        /// Task description.
         #[arg(long, default_value = "")]
         description: String,
-        /// Link a repository of the project, by the name or address that `kodosi project repo list`
-        /// shows. Repeat it for more.
+        /// Link a project repository (by name or URL from `kodosi project repo list`); repeatable.
         #[arg(long = "repo")]
         repositories: Vec<String>,
-        /// Also open the task as an issue in this repository of the project. A change of the
-        /// task then changes the issue.
+        /// Also open this task as an issue in the specified project repository (kept in sync).
         #[arg(long)]
         issue: Option<String>,
     },
-    /// Take a task.
+    /// Claim a task.
     Claim {
         #[arg(help = TASK)]
         task: String,
     },
-    /// Give a task back.
+    /// Release a claimed task back to the pool.
     Release {
         #[arg(help = TASK)]
         task: String,
@@ -139,16 +136,16 @@ enum TaskAction {
     Close {
         #[arg(help = TASK)]
         task: String,
-        /// The result or a pull request link.
+        /// Result summary or pull request URL.
         #[arg(long)]
         note: Option<String>,
     },
-    /// Open a closed task again.
+    /// Reopen a closed task.
     Reopen {
         #[arg(help = TASK)]
         task: String,
     },
-    /// Make a task of a GitHub or Gitea issue. A change of the task changes the issue.
+    /// Import a GitHub or Gitea issue as a synced project task.
     Import {
         #[arg(help = REPOSITORY)]
         repository: String,
@@ -157,25 +154,24 @@ enum TaskAction {
 }
 #[derive(Subcommand)]
 enum RepoAction {
-    /// List the repositories.
+    /// List linked repositories.
     List {
-        /// List the repositories that you can add: the origins of this computer's terminals,
-        /// then your GitHub repositories.
+        /// List repositories available to add (local terminal origins and your GitHub repos).
         #[arg(long)]
         available: bool,
     },
-    /// Link a repository, by default the origin of the current folder's checkout.
+    /// Link a repository (defaults to the current directory's git origin).
     Add {
-        /// A repository address, or a name that `kodosi project repo list --available` shows.
+        /// Repository URL, or a name from `kodosi project repo list --available`.
         repository: Option<String>,
-        /// Use the origin of the checkout in this folder.
+        /// Use the git origin of the checkout in this directory.
         #[arg(long)]
         directory: Option<PathBuf>,
-        /// github or gitea, when the address does not show it.
+        /// Hosting provider (github or gitea) when it cannot be inferred from the URL.
         #[arg(long)]
         provider: Option<String>,
     },
-    /// List the open issues of a repository.
+    /// List open issues in a linked repository.
     Issues {
         #[arg(help = REPOSITORY)]
         repository: String,
@@ -189,7 +185,7 @@ const TASK: &str =
 const REPOSITORY: &str =
     "The repository: its name or address that `kodosi project repo list` shows";
 
-/// An agent learns at each post what a post costs, where no skill text reaches it.
+/// Reminds agents not to spam project posts, even if they did not load the Kodosi skill.
 const POSTED_BY_AGENT: &str =
     "Done. People read each post. Post again only for a result, a question or a no.";
 

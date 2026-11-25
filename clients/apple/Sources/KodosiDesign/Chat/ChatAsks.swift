@@ -1,9 +1,6 @@
 import KodosiBridge
 import SwiftUI
 
-/// A question of the agent, open by itself above the composer: the agent's mark, what it asks and
-/// the status sign of a wait, then what the answer is about and the keys. The key that a person
-/// pressed stays pressed until the question is gone, and the others wait.
 struct ChatAskCard: View {
     @Environment(\.theme) private var theme
     let chat: TerminalChat
@@ -29,8 +26,6 @@ struct ChatAskCard: View {
     }
 }
 
-/// The first row of a question card: who asks, about what, and the sign that it waits for the
-/// person. The hand waves once when the card comes.
 private struct AskHeader<Title: View>: View {
     let agent: AgentKind
     let sign: StatusSign.Form
@@ -47,8 +42,6 @@ private struct AskHeader<Title: View>: View {
     }
 }
 
-/// A key of a question: while a person's answer is on its way, the key of that answer stays
-/// down and the other keys wait.
 private struct AnswerKey: View {
     let chat: TerminalChat
     let ask: ChatAsk
@@ -80,8 +73,8 @@ private struct ChatPermission: View {
     let always: AskAlways?
     let helper: String
 
-    /// A command that is longer than its line shows whole below the line: a person reads all of
-    /// what they allow.
+    /// Expands commands that differ from `target` or exceed one line so the user can inspect the
+    /// full command before approving it.
     private var whole: String? {
         if case let .command(command, _, _)? = tool.detail, command != tool.target || command.count > 96 {
             return command
@@ -89,7 +82,8 @@ private struct ChatPermission: View {
         return nil
     }
 
-    /// Above a phone's keyboard the command and the change get less room, so that the keys stay.
+    /// Shrinks or hides the preview when vertical space is tight (e.g., above the iOS keyboard)
+    /// so the action buttons remain visible.
     var body: some View {
         ViewThatFits(in: .vertical) {
             card(command: 140, lines: 14)
@@ -160,7 +154,6 @@ private struct ChatPermission: View {
         }
     }
 
-    /// A rule and a folder say themselves in the letters of code, and a mode in words.
     private static func code(_ always: AskAlways?) -> Bool {
         if case .mode? = always {
             return false
@@ -177,7 +170,6 @@ private struct ChatQuestions: View {
     let questions: [ChatQuestion]
     @State private var picked: [Int: [String]] = [:]
 
-    /// One question with one choice goes at the first press.
     private var direct: Bool {
         questions.count == 1 && !questions[0].multiple
     }
@@ -332,7 +324,8 @@ private struct ChatPlan: View {
     let text: String
     let choices: [PlanChoice]
 
-    /// Above a phone's keyboard the plan gets less room, and at last only its keys stay.
+    /// Shrinks or hides the plan body when vertical space is tight (e.g., above the iOS keyboard)
+    /// so the choice buttons remain visible.
     var body: some View {
         ViewThatFits(in: .vertical) {
             card(most: 260)

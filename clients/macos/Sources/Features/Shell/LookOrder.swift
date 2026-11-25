@@ -17,8 +17,8 @@ struct LookOrder {
 }
 
 extension WorkbenchState {
-    /// In single view another terminal can always come on the stage. When the stage is full, the
-    /// hidden terminal that the person looked at longest ago leaves it and keeps running.
+    /// In single-terminal view, evicts the least-recently-viewed hidden terminal from a full stage
+    /// (without closing it) so another terminal can always be opened.
     func makingRoom(for id: String) -> String? {
         guard focusedSessionId != nil, !stagedSessionIds.contains(id), stagedSessionIds.count >= Self.maximumStagedSessions else {
             return nil

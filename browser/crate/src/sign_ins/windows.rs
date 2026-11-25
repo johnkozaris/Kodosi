@@ -70,7 +70,7 @@ fn unprotected(secret: &[u8]) -> Option<Vec<u8>> {
     }
 }
 
-/// A browser with app-bound values keeps those out of reach, and they stay behind.
+/// Loads the DPAPI-protected AES-GCM key from `Local State`; app-bound cookies are skipped.
 pub(super) fn opener(name: &str, folder: &Path) -> Result<Box<dyn Opener>, CopyError> {
     let no_access = || CopyError::NoAccess(name.to_owned());
     let root = folder.parent().ok_or_else(no_access)?;

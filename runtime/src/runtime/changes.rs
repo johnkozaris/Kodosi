@@ -17,7 +17,8 @@ pub(super) struct AgentChanges {
 }
 
 impl AgentChanges {
-    /// An effort that waits follows a new model, which would reset it.
+    /// Moves queued effort-only changes after a new model change, since switching models resets
+    /// effort.
     pub(super) fn add(&mut self, id: Uuid, lines: Vec<(String, AgentSettings)>) {
         let waiting = self.waiting.entry(id).or_default();
         for (line, part) in lines {

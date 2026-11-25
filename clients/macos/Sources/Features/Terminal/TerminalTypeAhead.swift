@@ -1,7 +1,7 @@
 import AppKit
 
-/// Keeps the keys that a person types while a new terminal opens, so that they reach that
-/// terminal and not the one before it.
+/// Buffers keystrokes typed while a newly opened terminal is attaching, then replays them to the
+/// new terminal instead of letting them land in the previously focused one.
 final class TerminalTypeAhead {
     private static let patience = Duration.seconds(2)
     private static let limit = 256
@@ -36,7 +36,7 @@ final class TerminalTypeAhead {
         terminal = id
     }
 
-    /// A responder changes after it accepts, so the keys go next.
+    /// Replays keys on the next run-loop turn after AppKit finishes updating `firstResponder`.
     func deliver(to id: String) {
         guard isHolding, id == terminal else { return }
         let held = keys

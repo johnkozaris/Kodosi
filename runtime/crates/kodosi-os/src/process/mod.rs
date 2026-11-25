@@ -12,9 +12,9 @@ mod windows;
 #[cfg(windows)]
 use windows as imp;
 
-// Linux refuses to run a file that any process holds open for writing, even a child that
-// another thread forked and that has not started its own program yet, so a shell that ends
-// before the test runs the script is the only process that opens it for writing.
+// On Linux, executing a file fails with ETXTBSY if any process still holds a
+// writable fd to it, including a child forked concurrently by another test
+// thread before exec. Writing via a short-lived shell isolates the write fd.
 #[cfg(all(unix, feature = "test-programs"))]
 pub fn write_program(path: &std::path::Path, text: &str) -> std::io::Result<()> {
     use std::io::Write as _;
@@ -86,8 +86,7 @@ pub fn end_group(leader: u32, force: bool) {
     imp::end_group(leader, force);
 }
 
-/// A program that started without a terminal, with the programs that it starts in turn, which
-/// end together.
+/// A non-terminal process and its descendants, terminated together.
 pub struct Group(imp::Group);
 
 impl Group {
@@ -95,13 +94,12 @@ impl Group {
         imp::Group::of(pid).map(Self)
     }
 
-    /// Asks the programs to end, or ends them at once.
     pub fn end(&self, force: bool) {
         self.0.end(force);
     }
 }
 
-/// A job whose programs end when its last handle closes.
+/// Creates a Windows job object that terminates its processes on last close.
 #[cfg(windows)]
 pub fn closing_job() -> std::io::Result<std::os::windows::io::OwnedHandle> {
     imp::closing_job()

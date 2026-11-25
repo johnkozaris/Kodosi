@@ -1,8 +1,4 @@
-//! What a chat needs from one kind of agent.
-//!
-//! Each agent has its own interface for programs that work with it, and its own words for what it
-//! does. An adapter turns the reports of one agent's link into changes of the chat, and a person's
-//! answer, message or stop into what that agent takes.
+//! Adapter interface between a chat room and a specific coding agent's link protocol.
 
 use std::collections::{HashMap, HashSet};
 
@@ -20,29 +16,29 @@ use super::{
 use crate::terminal::TerminalFace;
 
 pub(super) trait Agent: Send {
-    /// The name that the agent's link gives when it starts to report.
     fn name(&self) -> &'static str;
 
-    /// Takes one report of the link. It gives the questions that closed with no decision from the
-    /// chat: a person answered them in the terminal, or their turn ended.
+    /// Applies one link event to `chat`. Returns IDs of asks closed without a chat decision
+    /// (for example, answered in the terminal or dropped when the turn ended).
     fn apply(&mut self, chat: &mut Chat, event: &Value) -> Vec<String>;
 
-    /// The agent ended, or its link does not report.
+    /// Called when the agent exits or its link disconnects; returns closed ask IDs.
     fn lost(&mut self, chat: &mut Chat) -> Vec<String>;
 
-    /// The link reports again after a silence.
+    /// Called when the link resumes reporting after going silent.
     fn back(&mut self, chat: &mut Chat);
 
     fn is_linked(&self) -> bool;
 
-    /// A person sent a new message, so the chat tries the queue again.
+    /// Clears any send hold so queued messages can be retried after a new user message.
     fn retry(&mut self);
 
-    /// True for a queued message that the agent has, which a person can no longer take back.
+    /// Returns true if the queued message has already been handed to the agent and cannot be
+    /// recalled.
     fn has(&self, queued: &str) -> bool;
 
-    /// The decision that the agent takes for the answer of the person `by`, or nothing when the
-    /// answer does not fit the question.
+    /// Converts a user's answer into the agent's protocol payload, or `None` if it does not
+    /// match the pending ask.
     fn decision(
         &mut self,
         ask: &str,
@@ -50,16 +46,13 @@ pub(super) trait Agent: Send {
         by: Option<&ChatPerson>,
     ) -> Option<Value>;
 
-    /// A person of the chat decided a question. The chat shows the decision at once, and the
-    /// agent's own record of it follows. It gives true when the agent's link waits for the
-    /// decision; a question that the adapter asks for the agent takes the decision itself.
+    /// Records a chat decision immediately in `chat`. Returns true if the link is waiting for
+    /// `decision`, or false if the adapter synthesized the ask and handles the response itself.
     fn answered(&mut self, chat: &mut Chat, ask: &str, decision: &Value) -> bool;
 
-    /// What the link does next for the chat: the next message of the queue when the agent can
-    /// start it, and the calls that the adapter makes.
+    /// Returns pending adapter calls and, when the agent is ready, the next queued prompt.
     fn commands(&mut self, chat: &Chat) -> Vec<Value>;
 
-    /// How the turn stops for a person in the chat.
     fn stop(&mut self, chat: &Chat) -> Stop;
 
     /// The command for the link that changes the agent's model, effort or fast mode by the line
@@ -68,27 +61,23 @@ pub(super) trait Agent: Send {
         None
     }
 
-    /// The conversation that the agent shows in its terminal, when only the chat knows it: Codex
-    /// keeps its conversations in the server of the terminal, outside the terminal's programs.
+    /// Returns the active conversation ID when only the adapter knows it, such as Codex threads
+    /// (kept in an app-server outside the terminal's process tree) or ACP sessions.
     fn conversation(&self) -> Option<&str> {
         None
     }
 
-    /// Where the agent works: in its terminal, which the chat follows, or in the chat itself.
     fn works_in(&self) -> TerminalFace {
         TerminalFace::Terminal
     }
 }
 
 pub(super) enum Stop {
-    /// The open questions get these decisions, which end the turn.
     Decisions(Vec<(String, Value)>),
-    /// The link ends the turn and the commands of the turn.
     Command(Value),
     Nothing,
 }
 
-/// The adapter of the agent that a link names.
 pub(super) fn named(name: &str) -> Option<Box<dyn Agent>> {
     match name {
         Claude::NAME => Some(Box::new(Claude::default())),
@@ -131,7 +120,6 @@ pub(super) fn answer(words: &str, live: bool) -> ChatBody {
     }
 }
 
-/// A question that waits for a person comes before the agent's work.
 pub(super) fn show_state(chat: &mut Chat, linked: bool, working: bool, now: Option<ChatNow>) {
     let (state, now) = if !linked {
         (ChatState::Away, None)
@@ -145,8 +133,6 @@ pub(super) fn show_state(chat: &mut Chat, linked: bool, working: bool, now: Opti
     chat.set_state(state, now);
 }
 
-/// A call whose item the chat still shows stays known, so that the news of a call that runs
-/// changes its own item.
 pub(super) fn remember(items: &mut HashMap<String, String>, chat: &Chat, call: &str, item: String) {
     if items.len() >= MOST_CALLS {
         let shown = chat
@@ -159,8 +145,6 @@ pub(super) fn remember(items: &mut HashMap<String, String>, chat: &Chat, call: &
     items.insert(call.to_owned(), item);
 }
 
-/// A question as Claude Code and Codex give it: its words, a short header, and the options with
-/// their labels and descriptions.
 pub(super) fn question(question: &Value, multiple: bool) -> ChatQuestion {
     ChatQuestion {
         question: start_of(text(question, "question"), MOST_TARGET * 2).to_owned(),
@@ -176,7 +160,6 @@ pub(super) fn question(question: &Value, multiple: bool) -> ChatQuestion {
     }
 }
 
-/// The items that did not end: each call that runs or waits, and the answer that the agent writes.
 pub(super) fn open_items(chat: &Chat) -> Vec<String> {
     chat.items()
         .iter()
@@ -188,7 +171,6 @@ pub(super) fn open_items(chat: &Chat) -> Vec<String> {
         .collect()
 }
 
-/// The answer that the agent wrote and each call that did not end stay as far as they came.
 pub(super) fn stop_open(chat: &mut Chat) {
     for item in open_items(chat) {
         match chat.body(&item).cloned() {
@@ -200,8 +182,6 @@ pub(super) fn stop_open(chat: &mut Chat) {
 
 const SEPARATORS: [char; 2] = ['/', '\\'];
 
-/// The places from which a chat names a file: the terminal's folder that the agent reported for
-/// this moment, and the home folder of this computer.
 pub(super) struct Places {
     folder: Option<String>,
     home: Option<String>,
@@ -215,9 +195,8 @@ impl Places {
         }
     }
 
-    /// A file in the terminal's folder or below it shows by its name, as a person expects there.
-    /// A file elsewhere shows its place, with the home folder as `~`, so that a person who allows
-    /// a call sees which file it is.
+    /// Formats a path for display: basename only when inside the working directory, or full path
+    /// (with `~` for home) for external paths so permission prompts make external access clear.
     pub(super) fn file(&self, path: &str) -> String {
         if path.is_empty() {
             return String::new();
@@ -245,8 +224,8 @@ impl Places {
         }
     }
 
-    /// A rule for files names the folders before its pattern as a file shows them, and the
-    /// pattern as it is: `src/**` in the terminal's folder, `~/Repos/other/**` elsewhere.
+    /// Formats the directory prefix of a file-glob rule via `file()`, keeping the glob suffix
+    /// intact (e.g., `src/**` inside the working directory, `~/Repos/other/**` outside it).
     pub(super) fn rule(&self, rule: &str) -> String {
         let (folders, pattern) = match rule.find(['*', '?', '[', '{']) {
             None => (rule, ""),
@@ -275,7 +254,6 @@ impl Places {
         Some(Place::at(start).along(rest))
     }
 
-    /// Where `path` is: an absolute path, a path from the home folder, or a path from `from`.
     fn place<'a>(&'a self, path: &'a str, from: Option<Place<'a>>) -> Option<Place<'a>> {
         if is_home(path) {
             return Some(self.home()?.along(&path[1..]));
@@ -292,7 +270,6 @@ fn is_home(path: &str) -> bool {
         .is_some_and(|rest| rest.is_empty() || rest.starts_with(SEPARATORS))
 }
 
-/// How an absolute path starts, and the rest: `/`, a drive such as `C:`, or the `\\` of a share.
 fn rooted(path: &str) -> Option<(&str, &str)> {
     let bytes = path.as_bytes();
     if path.starts_with(r"\\") {
@@ -306,7 +283,6 @@ fn rooted(path: &str) -> Option<(&str, &str)> {
     }
 }
 
-/// An absolute place: how its path starts, and its folders and name.
 #[derive(Clone)]
 struct Place<'a> {
     start: &'a str,
@@ -321,7 +297,6 @@ impl<'a> Place<'a> {
         }
     }
 
-    /// The place that `path` leads to from here: into a folder at each name, out of one at `..`.
     fn along(mut self, path: &'a str) -> Self {
         for name in path.split(SEPARATORS) {
             match name {
@@ -335,7 +310,6 @@ impl<'a> Place<'a> {
         self
     }
 
-    /// Windows does not tell letters of another case apart in a path.
     fn is_in(&self, folder: &Place<'_>) -> bool {
         let windows = self.start != "/";
         let same = |one: &str, other: &str| {
@@ -364,8 +338,6 @@ impl<'a> Place<'a> {
     }
 }
 
-/// A message that starts with the agents' own `/plan` command goes on in plan mode, with the rest
-/// as the message, as the agents' terminals take it.
 pub(super) fn plan_command(text: &str) -> Option<&str> {
     let rest = text.trim_start().strip_prefix("/plan")?;
     (rest.is_empty() || rest.starts_with(char::is_whitespace)).then(|| rest.trim())

@@ -77,7 +77,7 @@ class CanvasStore(private val commands: CommandSink, private val words: Words) {
     }
         .also { links.add(it) }
 
-    /** The chat of a terminal stays while the terminal does, with what a person writes there. */
+    // Keep each terminal's chat (and draft input) alive in the store for the life of the session.
     fun chat(session: String): TerminalChat =
         chats.getOrPut(session) { TerminalChat(this, session) { unreadableChatFrame(it) } }
 
@@ -167,7 +167,7 @@ class CanvasStore(private val commands: CommandSink, private val words: Words) {
         cache.keys.removeAll { it.session == session && it.key == key }
     }
 
-    // To the canvas, no key names every file.
+    // An empty keys list tells the canvas protocol to remove all files.
     suspend fun removeAll(session: String) {
         ask(session, fields("type" to "remove", "keys" to emptyList<String>()))
         cache.keys.removeAll { it.session == session }

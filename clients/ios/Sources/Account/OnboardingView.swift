@@ -3,8 +3,8 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-/// The sign-in stage that the onboarding shows. Once this device is signed in, the onboarding
-/// fades out on the stage that it was on, so the sign-in card does not come back on the way out.
+/// Holds the last pre-sign-in stage while transitioning to `.signedIn` so the welcome card
+/// does not flash back in as onboarding fades out.
 struct OnboardingStage {
     private var last = SignInStage.idle
 

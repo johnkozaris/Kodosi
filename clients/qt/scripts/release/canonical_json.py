@@ -1,4 +1,4 @@
-# Xcode runs this with its own Python 3.9, through the notices of the Mac and iPhone apps.
+# Required for Python 3.9 compatibility when invoked from Xcode builds for macOS and iOS.
 from __future__ import annotations
 
 import json

@@ -10,7 +10,7 @@
 
 namespace kodosi {
 namespace {
-// Base64 of 256 KiB, cut at a whole group of four letters.
+// Base64 length for ~256 KiB, rounded down to a 4-character Base64 boundary.
 constexpr qsizetype partLetters = 256 * 1024 / 3 * 4;
 
 QString newId()
@@ -96,9 +96,9 @@ QString CanvasDocuments::open(const QString& sessionId, const QString& key)
     return openPipe(newId(), sessionId, key, false);
 }
 
-// A terminal's browser gives this app one seat, which two pipes would take from each other again
-// and again. A view lives on for a moment after the next one begins, as a Loader deletes its item
-// later, so the newest view takes the pipe.
+// Each terminal browser allows only one active viewer pipe per client, so two overlapping pipes
+// would repeatedly evict each other. QML Loaders destroy the previous item asynchronously, so
+// close any existing routed pipe when a new reader opens.
 QString CanvasDocuments::openReader(
     const QString& sessionId, const QString& key, QObject& reader, PipeRouter::Read read)
 {
@@ -150,7 +150,7 @@ void CanvasDocuments::close(const QString& pipe)
     command(QStringLiteral("document.close"), { { QStringLiteral("pipe"), pipe } });
 }
 
-// The host closed the pipe of a reader.
+// Remove local state for a reader pipe already closed by the host.
 void CanvasDocuments::forget(const QString& pipe)
 {
     remove(pipe);
@@ -205,7 +205,8 @@ void CanvasDocuments::apply(const QJsonObject& event)
         emit received(pipe, QString::fromLatin1(taken.frame->toBase64()));
 }
 
-// The host that comes back knows no pipe, so each one goes to it again once it lists the terminal.
+// A restarted host has no open pipes, so mark them unregistered to reopen once their sessions are
+// listed.
 void CanvasDocuments::reset()
 {
     m_opening.clear();
@@ -218,8 +219,7 @@ void CanvasDocuments::reset()
         emit lost(pipe, {});
 }
 
-// The events that the app dropped may hold parts of a pipe or the answer to its registration, so
-// each pipe that went to the host starts again.
+// Dropped runtime events may include pipe chunks or open replies, so reopen registered pipes.
 void CanvasDocuments::renewPipes()
 {
     m_opening.clear();
@@ -229,8 +229,8 @@ void CanvasDocuments::renewPipes()
     }
 }
 
-// A part that went missing breaks the frames, so the pipe starts again, and the parts that were on
-// their way go nowhere.
+// A missing chunk corrupts framing, so close and reopen the pipe; in-flight chunks are ignored
+// until the reopened pipe arrives.
 void CanvasDocuments::renew(const QString& pipe)
 {
     const auto found = m_pipes.find(pipe);

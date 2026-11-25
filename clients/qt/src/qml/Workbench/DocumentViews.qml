@@ -3,13 +3,12 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 
-// A view belongs to the parking place of the window, so no canvas takes it along when the canvas
-// goes. A view off the screen waits there with its place in the file and its undo. Each view is a
-// web page, so at most four views stay, and a view off the screen goes first, the one parked first.
+// Pools live CanvasDocument WebEngine views by reparenting hidden ones to an off-screen parking
+// item so scroll position and undo history survive canvas switches. Caps the pool at four views,
+// evicting the least-recently parked view first.
 QtObject {
     id: root
 
-    // An item of the window that never shows.
     property Item parking: null
     property var pages: ({})
     property var parked: []

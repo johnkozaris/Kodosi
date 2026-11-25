@@ -118,8 +118,8 @@ Item {
     Accessible.name: qsTr("Canvas of %1").arg(session.name || qsTr("Terminal"))
 
     onLoadKeyChanged: load()
-    // QML runs this before the bindings that follow the new key, so a restart here would make a
-    // view of the component of the key before.
+    // Defer updates because onCurrentKeyChanged runs before dependent bindings (e.g. current,
+    // documentView) re-evaluate for the new key.
     onCurrentKeyChanged: {
         Qt.callLater(placeDocument);
         Qt.callLater(renewView);

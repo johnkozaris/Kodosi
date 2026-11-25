@@ -15,7 +15,6 @@ struct AgentActions: View {
     let live: AgentLive
     let stageId: String
     @Binding var flyout: Flyout?
-    /// A line closes the part when more actions follow it.
     var divided = true
 
     private var settings: AgentSettings {
@@ -173,8 +172,8 @@ struct AgentActions: View {
         }
     }
 
-    /// The modes that the agent takes only when it starts show too, so that a person sees why
-    /// they can't choose them.
+    /// Includes launch-only permission modes so they appear disabled with an explanation rather
+    /// than disappearing from the menu.
     private var permissionOptions: [AgentPermissions] {
         let known = launcher?.agent(agent.rawValue)?.permissions ?? []
         return AgentPermissions.allCases.filter { known.contains($0) || live.permissions.contains($0) || $0 == permissions }
@@ -204,7 +203,7 @@ struct AgentActions: View {
         .frame(width: 300)
     }
 
-    /// No agent changes its output while it runs.
+    /// Read-only display: no agent supports changing output verbosity mid-session.
     private func outputFlyout(_ output: AgentOutput) -> some View {
         let known = launcher?.agent(agent.rawValue)?.outputs ?? []
         return ModeRow(

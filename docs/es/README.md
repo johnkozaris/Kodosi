@@ -5,8 +5,8 @@
 <h3 align="center">Una app de terminal para ti, tus agentes de programación y tus amigos.</h3>
 
 <p align="center">
-  Mira qué agente te necesita en todos tus ordenadores, mira lo que crea junto a su terminal<br>
-  y trabaja en los mismos terminales con tus amigos. Cifrado de extremo a extremo y de código abierto.
+  Comprueba qué agente te necesita en todos tus ordenadores, mira lo que crea junto a su terminal<br>
+  y trabaja en terminales compartidos con tus amigos. Cifrado de extremo a extremo y de código abierto.
 </p>
 
 <p align="center">
@@ -28,7 +28,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: light)" srcset="../media/app-light.webp">
-    <img src="../media/app-dark.webp" width="900" alt="La app de Kodosi para Mac: Claude Code espera una aprobación mientras Codex trabaja.">
+    <img src="../media/app-dark.webp" width="900" alt="La app de Kodosi para Mac con Claude Code esperando aprobación mientras Codex trabaja.">
   </picture>
 </p>
 
@@ -36,79 +36,79 @@
 
 ### Mira qué agente te necesita
 
-Claude Code, Codex y otros agentes de programación se detienen y te esperan. Kodosi reúne los
-terminales de todos tus ordenadores en una ventana, y cada uno muestra si su agente trabaja,
-espera tu respuesta, ha terminado o ha fallado. Una notificación te avisa en el dispositivo
-que usas, también en tu teléfono. Tus agentes se ejecutan tal cual, con sus propios ajustes e
-inicio de sesión.
+Claude Code, Codex y otros agentes de programación se detienen con frecuencia a esperar tu
+respuesta. Kodosi reúne los terminales de todos tus ordenadores en una sola ventana, y cada uno
+muestra si su agente está trabajando, esperándote, ha terminado o ha fallado. Las notificaciones
+llegan al dispositivo que estés usando en ese momento, incluido tu teléfono. Tus agentes se
+ejecutan directamente a través de sus propias CLI, con sus propios ajustes y cuentas.
 
 ### Pregunta qué te necesita
 
-Dosi, un agente para tus agentes, lee tus terminales, te dice qué te está esperando y, cuando
-tú lo decides, responde por ti en el terminal.
+Dosi es un agente para tus otros agentes. Revisa tus terminales, resume qué está esperando tu
+atención y responde en el terminal en cuanto decides qué hacer.
 
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="../media/dosi-still.webp">
-    <img src="../media/dosi.webp" width="900" alt="Cuando le preguntas qué te necesita, Dosi lee los terminales, dice que checkout espera una aprobación y pregunta si debe permitirla.">
+    <img src="../media/dosi.webp" width="900" alt="Cuando le preguntas qué necesita atención, Dosi revisa los terminales, informa de que checkout espera aprobación y pregunta si debe permitirla.">
   </picture>
 </p>
 
 ### Mira lo que crea tu agente
 
-Sus planes, páginas y documentos se abren en un lienzo al lado del terminal, y tú editas los
-documentos junto con tus amigos y el agente.
+Los planes, páginas web y documentos se abren en un lienzo justo al lado del terminal. Tú, tus
+amigos y el agente podéis editar documentos en directo a la vez.
 
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="../media/canvas-still.webp">
-    <img src="../media/canvas.webp" width="900" alt="El terminal de Claude Code con su lienzo: un plan de lanzamiento que Leo edita mientras Claude sugiere un cambio, luego una hoja de presupuesto, diapositivas, un PDF y un navegador compartido donde Claude añade una taza al carrito.">
+    <img src="../media/canvas.webp" width="900" alt="El terminal de Claude Code junto a su lienzo: un plan de lanzamiento que Leo edita mientras Claude sugiere un cambio, además de una hoja de presupuesto, diapositivas, un PDF y un navegador compartido donde Claude añade una taza al carrito.">
   </picture>
 </p>
 
 ### Trabaja en equipo
 
-Dale a un amigo un terminal en marcha, o reúne terminales, una conversación y tareas en un
-proyecto para personas y sus agentes.
+Comparte un terminal en marcha con un amigo, o reúne terminales, un chat y tareas en un proyecto
+para personas y sus agentes.
 
-<p align="center"><img src="../media/project.webp" width="900" alt="Un proyecto con un terminal compartido y una conversación de personas y agentes."></p>
+<p align="center"><img src="../media/project.webp" width="900" alt="Un proyecto con un terminal compartido y una conversación entre personas y agentes."></p>
 
 ### Privado y abierto
 
-Los terminales y los proyectos están cifrados de extremo a extremo con criptografía
-poscuántica, así que el servicio no puede leerlos. Kodosi es de código abierto y puedes
-ejecutar el servicio por tu cuenta.
+Los terminales y los proyectos usan cifrado poscuántico de extremo a extremo, por lo que el
+servidor no puede leerlos. Kodosi es de código abierto y puedes ejecutar el servidor por tu
+cuenta.
 [Seguridad](SECURITY.md) · [Alojamiento propio](../SELF-HOSTING.md) (en inglés)
 
 ## Descargar Kodosi
 
-| | Requisitos | Instalación |
+| Plataforma | Requisitos | Instalación |
 | --- | --- | --- |
-| **Mac** | Apple silicon, macOS 26 o posterior | Abre la imagen de disco y mueve Kodosi a Aplicaciones, o ejecuta `brew install --cask johnkozaris/tap/kodosi`. La app se actualiza sola. |
-| **Linux** | x86-64, Ubuntu 24.04 o Debian 13 o posterior | Instala el paquete Debian. Añade el repositorio apt de Kodosi, así que las actualizaciones del sistema también actualizan Kodosi. La [versión](https://github.com/johnkozaris/Kodosi/releases/latest) también tiene un paquete para Arch y un archivo portable. |
-| **Windows** | x64, Windows 11 24H2 o posterior | Antes de abrir la descarga por primera vez, añade como administrador el [certificado de Kodosi](https://updates.kodosi.com/windows/Kodosi.cer) a Equipo local › Personas de confianza. La app se actualiza sola. |
-| **Android** | ARM64, Android 15 o posterior | Descarga el APK en el dispositivo, ábrelo y permite la instalación cuando Android lo pida. Una versión nueva se instala igual. |
-| **iPhone y iPad** | iOS 26 o posterior | Compila Kodosi para tu [iPhone o iPad](../../clients/ios/README.md). |
+| Mac | Apple silicon, macOS 26 o posterior | Abre la imagen de disco y arrastra Kodosi a Aplicaciones, o ejecuta `brew install --cask johnkozaris/tap/kodosi`. La app se actualiza sola. |
+| Linux | x86-64, Ubuntu 24.04 o Debian 13 o posterior | Instala el paquete Debian. Añade el repositorio apt de Kodosi para que las actualizaciones del sistema mantengan Kodosi al día. La [última versión](https://github.com/johnkozaris/Kodosi/releases/latest) también incluye un paquete para Arch y un archivo portable. |
+| Windows | x64, Windows 11 24H2 o posterior | Antes de abrir el instalador por primera vez, añade como administrador el [certificado de Kodosi](https://updates.kodosi.com/windows/Kodosi.cer) a Equipo local › Personas de confianza. La app se actualiza sola. |
+| Android | ARM64, Android 15 o posterior | Descarga el APK en tu dispositivo, ábrelo y permite la instalación cuando Android te lo pida. Las actualizaciones se instalan del mismo modo. |
+| iPhone y iPad | iOS 26 o posterior | Compila Kodosi desde el código fuente para [iPhone y iPad](../../clients/ios/README.md). |
 
-Después sigue los [primeros pasos](GETTING_STARTED.md).
+Una vez instalado, ve a [Primeros pasos](GETTING_STARTED.md).
 
-## Más información
+## Documentación
 
 - [Primeros pasos](GETTING_STARTED.md)
 - [Seguridad](SECURITY.md) y el [diseño del cifrado](../CRYPTOGRAPHY.md) (en inglés)
-- [Arquitectura](../ARCHITECTURE.md), [desarrollo](../DEVELOPMENT.md) y
-  [cómo contribuir](../../CONTRIBUTING.md) (en inglés)
+- [Arquitectura](../ARCHITECTURE.md), [desarrollo](../DEVELOPMENT.md) y [cómo contribuir](../../CONTRIBUTING.md) (en inglés)
 - [Alojamiento propio](../SELF-HOSTING.md) (en inglés)
 
-Informa de bugs en las [issues de GitHub](https://github.com/johnkozaris/Kodosi/issues) y de
-vulnerabilidades [en privado](SECURITY.md#informar-de-una-vulnerabilidad).
+Informa de errores en las [issues de GitHub](https://github.com/johnkozaris/Kodosi/issues) y
+comunica las vulnerabilidades [en privado](SECURITY.md#informar-de-una-vulnerabilidad).
 
-Kodosi lo crea [John Kozaris](https://johnkozaris.com).
+Creado por [John Kozaris](https://johnkozaris.com).
 
 ## Licencia
 
-Kodosi se distribuye con la [licencia Apache 2.0](../../LICENSE). El nombre y el logotipo de
-Kodosi no están bajo esa licencia; las [marcas registradas](../../TRADEMARKS.md) (en inglés)
-explican cómo puedes usarlos. Kodosi usa [Ghostty](https://ghostty.org), Rust, Swift, Qt y
-ASP.NET Core. Los [avisos de terceros](../../terminal/ghostty/THIRD_PARTY_NOTICES.md) y los
-[créditos de las imágenes](../media/README.md) indican lo que incluye.
+Kodosi se distribuye bajo la [licencia Apache 2.0](../../LICENSE). El nombre y el logotipo de
+Kodosi no están cubiertos por esa licencia; consulta las [marcas registradas](../../TRADEMARKS.md)
+(en inglés) para ver las normas de uso. Kodosi está desarrollado con
+[Ghostty](https://ghostty.org), Rust, Swift, Qt y ASP.NET Core. Consulta los
+[avisos de terceros](../../terminal/ghostty/THIRD_PARTY_NOTICES.md) y los
+[créditos de las imágenes](../media/README.md) para ver las atribuciones.

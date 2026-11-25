@@ -78,8 +78,9 @@ private nonisolated enum TerminalControlPart: LayoutValueKey {
     static let defaultValue = TerminalControlPart.composer
 }
 
-/// A part that goes fades where it was but no longer counts in the height, so that the terminal
-/// above takes its new size at once: each size of the terminal reaches everyone in it.
+/// Immediately excludes departing controls from measured height while letting them fade in place.
+/// This makes the terminal snap to its final size once instead of sending intermediate PTY resizes
+/// to all participants during exit animations.
 private nonisolated struct TerminalControlsColumn: Layout {
     let shown: Set<TerminalControlPart>
     let spacing: CGFloat
@@ -183,7 +184,7 @@ nonisolated struct TerminalKeyRow: Layout {
     static let widestKey: CGFloat = 64
     let height: CGFloat
 
-    /// The frames of the keys of `groups`, each the count of keys in a group, across `width`.
+    /// Computes key frames across `width`, where each element of `groups` is a group's key count.
     static func frames(groups: [Int], width: CGFloat, height: CGFloat) -> [CGRect] {
         let count = groups.reduce(0, +)
         guard count > 0 else { return [] }

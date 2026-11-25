@@ -151,7 +151,7 @@ const EFFECTS: readonly MarkKey[] = [
   { name: "superscript", label: say("Superscript"), icon: Superscript },
   { name: "subscript", label: say("Subscript"), icon: Subscript },
 ];
-/** In 240ths of a line. */
+// OOXML line spacing units (240ths of a single line).
 const LINES = [240, 276, 360, 480];
 const SPACINGS: readonly Choice<string>[] = LINES.map((line) => ({
   value: String(line),
@@ -178,7 +178,7 @@ function marksWell(editor: Editor, legend: string, marks: readonly MarkKey[]) {
   return { element: well.element, refresh };
 }
 
-/** A file keeps the built-in names of styles in small letters, and apps show them with a capital. */
+// OOXML stores built-in style names in lowercase; display them capitalized.
 function nameOf(name: string): string {
   return name.charAt(0).toUpperCase() + name.slice(1);
 }

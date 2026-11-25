@@ -31,10 +31,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
-/**
- * A feed does its work on the browser's own thread, after each call of its view and in the order
- * of the calls and of the pipe's events.
- */
+// All mutable state is confined to the single-threaded BrowserPipes executor to preserve ordering
+// between UI calls and pipe events.
 class BrowserFeed(private val pipes: BrowserPipes, internal val session: String, scope: CoroutineScope) :
     AutoCloseable {
     val window: StateFlow<JsonObject>
@@ -75,7 +73,7 @@ class BrowserFeed(private val pipes: BrowserPipes, internal val session: String,
         pipes.execute { pipes.follow(this) }
     }
 
-    /** A TextureView keeps its last frame after its decoder stops, so only a new surface is without a picture. */
+    // TextureView retains its last frame on decoder stop, so only clear picture on surface change.
     fun surface(surface: Surface?, width: Int, height: Int, density: Float) = pipes.execute {
         decoder?.close()
         picture.value = false
@@ -102,13 +100,9 @@ class BrowserFeed(private val pipes: BrowserPipes, internal val session: String,
 
     fun resize(width: Int, height: Int, density: Float) = pipes.execute { settle(width, height, density) }
 
-    /**
-     * The page takes the shape of the view of the person who acted last, so a new size goes to
-     * the host once the view settles, never while a button is held, and one that waits goes
-     * right after the person's act: the act then reaches the page that the person saw. A pipe
-     * that opens before the view has its size watches when the view has it, as the page takes
-     * the shape of the watch at once.
-     */
+    // The shared browser resizes to match the last active viewer, so debounce resizes and hold them
+    // during mouse drags; pending sizes flush after input so clicks hit the layout the user saw.
+    // If the pipe opened before layout completed, send the initial watch as soon as we have a size.
     private fun settle(width: Int, height: Int, density: Float) {
         if (width <= 0 || height <= 0) return
         size = fields(
@@ -251,10 +245,8 @@ class BrowserFeed(private val pipes: BrowserPipes, internal val session: String,
         reconnecting.value = false
     }
 
-    /**
-     * A view that waits for a key frame decodes no frame until it comes, so it asks once for each
-     * break, and the host sends key frames at most once a second, as each costs every viewer.
-     */
+    // Drop frames until the next keyframe; request one per break (the host rate-limits keyframes to
+    // 1/s because they cost bandwidth for all viewers).
     private fun restart() {
         behind = true
         if (decoder != null) post(fields("type" to "keyframe"))
@@ -282,7 +274,7 @@ class BrowserFeed(private val pipes: BrowserPipes, internal val session: String,
     }
 }
 
-/** The first decoder of the type may refuse the stream's size, and another may take it. */
+// Return ranked AVC decoders because the default codec can reject a stream size another accepts.
 internal fun deviceDecoders(size: IntSize): List<String> {
     val type = MediaFormat.MIMETYPE_VIDEO_AVC
     val format = MediaFormat.createVideoFormat(type, size.width, size.height)
@@ -417,11 +409,9 @@ internal class BrowserDecoder(
         }
     }
 
-    /**
-     * Some decoders fail on each frame, as the emulator's own decoder that may not read the app's
-     * buffers, so one that fails before its first picture has a few tries with the stream's key
-     * frame before the next decoder takes it.
-     */
+    // Some decoders (such as the Android emulator's) fail on every frame. A codec that fails before its
+    // first picture gets up to TRIES tries with the cached keyframe before it is blacklisted and the
+    // next one takes over.
     private fun fail() {
         val failed = name.takeUnless { showed }
         reset()
@@ -453,7 +443,7 @@ internal class BrowserDecoder(
         }
     }
 
-    /** A decoder gives the visible part of its pictures as a crop with inclusive edges. */
+    // MediaFormat crop bounds are inclusive, hence + 1.
     private fun MediaFormat.shownSize(): IntSize? {
         fun side(whole: String, start: String, end: String) = if (containsKey(start) && containsKey(end)) {
             getInteger(end) - getInteger(start) + 1

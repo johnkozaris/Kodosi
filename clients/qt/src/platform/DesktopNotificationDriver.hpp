@@ -8,8 +8,7 @@
 
 namespace kodosi {
 
-// How much of a notification the desktop shows: a banner with a sound, a banner, or only its entry in
-// the list of notifications.
+// Delivery level: banner with sound, silent banner, or notification center only.
 enum class NotificationCue { Sound, Banner, List };
 
 struct DesktopNotification {
@@ -34,7 +33,7 @@ public:
     using QObject::QObject;
     ~DesktopNotificationDriver() override = default;
 
-    // A post under the key of a notification that is still shown replaces it in place.
+    // Posting with the key of an active notification replaces it in place.
     virtual void post(const DesktopNotification& notification) = 0;
     virtual void withdraw(const QString& key) = 0;
 

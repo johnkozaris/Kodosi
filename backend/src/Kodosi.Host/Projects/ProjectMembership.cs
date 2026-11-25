@@ -12,7 +12,7 @@ internal sealed class ProjectPerson
 
 internal static class ProjectMembership
 {
-    // One UNION ALL query: PostgreSQL pushes each filter into every branch, so each branch uses its index.
+    // Uses UNION ALL (Concat) so PostgreSQL pushes filters into each branch and uses its index.
     public static IQueryable<ProjectPerson> People(KodosiDbContext db, bool invited = false)
     {
         var people = db.Projects.Select(x => new ProjectPerson { ProjectId = x.Id, UserId = x.OwnerUserId })

@@ -1,8 +1,8 @@
 import type { Sent } from "./client";
 
 /**
- * The batch on its way stays here until its answer comes, so a view can move it or send it
- * again.
+ * Retains the in-flight batch alongside queued edits until acknowledged, allowing views to rebase
+ * or resend it.
  */
 export class Outbox<Change> {
   private sent: Change[] = [];
@@ -29,9 +29,9 @@ export class Outbox<Change> {
   }
 
   /**
-   * A snapshot holds the batch that the document took. A batch that it refused does not go again,
-   * nor one that it may have taken before it lost what it knew of this client, as that would go in
-   * twice; the view says so. The changes after it go on.
+   * Reconciles the in-flight batch after a snapshot load. Drops it when already applied ("taken"),
+   * rejected ("refused"), or uncertain ("unknown", to avoid applying it twice), returning true if
+   * uncommitted edits were dropped so the view can warn the user. Queued edits are preserved.
    */
   loaded(sent: Sent): boolean {
     const doubtful = sent === "refused" || sent === "unknown";

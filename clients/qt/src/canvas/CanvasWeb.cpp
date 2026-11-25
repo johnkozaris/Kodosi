@@ -28,8 +28,8 @@
 namespace kodosi {
 namespace {
 #ifdef Q_OS_LINUX
-// The check of Chromium's namespace sandbox: a child in a new user namespace maps its
-// user and makes one more user namespace.
+// Mirror Chromium's user-namespace sandbox probe: map uid/gid in a new user namespace and
+// verify a nested user namespace can be created.
 bool sandboxed()
 {
     if (geteuid() == 0)
@@ -105,7 +105,6 @@ private:
     CanvasModel& m_canvas;
 };
 
-// Serves the view bundle of the app, with no way to the network.
 class ViewHandler final : public QWebEngineUrlSchemeHandler {
 public:
     using QWebEngineUrlSchemeHandler::QWebEngineUrlSchemeHandler;

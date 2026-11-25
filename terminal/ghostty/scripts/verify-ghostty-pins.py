@@ -412,7 +412,7 @@ class Verifier:
             {"target": "GHOSTTY_LINUX_VT_TARGET", "cpu": "GHOSTTY_LINUX_VT_CPU", "optimize": "GHOSTTY_LINUX_VT_OPTIMIZE"},
         )
         self.verify_archive(record, "vt_archive_sha256", layout, folder / "lib" / "libghostty-vt.a")
-        # Git for Windows writes symbolic links as plain files. Thus this folder has another digest there.
+        # Git for Windows checks out symlinks as plain files, which changes the folder digest.
         if os.name != "nt":
             record.expect("vt_artifact_sha256", measure_folder(folder), f"the digest of {label(folder)}")
         if self.patched_source is not None:

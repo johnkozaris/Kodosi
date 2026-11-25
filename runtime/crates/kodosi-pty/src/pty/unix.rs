@@ -319,8 +319,8 @@ impl KodosiPty {
     }
 }
 
-/// The answer of `/dev/ptmx` when every pseudo-terminal of the computer is in use: macOS stops at
-/// `kern.tty.ptmx_max`, Linux at `kernel.pty.max`.
+// Errno returned by `/dev/ptmx` when all PTYs are exhausted
+// (`kern.tty.ptmx_max` on macOS, `kernel.pty.max` on Linux).
 #[cfg(target_os = "macos")]
 const NO_FREE_PTY: Errno = Errno::ENXIO;
 #[cfg(not(target_os = "macos"))]
@@ -573,8 +573,8 @@ const MAX_GROUP_PROCESSES: usize = 1024;
 #[cfg(target_os = "macos")]
 const PROC_PIDFDVNODEPATHINFO: i32 = 2;
 
-/// `struct vnode_fdinfowithpath` of `sys/proc_info.h`, after a file part that Kodosi does not
-/// read.
+// Matches `struct vnode_fdinfowithpath` from `<sys/proc_info.h>`; `_file`
+// skips the leading `struct proc_fileinfo` header we do not read.
 #[cfg(target_os = "macos")]
 #[derive(Default)]
 #[repr(C)]
@@ -849,8 +849,8 @@ mod tests {
         let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
         let mut buffer = [0; 4096];
         let mut readable = true;
-        // On macOS the session leader of a terminal, and the last process that closes it, wait
-        // in exit until the output of the terminal is read.
+        // On macOS, a terminal's session leader and the last process to close it
+        // block in exit until the terminal's buffered output is drained.
         loop {
             tokio::select! {
                 outcome = pty.wait_within(deadline.saturating_duration_since(tokio::time::Instant::now())) => {

@@ -31,6 +31,6 @@ public struct AgentLive: Decodable, Equatable, Sendable {
     public let effort: Bool
     public let fast: Bool
     public let permissions: [AgentPermissions]
-    /// The agent also keeps a model, effort or fast mode that it changes to for its next sessions.
+    /// Whether live changes to model, effort, or fast mode persist to future sessions.
     public let keeps: Bool
 }

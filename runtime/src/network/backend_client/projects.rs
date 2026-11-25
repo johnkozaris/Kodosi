@@ -34,7 +34,7 @@ struct Content {
     sequence: u64,
     messages: BTreeMap<u64, projects::Message>,
     replacements: BTreeMap<u64, projects::Message>,
-    /// The ID and author of each older message that the apps got outside of `messages`.
+    /// `(message_id, author_id)` for older messages that clients received outside of `messages`.
     shown_older: BTreeMap<u64, (String, String)>,
     tasks: BTreeMap<String, projects::Task>,
     repositories: BTreeMap<String, projects::Repository>,
@@ -142,7 +142,7 @@ impl ProjectCache {
             .try_for_each(|item| content.take(cached, project, item, &credentials.user_id))
     }
 
-    /// Tells whether the person cleared the conversation further.
+    /// Returns `true` if `cleared_position` advanced.
     fn merge(
         &mut self,
         credentials: &Credentials,
@@ -297,10 +297,10 @@ impl Content {
         Ok(())
     }
 
-    /// A deletion is the only change of a message, so that a server cannot bring back the text of
-    /// a deleted message, and it changes only the message with its own ID and author, because
-    /// nobody signs the position at which the server puts an item. The kept messages have no gap,
-    /// so the deletion of an older message only replaces it in the apps that got it.
+    /// Messages are immutable except for deletion (preventing the server from resurrecting deleted
+    /// text), and a deletion applies only if both ID and author match because server-assigned
+    /// positions are unsigned. `messages` is kept contiguous, so deletions of older messages emit
+    /// replacements only for clients that already received them.
     fn keep(&mut self, message: projects::Message) {
         let position = message.position;
         if position <= self.cleared_position {
@@ -923,9 +923,8 @@ impl BackendClient {
         Ok((path, heads))
     }
 
-    /// A history that forks from the one that this device saved, or ends before it, fails, unless
-    /// this device keeps a newer history that continues it: a check that read the server before
-    /// another one kept that history takes it.
+    /// Rejects histories that fork from or roll back the saved head. If an in-memory cache already
+    /// holds a newer continuation of this history (from a concurrent fetch), returns that instead.
     async fn remember_project(
         &self,
         credentials: &Credentials,
@@ -1013,8 +1012,8 @@ impl BackendClient {
         .ok_or_else(|| invalid("The project membership did not change."))
     }
 
-    /// Takes the project state that this device signed and the server accepted, so the server
-    /// cannot keep serving the state before it.
+    /// Pins a state this device signed and the server accepted, preventing rollback to the prior
+    /// state.
     pub(super) async fn apply_own_state(
         &self,
         credentials: &Credentials,

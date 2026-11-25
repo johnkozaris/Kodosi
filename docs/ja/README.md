@@ -1,12 +1,12 @@
 <p align="center">
-  <a href="https://kodosi.com"><img src="../media/banner.webp" width="800" alt="「terminals, agents and friends. together.」という言葉とターミナルのカーソルの上にある Kodosi のロゴ。"></a>
+  <a href="https://kodosi.com"><img src="../media/banner.webp" width="800" alt="「terminals, agents and friends. together.」の文字とターミナルのカーソルの上にある Kodosi のロゴ。"></a>
 </p>
 
-<h3 align="center">あなたと、あなたのコーディングエージェントと、フレンドのためのターミナルアプリ。</h3>
+<h3 align="center">あなたと、コーディングエージェントと、フレンドのためのターミナルアプリ。</h3>
 
 <p align="center">
-  すべてのコンピュータで、どのエージェントがあなたを必要としているかがわかり、エージェントが作るものをターミナルの隣で見られ、<br>
-  フレンドと同じターミナルで作業できます。エンドツーエンドで暗号化され、オープンソースです。
+  すべてのコンピュータでどのエージェントが対応を待っているかがわかり、エージェントが作るものをターミナルの隣で見られます。<br>
+  フレンドと共有ターミナルで一緒に作業できます。エンドツーエンド暗号化に対応したオープンソースです。
 </p>
 
 <p align="center">
@@ -28,71 +28,72 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: light)" srcset="../media/app-light.webp">
-    <img src="../media/app-dark.webp" width="900" alt="Mac の Kodosi アプリ。Claude Code が承認を待ち、Codex が作業しています。">
+    <img src="../media/app-dark.webp" width="900" alt="Mac 版 Kodosi アプリ。Claude Code が承認を待ち、Codex が作業している画面。">
   </picture>
 </p>
 
 ## Kodosi でできること
 
-### どのエージェントがあなたを必要としているかを見る
+### どのエージェントが対応を待っているかを見る
 
-Claude Code、Codex などのコーディングエージェントは、手を止めてあなたを待ちます。Kodosi はすべてのコンピュータのターミナルを 1 つのウインドウにまとめ、各ターミナルには、エージェントが作業中か、あなたの回答待ちか、完了したか、失敗したかが表示されます。通知は、スマートフォンも含め、あなたの使っているデバイスに届きます。エージェントはそれぞれの設定とサインインを使い、そのまま動きます。
+Claude Code や Codex などのコーディングエージェントは、作業の途中でたびたび手を止めて入力を待ちます。Kodosi はすべてのコンピュータのターミナルを 1 つのウインドウにまとめ、各ターミナルでエージェントが作業中か、あなたの対応待ちか、完了したか、失敗したかを表示します。通知はスマートフォンを含め、今使っているデバイスに届きます。エージェントはそれぞれの設定とアカウントのまま、独自の CLI を通じて直接動作します。
 
 ### 何に対応が必要か聞く
 
-Dosi は、あなたのエージェントたちを見守るエージェントです。ターミナルを読んで、何があなたを待っているかを伝え、あなたが選べば、代わりにターミナルで答えます。
+Dosi は、ほかのエージェントをまとめるエージェントです。各ターミナルを確認してあなたの対応待ちになっている内容をまとめ、あなたが方針を決めると代わりにターミナルへ応答します。
 
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="../media/dosi-still.webp">
-    <img src="../media/dosi.webp" width="900" alt="何に対応が必要か聞かれた Dosi が、ターミナルを読み、checkout が承認を待っていると伝え、許可するかどうかを尋ねています。">
+    <img src="../media/dosi.webp" width="900" alt="何に対応が必要か尋ねられた Dosi が、各ターミナルを確認して checkout が承認待ちであると報告し、許可するかどうかを確認している画面。">
   </picture>
 </p>
 
 ### エージェントが作るものを見る
 
-エージェントの計画、ページ、ドキュメントはターミナルの隣のキャンバスで開き、ドキュメントはフレンドやエージェントと一緒に編集できます。
+計画書やウェブページ、ドキュメントはターミナルのすぐ隣のキャンバスに開きます。ライブドキュメントは、あなた、フレンド、エージェントが同時に編集できます。
 
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="../media/canvas-still.webp">
-    <img src="../media/canvas.webp" width="900" alt="Claude Code のターミナルとキャンバス。Leo が編集しているローンチ計画に Claude が変更を提案し、続いて予算のシート、スライド、PDF、共有ブラウザで Claude がマグをカートに入れます。">
+    <img src="../media/canvas.webp" width="900" alt="Claude Code のターミナルと隣のキャンバス。Leo が編集中のローンチ計画に Claude が変更を提案し、さらに予算シート、スライド、PDF、そして Claude がマグカップをカートに入れている共有ブラウザが並んでいます。">
   </picture>
 </p>
 
 ### 一緒に作業する
 
-実行中のターミナルをフレンドに渡したり、人とそのエージェントのためのプロジェクトに、ターミナル、会話、タスクをまとめたりできます。
+実行中のターミナルをフレンドと共有したり、人とエージェントのためのプロジェクトにターミナル、チャット、タスクをまとめたりできます。
 
-<p align="center"><img src="../media/project.webp" width="900" alt="共有ターミナルと、人とエージェントの会話があるプロジェクト。"></p>
+<p align="center"><img src="../media/project.webp" width="900" alt="共有ターミナルと、人とエージェントの会話が並ぶプロジェクト画面。"></p>
 
 ### プライベートでオープン
 
-ターミナルとプロジェクトは耐量子暗号でエンドツーエンドに暗号化されるため、サービス側で読むことはできません。Kodosi はオープンソースで、サービスを自分で運用することもできます。[セキュリティ](SECURITY.md) · [セルフホスティング](../SELF-HOSTING.md)（英語）
+ターミナルとプロジェクトは耐量子エンドツーエンド暗号化で保護されているため、バックエンドから内容を読むことはできません。Kodosi はオープンソースで、サーバーを自分で運用することもできます。
+[セキュリティ](SECURITY.md) · [セルフホスティング](../SELF-HOSTING.md)（英語）
 
 ## Kodosi を入手
 
-| | 動作環境 | インストール |
+| プラットフォーム | 動作環境 | インストール |
 | --- | --- | --- |
-| **Mac** | Apple silicon、macOS 26 以降 | ディスクイメージを開いて Kodosi をアプリケーションフォルダに移動するか、`brew install --cask johnkozaris/tap/kodosi` を実行します。アプリは自動でアップデートされます。 |
-| **Linux** | x86-64、Ubuntu 24.04 または Debian 13 以降 | Debian パッケージをインストールします。Kodosi の apt リポジトリが追加されるので、システムのアップデートで Kodosi もアップデートされます。[リリース](https://github.com/johnkozaris/Kodosi/releases/latest) には Arch 用パッケージとポータブル版のアーカイブもあります。 |
-| **Windows** | x64、Windows 11 24H2 以降 | ダウンロードしたファイルを初めて開く前に、管理者として [Kodosi の証明書](https://updates.kodosi.com/windows/Kodosi.cer) をローカルコンピューター › 信頼されたユーザーに追加してください。アプリは自動でアップデートされます。 |
-| **Android** | ARM64、Android 15 以降 | 端末で APK をダウンロードして開き、Android に確認されたらインストールを許可します。新しいリリースも同じ方法でインストールします。 |
-| **iPhone と iPad** | iOS 26 以降 | [iPhone または iPad](../../clients/ios/README.md) 向けに Kodosi をビルドします。 |
+| Mac | Apple silicon、macOS 26 以降 | ディスクイメージを開いて Kodosi をアプリケーションフォルダへドラッグするか、`brew install --cask johnkozaris/tap/kodosi` を実行します。アプリは自動でアップデートされます。 |
+| Linux | x86-64、Ubuntu 24.04 または Debian 13 以降 | Debian パッケージをインストールします。Kodosi の apt リポジトリが追加されるため、システムのアップデートで Kodosi も最新に保たれます。[最新リリース](https://github.com/johnkozaris/Kodosi/releases/latest)には Arch パッケージとポータブルアーカイブも含まれています。 |
+| Windows | x64、Windows 11 24H2 以降 | インストーラーを初めて開く前に、管理者として [Kodosi の証明書](https://updates.kodosi.com/windows/Kodosi.cer)を「ローカルコンピューター › 信頼されたユーザー」に追加してください。アプリは自動でアップデートされます。 |
+| Android | ARM64、Android 15 以降 | 端末に APK をダウンロードして開き、Android の確認画面でインストールを許可します。アップデートも同じ手順でインストールします。 |
+| iPhone と iPad | iOS 26 以降 | [iPhone と iPad](../../clients/ios/README.md) 向けにソースから Kodosi をビルドします。 |
 
-続いて[はじめに](GETTING_STARTED.md)をお読みください。
+インストールが終わったら、[はじめに](GETTING_STARTED.md)へ進んでください。
 
-## さらに詳しく
+## ドキュメント
 
 - [はじめに](GETTING_STARTED.md)
 - [セキュリティ](SECURITY.md)と[暗号化の設計](../CRYPTOGRAPHY.md)（英語）
 - [アーキテクチャ](../ARCHITECTURE.md)、[開発](../DEVELOPMENT.md)、[コントリビュート](../../CONTRIBUTING.md)（英語）
 - [セルフホスティング](../SELF-HOSTING.md)（英語）
 
-バグは [GitHub の Issue](https://github.com/johnkozaris/Kodosi/issues) に、脆弱性は[非公開で](SECURITY.md#脆弱性を報告する)報告してください。
+バグは [GitHub の Issue](https://github.com/johnkozaris/Kodosi/issues) へ、脆弱性は[非公開で](SECURITY.md#脆弱性を報告する)報告してください。
 
 Kodosi は [John Kozaris](https://johnkozaris.com) が開発しています。
 
 ## ライセンス
 
-Kodosi は [Apache License 2.0](../../LICENSE) で提供されています。Kodosi の名前とロゴはこのライセンスの対象外です。使い方は[商標](../../TRADEMARKS.md)（英語）をご覧ください。Kodosi は [Ghostty](https://ghostty.org)、Rust、Swift、Qt、ASP.NET Core を使っています。含まれるものは[サードパーティの表示](../../terminal/ghostty/THIRD_PARTY_NOTICES.md)と[画像のクレジット](../media/README.md)に記載しています。
+Kodosi は [Apache License 2.0](../../LICENSE) のもとで公開されています。Kodosi の名称とロゴはこのライセンスの対象外です。使用ルールは[商標](../../TRADEMARKS.md)（英語）をご覧ください。Kodosi は [Ghostty](https://ghostty.org)、Rust、Swift、Qt、ASP.NET Core で構築されています。帰属表示については[サードパーティの表示](../../terminal/ghostty/THIRD_PARTY_NOTICES.md)および[メディアのクレジット](../media/README.md)をご覧ください。

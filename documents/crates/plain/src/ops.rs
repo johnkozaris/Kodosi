@@ -10,8 +10,8 @@ use crate::{
 const MOST_READ: usize = 2000;
 const MOST_LINE: usize = 2000;
 
-/// Line numbers count from 1 in the text as the agent read it, and each op of one change counts
-/// in that text, so the ops of one change do not move each other's lines.
+/// Line numbers are 1-based against the pre-change snapshot, so ops in a single batch do not shift
+/// each other's line numbers.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     tag = "op",
@@ -129,7 +129,7 @@ fn lines_in(
     Ok(from - 1..to)
 }
 
-/// Ops that change the same text are refused, since their order would be a guess.
+/// Rejects overlapping ops in a batch because their relative application order is ambiguous.
 pub(crate) fn edits(text: &Text, ops: &[Op]) -> Result<Vec<Edit>, String> {
     if ops.is_empty() {
         return Err("There are no ops.".to_owned());

@@ -20,8 +20,8 @@ form='registration%20with%20check%20registration%20form'
 reset='reset%20with%20check'
 broker=kodosi-first-broker-login
 people=dev/people.txt
-# Keycloak e-mails the lockout notes only when this option names them, and then only what it
-# names. UPDATE_PASSWORD or UPDATE_TOTP too would send two e-mails for one change.
+# Keycloak only emails lockout notifications when explicitly listed here, which replaces the
+# default event set; also listing UPDATE_PASSWORD or UPDATE_TOTP would send duplicate emails.
 notes=UPDATE_CREDENTIAL,REMOVE_CREDENTIAL,USER_DISABLED_BY_TEMPORARY_LOCKOUT,USER_DISABLED_BY_PERMANENT_LOCKOUT
 
 kc() { docker exec "$name" /opt/keycloak/bin/kcadm.sh "$@"; }
@@ -103,8 +103,8 @@ docker rm -f "$name" "$mailbox" >/dev/null 2>&1 || true
 docker network rm "$network" >/dev/null 2>&1 || true
 [ "${1:-}" = down ] && exit
 
-# Keycloakify finds Maven only on PATH, and by default it keeps Maven's downloads in its cache,
-# which the container does not see.
+# Keycloakify resolves mvn only from PATH, and by default it keeps Maven's downloads in its own
+# cache, which the Maven container cannot see.
 [ -f "$jar" ] && [ -z "$(find src index.html -newer "$jar" -print -quit)" ] ||
   PATH="$PWD/tools/maven:$PATH" KEYCLOAKIFY_USE_DEFAULT_MAVEN_REPO=true "$(python3 ../scripts/bun.py)" run theme
 
@@ -205,8 +205,8 @@ calm kc create clients -r $realm -s clientId=kodosi-backend -s publicClient=fals
 calm kc add-roles -r $realm --uusername service-account-kodosi-backend --cclientid realm-management \
   --rolename view-events
 
-# A built-in flow takes no new step, so the realm uses copies. A copy loses the place of the terms
-# step after the step that makes the account.
+# Built-in flows cannot be edited, so copy them; copying drops the priority of the terms step
+# relative to account creation, so restore it below.
 calm kc create authentication/flows/registration/copy -r $realm -b '{"newName":"registration with check"}'
 calm kc update "realms/$realm" -s 'registrationFlow=registration with check'
 calm kc update "authentication/flows/$form/executions" -r $realm \
@@ -266,8 +266,8 @@ calm kc create identity-provider/instances -r $realm -s alias=apple -s providerI
   -s displayName=Apple -s enabled=true \
   -s "config={$keys,\"authorizationUrl\":\"https://appleid.apple.com/auth/authorize\",\"tokenUrl\":\"https://appleid.apple.com/auth/token\"}"
 
-# The GitHub stand-in is the realm "elsewhere". The browser reaches it at localhost and Keycloak at
-# its name in the Docker network; frontendUrl makes its tokens name localhost in both cases.
+# Mock GitHub IdP via realm "elsewhere". The browser reaches it via localhost while Keycloak uses
+# the Docker service name; frontendUrl keeps token issuer claims pointing to localhost for both.
 calm kc create realms -s realm=elsewhere -s enabled=true -s 'displayName=Stand-in for GitHub' \
   -s "attributes={\"frontendUrl\":\"http://localhost:$port\"}"
 secret=$(openssl rand -hex 16)
@@ -284,7 +284,7 @@ calm kc create identity-provider/instances/github/mappers -r $realm \
   -s identityProviderMapper=oidc-username-idp-mapper \
   -s 'config={"syncMode":"IMPORT","template":"${CLAIM.preferred_username | lowercase}","target":"LOCAL"}'
 
-# The required actions go on after the password, because a new password removes UPDATE_PASSWORD.
+# Set required actions after the password because set-password clears UPDATE_PASSWORD.
 while IFS='|' read -r where username email first last password steps; do
   case "$where" in '' | '#'*) continue ;; esac
   id=$(kc create users -r "$where" -s "username=$username" -s "email=$email" \

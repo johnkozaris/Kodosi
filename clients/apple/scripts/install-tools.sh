@@ -26,7 +26,6 @@ download() {
     printf '%s\n' "$archive"
 }
 
-# install_tool <name> <version> <url> <sha256> <program in its folder> <version argument>
 install_tool() {
     local name=$1 version=$2 url=$3 sha256=$4 program=$5 asks=$6 root archive stage content
     root="$TOOLS/$name"
@@ -53,6 +52,6 @@ install_tool() {
 
 install_tool swiftlint "$SWIFTLINT_VERSION" "$SWIFTLINT_URL" "$SWIFTLINT_SHA256" swiftlint version
 install_tool swiftformat "$SWIFTFORMAT_VERSION" "$SWIFTFORMAT_URL" "$SWIFTFORMAT_SHA256" swiftformat --version
-# XcodeGen reads its setting presets from ../share beside its program; without them it quietly
-# writes a project that lacks the base settings.
+# Keep bin/xcodegen under its extracted root: XcodeGen loads setting presets from ../share and
+# silently omits base build settings if they are missing.
 install_tool xcodegen "$XCODEGEN_VERSION" "$XCODEGEN_URL" "$XCODEGEN_SHA256" bin/xcodegen --version

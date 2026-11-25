@@ -1,25 +1,25 @@
 import Foundation
 import Synchronization
 
-/// The runtime keeps the pipe of a view and opens it again after each loss, until the view
-/// closes it. The pipe of the shared browser takes its events on the task of the browser pipes,
-/// and sends from there and from the main actor, each frame in one piece.
+/// Manages a runtime document pipe, which the runtime reopens after each drop until the view
+/// closes it. Shared-browser pipes receive events on the `BrowserPipes` task and may send frames
+/// from both that task and the main actor, each frame in one piece.
 public final class DocumentLink: Sendable {
     public enum News: Equatable, Sendable {
-        /// The pipe is open, again after each loss: the view sends its first message.
+        /// Pipe opened (including after reconnect); callers should send their initial handshake.
         case open
-        /// The pipe stayed lost for a while, for the reason that the runtime gives.
+        /// Pipe stayed down for a while; associated value is the runtime's error message, if any.
         case lost(String?)
-        /// The terminal of the pipe is gone.
+        /// Terminal closed permanently; the pipe will not reconnect.
         case closed
     }
 
     private struct State {
         var pipe: String?
         var filling = Data()
-        /// The next part, or none while a new pipe has not opened.
+        /// Next expected chunk sequence number, or `nil` before `document.opened`.
         var next: UInt64?
-        /// The pipe that waits for the answer to its registration.
+        /// Pipe ID awaiting its `document.open` response.
         var registering: String?
         var onFrame: @Sendable (Data) -> Void = { _ in }
         var onNews: @Sendable (News) -> Void = { _ in }
@@ -37,7 +37,6 @@ public final class DocumentLink: Sendable {
     private let commands: CommandSink
     let session: String
     private let key: String
-    /// The pipes of the shared browser, which claim the pipe of the browser's link alone.
     private let claims: BrowserPipes?
     private let state = Mutex(State())
 
@@ -112,8 +111,8 @@ public final class DocumentLink: Sendable {
         _ = commands.post("document.close", ["pipe": .string(pipe)])
     }
 
-    /// The app dropped events when it fell behind, maybe parts of this pipe, so the pipe starts
-    /// again. A pipe that waits for its registration registers again by itself.
+    /// Restarts the pipe after dropped events may have lost chunks. Pipes still awaiting
+    /// registration retry on their own in `register(_:)`.
     func renewAfterLoss() {
         let pipe = state.withLock { $0.registering == $0.pipe ? nil : $0.pipe }
         if let pipe {
@@ -173,8 +172,8 @@ public final class DocumentLink: Sendable {
         }
     }
 
-    /// An answer that went with the events that the app dropped leaves the pipe unknown, so the
-    /// link closes it and registers it again.
+    /// Retries registration after a timeout, closing first in case the runtime opened the pipe
+    /// before the reply was dropped.
     @MainActor
     private func register(_ pipe: String) async throws {
         state.withLock { $0.registering = pipe }
@@ -197,8 +196,8 @@ public final class DocumentLink: Sendable {
         }
     }
 
-    /// A part that went missing breaks the frames, so the pipe starts again, and the parts that
-    /// were on their way go nowhere.
+    /// Resets framing and re-registers the pipe after a missing chunk; clearing `next` drops any
+    /// remaining in-flight chunks from the broken stream.
     private func renew(_ pipe: String) {
         let renews = state.withLock { state in
             guard state.pipe == pipe else { return false }
@@ -221,7 +220,6 @@ public final class DocumentLink: Sendable {
         }
     }
 
-    /// Returns whether the pipe was still the link's.
     private func forget(_ pipe: String) -> Bool {
         state.withLock { state in
             guard state.pipe == pipe else { return false }

@@ -1,15 +1,15 @@
 # Kodosi for iPhone and iPad: design
 
-The app uses the visual system of the [Mac app](../macos/DESIGN.md), with native iOS
+The iOS app shares the [macOS visual system](../macos/DESIGN.md) adapted to native iOS
 navigation:
 
-- Text follows Dynamic Type, and touch targets are at least 44 points.
-- A tab bar becomes a sidebar on iPad; stacks have large titles, and sheets have
-  detents. Use swipe actions and context menus.
-- The terminal is in a rounded tile in the look of the computer that it runs on, in
-  JetBrains Mono at a size that the person picks in Settings. It does not follow Dynamic
-  Type. Its key row takes its look too, and the chat face keeps the app's appearance.
-- The key row over the keyboard never scrolls: its keys share the width evenly.
-- Haptics mark one of your terminals that starts waiting or finishes, and a sent
-  message.
-- Show no controls for actions that only a computer can do.
+- Text scales with Dynamic Type, and all touch targets are at least 44 pt.
+- Navigation uses a tab bar on iPhone and switches to a sidebar on iPad; navigation stacks use
+  large titles, sheets use detents, and lists support swipe actions and context menus.
+- Terminals sit inside a rounded tile matching their host computer's light or dark theme, rendered
+  in JetBrains Mono at a user-selected font size in Settings (independent of Dynamic Type). The
+  accessory key row above the keyboard adopts the terminal's theme, while the chat view follows
+  the app's appearance.
+- The accessory key row never scrolls; its keys divide the available width evenly.
+- Haptics fire when one of your terminals starts waiting or finishes, and when you send a message.
+- Desktop-only controls are omitted rather than shown disabled.

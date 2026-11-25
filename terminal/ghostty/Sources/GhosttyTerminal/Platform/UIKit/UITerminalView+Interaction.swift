@@ -55,9 +55,9 @@ extension UITerminalView: UIGestureRecognizerDelegate, @preconcurrency UIEditMen
         }
     }
 
-    /// A tap opens a link as a ⌘-click does. Ghostty names the link under a pointer
-    /// only while the link key is down, and only when the pointer moved, so the tap
-    /// takes the pointer away, asks with the key down, and takes the pointer away again.
+    /// Ghostty only reports the hovered link when the pointer moves while Command is held.
+    /// Move the pointer off-surface before and after probing so repeated taps at the same
+    /// position still trigger a move and no hover state lingers.
     private func link(at point: CGPoint, on surface: TerminalSurface) -> String? {
         let none = ghostty_input_mods_e(rawValue: 0)
         surface.sendMousePos(x: -1, y: -1, mods: none)
@@ -112,8 +112,8 @@ extension UITerminalView: UIGestureRecognizerDelegate, @preconcurrency UIEditMen
         switch gesture.state {
         case .began:
             stopMomentumScrolling()
-            // A program that uses the mouse gets the wheel at the pointer, so the pointer
-            // goes under the finger while it scrolls.
+            // Mouse-reporting programs receive scroll events at the pointer position, so move
+            // the pointer to the touch location for the duration of the scroll.
             let point = gesture.location(in: self)
             surface?.sendMousePos(x: point.x, y: point.y, mods: ghostty_input_mods_e(rawValue: 0))
 

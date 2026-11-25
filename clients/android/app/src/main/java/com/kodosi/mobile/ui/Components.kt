@@ -86,7 +86,7 @@ fun reducedMotion(): Boolean = LocalReducedMotion.current
 @Composable
 private fun powerSaving(): Boolean = LocalPowerSaving.current
 
-/** Art can stay on screen for a long time, so a moving sign in it stands still, as with reduced motion. */
+// Forces reduced motion for long-lived decorative illustrations so embedded indicators stay static.
 @Composable
 fun Still(content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalReducedMotion provides true, content = content)
@@ -95,7 +95,7 @@ fun Still(content: @Composable () -> Unit) {
 @Composable
 private fun signsMove(): Boolean = !reducedMotion() && !powerSaving()
 
-/** All moving signs step on one clock, so that a step of all of them is one frame and nothing draws between steps. */
+// Quantize all animated indicators onto a shared stepped clock so updates coalesce into one frame.
 @Composable
 private fun SignSteps(step: (phase: Float) -> Unit) {
     val stepping by rememberUpdatedState(step)
@@ -123,13 +123,12 @@ private const val SIGN_STEP_MILLIS = 2400L / SIGN_STEPS
 private const val BREATHS = 3
 private const val SPIN_MILLIS = 800L
 
-// Each frame costs the phone's system about as much as it costs the app, so a sign this small asks only for the frames
-// that the eye needs. The rest ends after the third display frame at 120 Hz and the first at 60 Hz: 30 steps a second.
+// Cap small spinner updates at ~30 fps (28 ms lands after 3 frames at 120 Hz and 1 at 60 Hz), since
+// each frame costs the system about as much as it costs the app.
 private const val SPIN_REST_MILLIS = 28L
 
 private val FadeEasing = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
 
-/** A state that changes in place fades as in the other apps, and at once with reduced motion. */
 @Composable
 fun <T> fade(): FiniteAnimationSpec<T> = if (reducedMotion()) snap() else tween(200, easing = FadeEasing)
 
@@ -137,7 +136,6 @@ fun <T> fade(): FiniteAnimationSpec<T> = if (reducedMotion()) snap() else tween(
 fun <T> snappy(): FiniteAnimationSpec<T> =
     if (reducedMotion()) snap() else spring(dampingRatio = 0.8f, stiffness = 620f)
 
-/** A note that comes and goes opens and closes its own room, so that what is around it moves instead of jumping. */
 @Composable
 fun Unfolding(visible: Boolean, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val fading = fade<Float>()
@@ -196,7 +194,7 @@ private fun SpinnerSteps(sign: SignNode) {
 
 private fun SignNode.breathe(phase: Float) = breathe(1f + 1.4f * phase, 1f - phase)
 
-/** It rests after a few breaths, because its notice can stay for a whole outage. */
+// Stops pulsing after BREATHS cycles since a reconnecting banner can stay visible during an outage.
 @Composable
 fun BreathingDot(color: Color, modifier: Modifier = Modifier) {
     val still = reducedMotion() || powerSaving()
@@ -212,7 +210,7 @@ fun BreathingDot(color: Color, modifier: Modifier = Modifier) {
         Spacer(
             Modifier
                 .wrapContentSize(unbounded = true)
-                // The frame of the ring's node holds the ring at its widest: (3.5 + 1.5 / 2) * 2.4 on each side.
+                // Sized for the ring at max 2.4x scale: (3.5 + 1.5 / 2) * 2.4 * 2 = 20.4 dp.
                 .requiredSize(21.dp)
                 .sign(sign) { drawCircle(color.copy(alpha = 0.55f), 3.5.dp.toPx(), style = Stroke(1.5.dp.toPx())) }
         )
@@ -380,7 +378,7 @@ private fun WorkingLight(colors: KodosiColors, size: Dp, modifier: Modifier) {
     Spacer(
         modifier
             .clip(RoundedCornerShape(size * 0.3f))
-            // A turned node keeps the whole mark when it reaches past the mark's corners: (sqrt(2) - 1) / 2.
+            // Pad by (sqrt(2) - 1) / 2 (~0.21) so corners are not clipped while rotating.
             .sign(sign, reach = size * 0.21f) {
                 val width = (size * 0.07f).toPx().coerceAtLeast(1.5.dp.toPx())
                 val light = if (moving) {

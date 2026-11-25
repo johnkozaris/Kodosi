@@ -81,7 +81,8 @@ export function UpdatePassword({ kcContext, i18n }: Page<"login-update-password.
         method="post"
         noValidate
         onSubmit={(event) => {
-          // Keycloak asks for password-confirm, and a password manager can fill the row silently.
+          // Keycloak requires password-confirm; copy from the DOM on submit in case a password
+          // manager autofilled password-new without firing onChange.
           const typed = event.currentTarget.elements.namedItem("password-new");
           if (again.current && typed instanceof HTMLInputElement) again.current.value = typed.value;
         }}

@@ -4,17 +4,17 @@ import { ReplaceAroundStep, ReplaceStep } from "@tiptap/pm/transform";
 import { PICTURE_STARTS } from "./generated/writable";
 import { cellSpan } from "./schema";
 
-/** What a document can take from a paste. */
+/** Document state used to sanitize pasted content so it stays serializable. */
 export interface Holding {
-  /** Each piece of the file that the document has held, which it can still write. */
+  /** Raw XML/property keys seen in this document and still available to write back. */
   held: ReadonlySet<string>;
-  /** The pieces in the document now, which a paste of the same piece would copy. */
+  /** Raw keys currently in the document; pasting one of these is a copy, not a cut-move. */
   present: ReadonlySet<string>;
-  /** Whether the document has the bytes of a picture, in a kind that the server writes. */
+  /** Returns whether the asset bytes are available in an image format the server can write. */
   picture: (asset: string) => boolean;
 }
 
-/** The server writes a new picture into the file only in a kind that it knows. */
+/** Checks magic bytes against image formats the server can embed into a .docx file. */
 export function writablePicture(bytes: Uint8Array | undefined): boolean {
   return PICTURE_STARTS.some((start) => start.every((byte, index) => bytes?.[index] === byte));
 }
@@ -29,8 +29,8 @@ function piecesIn(fragment: Fragment, into = new Set<string>()): Set<string> {
 }
 
 /**
- * The blocks around a paste come from the clipboard as they were, with no parse rule between: a
- * pasted block takes a new id, and the properties of the file only where the document holds them.
+ * Open ancestor nodes in a pasted slice bypass parseHTML, so strip their block IDs, drop foreign
+ * raw properties, and clamp table cell spans here.
  */
 function fittedAttrs(node: ProseNode, holding: Holding): ProseNode["attrs"] {
   const { id, props, span } = node.attrs;
@@ -46,10 +46,10 @@ function fittedAttrs(node: ProseNode, holding: Holding): ProseNode["attrs"] {
 }
 
 /**
- * A piece of the file that the editor keeps whole moves with a cut and a paste. A copy of it would
- * repeat ids that the file allows once, and a piece from another file is not in this one, so they
- * paste as the text that they show; a picture pastes as a new picture where the document has its
- * bytes. Anything else would leave the document unable to save.
+ * Sanitizes a pasted slice so the document remains saveable. Opaque XML nodes can only be moved
+ * via cut-and-paste within the same document; duplicating them would repeat unique OOXML IDs, and
+ * foreign ones have no backing XML here, so copies fall back to plain text (or a new image node
+ * when the asset bytes are available).
  */
 export function fitPaste(slice: Slice, holding: Holding): Slice {
   return new Slice(fitted(slice.content, holding), slice.openStart, slice.openEnd);
@@ -112,7 +112,7 @@ export function fitsPastes(picture: (asset: string) => boolean): Plugin<Set<stri
     },
     props: {
       transformPasted(slice, view) {
-        // A drag inside the editor moves its pieces, which stay in the document until the drop.
+        // Internal drag-moves run transformPasted before removing the source nodes from the doc.
         if (view.dragging?.move) return slice;
         return fitPaste(slice, {
           held: HELD.getState(view.state) ?? new Set(),

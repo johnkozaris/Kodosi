@@ -7,8 +7,8 @@ namespace kodosi {
 
 inline constexpr qsizetype maximumLinkCharacters = 8'192;
 
-// The runtime decides a link by the rule of every app. Whether opening a file of this computer
-// runs a program is this app's part, because the desktop decides that.
+// The runtime decides each link with the same rules for every Kodosi app. Whether opening a local
+// file would run a program is checked here, because the desktop decides that.
 struct LinkDecision {
     enum class Action {
         Open,

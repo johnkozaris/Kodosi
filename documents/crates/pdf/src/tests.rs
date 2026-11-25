@@ -192,8 +192,8 @@ fn a_redaction_leaves_the_words_nowhere_and_seals() {
     assert!(text_of(&new_file, 2).contains("second page"));
 }
 
-/// A page that draws its words through a form, as pdfpages, stamps and placed PDF figures do,
-/// after these operations of its own.
+/// Builds a PDF with a Form `XObject` named `Fm0`, whose page runs `operations` and then draws
+/// the `XObject` named `drawn`.
 fn form_pdf(drawn: &str, operations: &[u8]) -> Vec<u8> {
     let mut document = Document::with_version("1.7");
     let pages = document.new_object_id();

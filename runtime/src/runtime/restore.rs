@@ -22,8 +22,8 @@ const MOST_BYTES: usize = 1024 * 1024;
 const SCREENS: &str = "screens";
 const SCREEN_MOST_BYTES: usize = 1024 * 1024;
 const RESTORED: &[u8] = b"\x1b]8;;\x1b\\\x1b[0m\r\n\x1b[2mRestored\x1b[0m\r\n";
-/// At a sign-out or a shutdown, the agent and the host stop together, so a terminal still comes
-/// back with an agent that ended a moment before.
+/// Keeps a recently exited agent's resume command during shutdown/sign-out races where the
+/// agent exits just before the host saves state.
 const ENDED_GRACE: Duration = Duration::from_secs(10);
 const ASK_AGAIN: Duration = Duration::from_secs(10);
 const ASK_AGAIN_KNOWN: Duration = Duration::from_secs(30);
@@ -262,15 +262,15 @@ pub(super) async fn agent_line(
     })
 }
 
-/// Claude Code shows a session of its background in a terminal again by the short ID that it
-/// gives the session.
+/// Claude Code reattaches a background session to a terminal by the short ID it gives that
+/// session.
 pub(super) fn attach_line(command: &str, session: &str) -> String {
     let short = session.split('-').next().unwrap_or(session);
     format!("{command} attach {short}")
 }
 
-/// An agent without accounts comes back only to the conversation of its chat, with the line of
-/// `kodosi acp` that runs its server.
+/// Builds a resume command for ACP agents without local account folders by reusing their
+/// `kodosi acp` command line with the chat conversation ID.
 async fn server_line(terminal: &TerminalSession, notes: &Notes) -> Option<AgentLine> {
     let conversation = terminal.chat.conversation().await?;
     let foreground = terminal
@@ -281,7 +281,6 @@ async fn server_line(terminal: &TerminalSession, notes: &Notes) -> Option<AgentL
     Some(AgentLine { line, named: true })
 }
 
-/// The line of `kodosi acp` with the words of `arguments`, which loads `conversation` again.
 pub(super) fn resumed_server_line(
     arguments: &[String],
     conversation: &str,
@@ -315,8 +314,8 @@ pub(super) fn resumed_server_line(
     )
 }
 
-/// Kept while the agent runs, so that the terminal still comes back to its conversation when the
-/// agent stops before the host asks, or the host ends without asking.
+/// Caches the running agent's resume command periodically so restore still works if the agent
+/// exits early or the host terminates abruptly.
 #[derive(Debug, Default)]
 pub(super) struct Conversation {
     line: Option<String>,
@@ -407,8 +406,8 @@ pub(super) fn chosen_line(
     }
 }
 
-/// Windows shows no other process's environment, and the programs of its terminals start with
-/// the host's.
+/// On Windows the foreground program's environment is not read, so fall back to the host's own
+/// variable, which the terminal's programs inherit.
 pub(super) fn account_variable(shown: Option<String>, name: &str) -> Option<String> {
     shown.or_else(|| cfg!(windows).then(|| std::env::var(name).ok()).flatten())
 }
@@ -422,8 +421,8 @@ pub(super) fn restart_command(
     notes: &Notes,
 ) -> String {
     let mut words = vec![crate::agents::account_command(agent, home, account)];
-    // A conversation that Codex resumes through its server keeps the permissions that it had,
-    // and Codex refuses others there.
+    // Resuming via Codex's server preserves the original permissions and rejects
+    // overriding them on the command line.
     let through_server = agent == Agent::Codex && notes.codex_servers.is_some();
     words.extend(agent.chosen(arguments, changed, !through_server));
     agent.with_context(&words.join(" "), notes)
@@ -443,7 +442,8 @@ pub(super) fn resume_line(
     Some(format!("{command} {}", words.join(" ")))
 }
 
-/// Without a conversation, the agent lists its conversations to continue one.
+/// With `conversation: None`, passes bare resume flags so the agent opens its conversation
+/// picker.
 pub(super) fn resume_words(agent: Agent, conversation: Option<&str>) -> Option<Vec<String>> {
     Some(match (agent, conversation) {
         (Agent::Claude, Some(id)) => vec!["--resume".to_owned(), id.to_owned()],

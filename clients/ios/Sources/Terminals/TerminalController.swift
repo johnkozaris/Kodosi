@@ -54,15 +54,15 @@ final class TerminalController {
     @ObservationIgnored let lock: AppLock
     @ObservationIgnored private var openTask: Task<Void, Never>?
     @ObservationIgnored private var listed: RuntimeSession?
-    /// A person opened or touched the terminal here, and its focus has not gone as that act yet.
-    /// A focus that only comes back with the app or the connection takes no size.
+    /// Tracks whether the next focus acquisition stems from an explicit user action (open or tap)
+    /// rather than passive foreground/reconnect restoration, which should not claim terminal size.
     @ObservationIgnored private var acted = false
 
     init(sessionId: String, store: TerminalStore, lock: AppLock) {
         self.sessionId = sessionId
         self.store = store
         self.lock = lock
-        // The screen opens its terminal as it appears, after its first frame.
+        // Set before `onAppear` calls `open()` so frame 1 does not flash an offline cover.
         opening = store.session(sessionId).map { $0.canOpen && !$0.isConnected } ?? false
     }
 
@@ -179,7 +179,7 @@ final class TerminalController {
         refresh()
     }
 
-    /// A tap that comes while the terminal cannot take the focus is no act for a later focus.
+    /// Ignores taps while input is unavailable so `acted` is not queued for a later passive focus.
     func tapped() {
         guard canType else { return }
         focusTerminal()

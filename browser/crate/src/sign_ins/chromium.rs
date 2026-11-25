@@ -28,14 +28,14 @@ const KEY_BYTES: usize = 16;
 const KEY_ROUNDS: u32 = 1003;
 #[cfg(all(unix, not(target_os = "macos")))]
 const KEY_ROUNDS: u32 = 1;
-/// The Secret Service of KDE refuses about one session in 256, whose key secret-service sends
-/// without its leading zero byte (secret-service-rs#127). Each session draws a new key.
+/// KDE's Secret Service rejects ~1 in 256 DH sessions when `secret-service` strips a leading
+/// zero byte from the key (secret-service-rs#127); retrying generates a fresh key.
 #[cfg(all(unix, not(target_os = "macos")))]
 const SECRET_SERVICE_OPENINGS: usize = 3;
 #[cfg(all(unix, not(target_os = "macos")))]
 const REFUSED_ARGUMENTS: &str = "org.freedesktop.DBus.Error.InvalidArgs";
 const HOST_HASH_BYTES: usize = 32;
-/// From this version of the store, each value starts with a hash of its host.
+/// Starting at cookie DB schema v24, decrypted values are prefixed with a 32-byte host SHA-256.
 const HASHED_FROM: i64 = 24;
 const SECONDS_TO_1970: f64 = 11_644_473_600.0;
 const MICROSECONDS: f64 = 1_000_000.0;
@@ -154,7 +154,8 @@ fn store_of(profile: &Path) -> Option<PathBuf> {
         .find(|store| store.is_file())
 }
 
-/// A browser whose data macOS keeps from Kodosi is one source, as its profiles are in that data.
+/// Browsers blocked by macOS data protection appear as a single protected source because
+/// `Local State` cannot be read to enumerate profiles.
 pub(super) fn sources(home: &Path) -> Vec<SignInSource> {
     let mut sources = Vec::new();
     for family in &FAMILIES {
@@ -311,7 +312,7 @@ fn expiry_of(expires: i64) -> Option<f64> {
     (expires > 0).then(|| expires as f64 / MICROSECONDS - SECONDS_TO_1970)
 }
 
-/// The cookies that a device-bound session holds. Its record names them in plain bytes.
+/// Device-bound session cookies; cookie names appear verbatim inside the `session_proto` blob.
 #[derive(Default)]
 struct BoundCookies {
     sessions: Vec<(String, Vec<u8>)>,
@@ -442,7 +443,8 @@ fn read_store(
     Ok(cookies)
 }
 
-/// Copies the store first, so a browser whose data macOS keeps from Kodosi asks for no key.
+/// Copies the cookie DB before fetching the decryption key so macOS does not prompt for Keychain
+/// access when the browser's data directory is protected.
 pub(super) fn read(
     family: &Family,
     folder: &Path,

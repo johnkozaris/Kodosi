@@ -33,7 +33,8 @@ export function TextRow({ label, end, id, type, ref, fits = true, ...input }: Fi
     node.current?.setCustomValidity(fits ? "" : "not yet");
   }, [fits]);
   const refused = input["aria-invalid"] === true || input["aria-invalid"] === "true";
-  // Browsers give the caret position, which the cursor follows, only for a field of text.
+  // Render email fields as type="text" because browsers do not expose selectionStart/End on
+  // type="email", which the custom cursor needs to track the caret.
   const email = type === "email";
   return (
     <div className={cn(rule, "flex h-14 items-center")}>
@@ -170,7 +171,7 @@ export function SwitchRow({
   );
 }
 
-// Keycloak's own pages send logout-sessions=on unless the person turns it off.
+// Matches Keycloak's default of sending logout-sessions=on unless the user explicitly turns it off.
 export function SignOutOthers({ shown, label }: { shown: boolean; label: string }) {
   return shown ? (
     <SwitchRow

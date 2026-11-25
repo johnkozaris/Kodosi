@@ -19,7 +19,7 @@ function placeOf(body: unknown): Place | null {
   return { from: place.from, to: place.to };
 }
 
-/** A place from the document, at the client's rev, in this copy: across its steps that wait. */
+/** Maps a peer selection from the confirmed rev forward through local unacknowledged steps. */
 export function shownPlace(state: EditorState, place: Place): Place {
   let { from, to } = place;
   for (const step of sendableSteps(state)?.steps ?? []) {

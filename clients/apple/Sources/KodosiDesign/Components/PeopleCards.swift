@@ -1,8 +1,6 @@
 import KodosiBridge
 import SwiftUI
 
-/// With `open`, the card is a key; without it, the card lifts under the pointer and its marks open
-/// the terminals.
 public struct FriendCard<Trailing: View, Footer: View>: View {
     @Environment(\.theme) private var theme
     @State private var hovered = false

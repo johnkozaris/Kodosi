@@ -10,12 +10,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.yield
 
-/**
- * The shared browser's pipes run on a thread of their own, from the runtime's events of each pipe
- * to the parts of each frame, its acknowledgment and its way to the decoder. The host reads a late
- * acknowledgment as a slow link and lowers the bitrate, so no frame waits for the main thread, and
- * only what a view shows goes there.
- */
+// Browser pipes run on a dedicated single thread so frame reassembly, acks, and decoder handoff
+// never block on the main thread (late acks cause the host to lower bitrate).
 class BrowserPipes(
     private val commands: CommandSink,
     thread: Executor = Executors.newSingleThreadExecutor { Thread(it, "Kodosi browser") }
@@ -26,17 +22,15 @@ class BrowserPipes(
     private val feeds = mutableListOf<BrowserFeed>()
     private val chosen = mutableSetOf<String>()
 
-    /** The key and the id of each open pipe, as the runtime writes them in the events of the pipe. */
     @Volatile
     private var claimed = emptyList<ByteArray>()
 
-    /**
-     * The runtime asks on its own threads for each event. Only the events of a pipe have a "pipe" key,
-     * and a quote in a text value has an escape, so no other event has these bytes.
-     */
+    // Called on runtime threads to route pipe events off the main queue without parsing JSON.
+    // Matching raw `"pipe":"<id>"` bytes is safe because quotes inside JSON string values are
+    // escaped and only pipe events have a "pipe" key.
     fun claims(json: ByteArray): Boolean = claimed.any(json::holds)
 
-    /** The link must be used on this thread only. */
+    // Methods on the returned link must only be called on this executor's thread.
     fun link(session: String): DocumentLink = DocumentLink(commands, session, "browser", ::claim) {
         links.remove(it)
         claim()
@@ -55,25 +49,22 @@ class BrowserPipes(
                     links.toList().forEach(DocumentLink::renewAfterLoss)
                 }
             }
-            // The acts of a view wait here for the event at hand, not for each event in the inbox.
+            // Yield between events so UI actions queued on this executor are not starved.
             yield()
         }
     }
 
     fun receive(event: RuntimeEvent) = links.toList().forEach { it.receive(event) }
 
-    /**
-     * A person chose the terminal's browser on this device, so the page takes the shape of this
-     * device: at once when a view of it watches, or else at the next watch of it, which can come
-     * much later when the browser starts first. A view that only comes back on the screen, or
-     * whose pipe opens again, leaves the page to the device in use.
-     */
+    // Mark that the user explicitly opened the browser here so the shared viewport resizes to this
+    // device (immediately if watching, or on the next watch). Returning from background or
+    // reconnecting without choose() leaves the viewport owned by whichever device was active last.
     fun choose(session: String) = execute {
         chosen += session
         feeds.filter { it.session == session }.forEach(BrowserFeed::chosen)
     }
 
-    /** The person left the terminal's browser, so no later watch takes the page for that act. */
+    // Clear any pending viewport claim when leaving the browser before watch is sent.
     fun forget(session: String) = execute { chosen -= session }
 
     internal fun takeChoice(session: String) = chosen.remove(session)

@@ -169,7 +169,7 @@ void DesktopFileIntegration::showInFolder(const QString& path)
 #ifdef Q_OS_WIN
     QProcess explorer;
     explorer.setProgram(QStringLiteral("explorer.exe"));
-    // Explorer finds the file only when the quotes hold the path alone.
+    // Explorer only selects the file if quotes wrap the path alone, not the /select, prefix.
     explorer.setNativeArguments(QStringLiteral("/select,\"%1\"").arg(QDir::toNativeSeparators(file)));
     if (explorer.startDetached())
         clearError();
@@ -241,7 +241,7 @@ void DesktopFileIntegration::copyText(const QString& text)
 bool DesktopFileIntegration::openWebUrl(const QString& value)
 {
     const QUrl url(value, QUrl::StrictMode);
-    // Plain HTTP is allowed only for a development sign-in server on this computer.
+    // Allow plain HTTP only for a local development sign-in server.
     const bool local = url.scheme() == QStringLiteral("http")
         && (url.host() == QStringLiteral("127.0.0.1") || url.host() == QStringLiteral("localhost")
             || url.host() == QStringLiteral("::1"));

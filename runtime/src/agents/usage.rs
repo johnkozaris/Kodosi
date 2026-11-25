@@ -408,7 +408,7 @@ fn claude(report: &Value) -> Vec<UsageLimit> {
         .collect()
 }
 
-/// The windows that a session of Claude Code reports while it runs.
+/// Parses the rate-limit windows reported live by a running Claude Code session.
 pub(crate) fn claude_session(windows: &Value) -> Vec<UsageLimit> {
     let limits = windows
         .as_array()
@@ -437,8 +437,7 @@ pub(crate) fn claude_session(windows: &Value) -> Vec<UsageLimit> {
     upcoming(limits, crate::identity::now_ms())
 }
 
-/// The windows that Codex reports for its account, which its app-server also reports while a
-/// session runs.
+/// Parses Codex `rateLimits` snapshots from both account polling and live `app-server` events.
 pub(crate) fn codex(result: &Value) -> Vec<UsageLimit> {
     let Some(snapshot) = result.get("rateLimits") else {
         return Vec::new();

@@ -33,7 +33,7 @@ public protocol TerminalSurfaceClipboardReadDelegate: TerminalSurfaceViewDelegat
     func terminalDidRequestClipboardRead(_ answer: @escaping @MainActor (Bool) -> Void)
 }
 
-/// A paste of a picture with no text. The terminal pastes no text for it.
+/// Called when an image is pasted with no text; the terminal does not handle the paste itself.
 @MainActor
 public protocol TerminalSurfacePictureDelegate: TerminalSurfaceViewDelegate {
     func terminalDidPastePicture(_ picture: Data)

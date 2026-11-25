@@ -199,7 +199,8 @@ pub(crate) fn stagger(delay: Duration) -> Duration {
 
 const SHORTEST_SLEEP: Duration = Duration::from_secs(5);
 
-/// The monotonic clock stands still while the computer sleeps, and the wall clock goes on.
+/// Captures monotonic and wall time together to detect system sleep (wall time advances while
+/// monotonic time pauses).
 #[derive(Clone, Copy)]
 pub(crate) struct Moment {
     pub(crate) monotonic: tokio::time::Instant,
@@ -285,7 +286,7 @@ pub struct RemoteSession {
     pub restored_from: Option<Uuid>,
 }
 
-/// The server reads it, so it never carries the program's text.
+/// Metadata visible to the relay server; must never contain terminal or program text.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TerminalStatus {
@@ -297,11 +298,11 @@ pub struct TerminalStatus {
     pub state: Option<crate::terminal::ProgramState>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kind: Option<crate::terminal::BlockedKind>,
-    /// The helpers of the program that work now.
+    /// Number of the program's helpers that are working now.
     #[serde(default, skip_serializing_if = "crate::terminal::no_helpers")]
     pub helpers: u8,
-    /// The owner of the terminal did not see its state yet. The server gives it only to the
-    /// owner's devices.
+    /// True when the terminal's owner has not yet seen this state; relayed only to the owner's
+    /// devices.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub attention: bool,
 }
@@ -323,8 +324,7 @@ impl TerminalStatus {
         }
     }
 
-    /// A new state can reach the publication before the runtime ends the mark of the state
-    /// before it.
+    /// Ignores a stale attention mark if a newer state arrived before the runtime cleared it.
     #[cfg(feature = "host")]
     pub(crate) fn marked(mut self, marked: Option<crate::terminal::Waiting>) -> Self {
         self.attention = marked.is_some() && self.waiting() == marked;
@@ -429,8 +429,8 @@ pub enum HostRequest {
     },
 }
 
-/// The host pastes a known picture from its file, if it still has it, and answers `missing` if
-/// not.
+/// `Known` asks the host to paste an already-cached image by digest, returning `missing` if the
+/// host does not have it, so the viewer can upload `Whole`.
 pub enum HostPicture {
     Known {
         digest: [u8; 32],
@@ -553,8 +553,7 @@ impl RemoteControl {
         ))
     }
 
-    /// The terminal's computer confirms input once the terminal has it, so a view that closes
-    /// after this answer loses none of the input that it sent before.
+    /// Resolves once the host confirms all previously sent input has been written to the terminal.
     pub fn delivered(&self) -> impl Future<Output = Result<()>> + Send + use<> {
         let (reply, response) = oneshot::channel();
         let admission = if self.cancellation.is_cancelled() {
@@ -632,7 +631,7 @@ impl Drop for RemoteConnection {
 }
 
 pub type PublicationOutput = broadcast::Receiver<PublishedFrame>;
-/// The state of a hosted terminal whose owner did not see it yet.
+/// Unseen waiting state of a hosted terminal, published to the owner's devices.
 pub type PublishedMark = tokio::sync::watch::Receiver<Option<crate::terminal::Waiting>>;
 
 #[cfg(test)]

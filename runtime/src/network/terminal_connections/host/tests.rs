@@ -56,7 +56,6 @@ impl Terminal {
         self.viewer.send(&Frame::Ack { received }).await.unwrap();
     }
 
-    /// Takes the next frame over a link of `LINK` bytes a second.
     async fn carry(&mut self) -> Frame {
         let before = self.received;
         let frame = self.next().await;
@@ -97,7 +96,7 @@ impl Terminal {
 }
 
 const VISIBLE: usize = 300;
-/// The bytes a second that the link of the test's viewer carries.
+/// Simulated viewer link bandwidth in bytes per second.
 const LINK: u64 = 1024 * 1024;
 
 fn echo_pipe() -> crate::canvas::PipeEnds {
@@ -114,7 +113,6 @@ fn echo_pipe() -> crate::canvas::PipeEnds {
     }
 }
 
-/// A document that sends frames as fast as the host takes them, as a page that scrolls.
 fn busy_pipe() -> crate::canvas::PipeEnds {
     let (sender, heard) = mpsc::channel(8);
     let (frames, receiver) = mpsc::channel(8);

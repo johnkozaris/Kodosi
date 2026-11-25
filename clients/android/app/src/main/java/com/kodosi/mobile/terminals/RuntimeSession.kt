@@ -71,14 +71,13 @@ data class RuntimeSession(
     val projectId: String? = null,
     val restoredFrom: String? = null,
     val canvas: Canvas? = null,
-    /** Where the agent that reports to the terminal's chat works, while one does. */
+    // Preferred face reported by the agent (chat vs terminal), or null if none.
     val face: TerminalFace? = null,
-    /** The helpers of the terminal's agent that work now. */
+    /** How many helpers of the terminal's agent are working now. */
     val helpers: Int = 0,
-    /** The terminal's computer chooses it for everyone who sees the terminal. */
+    // Terminal color theme chosen by the host computer for all viewers.
     val look: TerminalLook = TerminalLook.DARK
 ) {
-    /** The face that the apps show: the person's pick while it holds, else where the agent works. */
     fun shownFace(pick: FacePick?): TerminalFace = pick?.face ?: face ?: TerminalFace.TERMINAL
 
     fun keeps(pick: FacePick): Boolean = face == null || pick.over == face
@@ -144,11 +143,10 @@ data class RuntimeSession(
     val folderName: String? get() = workingDir?.let(::lastName)
 }
 
-/** The last name of a path of any computer, and the path itself for its root. */
+/** The last component of a path from any computer, or the path itself for a root. */
 fun lastName(path: String): String =
     path.trimEnd('/', '\\').substringAfterLast('/').substringAfterLast('\\').ifEmpty { path }
 
-/** The two faces of a terminal: its screen, and its chat. */
 @Serializable
 enum class TerminalFace {
     @SerialName("terminal")
@@ -158,10 +156,8 @@ enum class TerminalFace {
     CHAT
 }
 
-/**
- * The face that a person picked for a terminal. It holds until the terminal's agent reports another
- * face, so a terminal whose agent goes to the chat or waits for its sign-in shows its own face.
- */
+// Local user override of a terminal's face; it holds until the agent reports a face other than
+// [over] (e.g. drops automatically if the agent switches back to terminal for auth).
 data class FacePick(val face: TerminalFace, val over: TerminalFace?)
 
 @Serializable

@@ -1,5 +1,3 @@
-//! Only the people's tabs filter their requests, and a page itself always loads.
-
 use std::{fs, path::PathBuf, sync::OnceLock};
 
 use adblock::{
@@ -11,7 +9,8 @@ use cef::*;
 
 static FILTERS: OnceLock<Engine> = OnceLock::new();
 
-/// What a filter list calls each kind of request. A page's own document is never one.
+/// Maps CEF resource types to adblock filter types. `MAIN_FRAME` is intentionally omitted so
+/// top-level page navigations are never blocked.
 const KINDS: [(ResourceType, &str); 18] = [
     (ResourceType::SUB_FRAME, "subdocument"),
     (ResourceType::NAVIGATION_PRELOAD_SUB_FRAME, "subdocument"),
@@ -33,7 +32,6 @@ const KINDS: [(ResourceType, &str); 18] = [
     (ResourceType::PREFETCH, "other"),
 ];
 
-/// Until the lists are read, every request goes through.
 pub(crate) fn load() {
     let Some(folder) = folder() else {
         return;
@@ -55,7 +53,6 @@ pub(crate) fn load() {
     drop(started);
 }
 
-/// The lists: in the app's resources on a Mac, beside the program elsewhere.
 fn folder() -> Option<PathBuf> {
     let program = std::env::current_exe().ok()?;
     let beside = program.parent()?;

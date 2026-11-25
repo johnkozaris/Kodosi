@@ -33,7 +33,7 @@ bun-install:
 rust-tool-check tool:
     @test -x "{{ cargo_tools_bin }}/{{ tool }}" || { printf '%s\n' 'Run just rust-tools-install first.' >&2; exit 1; }
 
-# Check the Ghostty pins, digests and notices without a build.
+# Check Ghostty pins, digests, and notices without building.
 [group('ghostty')]
 ghostty-check: ghostty-notices-check
     python3 terminal/ghostty/scripts/verify-ghostty-pins.py
@@ -61,22 +61,22 @@ ghostty-notices-check:
 rust-cli-build: conpty-install
     cargo build --manifest-path runtime/Cargo.toml --locked --bin kodosi
 
-# Build Kodosi Browser for development into .tools/kodosi-browser; KODOSI_BROWSER_ENGINE names it.
+# Build Kodosi Browser for development into .tools/kodosi-browser; point KODOSI_BROWSER_ENGINE to it.
 [group('rust')]
 browser-engine-build:
     python3 browser/build/build-engine.py --debug --output-dir .tools/kodosi-browser
 
-# Build the pinned agent-browser of the shared browser next to the development CLI.
+# Build the pinned agent-browser binary next to the development CLI.
 [group('rust')]
 agent-browser-build:
     python3 scripts/build-agent-browser.py --target "$(rustc -vV | sed -n 's/^host: //p')" --output-dir runtime/target/debug
 
-# Check the Rust format.
+# Check Rust formatting.
 [group('rust')]
 rust-format-check:
     cargo fmt --manifest-path runtime/Cargo.toml --all -- --check
 
-# Lint the full and the viewer builds of the Rust workspace with Clippy.
+# Lint both the full and viewer Rust workspace builds with Clippy.
 [group('rust')]
 rust-lint:
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked --workspace --lib --bins --examples -- -D warnings
@@ -84,18 +84,18 @@ rust-lint:
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --lib --bins -- -D warnings
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --tests -- {{ test_lints }}
 
-# Check the licenses and the sources of the Rust dependencies with cargo-deny.
+# Check Rust dependency licenses and sources with cargo-deny.
 [group('rust')]
 rust-deny-check: (rust-tool-check "cargo-deny")
     cargo deny --manifest-path runtime/Cargo.toml --workspace --locked check --hide-inclusion-graph bans licenses sources
 
-# Check the Rust dependencies of the apps and of Kodosi Browser for security advisories with cargo-deny.
+# Check app and Kodosi Browser Rust dependencies for security advisories with cargo-deny.
 [group('rust')]
 rust-advisories-check: (rust-tool-check "cargo-deny")
     cargo deny --manifest-path browser/engine/Cargo.toml --locked check --hide-inclusion-graph advisories
     cargo deny --manifest-path runtime/Cargo.toml --workspace --locked check --hide-inclusion-graph advisories
 
-# Check the Bun packages of the document views and the sign-in pages for security advisories.
+# Check document-view and sign-in Bun packages for security advisories.
 [group('rust')]
 [group('sign-in')]
 bun-advisories-check: bun-install
@@ -109,7 +109,7 @@ bun-advisories-check: bun-install
 rust-machete-check: (rust-tool-check "cargo-machete")
     cargo machete --skip-target-dir runtime
 
-# Check that each Rust dependency of the Linux and the Windows runtime has license text.
+# Check that all Linux and Windows runtime Rust dependencies have license text.
 [group('rust')]
 rust-license-check:
     for target in x86_64-unknown-linux-gnu x86_64-pc-windows-msvc; do \
@@ -133,18 +133,18 @@ conpty-install:
 [unix]
 conpty-install:
 
-# Run the Rust tests for the full and the viewer builds.
+# Run Rust tests for both the full and viewer builds.
 [group('rust')]
 rust-test: conpty-install
     CARGO_INCREMENTAL=0 cargo test --manifest-path runtime/Cargo.toml --locked --workspace --all-targets
     CARGO_INCREMENTAL=0 cargo test --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --all-targets
 
-# Write protocol/desktop-runtime.json from the Rust definitions. The tests check it.
+# Generate protocol/desktop-runtime.json from Rust definitions (verified by tests).
 [group('protocol')]
 protocol-gen:
     cargo run --manifest-path runtime/Cargo.toml --locked --bin protocol-gen
 
-# Run the Ghostty checks and all the Rust checks.
+# Run Ghostty checks and all Rust checks.
 [group('rust')]
 rust-check: ghostty-check rust-format-check rust-lint rust-dependency-check rust-test
 
@@ -163,7 +163,7 @@ documents-app-check: bun-install
     cargo fmt --manifest-path documents/app/Cargo.toml --all -- --check
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path documents/app/Cargo.toml --locked --all-targets -- {{ test_lints }}
 
-# Run the documents app with a window for each file; one file twice gives two people.
+# Run the documents app with one window per file; pass a file twice to simulate two users.
 [group('rust')]
 [no-cd]
 [positional-arguments]
@@ -215,7 +215,7 @@ backend-docker-run:
 backend-docker-stop:
     docker compose down
 
-# Build and tag the backend release image for a platform, for example linux/arm64. Push nothing.
+# Build and tag the backend release image for a platform (e.g. linux/arm64) without pushing.
 [group('backend')]
 backend-package platform tag="kodosi-backend":
     docker buildx build --platform "{{ platform }}" --file backend/Dockerfile --tag "{{ tag }}" --load .
@@ -224,19 +224,19 @@ backend-package platform tag="kodosi-backend":
 backend-sdk-check:
     python3 backend/scripts/verify-sdk-pin.py
 
-# Run all the backend checks.
+# Run all backend checks.
 [group('backend')]
 backend-check: backend-sdk-check backend-test
 
 # Run the Rust, documents, browser, backend and translation checks.
 check-all: rust-check documents-check browser-check backend-check translations-check
 
-# Check that each text that people read has its words in each language.
+# Check that every user-facing string is translated into all supported languages.
 [group('translations')]
 translations-check:
     python3 scripts/check-translations.py
 
-# Add the texts of the last Mac and iPhone builds to the string catalogs.
+# Sync strings from the latest macOS and iOS builds into the string catalogs.
 [group('translations')]
 apple-strings-sync:
     python3 clients/apple/scripts/sync-string-catalogs.py
@@ -246,7 +246,7 @@ apple-strings-sync:
 mac-build:
     just --justfile clients/macos/justfile build
 
-# Lint and test the Mac app, build the Release app, then check its translations. Commit all the changes first.
+# Lint and test the Mac app, build Release, and check translations (commit changes first).
 [group('mac')]
 mac-check:
     just --justfile clients/macos/justfile check
@@ -302,17 +302,17 @@ android-release-build:
 android-bundle-build:
     just --justfile clients/android/justfile bundle-build
 
-# Install the Debug Android app on the device or emulator that adb sees, and open it.
+# Install and launch the Debug Android app on the connected adb device or emulator.
 [group('android')]
 android-run:
     just --justfile clients/android/justfile run
 
-# Format the Kotlin sources of the Android app.
+# Format Android Kotlin sources.
 [group('android')]
 android-format:
     just --justfile clients/android/justfile format
 
-# Run the unit tests of the Android app.
+# Run Android unit tests.
 [group('android')]
 android-test:
     just --justfile clients/android/justfile test
@@ -337,7 +337,7 @@ linux-build:
 linux-check:
     just --justfile clients/qt/justfile check
 
-# Add the new texts of the Linux and Windows app to its translation files.
+# Sync new Linux and Windows app strings into the translation files.
 [group('linux')]
 linux-strings-sync:
     just --justfile clients/qt/justfile strings-sync
@@ -347,7 +347,7 @@ linux-strings-sync:
 windows-check:
     just --justfile clients/qt/justfile windows-check
 
-# Lint the runtime for the two Windows targets in Docker on any host.
+# Lint the runtime for both Windows targets in Docker on any host.
 [group('windows')]
 windows-rust-lint:
     docker build --quiet --build-arg "RUST_VERSION=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)" \
@@ -358,13 +358,13 @@ windows-rust-lint:
             cargo xwin clippy --manifest-path runtime/Cargo.toml --locked --target $target --workspace --tests -- {{ test_lints }}"; \
     done
 
-# Build the Keycloak theme after the type, lint and format checks, then build and test the Keycloak extension.
+# Type-check, lint, format-check, and build the Keycloak theme, then build and test the extension.
 [group('sign-in')]
 sign-in-check: bun-install translations-check
     cd sign-in && bun ci && bun run lint && bun run format:check && bun run build
     sign-in/extension/maven.sh -q verify
 
-# Test the scripts that write the update site of a release and the feed of Kodosi Browser.
+# Test the release update-site and Kodosi Browser feed scripts.
 [group('release')]
 release-test:
     python3 -m unittest scripts/tests/test_update_site.py scripts/tests/test_engine_feed.py

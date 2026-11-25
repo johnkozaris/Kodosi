@@ -51,11 +51,8 @@ internal object ChatWords {
         if (tool.kind == ChatToolKind.SKILL || tool.kind == ChatToolKind.OTHER) tool.name else null
     }
 
-    /**
-     * An agent reports its model by its full id, such as claude-sonnet-5-5 or
-     * claude-sonnet-4-5-20250929, where the launcher knows the model by a shorter one, such as
-     * sonnet: the name of the shorter one and the version after it make "Sonnet 5.5".
-     */
+    // Agents report full model IDs (e.g. "claude-sonnet-4-5-20250929") while the launcher uses
+    // short IDs ("sonnet"). Match the short ID and append short version segments ("Sonnet 4.5").
     fun modelName(id: String, models: List<AgentModel>?): String {
         val known = models ?: return id
         known.firstOrNull { it.id == id }?.let { return it.label }
@@ -69,7 +66,6 @@ internal object ChatWords {
         return id
     }
 
-    /** A command and a path read in the letters of a terminal. */
     fun monospaced(kind: ChatToolKind): Boolean = kind in setOf(
         ChatToolKind.COMMAND,
         ChatToolKind.READ,
@@ -114,7 +110,6 @@ internal object ChatWords {
         ChatToolKind.OTHER -> R.plurals.chat_used_tools
     }
 
-    /** One sentence for the calls of a turn, such as "Ran 3 commands and changed 2 files". */
     @Composable
     fun summary(tools: List<ChatTool>): String {
         val locale = locale()
@@ -122,7 +117,7 @@ internal object ChatWords {
         return remember(clauses, locale) { sentence(ListFormatter.getInstance(locale).format(clauses), locale) }
     }
 
-    /** The calls that did not go as the agent wanted, such as "1 failed" or "1 denied". */
+    /** Counts of the calls that failed, were denied or were stopped, such as "1 failed" or "1 denied". */
     @Composable
     fun setbacks(tools: List<ChatTool>): List<Pair<ChatToolState, String>> = listOf(
         ChatToolState.FAILED to R.plurals.chat_count_failed,
@@ -132,7 +127,6 @@ internal object ChatWords {
         tools.count { it.state == state }.takeIf { it > 0 }?.let { state to pluralStringResource(words, it, it) }
     }
 
-    /** What a call does or did, with its subject, such as "running npm test" or "ran npm test". */
     @Composable
     fun step(tool: ChatTool): String {
         val question = tool.detail as? ChatToolDetail.Question

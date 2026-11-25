@@ -22,8 +22,7 @@ export function CheckPage({
     kcContext.pageId === "turnstile-registration-form.ftl" ||
     ("isRegistrationFlow" in kcContext && !!kcContext.isRegistrationFlow);
 
-  // A check that the server refused waits for the person, so that a refusal that stays does not
-  // post again and again.
+  // Wait for an explicit retry after a server rejection to avoid an infinite auto-submit loop.
   const stopped = check.refused && !check.retried;
   useEffect(() => {
     if (check.passed && check.config && !stopped) body.current?.requestSubmit();

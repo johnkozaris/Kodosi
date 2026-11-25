@@ -4,8 +4,8 @@ import { MOST_SPAN } from "./generated/writable";
 import { cssAlign } from "./styles";
 
 /**
- * A value that a paste does not take. Without parseHTML, Tiptap reads a value from the HTML
- * attribute of the same name, such as the id or the style of any pasted element.
+ * Non-rendered attribute ignored on paste. Explicit parseHTML is required because Tiptap
+ * otherwise auto-parses matching HTML attributes (such as `id` or `style`) from pasted HTML.
  */
 const attribute = (empty: unknown = null) => ({
   default: empty,
@@ -13,14 +13,13 @@ const attribute = (empty: unknown = null) => ({
   parseHTML: () => null,
 });
 
-/** A key to a piece of the file, which a paste keeps only where the document holds that piece. */
+// Key referencing raw backing XML; paste.ts drops it unless the document holds that piece.
 const pieceAttribute = () => ({
   default: null,
   rendered: false,
   parseHTML: (element: HTMLElement) => element.getAttribute("data-raw"),
 });
 
-/** The text that a piece of the file shows. */
 const shownText = () => ({
   default: "",
   rendered: false,
@@ -44,10 +43,10 @@ const ALIGNS = new Set([
   "numTab",
 ]);
 
-/** A line of single spacing, as a multiple of the size of the letters, near what `normal` gives. */
+// Baseline single-line height multiplier matching typical CSS "normal" line-height.
 const SINGLE_LINE = 1.2;
 
-/** The colors of the highlight names of .docx, which differ from the CSS colors of the same names. */
+// OOXML highlight color values, which differ from CSS named colors (e.g. green is #00ff00).
 const HIGHLIGHTS: Record<string, string> = {
   yellow: "#ffff00",
   green: "#00ff00",
@@ -68,8 +67,8 @@ const HIGHLIGHTS: Record<string, string> = {
 };
 
 /**
- * A value that a copy carries in a data attribute. A paste takes it back only in a form that the
- * file allows, as pasted HTML can come from any page.
+ * Attribute round-tripped via a data-* attribute and validated on paste against `allowed`,
+ * since clipboard HTML can come from any source.
  */
 const dataAttribute = (
   name: string,
@@ -110,7 +109,7 @@ function columns(element: HTMLElement): number {
   return cellSpan(element.getAttribute("colspan"));
 }
 
-/** The nodes and marks of a document body, in the order of `crates/docx/schema.json`. */
+// Node and mark order must match crates/docx/schema.json.
 const nodes = [
   Node.create({ name: "doc", topNode: true, content: "block+" }),
   Node.create({

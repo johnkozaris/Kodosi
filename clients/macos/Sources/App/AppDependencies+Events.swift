@@ -141,8 +141,8 @@ extension AppDependencies {
         showNotifiedTerminal()
     }
 
-    /// A notification that started the app arrives before the terminal list, and a terminal of
-    /// the earlier run comes back under a new ID, so the notification waits a short time for it.
+    /// Keeps a clicked notification pending briefly because cold-launch clicks arrive before
+    /// `sessions.snapshot` and restored terminals come back under a new ID.
     private func showNotifiedTerminal() {
         guard let notified else { return }
         guard ContinuousClock.now < notified.until else {
@@ -314,8 +314,8 @@ extension AppDependencies {
             case .changed: !open && settings.opensCanvas && !canvas.isShut(id)
             }
             guard opens else { continue }
-            // A show of the agent is no act of a person here, so the browser's page stays with
-            // the device in use.
+            // Agent-triggered reveals are not local user actions, so call `reveal` (not `open`)
+            // to avoid taking browser viewport sizing from whichever device is actively using it.
             canvas.reveal(news.shown, in: session)
             showCanvas(id)
             open = true

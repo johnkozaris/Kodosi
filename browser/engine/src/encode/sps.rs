@@ -1,7 +1,6 @@
-/// The sequence parameter set with `gaps_in_frame_num_value_allowed_flag` set. A viewer that
-/// missed frames goes on at an anchor, so its stream skips frame numbers, and a decoder may
-/// take such a gap for frames lost on the way unless the set allows it. Only the Mac, iPhone
-/// and iPad apps take anchors.
+/// Sets `gaps_in_frame_num_value_allowed_flag` in an H.264 SPS NAL unit. Viewers resuming at
+/// an LTR anchor see gaps in `frame_num`, which decoders may otherwise treat as lost frames.
+/// Only the Mac, iPhone and iPad apps take anchors.
 pub(super) fn allowing_gaps(nal: &[u8]) -> Option<Vec<u8>> {
     let (&header, payload) = nal.split_first()?;
     let mut bits = Bits {
@@ -63,7 +62,8 @@ impl Bits {
         Some(value)
     }
 
-    /// An Exp-Golomb code. A signed one has the same length, which is all that a skip needs.
+    /// Reads an unsigned Exp-Golomb code (`ue(v)`). Also used to skip signed (`se(v)`) fields
+    /// since both encodings have the same bit length.
     fn number(&mut self) -> Option<u32> {
         let mut zeros = 0;
         while self.read(1)? == 0 {

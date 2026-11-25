@@ -8,18 +8,18 @@ mod wire;
 #[cfg(feature = "host")]
 pub(crate) use wire::{Frame, Input, KeyAction, MouseAction, MouseButton, ToViewer, ToWindow};
 
-/// The host decides who looks, and the window trusts it. `id` names one view, and each view of
-/// one person has the same `person`.
+/// Authenticated viewer supplied by the host. `id` identifies a single view; multiple views
+/// belonging to the same user share `person`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Viewer {
     pub id: String,
     pub person: String,
     pub name: String,
-    /// The view runs on the computer of the browser, with no link between them.
+    /// True when the viewer runs on the same machine as the browser engine.
     pub local: bool,
 }
 
-/// In CSS pixels, with the scale of the viewer's screen.
+/// Viewport dimensions in CSS pixels and device scale factor.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Size {
     pub width: u32,
@@ -44,13 +44,11 @@ pub struct State {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub copied: Option<String>,
     pub downloads: Vec<Download>,
-    /// The icons of tabs, as PNG in base64, that this viewer has not had yet. An empty one
-    /// takes a tab's icon away.
+    /// Newly updated tab favicons (base64 PNG) not yet sent to this viewer; empty string clears.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub icons: BTreeMap<String, String>,
-    /// The Core Animation context that shows the page, only for a view on the browser's own
-    /// computer that hosts it: another process of the person's session that knows it can show
-    /// the page.
+    /// Core Animation context ID, sent only to a local view that hosts the layer, since any
+    /// process in the user's session that knows it can show the page.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub layer: Option<u32>,
 }
@@ -75,8 +73,7 @@ pub struct Pointer {
     pub y: f64,
 }
 
-/// A page's list or the menu of a right-click, which opens where the viewer last pointed, in the
-/// CSS pixels of the page.
+/// Popup `<select>` list or right-click context menu, positioned in page CSS pixels.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Menu {
@@ -89,12 +86,12 @@ pub struct Menu {
     pub context: Option<MenuContext>,
 }
 
-/// What a right-click was on. The apps give its menu their own items in their own words: choice
-/// 0 copies the selection and choice 1 the link.
+/// Right-click target metadata. Clients build localized menu items for it: choice 0 copies the
+/// selection and choice 1 copies the link.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MenuContext {
-    /// The start of the selection, enough to ask about it.
+    /// Truncated start of the selection, long enough to ask about it.
     pub selection: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub link: Option<String>,

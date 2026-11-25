@@ -39,25 +39,21 @@ public final class CanvasStore {
     private var marks: [String: [String: UInt64]] = [:]
     private var firstSeen: [String: UInt64] = [:]
     public private(set) var picks: [String: String] = [:]
-    /// The terminals whose canvas shows all its files as cards.
+    /// Sessions whose canvas shows all of its files as cards.
     public private(set) var shelves: Set<String> = []
     private var lastFiles: [String: String] = [:]
-    /// The part of each item that this device read so far, while it reads.
+    /// Fetch progress (0...1) for in-flight item reads.
     public private(set) var reads: [String: Double] = [:]
-    /// The terminals whose browser a person on this device opens: the canvas shows it when it comes.
+    /// Sessions awaiting a locally requested browser so it is selected on arrival.
     private var opening: Set<String> = []
-    /// The parts of each canvas that a person closed on this device, with the newest change in
-    /// each part then. A part opens again when it changes.
+    /// Dismissed sections and their `changed` timestamp at dismissal; newer changes reopen them.
     private var closed: [String: [CanvasSection: UInt64]] = [:]
-    /// The time of the newest show of each terminal's agent that this device acted on, or the start
-    /// of the app: a show from before is not news.
+    /// High-water timestamps (seeded at launch) so pre-launch agent opens do not re-trigger.
     private var opened: [String: UInt64] = [:]
-    /// The same for the changes of each canvas.
+    /// High-water timestamps (seeded at launch) so pre-launch canvas changes do not re-trigger.
     private var noticed: [String: UInt64] = [:]
-    /// The terminals whose canvas a person closed on this device since it last opened or its agent
-    /// last showed something: a change does not open it.
+    /// Sessions whose canvas was manually closed; ordinary changes leave it closed until reopened.
     private var shut: Set<String> = []
-    /// When the app started, in milliseconds since 1970.
     private let started: UInt64
     @ObservationIgnored private var stored: [Stored: Data] = [:]
     @ObservationIgnored private var storedOrder: [Stored] = []
@@ -74,7 +70,7 @@ public final class CanvasStore {
         self.started = started
     }
 
-    /// The browser pipes give the link its events and open it again after a drop of their own.
+    /// Managed by `browserPipes` rather than `documents` so frames stay off the main actor.
     func browser(of session: String) -> DocumentLink {
         DocumentLink(commands: commands, session: session, key: CanvasShown.browserKey, claims: browserPipes)
     }
@@ -87,7 +83,7 @@ public final class CanvasStore {
 
     private static let chatKey = "chat"
 
-    /// The chat of a terminal stays while the terminal does, with what a person writes there.
+    /// Cached for the lifetime of the session so drafts and chat state survive view transitions.
     public func chat(_ session: String) -> TerminalChat {
         if let chat = chats[session] {
             return chat
@@ -215,14 +211,12 @@ public final class CanvasStore {
         use(session)
     }
 
-    /// A person opens the canvas at what its agent showed or changed.
     public func open(_ shown: CanvasShown, in session: RuntimeSession) {
         reveal(shown, in: session)
         use(session)
     }
 
-    /// A person uses the canvas of this terminal on this device now, so a browser that it shows
-    /// takes the shape of this device.
+    /// Claims browser viewport sizing for this device when the user focuses an active browser.
     public func use(_ session: RuntimeSession) {
         guard session.canvas?.browser != nil, current(session)?.section == .browser else { return }
         feed(session.id).open()
@@ -432,7 +426,7 @@ public final class CanvasStore {
         _ = try await ask(session, .object(["type": .string("remove"), "keys": .array(keys.map(JSONValue.string))]))
     }
 
-    /// To the canvas, no key names every file.
+    /// An empty `keys` list instructs the canvas protocol to remove all files.
     public func removeAll(in session: String) async throws {
         try await remove([], in: session)
     }

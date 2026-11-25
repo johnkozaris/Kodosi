@@ -18,10 +18,6 @@ import org.keycloak.services.resources.LoginActionsService;
 import org.keycloak.services.validation.Validation;
 import org.keycloak.sessions.AuthenticationSessionModel;
 
-/**
- * The code step of the registration flow, before the registration form, and of the reset flow, in the
- * place of the reset mail.
- */
 public final class MailCodeAuthenticator implements Authenticator, AuthenticatorFactory {
     static final String ID = "kodosi-mail-code";
     private static final String ACCOUNT = "kodosi.code.account";
@@ -41,8 +37,8 @@ public final class MailCodeAuthenticator implements Authenticator, Authenticator
             return;
         }
         authSession.setAuthNote(CodeStep.STARTED, "true");
-        // The page must be the same whether the reset found an account or not, and Keycloak shapes a page
-        // after the account of the sign-in. So the account waits aside until its code passes.
+        // Clear the flow user during reset so Keycloak does not alter the rendered page (e.g.
+        // locale or header) and reveal whether the account exists; restore it once verified.
         if (kind == CodeStep.Kind.RESET) {
             UserModel user = context.getUser();
             if (user != null && user.isEnabled() && !Validation.isBlank(user.getEmail())) {

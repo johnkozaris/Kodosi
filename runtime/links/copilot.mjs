@@ -1,24 +1,21 @@
-// Kodosi's link to Copilot CLI: an extension that tells the Kodosi host on this computer what this session
-// does, gives Copilot the person's answer to a question, and sends what the person writes in Kodosi.
-// It changes nothing else in the session, and outside a Kodosi terminal it does not join the session.
-//
-// It presses no key. Copilot shows each question in the terminal too, so a person can answer there, and
-// the first answer counts.
+// Copilot CLI extension bridging session events, prompts, and approval dialogs
+// to the local Kodosi host without injecting keystrokes. No-ops outside Kodosi.
 
 import { joinSession } from '@microsoft/copilot-sdk/extension'
 import http from 'node:http'
 
 const VERSION = 1
-// The host holds a request open for many seconds. An empty answer that comes faster did not wait there, and
-// three of them in a row end the wait.
+// Long-poll requests normally block on the host for several seconds; three
+// consecutive empty responses returning faster than QUICK_MS indicate a dead connection.
 const QUICK_MS = 200
 const FAILURES = 3
 const HISTORY = 400
 const HISTORY_PART = 40
-// The host takes at most 8 MiB in a request, and a character of the JSON takes up to three bytes there.
+// Keep batches under the host's 8 MiB limit (each UTF-16 code unit in JS
+// string length can expand to up to 3 UTF-8 bytes).
 const MOST_BATCH = 2 * 1024 * 1024
-// The events that the chat reads, with the fields that it reads. The others, such as the system prompt, the
-// pieces of a tool call or the model's encrypted reasoning, would only cost time.
+// Allowlist of events and fields forwarded to Kodosi, skipping bulky unused
+// payloads like system prompts, partial tool args, and encrypted reasoning.
 const READ = {
   'user.message': ['content'],
   'assistant.message_start': ['messageId'],
@@ -43,7 +40,8 @@ const READ = {
   'session.mode_changed': ['newMode'],
 }
 
-// Node reaches a local endpoint on Windows only at a named pipe, which the host names there apart.
+// On Windows, Node's `http.request` connects to a named pipe (`KODOSI_AGENT_PIPE`)
+// rather than the Unix socket path in `KODOSI_AGENT_LINK`.
 let socket = process.env.KODOSI_AGENT_PIPE || process.env.KODOSI_AGENT_LINK || ''
 const terminal = process.env.KODOSI_SESSION_ID || ''
 const loaded = Date.now().toString(36)
@@ -77,8 +75,8 @@ function post(path, body) {
   })
 }
 
-// The end of a turn can break a request that is on its way, so a batch that got no answer goes again under
-// its number, and the host takes each number once.
+// Turn completion can abort an in-flight HTTP request, so failed batches retry
+// with the same sequence number; the host deduplicates by batch number.
 function flush() {
   if (sending) return
   if (pending.length === 0 || !socket) {
@@ -123,7 +121,8 @@ function tell(kind, fields) {
   flush()
 }
 
-// The host has each event that came before, so a request that follows finds what it names.
+// Wait until all queued events are flushed so subsequent requests (like /v1/ask)
+// refer to state the host has already received.
 function settled() {
   if (!sending && pending.length === 0) return Promise.resolve()
   return new Promise(resolve => {
@@ -132,7 +131,7 @@ function settled() {
   })
 }
 
-// A tool can take or return megabytes. The chat shows the start and the end.
+// Bound tool inputs/outputs, which can be megabytes.
 function brief(value, depth) {
   if (typeof value === 'string') return value.length > 8000 ? value.slice(0, 4000) + '\n…\n' + value.slice(-3600) : value
   if (value === null || typeof value !== 'object' || depth > 6) return value
@@ -150,7 +149,8 @@ function shaped(event) {
   return { type: event.type, data, id: event.id, agent: event.agentId, at: Date.parse(event.timestamp) || undefined }
 }
 
-// Copilot keeps its list of the work in the session's own database, and only says that it changed.
+// `session.todos_changed` carries no payload, so fetch the todo list from
+// Copilot's session DB and coalesce overlapping refreshes.
 function readTasks() {
   if (reading) {
     readAgain = true
@@ -175,8 +175,8 @@ function readTasks() {
   return reading
 }
 
-// The session's earlier events go first. An event that comes while the extension reads them waits, and goes
-// after them unless it is one of them.
+// Send `hello` and `history` first, then flush live events buffered in `early`
+// that were not already included in history.
 async function hello(early) {
   const facts = { agent: 'copilot', version: process.env.COPILOT_CLI_BINARY_VERSION, cwd: process.cwd() }
   try {
@@ -206,8 +206,6 @@ async function hello(early) {
   await readTasks()
 }
 
-// A message goes in as the person's own words, in the mode that it names. Copilot starts its turn when the
-// session is idle.
 async function run(command) {
   if (command.do === 'stop') {
     try {
@@ -227,7 +225,6 @@ async function run(command) {
   }
 }
 
-// What the person sends from Kodosi. The loop ends with the session, or when the host is away.
 async function listen() {
   let quick = 0
   while (socket && quick < FAILURES) {
@@ -255,8 +252,9 @@ async function ask(body) {
   }
 }
 
-// Copilot shows its own question at the same time, so the person can answer in the terminal too. The host
-// ends this wait when the question is gone: the answer of the terminal came first, and Copilot keeps it.
+// Copilot shows the same prompt in the terminal concurrently; either side can
+// answer first. The host ends this wait once the question is gone, as when the
+// terminal answered first.
 async function wait(kind, request) {
   if (!socket) return null
   asks += 1
@@ -278,8 +276,9 @@ async function decide(request) {
   return answer && answer.decision ? answer.decision : { kind: 'no-result' }
 }
 
-// A question or a plan has no answer that leaves the decision to the terminal. Without the host the
-// extension gives none, and after the terminal's answer Copilot takes no other.
+// Elicitation and plan-exit hooks have no "defer to terminal" result (unlike
+// permissions' `no-result`), so returning a pending promise leaves the
+// terminal in control. After the terminal's answer, Copilot takes no other.
 const UNANSWERED = new Promise(() => {})
 
 async function form(context) {
@@ -288,8 +287,8 @@ async function form(context) {
   return answer && answer.closed ? { action: 'cancel' } : UNANSWERED
 }
 
-// Copilot's terminal turns on approval of each tool for the session when a person chooses its
-// autopilot, which asks nothing, and the extension does the same for a choice in Kodosi.
+// Approving autopilot in the terminal enables approve-all for the session;
+// mirror that here when autopilot is chosen from Kodosi.
 async function plan(request) {
   const answer = await wait('plan', request)
   const decision = answer && answer.decision

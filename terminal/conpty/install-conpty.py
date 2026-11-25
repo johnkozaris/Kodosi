@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Installs conpty.dll and OpenConsole.exe of one architecture from the pinned ConPTY package."""
+"""Install conpty.dll and OpenConsole.exe for one architecture from the pinned ConPTY package."""
 
 from __future__ import annotations
 

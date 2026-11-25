@@ -5,8 +5,7 @@
 namespace kodosi {
 class CanvasModel;
 
-// The pictures of the canvas: image://canvas/item/<published number> for a picture item and
-// image://canvas/browser/<terminal>/<sequence> for the shared browser.
+// Serves published canvas images via image://canvas/item/<id>.
 class CanvasImages final : public QQuickImageProvider {
 public:
     explicit CanvasImages(CanvasModel& canvas);

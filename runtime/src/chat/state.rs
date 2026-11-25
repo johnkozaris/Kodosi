@@ -4,7 +4,6 @@ use super::{
     MOST_ITEMS, MOST_QUEUED, MOST_TARGET, MOST_TASKS, MOST_TEXT, ToolKind, ToolState,
 };
 
-/// The chat of one terminal, and the changes since they were last taken.
 #[derive(Default)]
 pub(super) struct Chat {
     revision: u64,
@@ -18,8 +17,7 @@ pub(super) struct Chat {
     commands: Vec<ChatCommand>,
     changes: Vec<ChatChange>,
     made: u64,
-    /// The home folder of this computer, from which the chat names a file outside the terminal's
-    /// folder.
+    /// Used to shorten paths outside the terminal's working directory with `~`.
     home: Option<String>,
 }
 
@@ -49,7 +47,6 @@ impl Chat {
         }
     }
 
-    /// The changes since the last call, as one step from the revision before.
     pub(super) fn take(&mut self) -> Option<ChatUpdate> {
         if self.changes.is_empty() {
             return None;
@@ -83,7 +80,6 @@ impl Chat {
         id
     }
 
-    /// A change that an item's later change or its removal makes useless leaves the step.
     fn forget(&mut self, id: &str) {
         self.changes.retain(|change| match change {
             ChatChange::Item { item } => item.id != id,
@@ -140,7 +136,6 @@ impl Chat {
         );
     }
 
-    /// More of the answer that the agent writes. Text past the most that an answer shows is left out.
     pub(super) fn write(&mut self, id: &str, more: &str) {
         let Some(item) = self.items.iter_mut().rev().find(|item| item.id == id) else {
             return;
@@ -288,7 +283,6 @@ impl Chat {
         });
     }
 
-    /// The agent's list of its work as the agent has it now.
     pub(super) fn set_tasks(&mut self, tasks: impl IntoIterator<Item = ChatTask>) {
         let tasks = tasks
             .into_iter()
@@ -370,12 +364,10 @@ impl Chat {
     }
 }
 
-/// The start of `text` that ends at a character and has at most `most` bytes.
 pub(super) fn start_of(text: &str, most: usize) -> &str {
     &text[..text.floor_char_boundary(most)]
 }
 
-/// The start and the end of a long text, with a sign between them.
 pub(super) fn ends_of(text: &str, most: usize) -> String {
     if text.len() <= most {
         return text.to_owned();

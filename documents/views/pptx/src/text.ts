@@ -55,7 +55,6 @@ function own(names: Record<string, string> | null | undefined, name: string): st
   return names && Object.hasOwn(names, name) ? names[name] : undefined;
 }
 
-/** A colour of the file as CSS, where `scheme:` and a name stand for a colour of the theme. */
 export function colorIn(
   theme: Theme | null | undefined,
   value: string | null | undefined,
@@ -65,12 +64,11 @@ export function colorIn(
   return cssColor(own(theme, own(SCHEME_NAMES, name) ?? name));
 }
 
-/** A font of the file as CSS families, where the theme has the fonts that +mj-lt and +mn-lt name. */
+/** Resolves OOXML theme font tokens (e.g. +mj-lt, +mn-lt) and builds a CSS font-family list. */
 export function familyIn(theme: Theme | null | undefined, font: string): string {
   return `${cssString(own(theme, font) ?? font)}, Carlito, sans-serif`;
 }
 
-/** A link takes the link color of the theme and an underline, as presentation programs draw it. */
 function styleOf(marks: readonly Mark[], level: Level = {}, scale = 1): TextStyle {
   const style = marks.find((mark) => mark.type.name === "textStyle")?.attrs;
   const has = (name: string) => marks.some((mark) => mark.type.name === name);
@@ -121,7 +119,7 @@ const MARK_DOM: Record<string, MarkSpec["toDOM"]> = {
     const parts = [
       color ? `color:${color}` : "",
       `font-size:${look.points * PIXELS_PER_POINT}px`,
-      // Only the slide knows its theme, so a font of the theme is left to the look of the paragraph.
+      // Theme font tokens (+mj-lt/+mn-lt) require the slide theme, so let levelRules supply them.
       look.font.startsWith("+") ? "" : `font-family:${familyIn(null, look.font)}`,
     ];
     return ["span", { style: parts.filter(Boolean).join(";") }, 0];
@@ -137,7 +135,6 @@ function specOf<Spec extends object>(
   );
 }
 
-/** The same schema that the server holds, so both sides apply steps alike. */
 export const schema = new Schema({
   nodes: specOf<NodeSpec>(spec.nodes as ({ name: string } & NodeSpec)[], NODE_DOM),
   marks: specOf<MarkSpec>(spec.marks as ({ name: string } & MarkSpec)[], MARK_DOM),
@@ -187,8 +184,8 @@ const NEVER_STARTS =
 const NEVER_ENDS = "「『（〔【〈《〝‘“";
 
 /**
- * The pieces of a text after each of which a line may break: after a space, and between the
- * characters of Chinese and Japanese, which have no spaces, as the editor breaks them too.
+ * Splits text into line-break opportunities (spaces plus CJK character boundaries with kinsoku
+ * rules) so canvas wrapping matches browser line breaking for Chinese and Japanese.
  */
 function breakable(text: string): string[] {
   const pieces: string[] = [];
@@ -339,8 +336,8 @@ export function layOut(
 }
 
 /**
- * The words of each text whose steps wait for the document and that a snapshot does not show. A
- * new snapshot takes their place, so the person sees what they wrote, to write it again.
+ * Collects visible text from shape editors with unacknowledged steps that differ from the reloaded
+ * snapshot, so the user can recover edits that are about to be replaced.
  */
 export function unsentText(
   texts: ReadonlyMap<string, EditorState>,

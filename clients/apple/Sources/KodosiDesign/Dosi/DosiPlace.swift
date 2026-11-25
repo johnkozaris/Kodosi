@@ -15,9 +15,8 @@ public final class DosiPlace {
     let canSend: () -> Bool
     let openSettings: (() -> Void)?
 
-    /// `terminal` and `project` find what Dosi names, and `sessions` and `projects` are the person's
-    /// terminals and projects in the order of their lists. `send` sends a suggestion while `canSend`
-    /// says so. Without `openSettings`, a notice that Dosi needs a sign-in has no key.
+    /// `terminal` and `project` resolve what Dosi names. `sessions` and `projects` should preserve
+    /// their display order. When `openSettings` is `nil`, sign-in notices omit the settings button.
     public init(
         dosi: DosiStore,
         terminal: @escaping (String) -> RuntimeSession?,

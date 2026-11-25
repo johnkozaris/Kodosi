@@ -183,8 +183,8 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
         return shared;
     }
 
-    /// One lock for each pair of people, so that a block, a request and an answer between
-    /// them take turns even before they have a friendship row.
+    // Per-pair advisory lock so concurrent requests, responses, and blocks serialize even before a
+    // friendship row exists.
     private static int PairLock(Guid first, Guid second)
     {
         Span<byte> pair = stackalloc byte[32];

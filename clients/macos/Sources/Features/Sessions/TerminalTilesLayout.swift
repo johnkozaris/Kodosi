@@ -31,7 +31,6 @@ nonisolated struct TerminalTilesLayout: Layout {
         case left, right, up, down
     }
 
-    /// The nearest tile in a direction. A tile beside this one in that direction comes first.
     static func neighbor(of index: Int, count: Int, in bounds: CGRect, _ direction: Direction) -> Int? {
         let frames = frames(count: count, in: bounds)
         guard frames.indices.contains(index) else { return nil }

@@ -1,5 +1,3 @@
-//! Core Foundation and `IOSurface`, as the encoder and the layer use them.
-
 use std::{ffi::c_void, ptr};
 
 pub(crate) type Ref = *const c_void;
@@ -51,7 +49,6 @@ unsafe extern "C" {
     pub(crate) static kIOSurfacePixelFormat: Ref;
 }
 
-/// A Core Foundation object that this code holds one reference to.
 pub(crate) struct Owned(pub(crate) Ref);
 
 impl Owned {
@@ -66,7 +63,7 @@ impl Owned {
 
 impl Drop for Owned {
     fn drop(&mut self) {
-        // SAFETY: the object is not null and this code holds one reference to it.
+        // SAFETY: `self.0` is non-null and owned by this wrapper.
         unsafe { CFRelease(self.0) };
     }
 }

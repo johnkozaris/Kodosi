@@ -22,7 +22,7 @@ static void detach(void *attached) {
     (*java)->DetachCurrentThread(java);
 }
 
-// The runtime calls back on its own threads, which stay attached until they end.
+// Runtime callbacks run on Rust worker threads; keep each thread attached until it exits.
 static JNIEnv *attach(void) {
     JNIEnv *env = NULL;
     if ((*java)->GetEnv(java, (void **)&env, JNI_VERSION_1_6) == JNI_OK) {
@@ -181,7 +181,7 @@ JNIEXPORT jint JNICALL Java_com_kodosi_mobile_runtime_NativeRuntime_protocolVers
     return (jint)kodosi_protocol_version();
 }
 
-// An ABI bridge can give the VM and the Rust library different libc environments.
+// Set in native code because an ABI bridge can give the JVM and Rust separate libc environments.
 JNIEXPORT jboolean JNICALL Java_com_kodosi_mobile_runtime_NativeRuntime_setEnvironment(JNIEnv *env, jclass type,
                                                                                       jstring name, jbyteArray value) {
     (void)type;

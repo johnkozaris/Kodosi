@@ -1,10 +1,7 @@
-//! Copilot CLI's link: the events of its session, as the extension in Kodosi's plugin gives them, as
-//! changes of the chat.
+//! Adapter for Copilot CLI session events forwarded by Kodosi's Copilot extension.
 //!
-//! The extension joins the session of the Copilot in the terminal and gives each event that the chat
-//! reads with the fields that the chat reads, so what the events mean is all here. A person's answer
-//! goes back as the decision that Copilot takes. A field can be absent or of another type after an
-//! update of Copilot, so an event gives what it has and never stops the chat.
+//! Fields are read defensively from untyped JSON because Copilot updates may omit or change
+//! field types; unrecognized or missing fields are ignored rather than failing the chat.
 
 use std::collections::{HashMap, VecDeque};
 
@@ -31,24 +28,22 @@ const MOST_CHOICES: usize = 16;
 #[derive(Default)]
 pub(super) struct Copilot {
     linked: bool,
-    /// The work on a person's message, from the message until Copilot is idle again.
     turn: Option<Turn>,
-    /// The chat's item of each message and each tool call of Copilot.
+    /// Maps Copilot message and tool call IDs to chat item IDs.
     items: HashMap<String, String>,
-    /// Each helper that a call of Copilot's task tool started, by the helper's identifier.
     helpers: HashMap<String, Helper>,
-    /// The tool calls of the helpers, which have no items of their own.
+    /// Subagent tool calls (not top-level chat items), kept for permission prompts.
     helper_calls: HashMap<String, HelperCall>,
     asked: HashMap<String, Asked>,
-    /// The requests of forms that Copilot named before the extension asked them, by their calls.
+    /// `(toolCallId, requestId)` pairs buffered when `elicitation.requested` precedes `ask`.
     named: VecDeque<(String, String)>,
     handed: VecDeque<Handed>,
     sent: u64,
     now: Option<ChatNow>,
-    /// Copilot refused a message of the chat.
+    /// Pauses queued prompt delivery after Copilot rejects a prompt.
     held: bool,
-    /// The words of a person's refusal. Copilot gives them to the agent with the refusal and keeps
-    /// no message of the person.
+    /// Pending refusal feedback stashed in `decision` and emitted as a user message in
+    /// `answered`, since Copilot does not emit a `user.message` event for rejection feedback.
     said: Option<(String, Option<ChatPerson>)>,
 }
 
@@ -60,7 +55,7 @@ struct Turn {
 }
 
 struct Helper {
-    /// The call of the task tool that started the helper.
+    /// Parent `task` tool call ID.
     call: String,
     working: bool,
 }
@@ -71,30 +66,27 @@ struct HelperCall {
 }
 
 struct Asked {
-    /// The tool call that the question is about.
     call: String,
-    /// The chat's item of that call. A call of a helper has none.
+    /// Chat item ID for `call`; `None` for subagent calls.
     item: Option<String>,
     kind: AskKind,
-    /// Copilot's name of the request, which its record of the answer gives.
+    /// Copilot's `requestId`, matched against completion events when answered in the terminal.
     request: Option<String>,
 }
 
 enum AskKind {
-    /// With the commands that "always" allows for the session.
+    /// `commands` lists the command identifiers approved when the user chooses "Always".
     Permission {
         commands: Vec<String>,
     },
     Form {
         fields: Vec<Field>,
     },
-    /// With Copilot's names of the ways on that it offers.
     Plan {
         actions: Vec<(PlanChoice, String)>,
     },
 }
 
-/// A field of a form of Copilot, which the chat asks as one question.
 struct Field {
     name: String,
     shape: Shape,
@@ -105,7 +97,7 @@ enum Shape {
     Number {
         integer: bool,
     },
-    /// The choices by their labels, each with the value that Copilot takes.
+    /// `(display_label, wire_value)` pairs.
     One(Vec<(String, String)>),
     Many(Vec<(String, String)>),
 }
@@ -144,8 +136,8 @@ impl Copilot {
         closed
     }
 
-    /// The events of the session before the link, in parts. Copilot keeps no mark of the end of
-    /// a turn, so each turn ends where the next message begins, and the last with the last part.
+    /// Replays chunked pre-link session history. Copilot's history omits `session.idle`
+    /// markers, so turns are closed at each subsequent `user.message` and on the final chunk.
     fn history(&mut self, chat: &mut Chat, event: &Value) {
         for earlier in list(event, "events") {
             let at = earlier
@@ -267,7 +259,6 @@ impl Copilot {
         Vec::new()
     }
 
-    /// What a helper does shows in the step of the call that started it.
     fn helper_event(&mut self, chat: &mut Chat, helper: &str, event: &Value) {
         let data = event.get("data").unwrap_or(&Value::Null);
         match text(event, "type") {
@@ -359,8 +350,6 @@ impl Copilot {
         });
     }
 
-    /// A message of a person: one that the chat gave Copilot, or one that a person typed in the
-    /// terminal.
     fn said_by_person(&mut self, chat: &mut Chat, data: &Value, at: u64) {
         let said = text(data, "content");
         if said.is_empty() {
@@ -379,7 +368,8 @@ impl Copilot {
         chat.push(at, person(said, by));
     }
 
-    /// The whole message: its text, which an empty answer that only calls tools does not keep.
+    /// Finalizes an assistant message, removing the empty placeholder of a message that only calls
+    /// tools.
     fn message(&mut self, chat: &mut Chat, data: &Value, at: u64) {
         let id = text(data, "messageId");
         let said = text(data, "content");
@@ -448,7 +438,7 @@ impl Copilot {
                 _ => {}
             }
         });
-        // The question of a call that ended was answered in the terminal.
+        // Close any prompt still open for this call (it was answered in the terminal).
         let ended = self
             .asked
             .iter()
@@ -462,8 +452,8 @@ impl Copilot {
         chat.close_asks(|open| ended.contains(&open.id))
     }
 
-    /// The call of a tool of this name that runs now and has no open question of the chat:
-    /// Copilot shows one question of a kind at a time.
+    /// Finds the latest open tool call of `name` with no active prompt. Form and plan prompts
+    /// omit `toolCallId`, and Copilot only opens one prompt of each kind at a time.
     fn waiting(&self, chat: &Chat, name: &str) -> Option<(String, String)> {
         let item = chat
             .items()
@@ -483,7 +473,6 @@ impl Copilot {
         (!self.asked.values().any(|asked| asked.call == call)).then(|| (call, item.clone()))
     }
 
-    /// Copilot asks the person for a permission, and it asks the extension at the same time.
     fn ask(&mut self, chat: &mut Chat, event: &Value) {
         let ask = text(event, "ask");
         let request = &event["request"];
@@ -555,7 +544,6 @@ impl Copilot {
         );
     }
 
-    /// A form of Copilot, as its ask tool gives it: one question for each field.
     fn form(&mut self, chat: &mut Chat, event: &Value) {
         let ask = text(event, "ask");
         let Some((questions, fields)) = form_of(&event["form"]) else {
@@ -598,7 +586,8 @@ impl Copilot {
         );
     }
 
-    /// Copilot names the request of a form of a call, before or after the extension asks it.
+    /// Records the `requestId` for a form call, whether `elicitation.requested` arrives before
+    /// or after the extension's `ask` event.
     fn named(&mut self, call: &str, request: &str) {
         if request.is_empty() {
             return;
@@ -617,7 +606,6 @@ impl Copilot {
         self.named.push_back((call.to_owned(), request.to_owned()));
     }
 
-    /// Copilot's plan, which waits for the person's approval.
     fn plan(&mut self, chat: &mut Chat, event: &Value) {
         let ask = text(event, "ask");
         let plan = &event["plan"];
@@ -628,7 +616,6 @@ impl Copilot {
             return;
         }
         let shown = start_of(shown, MOST_TEXT).to_owned();
-        // Copilot's terminal offers the recommended way first.
         let recommended = text(plan, "recommendedAction");
         let mut actions = list(plan, "actions")
             .filter_map(Value::as_str)
@@ -665,8 +652,6 @@ impl Copilot {
         );
     }
 
-    /// Copilot's record of a decision: the chat's own, one that a person took in the terminal, or
-    /// one of the session before the link.
     fn decided(&mut self, chat: &mut Chat, data: &Value) -> Vec<String> {
         let call = text(data, "toolCallId");
         let result = text(&data["result"], "kind");
@@ -698,7 +683,6 @@ impl Copilot {
         chat.close_asks(|open| open.id == ask)
     }
 
-    /// Copilot's record of the answer to a form or a plan, from whichever side gave it first.
     fn settled(&mut self, chat: &mut Chat, data: &Value) -> Vec<String> {
         let request = text(data, "requestId");
         let Some(ask) = self
@@ -746,8 +730,7 @@ impl Copilot {
         };
         self.now = None;
         stop_open(chat);
-        // Copilot has each message that the chat gave it before the end. One that Copilot did not
-        // write down in the chat's words leaves the queue here.
+        // Clear any handed prompts whose text Copilot didn't echo back verbatim.
         for handed in std::mem::take(&mut self.handed) {
             chat.unqueue(&handed.queued);
         }
@@ -770,8 +753,8 @@ impl Copilot {
         chat.close_asks(|_| true)
     }
 
-    /// Copilot took a message of the chat, or refused it with its reason. A `/plan` without words
-    /// only changed the mode, and Copilot has no message of it.
+    /// Handles acknowledgement of a handed prompt. A bare `/plan` has empty text and only
+    /// switches modes without emitting `user.message`, so it is unqueued immediately here.
     fn did(&mut self, chat: &mut Chat, event: &Value) {
         let n = event.get("n").and_then(Value::as_u64);
         let Some(index) = self.handed.iter().position(|handed| Some(handed.n) == n) else {
@@ -874,9 +857,6 @@ impl Agent for Copilot {
         self.handed.iter().any(|handed| handed.queued == queued)
     }
 
-    /// Copilot gives the words of a refusal to the agent with its own text, as for a refusal in
-    /// its terminal. Words in place of an answer to a form are the person's own answer, as the
-    /// terminal's "Other" takes them.
     fn decision(
         &mut self,
         ask: &str,
@@ -917,6 +897,7 @@ impl Agent for Copilot {
                     .collect::<Option<Map<_, _>>>()?;
                 json!({"action": "accept", "content": content})
             }
+            // Free-text "Other" answers to forms arrive as `Deny { text: Some(..) }`.
             (AskKind::Form { fields }, ChatAnswer::Deny { .. }) => refusal
                 .and_then(|words| {
                     let field = fields.iter().find(|field| field.takes_words())?;
@@ -924,8 +905,8 @@ impl Agent for Copilot {
                     Some(json!({"action": "accept", "content": {field.name.clone(): value}}))
                 })
                 .unwrap_or_else(|| json!({"action": "decline"})),
-            // Copilot's own autopilot also allows each tool for the session, which its terminal
-            // asks for at once, so the extension turns that on as it gives the decision.
+            // Autopilot modes expect session auto-approval to be enabled alongside the plan
+            // decision, matching Copilot's terminal behavior.
             (AskKind::Plan { actions }, ChatAnswer::Plan { choice }) => {
                 let action = &actions.iter().find(|(offered, _)| offered == choice)?.1;
                 let mut decision = json!({"approved": true, "selectedAction": action});
@@ -981,8 +962,6 @@ impl Agent for Copilot {
         true
     }
 
-    /// The next message when Copilot can start it: no turn runs, no question is open and Copilot
-    /// has no earlier message of the chat.
     fn commands(&mut self, chat: &Chat) -> Vec<Value> {
         if !self.linked
             || self.held
@@ -1035,7 +1014,6 @@ impl Agent for Copilot {
     }
 }
 
-/// A way on after a plan, by Copilot's name of it.
 fn plan_choice(action: &str) -> Option<PlanChoice> {
     match action {
         "interactive" => Some(PlanChoice::Go),
@@ -1046,12 +1024,11 @@ fn plan_choice(action: &str) -> Option<PlanChoice> {
     }
 }
 
-/// Copilot's way of work as a mode of the chat. Its other ways ask as its permissions say.
+/// Only `plan` maps to a fixed `ChatMode`; Copilot's other modes follow its permission rules.
 fn mode(name: &str) -> Option<ChatMode> {
     (name == "plan").then_some(ChatMode::Plan)
 }
 
-/// A tool call of Copilot as the chat shows it, by Copilot's name of the tool.
 fn described(data: &Value, places: &Places) -> ChatTool {
     let name = text(data, "toolName");
     let arguments = &data["arguments"];
@@ -1149,9 +1126,9 @@ fn described(data: &Value, places: &Places) -> ChatTool {
     }
 }
 
-/// The questions of a form of Copilot: its message, and one question for each field. A form
-/// with a field that the chat cannot ask is for the terminal alone, and so is a form with a
-/// field for words beside other fields: a person's words in the chat answer one field.
+/// Converts a Copilot form schema into chat questions. Returns `None` (leaving the form to the
+/// terminal) if any field type is unsupported or if a free-text/number field appears alongside
+/// other fields, since the chat UI can only collect free-text input for a single field.
 fn form_of(form: &Value) -> Option<(Vec<ChatQuestion>, Vec<Field>)> {
     let message = text(form, "message");
     let properties = form.pointer("/requestedSchema/properties")?.as_object()?;
@@ -1268,7 +1245,6 @@ fn choice(label: &str, value: &str) -> (String, String) {
 }
 
 impl Field {
-    /// What Copilot takes for the labels that a person chose, or for the words that they wrote.
     fn value(&self, given: &[String]) -> Option<Value> {
         let given = given
             .iter()
@@ -1295,7 +1271,6 @@ impl Field {
         )
     }
 
-    /// An answer that Copilot took, in the labels that the chat shows.
     fn shown(&self, value: &Value) -> String {
         let label = |value: &str| match &self.shape {
             Shape::One(choices) | Shape::Many(choices) => choices
@@ -1319,7 +1294,6 @@ impl Field {
     }
 }
 
-/// A choice by its label, or a person's own words, which Copilot takes as they are.
 fn chosen(choices: &[(String, String)], label: &str) -> String {
     choices
         .iter()
@@ -1328,7 +1302,6 @@ fn chosen(choices: &[(String, String)], label: &str) -> String {
         .to_owned()
 }
 
-/// The files that a patch of Copilot changes.
 fn patched(patch: &str, places: &Places) -> String {
     patch
         .lines()
@@ -1342,7 +1315,6 @@ fn patched(patch: &str, places: &Places) -> String {
         .join(", ")
 }
 
-/// A change as a diff of Copilot gives it: a diff of git, which names each file before its hunks.
 fn change(given: &str, path: &str) -> Option<ToolDetail> {
     let mut named = None;
     let mut hunks = String::new();

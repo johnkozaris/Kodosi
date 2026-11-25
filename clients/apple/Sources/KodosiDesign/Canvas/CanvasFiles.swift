@@ -130,7 +130,7 @@ struct RemoveKey: View {
     let size: CGFloat
     var title = String(localized: "Remove from Canvas", bundle: .module)
     let identifier: String
-    /// On a card the key takes only its circle, because a click beside it opens the card.
+    /// Restricts hit testing to the circle on cards so clicks just outside still open the card.
     var onCard = false
     let action: () -> Void
     @State private var hovered = false
@@ -144,8 +144,8 @@ struct RemoveKey: View {
             if onCard {
                 face.contentShape(Circle())
             } else {
-                // The key sits 5 points inside the end of its tab, and the touch ends halfway to the
-                // next tab, 2 points away.
+                // Key is inset 5 pt from the tab edge, with 2 pt between tabs; reach 6 stops
+                // halfway into the gap so it does not overlap the adjacent tab.
                 face.touchTarget(Circle(), reach: 6)
             }
         }

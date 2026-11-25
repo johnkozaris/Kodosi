@@ -87,7 +87,7 @@ int main(int argc, char* argv[])
         qputenv("QT_QPA_PLATFORMTHEME", "xdgdesktopportal");
 #endif
 #ifdef Q_OS_WIN
-    // AltGr then types characters instead of sending Ctrl+Alt shortcuts.
+    // Enable AltGr handling so it types characters instead of triggering Ctrl+Alt shortcuts.
     if (!qEnvironmentVariableIsSet("QT_QPA_PLATFORM"))
         qputenv("QT_QPA_PLATFORM", "windows:altgr");
 #endif
@@ -108,7 +108,7 @@ int main(int argc, char* argv[])
     kodosi_set_language(kodosi::AppLanguage::current().toUtf8().constData());
     const auto executable = QCoreApplication::applicationFilePath();
 #ifdef Q_OS_LINUX
-    // Wayland names the window by this entry, so the desktop shows Kodosi's icon and name.
+    // Wayland matches the window to this .desktop entry to display the app icon and name.
     QGuiApplication::setDesktopFileName(QStringLiteral("com.kodosi.Kodosi"));
 #endif
     std::optional<QSize> windowSize;

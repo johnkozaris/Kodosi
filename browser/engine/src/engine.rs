@@ -24,16 +24,16 @@ use crate::{
 };
 
 const REPORT_DELAY_MS: i64 = 50;
-/// How long the browsers may take to close when the engine quits. The host waits longer.
+/// Graceful shutdown deadline for open browsers; kept shorter than the host's exit timeout.
 const QUIT_LIMIT_MS: i64 = 3000;
-/// For this long after the page took a new size, no picture in another size goes to a viewer, and
-/// a page whose own picture in that size did not come shows as it is then: Chromium may draw the
-/// page itself first in memory, with no stand-in before it.
+/// Maximum time to suppress mismatched-size or placeholder frames after a resize. If Chromium
+/// paints the real resized frame without a software placeholder first, this timeout releases
+/// settling and triggers a repaint.
 const SETTLE_LIMIT_MS: i64 = 1000;
 const PAGE_SCALE: f32 = 1.0;
-/// A tab whose page process ends loads its page again, once in this time.
+/// Minimum interval between automatic reloads after a renderer crash, to avoid reload loops.
 const RELOAD_WAIT: Duration = Duration::from_mins(1);
-/// A page with no ground of its own shows white, as in a browser, not see-through.
+/// Opaque white default so pages with no background do not render transparent in OSR mode.
 pub(crate) const OPAQUE_WHITE: u32 = 0xFFFF_FFFF;
 const SEEN_FRAME_RATE: c_int = 60;
 /// A page that no device shows stays visible to its scripts, as an agent can still work in it,
@@ -44,8 +44,6 @@ thread_local! {
     static ENGINE: RefCell<Option<Engine>> = const { RefCell::new(None) };
 }
 
-/// The App of every process: the browser process starts the engine, a page process runs the
-/// page script.
 pub(crate) fn app() -> App {
     AppBuilder::new(Switches)
 }
@@ -133,8 +131,6 @@ wrap_task! {
     }
 }
 
-/// A still page draws nothing by itself, so a picture that never reached the viewers would stay
-/// missing.
 #[cfg(target_os = "macos")]
 pub(crate) fn redraw(window: i64, delay_ms: i64) {
     let mut task = RedrawTaskBuilder::new(window);
@@ -186,8 +182,8 @@ wrap_task! {
     }
 }
 
-/// The engine, unless it is borrowed: a handler that CEF calls while a command runs gets `None`.
-/// So no code calls CEF while it holds the engine.
+/// Borrows the engine state, returning `None` on reentrant access. Never call into CEF inside
+/// `work`, because CEF may synchronously invoke handlers that call `with` again.
 pub(crate) fn with<R>(work: impl FnOnce(&mut Engine) -> R) -> Option<R> {
     ENGINE.with(|engine| {
         let mut engine = engine.try_borrow_mut().ok()?;
@@ -195,7 +191,8 @@ pub(crate) fn with<R>(work: impl FnOnce(&mut Engine) -> R) -> Option<R> {
     })
 }
 
-/// What a window shares with the clients of its tabs, so that CEF can ask for it at any time.
+/// Window state shared with each tab's CEF client so render callbacks can access it directly
+/// without borrowing `Engine`.
 #[derive(Clone)]
 pub(crate) struct Shared {
     pub size: Rc<Cell<Size>>,
@@ -236,8 +233,6 @@ pub(crate) struct Capture {
     pub settling: Option<Settling>,
 }
 
-/// The size that the page took, whether Chromium showed its stand-in in that size, and whether the
-/// page's own picture in that size came.
 #[derive(Clone, Copy)]
 pub(crate) struct Settling {
     size: Size,
@@ -245,23 +240,21 @@ pub(crate) struct Settling {
     drawn: bool,
 }
 
-/// How Chromium gives a picture of the page, which decides the stand-ins that it shows while the
-/// page takes a new size. Both ways also give the page in its new layout squeezed into the old
-/// size.
+/// CEF offscreen paint mode, which determines what transient frames Chromium emits during a
+/// resize. Both modes may also emit the new layout squeezed into a frame of the old size.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Painting {
-    /// In memory, where the page's old picture comes once in the new size first: with a band
-    /// beside it, or a part of it.
+    /// Software paint: emits one placeholder frame at the new size (padded or cropped from
+    /// the old frame) before the actual resized frame.
     Memory,
-    /// On a surface of the GPU, where no stand-in comes in the new size.
+    /// GPU shared-texture paint: does not emit a placeholder frame at the new size.
     #[cfg(target_os = "macos")]
     Surface,
 }
 
 impl Capture {
-    /// While the page takes a new size, no stand-in goes to a viewer, so a view keeps the last
-    /// picture until the page's own in the new size, and a view that waits for a key frame gets
-    /// the page's own picture.
+    /// Drops mismatched-size frames and software placeholders during a resize so viewers keep
+    /// the previous frame (and pending keyframes wait) until the real resized frame arrives.
     pub(crate) fn takes(&mut self, width: usize, height: usize, painting: Painting) -> bool {
         let Some(settling) = self.settling.as_mut() else {
             return true;
@@ -277,13 +270,14 @@ impl Capture {
         true
     }
 
-    /// A new paint of a page that takes a new size would show the stand-in again.
+    /// True while waiting for the first real frame after a resize; invalidating before then
+    /// would re-emit a placeholder frame.
     fn waits_for_page(&self) -> bool {
         self.settling.is_some_and(|settling| !settling.drawn)
     }
 }
 
-/// Chromium rounds a size in CSS pixels at a scale up to whole pixels.
+/// Chromium rounds scaled CSS dimensions up (`ceil`) to physical pixels.
 fn drawn_at(size: Size, width: usize, height: usize) -> bool {
     let fits = |points: u32, pixels: usize| {
         u32::try_from(pixels).is_ok_and(|pixels| {
@@ -332,7 +326,6 @@ wrap_task! {
     }
 }
 
-/// The encoder codes the last picture again only while the page drew nothing new since `picture`.
 pub(crate) fn clean_up(window: i64, picture: u64, delay_ms: i64) {
     let mut task = CleanUpTaskBuilder::new(window, picture);
     post_delayed_task(ThreadId::UI, Some(&mut task), delay_ms);
@@ -364,7 +357,7 @@ wrap_task! {
     }
 }
 
-/// CEF gives each browser its id only when it exists, so a browser carries where it belongs.
+/// Creation metadata carried into `on_after_created`, since CEF assigns browser IDs there.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Origin {
     Tab {
@@ -380,9 +373,8 @@ pub(crate) enum Origin {
 struct Window {
     shared: Shared,
     active: Option<i64>,
-    /// The next tab that opens becomes active: the first tab, a new tab or a page's popup.
+    /// Activates the next tab created in this window (initial tab, new tab, or foreground popup).
     wanted: bool,
-    /// The host closed the window, which goes with its last tab.
     closing: bool,
 }
 
@@ -390,7 +382,7 @@ struct Tab {
     browser: Browser,
     window: i64,
     opener: Option<i64>,
-    /// The host's ask that opened the tab, until the tab's target is known.
+    /// Host request ID for `NewTab`, cleared once `TabOpened` is sent with the `DevTools` target.
     ask: Option<i64>,
     ended: Option<Instant>,
     dialog: Option<JsdialogCallback>,
@@ -399,7 +391,7 @@ struct Tab {
     address: String,
     loading: bool,
     shape: String,
-    /// The address of the icon that the tab shows or gets.
+    /// Current favicon URL, used to deduplicate and ignore stale icon downloads.
     icon: String,
     observer: Option<Registration>,
 }
@@ -502,8 +494,6 @@ impl Engine {
         id
     }
 
-    /// The window of a page that a tab opens: the opener's. A popup, a new window or a new tab
-    /// becomes the window's active tab, a tab in the background does not.
     pub(crate) fn place_popup(
         &mut self,
         opener: i64,
@@ -527,8 +517,8 @@ impl Engine {
         ))
     }
 
-    /// Gives the id of the message that asks for the browser's target, or `None` when the browser
-    /// must close at once: its window or page closed, or the engine quits, before it existed.
+    /// Registers a newly created browser and returns a `DevTools` message ID for `getTargetInfo`,
+    /// or `None` if its window/page already closed or the engine is quitting.
     pub(crate) fn created(&mut self, browser: &Browser, origin: Origin) -> Option<c_int> {
         let id = i64::from(browser.identifier());
         let quitting = self.quitting;
@@ -611,7 +601,6 @@ impl Engine {
         }
     }
 
-    /// The window's next active tab is the closed tab's opener, or else its last tab.
     fn closed(&mut self, browser: i64) -> Closed {
         let Some(tab) = self.tabs.remove(&browser) else {
             if let Some(page) = self.page_of_browser.remove(&browser) {
@@ -687,7 +676,7 @@ impl Engine {
         browsers
     }
 
-    /// A page that CEF still makes closes once it exists.
+    /// Marks the page closing; if CEF is still creating it, `after_created` closes it immediately.
     fn close_page(&mut self, page: i64) -> Option<Browser> {
         let known = self.pages.get_mut(&page)?;
         known.closing = true;
@@ -712,7 +701,6 @@ impl Engine {
         }
     }
 
-    /// Whether the tab gets the icon at this address. A tab whose page names no icon has none.
     pub(crate) fn icon_named(&mut self, browser: i64, address: &str) -> bool {
         let Some(tab) = self.tabs.get_mut(&browser) else {
             return false;
@@ -730,15 +718,14 @@ impl Engine {
         !address.is_empty()
     }
 
-    /// An icon that comes after its page named another one stays out.
     pub(crate) fn icon(&mut self, browser: i64, address: &str, png: &[u8]) {
         if self
             .tabs
             .get(&browser)
             .is_some_and(|tab| tab.icon == address)
         {
-            // The host finds the window of an icon by the report of its tab, which waits a moment
-            // after a new tab, and a fast page has its icon sooner.
+            // Flush pending tab reports first so the host knows which window owns this tab
+            // before receiving its icon.
             if self.report_waiting {
                 self.report();
             }
@@ -754,8 +741,6 @@ impl Engine {
         }
     }
 
-    /// A page that ends its process again within a minute stays as it is, and the person's
-    /// Reload tries again.
     fn reloads(&mut self, browser: i64, now: Instant) -> bool {
         let Some(tab) = self.tabs.get_mut(&browser) else {
             return false;
@@ -767,7 +752,6 @@ impl Engine {
         again
     }
 
-    /// A tab has one dialog at a time, and the host's own pages have none.
     pub(crate) fn dialog_opened(
         &mut self,
         browser: i64,
@@ -862,7 +846,6 @@ impl Engine {
         handle
     }
 
-    /// Only the active tab draws.
     fn shown(&self, window: i64) -> Vec<(Browser, bool)> {
         let active = self.windows.get(&window).and_then(|window| window.active);
         self.tabs
@@ -980,8 +963,8 @@ fn resize(window: i64, size: Size) {
     }
 }
 
-/// A new capture, a key frame or an anchor asks the page to draw again, since a still page sends
-/// no pictures.
+/// Invalidates the view on capture start, keyframe, or recovery requests so static pages emit a
+/// frame immediately.
 fn capture(command: &ToEngine) {
     let repaint_tab = with(|engine| match *command {
         ToEngine::Capture {
@@ -1068,8 +1051,8 @@ fn pace(window: i64) {
     }
 }
 
-/// The layer shows a tab only while a view hosts it, and keeps its last picture between. A tab
-/// new to the layer draws at once, as a still page draws nothing by itself.
+/// Binds a tab to the window's Core Animation layer while a view hosts it (retaining the last
+/// surface when unbound) and invalidates the view so a static page paints immediately.
 #[cfg(target_os = "macos")]
 fn layer(window: i64, tab: Option<i64>) {
     let repaint_tab = with(|engine| {
@@ -1145,7 +1128,6 @@ fn new_tab(window: i64, address: &str, ask: Option<i64>) {
     }
 }
 
-/// Answers a tab's dialog outside the engine's state, because CEF calls back into it.
 fn answer_dialog(tab: i64, accept: bool, text: Option<&str>) {
     if let Some(callback) = with(|engine| engine.take_dialog(tab)).flatten() {
         callback.cont(
@@ -1167,7 +1149,6 @@ fn pick(tab: i64, frame: i64, menu: u32, choice: Option<u32>) {
     }
 }
 
-/// The engine ends when the last browser closed, or after `QUIT_LIMIT_MS`.
 fn quit() {
     let browsers = with(|engine| {
         engine.quitting = true;
@@ -1222,7 +1203,8 @@ fn page_size(width: u32, height: u32) -> Size {
     }
 }
 
-/// The page has a request context with no stored data.
+/// Uses a separate in-memory `RequestContext` (default empty `cache_path`) so host pages do not
+/// share profile storage or cookies with user tabs.
 fn open_page(page: i64, width: u32, height: u32) {
     let shared = Shared::new(page_size(width, height));
     let context = with(|engine| {

@@ -139,7 +139,7 @@ fun ProjectScreen(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    // The members line keeps its room while it loads, so that the name above it stays still.
+                    // Keep the row laid out at alpha 0 while loading so the title does not jump.
                     val membersShown by animateFloatAsState(if (members != null) 1f else 0f, fade(), label = "members")
                     Row(
                         Modifier.graphicsLayer { alpha = membersShown },

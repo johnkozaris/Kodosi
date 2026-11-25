@@ -48,17 +48,16 @@ pub struct Canvas {
     pub items: Vec<CanvasItem>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub browser: Option<CanvasBrowser>,
-    /// What the agent showed last, with `kodosi show` or in the browser.
+    /// Most recent item explicitly opened via `kodosi show` (a file or the browser).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub open: Option<CanvasOpen>,
-    /// What changed last: a file of the canvas, by anyone, or the browser by a command of the
-    /// agent.
+    /// Most recent item updated in place (any file edit or an agent browser command).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub change: Option<CanvasOpen>,
 }
 
-/// `at` is in milliseconds since 1970 on the terminal's computer, later than each show and change
-/// before. Each device acts on each one once, and only on one after the device's app started.
+/// `at` is a strictly increasing host Unix timestamp (ms) across shows and changes. Clients
+/// handle each timestamp at most once and ignore timestamps from before the client started.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CanvasOpen {
@@ -129,7 +128,7 @@ pub struct CanvasBrowser {
     pub tabs: Vec<BrowserTab>,
     pub width: u32,
     pub height: u32,
-    /// The part of the first download of Kodosi Browser, from 0 to 100.
+    /// Initial Kodosi Browser download progress, from 0 to 100.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub getting: Option<u8>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -138,7 +137,8 @@ pub struct CanvasBrowser {
     pub last: Option<BrowserAction>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub problem: Option<crate::text::Text>,
-    /// The terminal is shared, so its browser keeps sign-ins of its own, apart from its owner's.
+    /// True when the terminal is shared and uses an isolated browser profile without the owner's
+    /// saved sign-ins.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub own_sign_ins: bool,
 }
@@ -167,7 +167,7 @@ pub struct BrowserAction {
     pub words: String,
 }
 
-/// The point is the middle of the element that the agent acts on, in the browser's CSS pixels.
+/// `point` is the target element's center in browser CSS pixels.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BrowserDoing {
@@ -209,11 +209,11 @@ pub enum CanvasRequest {
         revision: u64,
         offset: u64,
     },
-    /// No key takes every file off.
+    /// Empty `keys` removes all files from the canvas.
     Remove {
         keys: Vec<String>,
     },
-    /// The file goes to the trash of the terminal's computer, and off the canvas.
+    /// Removes the item from the canvas and moves the underlying file to the host's trash.
     Trash {
         key: String,
     },
@@ -223,8 +223,8 @@ pub enum CanvasRequest {
         offset: u64,
         data: String,
         last: bool,
-        /// A file for a page of the browser goes into the folder of the terminal, of any kind,
-        /// and not on the canvas.
+        /// When true, saves any file type into the terminal folder (e.g., for browser file
+        /// inputs) without adding it to the canvas.
         page: bool,
     },
     Act {

@@ -30,7 +30,7 @@ import com.kodosi.mobile.ui.Radius
 import com.kodosi.mobile.ui.snappy
 import com.kodosi.mobile.ui.terminalTile
 
-/** A phone hosts no terminal, so the preview takes the look of the screen that shows it. */
+// Mobile devices host no terminals, so follow the app's current theme in the settings preview.
 @Composable
 fun TerminalPreview(adjustment: Int) {
     val colors = KodosiTheme.colors

@@ -1,5 +1,5 @@
-//! Presentations (.pptx). Each slide and shape has a stable id, and the text in a shape is a small
-//! tree with the same steps as a document. A save changes only the parts of a slide that changed.
+//! PPTX format support. Slides and shapes use stable OOXML IDs, shape text uses the shared text
+//! tree model, and saves patch only modified slide XML.
 
 mod apply;
 mod blank;
@@ -29,9 +29,8 @@ impl Format for Pptx {
         Snapshot(model.snapshot())
     }
 
-    /// A view and an agent send what a person or an agent did. Pieces of XML come only with the
-    /// merge of a write of another program, and a fill, a line or a stacking order that a sender
-    /// names must be one that the writer can put in the file.
+    /// Clients cannot supply raw XML (`keep`, reserved for host external-write merges), and any
+    /// fill, line, or stacking order they name must be one the writer can put in the file.
     fn sendable(change: &Change) -> Result<(), String> {
         match change {
             Change::Text { keep, .. } | Change::AddShape { keep, .. } if !keep.is_empty() => {

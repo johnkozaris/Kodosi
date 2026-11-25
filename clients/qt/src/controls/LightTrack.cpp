@@ -520,7 +520,8 @@ QSGNode* LightTrack::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData*)
         node->setGeometry(geometry);
         node->setFlag(QSGNode::OwnsGeometry);
         auto* material = new QSGVertexColorMaterial;
-        // The colors change at each step, and a merged batch would be transformed and uploaded again as a whole.
+        // Vertex colors change on every SignClock step; disable batching to avoid re-transforming and
+        // re-uploading merged geometry.
         material->setFlag(QSGMaterial::NoBatching);
         node->setMaterial(material);
         node->setFlag(QSGNode::OwnsMaterial);

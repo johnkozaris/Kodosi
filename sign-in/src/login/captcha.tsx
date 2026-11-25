@@ -66,9 +66,9 @@ function injectedKey(scripts: string[] | undefined): string | null {
   return null;
 }
 
-// recaptcha*: Keycloak's reCAPTCHA step. captcha*: github.com/panpaul/keycloak-turnstile.
-// turnstile* and the injected scripts of the reset form:
-// github.com/zymlabs/keycloak-cloudflare-turnstile-provider.
+// Supports three Keycloak CAPTCHA providers: built-in reCAPTCHA (recaptcha*),
+// github.com/panpaul/keycloak-turnstile (captcha*), and
+// github.com/zymlabs/keycloak-cloudflare-turnstile-provider (turnstile* and reset scripts).
 function personCheckOf(kcContext: object): PersonCheck | null {
   const given = kcContext as Given;
   if (given.recaptchaRequired && given.recaptchaSiteKey)

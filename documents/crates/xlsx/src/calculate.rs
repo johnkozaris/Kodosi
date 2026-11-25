@@ -18,20 +18,17 @@ use crate::{
     model::{Model, Value},
 };
 
-/// How long the engine may work out a workbook, so that a heavy or a hostile file does not hold
-/// up its document.
+/// Time budget for formula evaluation so heavy or hostile workbooks cannot block the document.
 pub(crate) const CALCULATION_TIME: Duration = Duration::from_secs(5);
 
 pub(crate) struct Calculation {
     pub(crate) model: Model,
-    /// Whether each formula has a result that the engine worked out, so that none keeps the value
-    /// that the model held.
+    /// True when every formula evaluated cleanly without falling back to cached values.
     pub(crate) every_formula: bool,
 }
 
-/// A formula that the engine cannot work out, such as one with a function that it does not know,
-/// one in a loop or one that reads another file, keeps its value. `None` when the engine cannot
-/// work out the workbook in `time`.
+/// Evaluates formulas within `time`. Formulas using unknown functions, cycles, or external
+/// references keep their cached values; returns `None` if evaluation times out.
 pub(crate) fn calculated(model: &Model, time: Duration) -> Option<Calculation> {
     let mut current = model.clone();
     let formulas = model
@@ -87,8 +84,8 @@ const fn date_system(model: &Model) -> DateSystem {
     }
 }
 
-/// The engine refuses a whole workbook for one formula that it cannot parse or that reads
-/// another file.
+/// `formualizer` fails the entire workbook if any formula fails to parse or references an external
+/// file, so filter those out up front.
 fn readable(formula: &str) -> bool {
     parse(format!("={formula}")).is_ok_and(|ast| {
         !ast.get_dependencies()
@@ -97,8 +94,8 @@ fn readable(formula: &str) -> bool {
     })
 }
 
-/// The engine sizes a sheet by the cells that it already holds, so each sheet's last cell goes in
-/// first, and it builds the links between formulas in one go when they are all in.
+/// Inserts cells in reverse order so `formualizer` allocates each sheet at its final size once,
+/// and defers dependency graph construction until all cells are loaded.
 fn workbook(model: &Model, time: Duration) -> Option<(Workbook, HashSet<(usize, u32, u32)>)> {
     let deadline = Deadline::after(time)?;
     let mut config = WorkbookConfig::ephemeral();
@@ -142,8 +139,7 @@ fn workbook(model: &Model, time: Duration) -> Option<(Workbook, HashSet<(usize, 
     Some((book, unreadable))
 }
 
-/// The engine looks at the token between small groups of formulas, so it stops soon after the
-/// time is up.
+/// Cancels `formualizer`'s evaluation token when `time` expires (polled between formula batches).
 struct Deadline {
     token: CancelToken,
     at: Instant,

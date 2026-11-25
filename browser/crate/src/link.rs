@@ -1,35 +1,32 @@
-//! What a host and its browser engine say on their one local WebSocket.
+//! Local WebSocket protocol between the host and browser engine.
 //!
-//! The host listens, writes the port and a token for the engine, and the engine connects once
-//! with that token. Commands and reports are JSON text; each encoded picture is a binary
-//! message.
+//! The host writes its port and one-time token for the engine to connect once. Control messages
+//! (`ToEngine`, `FromEngine`) use JSON text frames; encoded video frames use binary messages.
 
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 
 use crate::message::{Dialog, MenuItem, Size};
 
-/// The exit code of an engine that does not start as root on Linux, where Chromium's sandbox
-/// needs a normal user.
+/// Engine exit code when launched as root on Linux, where Chromium's sandbox requires a non-root
+/// user.
 pub const AS_ROOT: i32 = 73;
 
-/// The host bounds what a page says, so a bigger icon shows as none.
+/// Maximum base64 favicon size accepted from a page; larger icons are dropped.
 pub const MOST_ICON: usize = 12 * 1024;
 
-/// A host runs only an engine with the same version of this link.
+/// Wire protocol version between host and engine; both sides must match.
 ///
-/// Raise it with each change of a command, a report or the bytes before a picture that the
-/// version before cannot take.
+/// Bump on any breaking change to `ToEngine`, `FromEngine`, or the binary frame header.
 pub const VERSION: u32 = 2;
 
-/// The bytes before a picture's data: its window, its kind and its mark.
+/// Binary frame header layout: window (8 bytes), flags (1 byte), mark (8 bytes).
 const FRAME_HEADER: usize = 8 + 1 + 8;
 const KEY: u8 = 1;
 const ANCHOR: u8 = 2;
 const MARKED: u8 = 4;
 const STILL: u8 = 8;
 
-/// The host writes the address into the engine's profile.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Address {
     pub port: u16,
@@ -37,14 +34,14 @@ pub struct Address {
 }
 
 impl Address {
-    /// The path names the version of the link, so an engine of another version cannot connect.
+    /// Includes `VERSION` in the WebSocket path so mismatched engine versions are rejected.
     pub fn path(&self) -> String {
         format!("/{}/{VERSION}", self.token)
     }
 }
 
-/// A command of the host. Windows and host pages have the ids that the host gives them; tabs
-/// have the engine's ids.
+/// Host-to-engine commands. Window and host-page IDs are host-assigned; tab IDs are
+/// engine-assigned.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "type",
@@ -72,12 +69,11 @@ pub enum ToEngine {
     Keyframe {
         window: i64,
     },
-    /// A frame that each viewer can take after frames that it missed: an anchor when the encoder
-    /// has marks that every viewer holds, or else a key frame.
+    /// Requests a recovery frame: an anchor referencing a held mark if available, else a keyframe.
     Recover {
         window: i64,
     },
-    /// Marks of frames that every viewer took, which an anchor may refer to.
+    /// Reference frame marks acknowledged by all viewers and safe for anchors to reference.
     Held {
         window: i64,
         marks: Vec<u64>,
@@ -86,20 +82,19 @@ pub enum ToEngine {
         window: i64,
         bitrate: u32,
     },
-    /// The tab whose page the window's layer shows, or none, when the layer keeps its last
-    /// picture.
+    /// Tab rendered into the window's Core Animation layer, or `None` to hold the last frame.
     Layer {
         window: i64,
         tab: Option<i64>,
     },
-    /// A view that hosts the layer has no still of its picture yet.
+    /// Requests a keyframe still for a local layer-hosting view's fallback snapshot.
     Still {
         window: i64,
     },
     Activate {
         tab: i64,
     },
-    /// With an ask, the engine names the tab's target once it knows it.
+    /// When `ask` is set, the engine replies with `TabOpened` once the target ID is known.
     NewTab {
         window: i64,
         address: String,
@@ -108,7 +103,7 @@ pub enum ToEngine {
     CloseTab {
         tab: i64,
     },
-    /// The engine shows no dialog itself.
+    /// Answers a JavaScript dialog; the engine suppresses native dialogs.
     Dialog {
         tab: i64,
         accept: bool,
@@ -128,8 +123,7 @@ pub enum ToEngine {
         width: u32,
         height: u32,
     },
-    /// A picture of a page reaches no farther than its view, so a larger picture needs a larger
-    /// view.
+    /// Resizes a host page's viewport so screenshots (which clip to the view) can cover it.
     ResizePage {
         page: i64,
         width: u32,
@@ -141,7 +135,7 @@ pub enum ToEngine {
     Quit,
 }
 
-/// The pages that a tab opens are tabs of its window too.
+/// Tab metadata reported by the engine; popups opened by a tab appear as tabs in the same window.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EngineTab {
@@ -164,7 +158,7 @@ pub enum FromEngine {
     Tabs {
         tabs: Vec<EngineTab>,
     },
-    /// A CSS cursor name.
+    /// CSS cursor name.
     Shape {
         tab: i64,
         shape: String,
@@ -184,7 +178,7 @@ pub enum FromEngine {
         tab: i64,
         text: String,
     },
-    /// The icon that a tab's page names, as PNG in base64, or nothing.
+    /// Base64-encoded PNG favicon, or empty to clear.
     Icon {
         tab: i64,
         png: String,
@@ -193,13 +187,12 @@ pub enum FromEngine {
         window: i64,
         problem: String,
     },
-    /// The window's layer shows a picture, in the Core Animation context of this id, which an
-    /// app on this computer can host.
+    /// Core Animation context ID for the window's shared layer, hostable by local apps.
     Layer {
         window: i64,
         context: u32,
     },
-    /// The window has no layer, so its views take video.
+    /// Layer hosting is unavailable for this window; local views fall back to video.
     NoLayer {
         window: i64,
         problem: String,
@@ -216,33 +209,30 @@ pub enum FromEngine {
         tab: i64,
         dialog: Dialog,
     },
-    /// A dialog that went without an answer, such as when its page left.
+    /// Dialog dismissed without a user response (e.g., the page navigated or closed).
     DialogClosed {
         tab: i64,
     },
 }
 
-/// What a frame needs from the frames before it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FrameKind {
-    /// The frame before it.
     Delta,
-    /// Nothing.
     Key,
-    /// Only frames whose marks the host said every viewer holds, so a viewer that missed the
-    /// frames before it can go on from here.
+    /// References only frames whose marks all viewers have acknowledged, allowing recovery
+    /// after dropped frames without a full keyframe.
     Anchor,
 }
 
-/// H.264 in Annex B form. The encoder gives a mark to a frame that a later anchor may refer to,
-/// once every viewer holds it.
+/// Annex B H.264 frame. `mark` identifies a reference frame that future anchors may depend on
+/// once acknowledged by all viewers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EncodedFrame {
     pub window: i64,
     pub kind: FrameKind,
     pub mark: Option<u64>,
-    /// A key frame of the window's layer, which the views that host the layer keep for the time
-    /// that the layer cannot show the page. It is no part of the video.
+    /// Standalone keyframe snapshot for layer-hosting views to display while the layer is
+    /// unavailable; not part of the video stream.
     pub still: bool,
     pub data: Bytes,
 }

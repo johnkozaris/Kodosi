@@ -2,7 +2,6 @@ use serde_json::{Value, json};
 
 use crate::{Failed, Fragment, Mark, Node, Schema, Slice, StepMap, failed};
 
-/// Each step has the same result as the step of the same name in `ProseMirror`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Step {
     Replace {
@@ -30,7 +29,7 @@ pub enum Step {
         to: usize,
         mark: Mark,
     },
-    /// Holds only `AddMark` and `RemoveMark` steps.
+    /// Batch restricted to `AddMark` and `RemoveMark` steps.
     MarkSet {
         steps: Vec<Self>,
     },

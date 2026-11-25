@@ -1,15 +1,10 @@
 import KodosiBridge
 import SwiftUI
 
-/// What the thread shows in its order: the rows, the day where it changes, and the agent's mark
-/// at the start of each of its turns, as a project's conversation shows a face at the start of a
-/// group.
 struct ChatLine: Identifiable, Equatable {
     enum Kind: Equatable {
         case day(Date)
-        /// `lead`: the row starts a turn of the agent, under its mark, name and time.
         case row(ChatRow, lead: Bool)
-        /// What the agent does now, at the end of its turn.
         case now(lead: Bool)
     }
 
@@ -54,12 +49,11 @@ struct ChatLine: Identifiable, Equatable {
 }
 
 extension ChatRow {
-    /// The rows from before the agent's link reported have no time.
+    /// Rows emitted before the agent connection reports timestamps have `at == 0`.
     var date: Date? {
         at > 0 ? Date(timeIntervalSince1970: TimeInterval(at) / 1000) : nil
     }
 
-    /// The agent wrote it: it belongs under the agent's mark.
     var isAgents: Bool {
         switch kind {
         case .person: false
@@ -69,17 +63,18 @@ extension ChatRow {
     }
 }
 
-/// The newest message of a person starts a part as high as the view, so that after Send the
-/// message moves to the top and the answer grows below it.
+/// Gives the latest user message and everything after it a minimum height equal to the viewport,
+/// so sending a message scrolls it to the top and lets the response grow below it.
 struct ChatThread: View {
     @Environment(\.theme) private var theme
     let chat: TerminalChat
     let agent: AgentKind
     let me: String?
-    /// Counts the messages that a person sent from this view.
+    /// Incremented on each local send to trigger scrolling to the bottom.
     let sent: Int
     @State private var following = true
-    /// The last row is in view. Below it the part of the newest message can be empty.
+    /// Tracks whether the last actual row is visible, separate from `following` because the
+    /// viewport-tall trailing section can leave empty space below it.
     @State private var endShown = true
     @State private var viewport: CGFloat = 0
     @State private var position = ScrollPosition(edge: .bottom)
@@ -137,8 +132,7 @@ struct ChatThread: View {
                 .animation(theme.motion.spring, value: !following && !endShown)
             }
             .onChange(of: sent) { _, _ in toEnd(proxy) }
-            // A message that starts later, from the queue or from another device, also goes to the
-            // top for a person who is at the end.
+            // Scroll queued or cross-device user messages to the top if the user is at the end.
             .onChange(of: newest) { _, _ in
                 if following || endShown {
                     toEnd(proxy)
@@ -147,8 +141,6 @@ struct ChatThread: View {
         }
     }
 
-    /// While the agent works and asks nothing, the end of its turn says what it does, unless its
-    /// answer already grows there.
     private func showsNow(_ rows: [ChatRow]) -> Bool {
         guard chat.working, chat.asks.isEmpty else { return false }
         switch rows.last?.kind {
@@ -182,15 +174,12 @@ struct ChatThread: View {
         withAnimation(theme.motion.soft) { proxy.scrollTo("latest", anchor: .bottom) }
     }
 
-    /// The steps that a person opens grow below the line that they pressed, and the view stays
-    /// where it is.
+    /// Stops auto-scrolling when the user expands a step so the viewport stays anchored.
     private func hold() {
         following = false
     }
 }
 
-/// A part of an agent's turn in the column of its words. The first part of a turn has the agent's
-/// mark beside its name and time, and the mark of the turn that runs has the working light.
 private struct AgentTurnPart<Content: View>: View {
     #if os(iOS)
         private static var face: CGFloat {
@@ -274,7 +263,6 @@ struct ChatRowView: View {
     }
 }
 
-/// A message of another person in a shared terminal, as a project shows it: face, name and time.
 private struct ChatOtherPerson: View {
     @Environment(\.theme) private var theme
     let text: String
@@ -300,8 +288,6 @@ private struct ChatOtherPerson: View {
     }
 }
 
-/// While the agent works, one line at the end of its turn says what it does now, and rolls to the
-/// next. The working light of the agent's mark is the moving sign.
 struct ChatNowLine: View {
     @Environment(\.theme) private var theme
     let chat: TerminalChat
@@ -401,7 +387,6 @@ struct ChatNoteView: View {
 }
 
 extension View {
-    /// A chat reads as one centered column, also in a wide tile.
     func chatColumn() -> some View {
         frame(maxWidth: 760).frame(maxWidth: .infinity)
     }

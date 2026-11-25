@@ -1,6 +1,6 @@
 use super::{ChangeLine, ChangeSign, MOST_LINES, ToolDetail};
 
-/// Above this number of line pairs, the lines of the old text all count as removed.
+/// Caps the LCS table size; larger inputs fall back to a full remove-and-add diff.
 const MOST_PAIRS: usize = 250_000;
 const MOST_LINE: usize = 400;
 
@@ -62,8 +62,7 @@ pub(super) fn written(text: &str) -> Change {
     between("", text)
 }
 
-/// The lines of a change that is given as the hunks of a unified diff, with no lines that name
-/// the file.
+/// Parses unified diff hunk lines; callers must strip `---`/`+++` headers first.
 pub(super) fn hunks(diff: &str) -> Change {
     let mut change = Change {
         added: 0,

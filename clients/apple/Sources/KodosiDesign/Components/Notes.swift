@@ -62,7 +62,6 @@ public struct PictureNotice: View {
     }
 
     #if os(iOS)
-        /// At the accessibility text sizes, the words take more lines, on a rounded face.
         private var wraps: Bool {
             typeSize.isAccessibilitySize
         }

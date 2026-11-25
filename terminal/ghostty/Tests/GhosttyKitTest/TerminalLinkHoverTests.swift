@@ -28,7 +28,7 @@ struct TerminalLinkHoverTests {
         let cellHeight = Double(size.cellHeightPixels) / view.core.scaleFactor()
         let none = ghostty_input_mods_e(rawValue: 0)
 
-        // The same steps as the phone's tap: away, there with the link key, away.
+        // Mirrors iOS tap probing: move off-surface, hover with Command, then move off-surface.
         func link(column: Double, row: Double) -> String? {
             surface.sendMousePos(x: -1, y: -1, mods: none)
             view.core.bridge.hoverLink = nil

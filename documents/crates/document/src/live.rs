@@ -19,7 +19,7 @@ pub type PipeId = u64;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Input {
-    /// A pipe opened for this viewer. Its first message must be `join`.
+    /// A client connected; its first message must be `ToDocument::Join`.
     Connected {
         pipe: PipeId,
         viewer: Viewer,
@@ -35,16 +35,16 @@ pub enum Input {
         file: Vec<u8>,
         writer: String,
     },
-    /// `file` is the file as it is on disk.
+    /// Current on-disk bytes to patch against when writing.
     Save {
         file: Vec<u8>,
     },
     Saved {
         rev: Rev,
     },
-    /// Another program holds the file, and the save goes on trying.
+    /// Saving is blocked (e.g. another process holds the file) and will be retried.
     SaveWaits,
-    /// The journal starts again from this file.
+    /// The host compacted the journal onto `file` with a new `epoch`.
     Rebased {
         file: Vec<u8>,
         epoch: u64,
@@ -54,10 +54,10 @@ pub enum Input {
     },
 }
 
-/// What a document asks its host to do, in this order.
+/// Host side effects emitted by `Document::step`, which must be executed in order.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Effect {
-    /// `catchup` marks the large answer to `join`, which counts against no limit of its pipe.
+    /// `catchup` marks join replies and asset replies that bypass the pipe's backpressure limit.
     Send {
         to: Vec<PipeId>,
         frame: Arc<[u8]>,
@@ -66,16 +66,16 @@ pub enum Effect {
     Drop {
         pipe: PipeId,
     },
-    /// Writes this change to the journal before anyone hears of it.
+    /// Must be persisted to the journal before any `Send` effect notifies clients.
     Append(Vec<u8>),
     Unsaved,
-    /// The new file reads well, so it is the file on disk now.
+    /// Signals that an external `FileChanged` parsed cleanly and is now the baseline on disk.
     FileTaken,
     Write {
         rev: Rev,
         file: Vec<u8>,
     },
-    /// A change must leave no trace: save at once, then start a new journal.
+    /// Flush to disk immediately and start a fresh journal so prior content is erased.
     Seal,
 }
 
@@ -84,7 +84,7 @@ pub struct Restored {
     pub epoch: u64,
     pub first_rev: Rev,
     pub seqs: HashMap<String, Seq>,
-    /// Revs that were saved. The file on disk holds the last of them.
+    /// Previously saved revisions; the last entry matches the file on disk.
     pub saved: Vec<Rev>,
 }
 
@@ -94,7 +94,6 @@ struct Seat {
     place: Value,
 }
 
-/// Takes an input and returns effects, and holds no network, disk, clock or thread.
 pub struct Document<F: Format> {
     model: F::Model,
     assets: Assets,
@@ -111,8 +110,8 @@ pub struct Document<F: Format> {
 }
 
 impl<F: Format> Document<F> {
-    /// `taken` holds the last batch of each client that the document took before it last closed,
-    /// so that a client that comes back learns what became of the batch that it sent.
+    /// `taken` seeds the last accepted sequence number per client from the previous session so
+    /// reconnecting clients can determine whether an in-flight batch was applied.
     pub fn open(
         file: Vec<u8>,
         epoch: u64,
@@ -338,7 +337,7 @@ impl<F: Format> Document<F> {
         effects
     }
 
-    /// A new view knows epoch 0.
+    /// Newly opened views send `epoch == 0` and always receive a full snapshot.
     fn catchup(&self, epoch: u64, rev: Rev) -> Catchup {
         let missed = (epoch != 0 && epoch == self.epoch)
             .then(|| self.log_since(rev))
@@ -532,8 +531,8 @@ impl<F: Format> Document<F> {
         )]
     }
 
-    /// Merges a write of another program, as Git merges: the write's own changes are what lies
-    /// between the saved state that it started from and the new file.
+    /// Merges an external write by diffing it against the closest saved state (likely the version
+    /// the external program read) and applying those changes onto the current model.
     fn file_changed(&mut self, file: &[u8], writer: &str) -> Vec<Effect> {
         let mut assets = self.assets.clone();
         let Ok(new) = F::read(file, &mut assets) else {

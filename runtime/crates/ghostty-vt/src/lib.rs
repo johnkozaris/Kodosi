@@ -61,8 +61,8 @@ impl Terminal {
         })
     }
 
-    /// Restores a terminal from a Ghostty snapshot. The snapshot holds the console
-    /// modes, so the policy adds only the console rule for resizes.
+    /// Snapshots already preserve terminal modes, so `policy.console` only needs
+    /// to reapply the resize scrollback rule.
     pub fn from_snapshot(snapshot: &[u8], policy: TerminalPolicy) -> Result<Self, Error> {
         let mut raw = RawTerminal::from_snapshot(snapshot, TerminalPolicy::limits())?;
         if policy.console {
@@ -158,8 +158,8 @@ impl Terminal {
         self.raw.encode_snapshot(true, limits)
     }
 
-    /// Ends before the history, after READY and the pixels of the images on screen.
-    /// The first page of a screen can also hold some history rows.
+    /// Encodes only through READY and screen image payloads, omitting older
+    /// history pages (the screen's first page may still contain some history rows).
     pub fn visible_snapshot(&mut self, limits: SnapshotLimits) -> Result<Vec<u8>, Error> {
         self.raw.encode_snapshot(false, limits)
     }
@@ -219,9 +219,9 @@ impl Terminal {
         Ok(output)
     }
 
-    /// Leaves the alternate screen, then gives the primary screen and its history as VT text
-    /// with styles and links. Soft-wrapped lines stay whole, so another terminal wraps them at
-    /// its own width.
+    /// Leaves the alternate screen first, then returns the primary screen and its
+    /// history as VT text. Soft-wrapped lines are unwrapped so the receiving
+    /// terminal can re-wrap them to its own width.
     pub fn primary_history(&mut self) -> Result<Vec<u8>, Error> {
         if self.state()?.active_screen == Screen::Alternate {
             self.write(LEAVE_ALTERNATE_SCREEN)?;
@@ -261,8 +261,8 @@ mod tests {
         image_data_bytes: u64::MAX,
     };
 
-    /// A restored terminal lays out its pages anew, so tests compare what the
-    /// terminals show, not snapshot bytes.
+    /// Restoring a snapshot repacks pages, so tests compare rendered output and
+    /// state rather than raw snapshot bytes.
     fn appearance(terminal: &mut Terminal) -> (Vec<u8>, TerminalState) {
         let shown = terminal
             .raw
@@ -331,7 +331,8 @@ mod tests {
         assert_eq!(appearance(&mut restored), appearance(&mut source));
     }
 
-    /// Twenty columns put the whole history in the first page of the screen.
+    /// At 20 columns, all test history fits in the first page included in a
+    /// visible snapshot, so full appearance matches the host.
     fn visible_parity(host_bytes: &[u8], suffix: &[u8]) {
         let policy = TerminalPolicy::default();
         let mut host = Terminal::new(20, 4, policy).expect("host");

@@ -6,12 +6,11 @@
 namespace kodosi {
 class CanvasModel;
 
-// The closed frames of the canvas: profiles that keep nothing, serve only the pages that the
-// canvas published and the views of the app, and refuse every request to another place. Each page
-// has a profile of its own, so no page reads what the page of another terminal stored, and the
-// storage of a page ends with its view. Chromium stops the whole app when it cannot sandbox a
-// page, so where the system refuses user namespaces or the app runs as root, pages do not show
-// here.
+// Manages isolated off-the-record WebEngine profiles that serve only published canvas pages and
+// bundled document views while blocking external requests. Each canvas page gets its own profile
+// so storage is isolated per view and discarded when the view closes. Chromium aborts the process
+// if it cannot initialize its sandbox, so WebEngine views are disabled when user namespaces are
+// unavailable or the app runs as root.
 class CanvasWeb final : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool available READ available CONSTANT FINAL)

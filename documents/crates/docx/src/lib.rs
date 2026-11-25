@@ -1,5 +1,5 @@
-//! Documents (.docx). The server keeps a text tree of the body and the original XML of each block, so
-//! a save makes new XML only for blocks that changed, and each other byte stays.
+//! DOCX format support. Keeps a text tree of the document body alongside each block's original
+//! XML so saves rewrite only modified blocks and preserve all other bytes.
 
 mod apply;
 mod blank;
@@ -34,8 +34,8 @@ impl Format for Docx {
         }))
     }
 
-    /// A view sends steps and an agent sends ops. Pieces of XML and the blocks that they make come
-    /// only with the merge of a write of another program, which the server makes itself.
+    /// Clients may only send steps (without raw XML payloads) or named ops; `keep`, `sources`, and
+    /// `Merge` are host-only for external-write merges.
     fn sendable(change: &Change) -> Result<(), String> {
         match change {
             Change::Steps { keep, sources, .. } if keep.is_empty() && sources.is_empty() => Ok(()),

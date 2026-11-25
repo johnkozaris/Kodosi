@@ -49,7 +49,6 @@ sealed interface ChatChange {
     @SerialName("queued")
     data class Queued(val queued: List<ChatQueued>) : ChatChange
 
-    /** The agent's list of its work, whole. */
     @Serializable
     @SerialName("tasks")
     data class Tasks(val tasks: List<ChatTask>) : ChatChange
@@ -74,7 +73,7 @@ sealed interface ChatChange {
 
 @Serializable
 enum class ChatState {
-    /** No agent of the terminal reports to the chat. */
+    // No agent is attached to this terminal's chat.
     @SerialName("away")
     AWAY,
 
@@ -84,12 +83,10 @@ enum class ChatState {
     @SerialName("working")
     WORKING,
 
-    /** The agent waits for a person's answer. */
     @SerialName("asking")
     ASKING
 }
 
-/** What the agent does at this moment. */
 @Serializable
 @JsonClassDiscriminator("kind")
 sealed interface ChatNow {
@@ -110,14 +107,14 @@ sealed interface ChatNow {
     data object Compacting : ChatNow
 }
 
-/** [at] is in milliseconds since 1970 on the terminal's computer. */
+// at is a Unix epoch timestamp in milliseconds from the host computer's clock (0 if unknown).
 @Serializable
 data class ChatItem(val id: String, val at: Long, val body: ChatBody)
 
 @Serializable
 @JsonClassDiscriminator("kind")
 sealed interface ChatBody {
-    /** A message without a sender was typed in the terminal. */
+    // A null sender means the message was typed directly in the terminal.
     @Serializable
     @SerialName("person")
     data class Person(val text: String, val by: ChatPerson? = null) : ChatBody
@@ -130,7 +127,6 @@ sealed interface ChatBody {
     @SerialName("tool")
     data class Tool(val tool: ChatTool) : ChatBody
 
-    /** The agent's turn ended here. */
     @Serializable
     @SerialName("turn")
     data class Turn(val end: TurnEnd, val ms: Long = 0) : ChatBody
@@ -158,28 +154,24 @@ enum class TurnEnd {
 @Serializable
 @JsonClassDiscriminator("kind")
 sealed interface ChatNote {
-    /** The agent made its conversation shorter to free its context. */
     @Serializable
     @SerialName("compacted")
     data object Compacted : ChatNote
 
-    /** The agent is not signed in, and signs in with its own steps in its terminal. */
     @Serializable
     @SerialName("signedOut")
     data object SignedOut : ChatNote
 
-    /** What the agent says happened while the person was away. */
+    /** The agent's summary of what happened while the person was away. */
     @Serializable
     @SerialName("recap")
     data class Recap(val text: String) : ChatNote
 
-    /** The agent could not continue. [error] is the agent's word for the cause. */
     @Serializable
     @SerialName("failed")
     data class Failed(val error: String, val text: String = "") : ChatNote
 }
 
-/** [name] is the agent's name of the tool, [target] the short subject: a command, a file, a pattern, an address. */
 @Serializable
 data class ChatTool(
     val name: String,
@@ -210,7 +202,6 @@ enum class ChatToolKind {
     @SerialName("web")
     WEB,
 
-    /** A helper: another agent that the agent starts for a part of its work. */
     @SerialName("agent")
     AGENT,
 
@@ -229,11 +220,9 @@ enum class ChatToolKind {
 
 @Serializable
 enum class ChatToolState {
-    /** The agent writes the call. */
     @SerialName("preparing")
     PREPARING,
 
-    /** The call waits for a person's permission or answer. */
     @SerialName("asking")
     ASKING,
 
@@ -258,7 +247,6 @@ enum class ChatToolState {
 @Serializable
 @JsonClassDiscriminator("kind")
 sealed interface ChatToolDetail {
-    /** [background]: the command runs on after its call ended. */
     @Serializable
     @SerialName("command")
     data class Command(val command: String, val output: String = "", val background: Boolean = false) :
@@ -273,7 +261,6 @@ sealed interface ChatToolDetail {
     @SerialName("output")
     data class Output(val text: String) : ChatToolDetail
 
-    /** For each question in order, what the person chose or wrote. */
     @Serializable
     @SerialName("question")
     data class Question(val questions: List<ChatQuestion>, val answers: List<String> = emptyList()) :
@@ -283,7 +270,6 @@ sealed interface ChatToolDetail {
     @SerialName("plan")
     data class Plan(val text: String) : ChatToolDetail
 
-    /** A helper of the agent: its kind's name, its steps so far, its last step and the start of what it wrote last. */
     @Serializable
     @SerialName("agent")
     data class Agent(val name: String = "", val steps: Int = 0, val doing: ChatStep? = null, val said: String = "") :
@@ -308,10 +294,7 @@ enum class ChangeSign {
     REMOVED
 }
 
-/**
- * [refused]: the agent did not take the message, in the agent's words. The message waits until a
- * person sends another, removes it, or writes to the agent in the terminal.
- */
+// If refused is non-null, the message stays queued until removed or superseded by new input.
 @Serializable
 data class ChatQueued(
     val id: String,
@@ -342,11 +325,9 @@ enum class ChatControl {
     USAGE
 }
 
-/** A person of the terminal: the account, or for a person with no account the view that sent. */
 @Serializable
 data class ChatPerson(val id: String, val name: String)
 
-/** A step of the list that the agent keeps of its work. */
 @Serializable
 data class ChatTask(val text: String, val state: TaskState)
 
@@ -363,9 +344,9 @@ enum class TaskState {
 }
 
 /**
- * [agent] is the agent's name as the terminal's program has it, [cost] what the agent estimates
- * that the conversation cost in US dollars, and [background] the commands that run on after their
- * calls ended.
+ * [agent] is the agent's name in the same form as the terminal's program, [cost] the agent's estimate
+ * of what the conversation has cost in US dollars, and [background] the number of commands still
+ * running after their calls ended.
  */
 @Serializable
 data class ChatFacts(
@@ -423,17 +404,12 @@ data class ChatQuestion(
 @Serializable
 data class ChatOption(val label: String, val description: String = "")
 
-/**
- * A question of the agent that is open. The agent shows the same question in its terminal, and
- * the first answer counts. [item] is the item of the tool call that waits.
- */
 @Serializable
 data class ChatAsk(val id: String, val item: String? = null, val body: AskBody)
 
 @Serializable
 @JsonClassDiscriminator("kind")
 sealed interface AskBody {
-    /** [always] is what the agent offers to allow from now on, and [helper] the task of the helper that asks. */
     @Serializable
     @SerialName("permission")
     data class Permission(val tool: ChatTool, val always: AskAlways? = null, val helper: String = "") : AskBody
@@ -442,40 +418,32 @@ sealed interface AskBody {
     @SerialName("question")
     data class Question(val questions: List<ChatQuestion>) : AskBody
 
-    /** With the ways on that the agent offers, the one that it recommends first. */
+    // choices is ordered with the agent's recommended option first.
     @Serializable
     @SerialName("plan")
     data class Plan(val text: String, val choices: List<PlanChoice>) : AskBody
 }
 
-/** A way on after a plan of the agent. */
 @Serializable
 enum class PlanChoice {
-    /** Carry out the plan, and the agent asks as it is set. */
     @SerialName("go")
     GO,
 
-    /** Carry out the plan, and the agent asks before each change. */
     @SerialName("ask")
     ASK,
 
-    /** Carry out the plan, and the agent changes files without asking. */
     @SerialName("edits")
     EDITS,
 
-    /** Carry out the plan, and the agent's safety check decides what it may do. */
     @SerialName("auto")
     AUTO,
 
-    /** The agent carries out the plan alone and asks nothing. */
     @SerialName("alone")
     ALONE,
 
-    /** Helpers of the agent carry out parts of the plan side by side, alone. */
     @SerialName("helpers")
     HELPERS,
 
-    /** The agent leaves plan mode and does not carry out the plan. */
     @SerialName("leave")
     LEAVE
 }
@@ -483,42 +451,33 @@ enum class PlanChoice {
 @Serializable
 @JsonClassDiscriminator("kind")
 sealed interface AskAlways {
-    /** Calls that match this rule, such as a command. */
     @Serializable
     @SerialName("rule")
     data class Rule(val tool: String, val text: String) : AskAlways
 
-    /** Each call that this permission mode allows, until the session ends. */
     @Serializable
     @SerialName("mode")
     data class Mode(val mode: ChatMode) : AskAlways
 
-    /** A folder that the agent may also work in. */
     @Serializable
     @SerialName("folder")
     data class Folder(val name: String) : AskAlways
 }
 
-/** When the agent asks before it acts. */
 @Serializable
 enum class ChatMode {
-    /** Before each change and each command. */
     @SerialName("ask")
     ASK,
 
-    /** Before each command, and not before a change of a file. */
     @SerialName("edits")
     EDITS,
 
-    /** The agent plans and changes nothing. */
     @SerialName("plan")
     PLAN,
 
-    /** The agent decides which calls are safe. */
     @SerialName("auto")
     AUTO,
 
-    /** The agent does what a rule allows and refuses the rest. It asks nothing. */
     @SerialName("rules")
     RULES,
 

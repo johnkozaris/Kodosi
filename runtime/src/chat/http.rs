@@ -1,5 +1,3 @@
-//! The requests of an agent's link: HTTP/1.1 with a JSON body of a known length.
-
 use std::io;
 
 use tokio::io::{AsyncRead, AsyncReadExt as _, AsyncWrite, AsyncWriteExt as _};
@@ -17,8 +15,8 @@ fn invalid(reason: &'static str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, reason)
 }
 
-/// The next request, or none when the other side closed the connection between two requests.
-/// `kept` holds what arrived after the request before.
+/// Reads the next HTTP/1.1 request, returning `Ok(None)` on a clean EOF between requests.
+/// Reuse `kept` across calls on the same connection to preserve trailing buffered bytes.
 pub(super) async fn read<S: AsyncRead + Unpin>(
     stream: &mut S,
     kept: &mut Vec<u8>,

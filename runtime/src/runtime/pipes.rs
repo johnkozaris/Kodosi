@@ -17,13 +17,12 @@ use crate::{
 };
 
 const MOST_PIPES: usize = 32;
-/// A break of the link that ends within this time shows no sign.
+/// Grace period before reporting a disconnected pipe to the client.
 const PATIENCE: Duration = Duration::from_millis(1500);
 const LONGEST_WAIT: Duration = Duration::from_secs(30);
 
-/// A pipe of a document or of the browser that the runtime keeps for its client. It opens the
-/// pipe again after each loss: at once when the terminal runs again, and after a wait that grows
-/// while the terminal runs and the pipe fails.
+/// Client-owned document or browser pipe managed by the runtime. Reopens immediately when its
+/// terminal comes back online, and backs off exponentially when opens fail while online.
 pub(super) struct Kept {
     session: Uuid,
     key: String,
@@ -32,13 +31,12 @@ pub(super) struct Kept {
     news: mpsc::UnboundedSender<News>,
     state: State,
     failures: u32,
-    /// The last part from the client did not end its frame.
+    /// True while the client is mid-frame (`more == true`).
     within_frame: bool,
     opened: bool,
     told: Told,
 }
 
-/// What the client last heard about a pipe that is not open, since it was open.
 #[derive(PartialEq, Eq)]
 enum Told {
     Nothing,
@@ -55,7 +53,7 @@ enum State {
         attempt: Uuid,
         sender: mpsc::Sender<Vec<u8>>,
         filling: Vec<u8>,
-        /// The client began a frame before the pipe opened, so its rest goes nowhere.
+        /// Discards trailing chunks of a client frame that began before this open completed.
         skipping: bool,
     },
 }
@@ -92,7 +90,7 @@ impl Kept {
         };
     }
 
-    /// A pipe that never opened has no loss to tell, only a reason why it does not open.
+    /// Suppresses bare disconnect notices before the first open; only explicit errors are reported.
     fn fall(&mut self, reason: Option<Text>, scope: &Scope) {
         if reason.is_none() && !self.opened {
             return;
@@ -259,8 +257,8 @@ impl Runtime {
         self.pipes.retain(|_, kept| !kept.lifetime.is_cancelled());
     }
 
-    /// Each pipe opens again under the new account, and a pipe whose terminal the account does
-    /// not list closes.
+    /// Resets all pipes to reopen under the new account; pipes for unlisted terminals close on the
+    /// next `keep_pipes()` pass.
     pub(super) fn reopen_pipes(&mut self) {
         let scope = self.scope.clone();
         for kept in self.pipes.values_mut() {
@@ -311,7 +309,7 @@ impl Runtime {
         }
     }
 
-    /// The terminal can take a pipe: a remote one wakes for it when it sleeps.
+    /// True if the terminal can accept a pipe (opening one wakes a dormant remote terminal).
     fn runs(&self, id: Uuid) -> bool {
         self.target(id).is_ok()
             && (self.hosts(&id)
@@ -399,8 +397,8 @@ impl Runtime {
         }
     }
 
-    /// A pipe that ends before it carried a frame counts as a failed one, so a terminal that
-    /// refuses a document is not asked again at once.
+    /// Counts a pipe that closes before delivering any frame as a failure so backoff engages if
+    /// the host immediately rejects the document.
     pub(super) fn document_ended(&mut self, pipe: Uuid, attempt: Uuid, carried: bool) {
         if let Some(kept) = self
             .pipes
@@ -445,7 +443,8 @@ impl Carrier {
     }
 }
 
-/// The client hears each pipe in one order: it opened, its frames, and that it stayed lost.
+/// Serializes `document.opened`, `document.frame`, and `document.lost` per pipe so the client
+/// sees lifecycle events and frames in strict order.
 struct Delivery {
     pipe: Uuid,
     carrier: Carrier,

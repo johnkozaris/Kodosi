@@ -53,8 +53,8 @@ const PORTS: std::ops::RangeInclusive<u16> = 47360..=47379;
 const TAKEN: u8 = 1;
 const MOST_RESETS: u32 = 64;
 
-/// Direct connections to other devices of this person: one UDP socket and one QUIC endpoint for
-/// the runtime, bound only while a terminal uses or looks for a direct path.
+/// Manages peer-to-peer QUIC connections between the user's own devices using one UDP socket and
+/// endpoint per runtime, bound only while a terminal uses or looks for a direct path.
 pub(crate) struct Peers {
     keys: Arc<ChannelKeys>,
     networks: fn() -> Vec<Network>,
@@ -167,8 +167,8 @@ impl Lane {
         }
     }
 
-    /// QUIC keeps a connection whose path went silent open until its idle timeout, and the next
-    /// try would open its lane there and wait, so a silent lane ends its connection.
+    /// Closes the underlying QUIC connection so subsequent retries do not open new streams on a
+    /// blackholed path before QUIC's idle timeout expires.
     pub(super) fn abandon(self) {
         match &self.writer {
             Writer::Quic(_) => {
@@ -356,7 +356,7 @@ impl Peers {
             if let Some(lane) = open_lane(&joined, pipe).await {
                 return Some(lane);
             }
-            // QUIC holds a connection whose path went silent open until its idle timeout.
+            // Close the dead connection immediately rather than waiting for QUIC's idle timeout.
             joined.connection.close(VarInt::from_u32(0), b"");
         }
         let joined = self.dial(host_key, candidates).await?;
@@ -406,9 +406,8 @@ impl Peers {
         Some(joined)
     }
 
-    /// Waits for the viewing device to open the route's stream. Until the two devices have a
-    /// connection, the host sends to the viewer's addresses so that its own router lets the
-    /// viewer's packets in.
+    /// Registers an expected direct stream from `viewer_key`; `Expected::meet` sends UDP
+    /// hole-punch packets to the viewer's addresses until a QUIC connection is established.
     #[cfg(feature = "host")]
     pub(super) fn expect(self: &Arc<Self>, viewer_key: &[u8], pipe: Uuid) -> Expected {
         let (sender, lane) = oneshot::channel();
@@ -590,7 +589,6 @@ impl Peers {
     }
 }
 
-/// Closes the socket a while after the last connection ended, so no port stays open for nothing.
 async fn sweep(peers: Weak<Peers>, own: Weak<Bound>) {
     let mut idle_since = None;
     loop {
@@ -694,8 +692,8 @@ async fn accept(peers: Weak<Peers>, endpoint: quinn::Endpoint) {
     }
 }
 
-/// Takes a connection only from a device that a route of this host expects, and hands each of
-/// its streams to the route that waits for it.
+/// Accepts a connection only from a device that one of this host's routes expects, and hands each
+/// of its streams to the route waiting for it.
 #[cfg(feature = "host")]
 async fn welcome(peers: Weak<Peers>, incoming: quinn::Incoming) {
     let Ok(Ok(connection)) = tokio::time::timeout(ARRIVAL, incoming).await else {
@@ -788,8 +786,8 @@ fn transport() -> Arc<quinn::TransportConfig> {
     Arc::new(transport)
 }
 
-/// The socket takes a port of the range that the Windows package opens on private networks, or
-/// another one when the range is taken.
+/// Prefers ports in `PORTS` (opened on private networks by the Windows package), falling back
+/// to an ephemeral port if all are in use.
 fn udp_socket() -> io::Result<std::net::UdpSocket> {
     let ports = || PORTS.chain([0]);
     let socket = ports()
@@ -861,10 +859,8 @@ fn is_lan(ip: IpAddr, networks: &[Network]) -> bool {
     networks.iter().any(|network| same_network(network, ip))
 }
 
-/// The addresses of the other device that are worth a try from here, in the order to try them,
-/// and whether each is on one of this computer's networks. A private or loopback address helps
-/// only on such a network, and trying it elsewhere would only ask for local network access for
-/// nothing.
+/// Filters and orders dialable peer addresses with an `is_lan` flag. Skips private/loopback
+/// addresses outside our local subnets so we do not trigger pointless OS local-network prompts.
 fn usable(theirs: &[SocketAddr], networks: &[Network], dual: bool) -> Vec<(SocketAddr, bool)> {
     let mut usable = theirs
         .iter()
@@ -984,8 +980,8 @@ impl AsyncUdpSocket for Demux {
                     }
                     return Poll::Ready(Ok(1));
                 }
-                // quinn reads again at once after a reset, and ends the endpoint on each other
-                // failed read, so a socket that only gives resets ends as a broken one.
+                // quinn retries immediately on ConnectionReset and closes the endpoint on other
+                // errors, so cap consecutive resets and convert to NotConnected to avoid spinning.
                 Poll::Ready(Err(error)) if error.kind() == io::ErrorKind::ConnectionReset => {
                     if self.resets.fetch_add(1, Ordering::Relaxed) < MOST_RESETS {
                         return Poll::Ready(Err(error));
@@ -1019,9 +1015,9 @@ impl AsyncUdpSocket for Demux {
     }
 }
 
-/// quinn's own Tokio socket (0.11.12) tries a failed read again at once, so a socket that fails
-/// each read, as iOS leaves the socket of an app that was in the background, holds a CPU core
-/// for good. This socket gives quinn the error, as quinn does after quinn-rs/quinn#2721.
+/// Workaround for quinn 0.11.12's Tokio socket spinning on persistent read errors (e.g., sockets
+/// invalidated when iOS backgrounds an app). Propagates read errors directly to quinn, matching
+/// quinn-rs/quinn#2721.
 #[derive(Debug)]
 struct Socket {
     io: tokio::net::UdpSocket,
@@ -1085,8 +1081,8 @@ impl AsyncUdpSocket for Socket {
     }
 }
 
-/// Each connection waits with its own future, because Tokio wakes only the last task that polled
-/// a socket's readiness.
+/// Gives each connection its own `writable()` future because Tokio only wakes the last task
+/// that polled a socket's readiness directly.
 struct Writable {
     socket: Arc<Socket>,
     waiting: Option<Pin<Box<dyn Future<Output = io::Result<()>> + Send + Sync>>>,
@@ -1121,7 +1117,7 @@ fn stun_request(id: [u8; 12]) -> [u8; 20] {
     request
 }
 
-/// The address in a STUN binding answer (RFC 8489), XOR-MAPPED-ADDRESS.
+/// Parses the XOR-MAPPED-ADDRESS attribute from an RFC 8489 STUN Binding Response.
 fn stun_answer(datagram: &[u8]) -> Option<([u8; 12], SocketAddr)> {
     if datagram.get(..2)? != [0x01, 0x01] || datagram.get(4..8)? != STUN_COOKIE {
         return None;

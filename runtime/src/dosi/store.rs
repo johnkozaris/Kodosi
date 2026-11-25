@@ -23,8 +23,8 @@ const MAX_MARKS: usize = 1024;
 const MAX_HELD_MARKS: usize = 4 * MAX_MARKS;
 const MAX_MARKS_BYTES: u64 = 256 * 1024;
 
-/// What this device keeps of the conversation for when the server loses its records or sends
-/// them again.
+/// Local high-water marks persisted separately from the log to guard against server log loss or
+/// replay.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct Marks {
@@ -34,8 +34,8 @@ pub(super) struct Marks {
     answered: Done,
 }
 
-/// Time-ordered ids that this device is done with: the newest ones, and every id up to the
-/// newest one that it let go, which stays below the id that still waits.
+/// Bounded set of processed time-ordered IDs. Evicted past IDs collapse into the `through`
+/// watermark, which never advances past a still-waiting ID.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Done {

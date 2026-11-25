@@ -13,7 +13,7 @@ public extension UsageLevel {
 
 public struct UsageRing: View {
     @Environment(\.theme) private var theme
-    /// The percent used, or none while there is no reading.
+    /// Percent used, or `nil` while there is no reading.
     let used: Int?
     let level: UsageLevel
     var lineWidth: CGFloat = 2
@@ -27,7 +27,6 @@ public struct UsageRing: View {
         self.loading = loading
     }
 
-    /// A ring of a share that is no limit of a plan, such as the context of a session.
     public init(used: Int, level: UsageLevel, lineWidth: CGFloat = 2) {
         self.used = used
         self.level = level

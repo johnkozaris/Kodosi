@@ -169,7 +169,8 @@
         }
 
         override func performKeyEquivalent(with event: NSEvent) -> Bool {
-            // AppKit offers a key equivalent to every view in the window, also to a terminal that SwiftUI hides.
+            // AppKit dispatches key equivalents to every view in the window, including hidden
+            // SwiftUI terminals; only handle them when this view is first responder.
             guard window?.firstResponder === self else { return false }
             let modifiers = event.modifierFlags
                 .intersection(.deviceIndependentFlagsMask)
@@ -179,7 +180,8 @@
                 shareShortcut?()
                 return true
             }
-            // Ghostty binds keys such as ⌘N and ⌘K to windows and screens of its own app.
+            // Let the app's main menu claim Command shortcuts before Ghostty's default bindings
+            // (such as Cmd+N and Cmd+K) intercept them.
             if modifiers.contains(.command),
                NSApp.mainMenu?.performKeyEquivalent(with: event) == true
             {

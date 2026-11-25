@@ -56,8 +56,8 @@ import com.kodosi.mobile.ui.snappy
 private const val SHOWN_CHANGE_LINES = 40
 
 /**
- * Steps of a turn as one quiet line: what they did, and the steps that did not go as the agent
- * wanted. The line is there from the first step, so a person can open a step while it runs.
+ * A turn's steps as one quiet line: what they did, and the steps that did not go as the agent
+ * intended. The line appears with the first step so a person can open a step while it runs.
  */
 @Composable
 internal fun ChatWork(items: List<ChatItem>, hold: () -> Unit) {
@@ -321,7 +321,7 @@ private fun StepDetail(tool: ChatTool, modifier: Modifier = Modifier) {
     }
 }
 
-/** Code that a step ran and what it printed. What a command printed starts at its end, where a result or a fault is. */
+// Start scrolled to the bottom when output is present so the final result or error is visible.
 @Composable
 private fun Printed(text: String, output: String) {
     val colors = KodosiTheme.colors

@@ -1,8 +1,7 @@
-//! Claude Code's link: the reports of its hooks module (`links/claude.js`) as changes of the chat.
+//! Chat adapter for Claude Code via its hooks module (`links/claude.js`).
 //!
-//! A person's answer goes back as the decision that Claude Code takes. Each field of a report can
-//! be absent or of another type after an update of Claude Code, so a report gives what it has and
-//! never stops the chat.
+//! Field parsing is lenient so schema changes across Claude Code updates degrade gracefully
+//! instead of breaking chat.
 
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -52,33 +51,29 @@ pub(super) struct Claude {
     /// whose rows Claude Code has not written yet.
     changes: VecDeque<String>,
     sent: u64,
-    /// Claude Code refused a message of the chat. After a person's stop in the terminal it takes
-    /// the next message only there.
+    /// Set when Claude Code drops a chat prompt (e.g., after a terminal interrupt); pauses queue
+    /// delivery until the user interacts again.
     held: bool,
     linked: bool,
-    /// Claude Code's name of the conversation that the chat shows.
     session: String,
     ways: Ways,
-    /// The words of a person's refusal. Claude Code gives them to the model as the result of the
-    /// call and keeps no message of the person.
+    /// Refusal text to show as a chat message. Claude Code passes denial text to the model as the
+    /// tool result without recording a user message row.
     said: Option<(String, Option<ChatPerson>)>,
 }
 
-/// What decides the ways on after a plan that Claude Code offers in its terminal.
+/// Tracks session permission capabilities to mirror the exit-plan choices Claude Code offers.
 #[derive(Default, Clone)]
 struct Ways {
-    /// The session can go on without permission checks: its command line allows that, or it had
-    /// that mode.
     bypass: bool,
     bypass_off: bool,
     auto_off: bool,
-    /// The mode that the session had before plan mode.
     before_plan: String,
 }
 
 impl Ways {
-    /// The command line also gives the mode that the session starts in, which Claude Code reports
-    /// first with a change of the mode or with a message.
+    /// Parses CLI flags for the initial permission mode, since Claude Code does not report it
+    /// until the first mode change or message.
     fn started(&mut self, arguments: &[&str]) {
         let (mut skip, mut allow, mut mode) = (false, false, None);
         let mut rest = arguments.iter();
@@ -106,7 +101,6 @@ impl Ways {
         }
     }
 
-    /// The least asking mode that the session can take, then the mode that asks before each change.
     fn choices(&self) -> Vec<PlanChoice> {
         let first = if self.bypass {
             PlanChoice::Alone
@@ -118,8 +112,6 @@ impl Ways {
         vec![first, PlanChoice::Ask]
     }
 
-    /// Without a plan, Claude Code asks only whether to leave plan mode: back to auto mode when
-    /// the session had it, or else to the mode that asks before each change.
     fn without_plan(&self) -> Vec<PlanChoice> {
         vec![if self.before_plan == "auto" && !self.auto_off {
             PlanChoice::Auto
@@ -141,7 +133,6 @@ impl Ways {
 }
 
 struct Call {
-    /// A call of the main conversation has an item.
     item: Option<String>,
     helper: Option<String>,
 }
@@ -183,7 +174,6 @@ struct Handed {
     by: Option<ChatPerson>,
 }
 
-/// The identifiers of the rows that the chat has, the oldest forgotten first.
 #[derive(Default)]
 struct Rows {
     seen: HashSet<String>,
@@ -211,7 +201,6 @@ impl Rows {
 impl Claude {
     pub(super) const NAME: &'static str = "claude";
 
-    /// The state that the reports so far give.
     fn show(&self, chat: &mut Chat) {
         let now = if self.compacting {
             Some(ChatNow::Compacting)
@@ -230,15 +219,12 @@ impl Claude {
         self.helpers.entry(id.to_owned()).or_default()
     }
 
-    /// The permission mode that a report names, and the mode that it changed from.
     fn saw_mode(&mut self, chat: &mut Chat, event: &Value) {
         let name = text(event, "mode");
         self.ways.saw(name, text(event, "from"));
         chat.change_facts(|facts| facts.mode = mode(name).or(facts.mode));
     }
 
-    /// A long session makes more calls than the chat keeps items. The calls of the items that
-    /// left the chat, and the helpers that ended, are forgotten.
     fn forget(&mut self, chat: &Chat) {
         if self.calls.len() <= MOST_CALLS {
             return;
@@ -271,9 +257,8 @@ impl Claude {
         });
     }
 
-    /// A module that loads again in its session keeps the chat. Claude Code that starts again in
-    /// the terminal has another conversation, and the chat starts again with it, as it does after a
-    /// rewind took the conversation back.
+    /// Preserves chat history if the hooks module reloads for the same session; resets when a
+    /// new Claude Code session starts, or when a rewind takes the conversation back.
     fn hello(&mut self, chat: &mut Chat, event: &Value) -> Vec<String> {
         let session = text(event, "session");
         let other = !self.session.is_empty() && !session.is_empty() && self.session != session;
@@ -327,8 +312,9 @@ impl Claude {
         closed
     }
 
-    /// The rows from before the module loaded. Claude Code gives no kind for a row of a person's
-    /// side, so a text that starts as its own records do is not shown as the person's message.
+    /// Replays transcript rows from before the hooks module loaded. Claude Code stores synthetic
+    /// records (such as XML command tags and interrupt markers) under the `"user"` role with no
+    /// separate kind field, so those prefixes are filtered out.
     fn history(&mut self, chat: &mut Chat, event: &Value) {
         for row in list(event, "rows") {
             if !self.rows.is_new(text(row, "uuid")) {
@@ -403,8 +389,8 @@ impl Claude {
         closed
     }
 
-    /// Only the composer of Claude Code and the chat give a person's own words. Other rows of
-    /// this door are records that Claude Code makes, such as the end of a helper.
+    /// Accepts only composer and chat-injected user prompts; other `"prompt"` rows are internal
+    /// Claude Code notifications (such as subagent completions).
     fn prompt(&mut self, chat: &mut Chat, event: &Value, block: &Value, at: u64) {
         let origin = event.get("origin").unwrap_or(&Value::Null);
         let from_chat = text(origin, "kind") == "plugin"
@@ -414,7 +400,6 @@ impl Claude {
         }
     }
 
-    /// A slash command that a person ran in the terminal or the chat, or what it printed.
     fn command(&mut self, chat: &mut Chat, event: &Value, row: &str, at: u64) {
         if let Some(output) = between(row, "<local-command-stdout>", "</local-command-stdout>") {
             let output = without_escapes(output);
@@ -502,8 +487,8 @@ impl Claude {
     fn person_said(&mut self, chat: &mut Chat, words: &str, from_chat: bool, at: u64) {
         self.held &= from_chat;
         self.end_writing(chat, None);
-        // Claude Code starts the messages of the chat in their order, so a message whose text it
-        // changed is the oldest that waits.
+        // Claude Code processes injected prompts FIFO and may rewrite their text, so fall back to
+        // the oldest pending entry if there is no exact match.
         let handed = from_chat
             .then(|| {
                 let same = self.handed.iter().position(|handed| handed.text == words);
@@ -534,7 +519,6 @@ impl Claude {
         self.now = Some(ChatNow::Writing);
     }
 
-    /// The answer that the agent wrote is whole: as its row has it, or as it came.
     fn end_writing(&mut self, chat: &mut Chat, whole: Option<&str>) {
         let Some(writing) = &self.writing else {
             return;
@@ -748,7 +732,6 @@ impl Claude {
         self.close(chat, id)
     }
 
-    /// The questions about a call are over when Claude Code decided the call or has its result.
     fn close(&mut self, chat: &mut Chat, call: &str) -> Vec<String> {
         let over = self
             .asked
@@ -782,7 +765,6 @@ impl Claude {
             }
             Some(ToolDetail::Plan { text }) => (
                 AskKind::Plan,
-                // The ways on that Claude Code's terminal offers when the conversation goes on.
                 AskBody::Plan {
                     choices: if text.trim().is_empty() {
                         self.ways.without_plan()
@@ -853,8 +835,8 @@ impl Claude {
         self.close(chat, id)
     }
 
-    /// The record of a call that ended well. The row of the result ends the call too, so this
-    /// only adds what the row does not have.
+    /// Supplements the transcript `tool_result` row with hook-only metadata (`ms`, background task
+    /// status, and structured question answers).
     fn done(&self, chat: &mut Chat, event: &Value) {
         let id = text(event, "id");
         let Some(item) = self.calls.get(id).and_then(|call| call.item.clone()) else {
@@ -868,7 +850,8 @@ impl Claude {
                 tool.state = ToolState::Done;
             }
             match &mut tool.detail {
-                // The result of a command that runs on is Claude Code's notice for the model.
+                // For backgrounded commands, the tool result text is Claude Code's notice to the
+                // model rather than actual command output.
                 Some(ToolDetail::Command {
                     background, output, ..
                 }) => {
@@ -970,8 +953,6 @@ impl Claude {
         chat.close_asks(|ask| over.contains(&ask.id))
     }
 
-    /// After `/clear` and `/resume` Claude Code goes on with another conversation. Each other end
-    /// is the end of Claude Code in this terminal.
     fn end(&mut self, chat: &mut Chat, reason: &str) -> Vec<String> {
         if matches!(reason, "clear" | "resume") {
             return self.renew(chat);
@@ -979,11 +960,13 @@ impl Claude {
         self.lost(chat)
     }
 
-    /// Claude Code holds a message after a stop in the terminal until a person types there, and
-    /// the message waits in the queue with Claude Code's reason. A command that it cannot run ends
-    /// there, as in its terminal. A command that ran writes its row before it ends, except one
-    /// such as `/clear` that writes it in the next conversation, so a command still handed then
-    /// is done.
+    /// Handles completion of an injected prompt or slash command.
+    ///
+    /// Dropped prompts stay queued with the refusal reason and set `held` (Claude Code rejects
+    /// injected input after a terminal stop until the user types there). Successful non-command
+    /// prompts remain in `handed` until their transcript row arrives, whereas slash commands such
+    /// as `/clear` may not emit a row in the current session, so they are shown as the person's
+    /// message and unqueued here.
     fn did(&mut self, chat: &mut Chat, event: &Value, at: u64) {
         let (error, drop) = (text(event, "error"), text(event, "drop"));
         let n = event.get("n").and_then(Value::as_u64);
@@ -1060,7 +1043,7 @@ impl Agent for Claude {
         let at = event.get("t").and_then(Value::as_u64).unwrap_or_default();
         let helper = text(event, "agent");
         let kind = text(event, "k");
-        // A module that loaded in the middle of a turn did not report the turn's start.
+        // Synthesize an active turn if the hooks module attached mid-turn and missed `"turn"`.
         if helper.is_empty() && matches!(kind, "step" | "think" | "text" | "tool") {
             self.turn.get_or_insert(Turn { stopped: false });
         }
@@ -1154,7 +1137,6 @@ impl Agent for Claude {
         closed
     }
 
-    /// Claude Code ended, or its module does not report.
     fn lost(&mut self, chat: &mut Chat) -> Vec<String> {
         self.linked = false;
         self.end_writing(chat, None);
@@ -1203,8 +1185,6 @@ impl Agent for Claude {
         self.handed.iter().any(|handed| handed.queued == queued)
     }
 
-    /// The decision that Claude Code takes for an answer, or nothing when the answer does not fit
-    /// the question.
     fn decision(
         &mut self,
         ask: &str,
@@ -1218,8 +1198,8 @@ impl Agent for Claude {
                 "behavior": "allow",
                 "updatedPermissions": [asked.suggestions.first()?],
             }),
-            // Claude Code gives the model these words as the result of the call as they are, so
-            // they start as Claude Code's own refusal with words does in its terminal.
+            // Claude Code sends `message` verbatim to the model as the tool result, so match its
+            // built-in rejection prefix.
             (_, ChatAnswer::Deny { text: Some(words) }) if !words.trim().is_empty() => {
                 self.said = Some((words.trim().to_owned(), by.cloned()));
                 json!({
@@ -1253,12 +1233,11 @@ impl Agent for Claude {
                     .insert("answers".to_owned(), given.into());
                 json!({"behavior": "allow", "updatedInput": input})
             }
-            // Claude Code's own ways on after a plan set the mode of the session.
             (AskKind::Plan, ChatAnswer::Plan { choice }) => {
                 let mode = match choice {
                     PlanChoice::Alone => "bypassPermissions",
-                    // Claude Code goes back by itself to the mode that it had before the plan, and
-                    // only so does it take auto mode with each step that its own switch to it takes.
+                    // Omit `setMode` when returning to `auto`: Claude Code restores the pre-plan
+                    // mode itself, which runs its full auto-mode transition logic.
                     PlanChoice::Auto if self.ways.before_plan == "auto" => {
                         return Some(json!({"behavior": "allow", "updatedInput": asked.input}));
                     }
@@ -1277,8 +1256,6 @@ impl Agent for Claude {
         })
     }
 
-    /// A person of the chat decided a question. The chat shows the decision at once, and Claude
-    /// Code's own record of it follows.
     fn answered(&mut self, chat: &mut Chat, ask: &str, decision: &Value) -> bool {
         let said = self.said.take();
         let Some(asked) = self.asked.remove(ask) else {
@@ -1479,8 +1456,7 @@ fn kind(name: &str) -> ToolKind {
     }
 }
 
-/// Calls that Claude Code makes for its own work: the search for a tool, and the file of a plan
-/// that it then shows for approval.
+/// Hides internal tool discovery and plan-file writes (the plan is shown via `ExitPlanMode`).
 fn is_hidden(name: &str, input: &Value) -> bool {
     name == "ToolSearch"
         || (matches!(kind(name), ToolKind::Write | ToolKind::Edit)
@@ -1489,7 +1465,6 @@ fn is_hidden(name: &str, input: &Value) -> bool {
                 .contains("/.claude/plans/"))
 }
 
-/// A call as the chat shows it before it ran, from the tool's name and what the agent gave it.
 fn described(name: &str, input: &Value, places: &Places) -> ChatTool {
     let kind = kind(name);
     let path = [text(input, "file_path"), text(input, "notebook_path")]
@@ -1556,7 +1531,8 @@ fn described(name: &str, input: &Value, places: &Places) -> ChatTool {
                 }),
             )
         }
-        // Claude Code also asks to leave plan mode when it found no plan.
+        // Always emit `ToolDetail::Plan`, even when empty: Claude Code also uses `ExitPlanMode`
+        // to exit plan mode without a plan.
         ToolKind::Plan => (
             "",
             Some(ToolDetail::Plan {
@@ -1587,8 +1563,6 @@ fn questions(input: &Value) -> Vec<ChatQuestion> {
         .collect()
 }
 
-/// What Claude Code offers to allow from now on, in its first suggestion. The rule of a file tool
-/// is a path with a pattern, and the rule of another tool is its own words, such as a command.
 fn always(suggestion: &Value, places: &Places) -> Option<AskAlways> {
     match text(suggestion, "type") {
         "addRules" if text(suggestion, "behavior") == "allow" => {
@@ -1619,7 +1593,6 @@ fn always(suggestion: &Value, places: &Places) -> Option<AskAlways> {
     }
 }
 
-/// The result of a call that ended well, where the chat shows a result for the kind of tool.
 fn finish(tool: &mut ChatTool, output: &str) {
     match &mut tool.detail {
         Some(ToolDetail::Command {

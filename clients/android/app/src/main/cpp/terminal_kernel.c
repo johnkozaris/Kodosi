@@ -236,8 +236,8 @@ static GhosttyColorRgb channels(uint32_t color) {
     return (GhosttyColorRgb){.r = (uint8_t)(color >> 16), .g = (uint8_t)(color >> 8), .b = (uint8_t)color};
 }
 
-// Ghostty's minimum-contrast: a glyph too close to its background turns white or black, whichever stands out
-// more, so that text a program colored for the other look stays readable. Faint text stays faint.
+// Matches Ghostty's minimum-contrast rule: force low-contrast glyphs to black or white so colors
+// chosen for the opposite theme stay readable, while preserving faint alpha.
 static uint32_t contrasted(Kernel *kernel, double minimum, uint32_t foreground, uint32_t background) {
     uint32_t key = (foreground * 0x9E3779B1u) ^ (background * 0x85EBCA77u);
     Contrast *known = &kernel->contrast[key >> (32 - CONTRAST_BITS)];
@@ -255,8 +255,8 @@ static uint32_t contrasted(Kernel *kernel, double minimum, uint32_t foreground, 
     return known->shown;
 }
 
-// Box, block, legacy computing and Powerline glyphs draw shapes that continue the backgrounds of the cells around
-// them, so Ghostty leaves their color as it is.
+// Box-drawing, block, legacy computing, and Powerline glyphs blend with adjacent cell backgrounds,
+// so leave their foreground colors untouched (matching Ghostty).
 static bool graphic(uint32_t codepoint) {
     return (codepoint >= 0x2500 && codepoint <= 0x259F) || (codepoint >= 0x1FB00 && codepoint <= 0x1FBFF) ||
            (codepoint >= 0x1CC00 && codepoint <= 0x1CEBF) || (codepoint >= 0xE0B0 && codepoint <= 0xE0D7);
@@ -272,8 +272,8 @@ static void put32(uint8_t *at, uint32_t value) {
     put16(at + 2, (uint16_t)(value >> 16));
 }
 
-// A snapshot may end before its history, after READY and the image pixels that follow it.
-// Once a history page arrived, the snapshot must end with FINISH.
+// Snapshots may end right after READY (and any following image pixels) with no history section.
+// Once a history page is decoded, however, the stream must end cleanly with a FINISH marker.
 static GhosttyResult restore_history(GhosttySnapshotDecoder decoder, size_t size) {
     bool history = false;
     for (;;) {
@@ -512,7 +512,6 @@ static GhosttyResult grapheme(GhosttyRenderStateRowCells cells, Output *output, 
     return result;
 }
 
-// Writes the visible screen: a header, then each cell with its colors, flags, width and text.
 static jint frame(Kernel *kernel, Output *output) {
     if (!kernel->admitted) {
         return -KERNEL_NOT_READY;

@@ -196,7 +196,7 @@ trap 'cleanup_vendor_stage; cleanup' EXIT
     "$VENDOR_STAGE/GhosttyVt/macos-arm64" \
     "$VENDOR_STAGE/symbols"
 
-# The new Vendor replaces the old one, so it keeps the Linux, Windows and Android VT artifacts.
+# Preserve existing non-Apple VT artifacts since VENDOR_STAGE replaces Vendor atomically.
 for layout in linux-x86_64 windows-x86_64 windows-arm64 android-arm64; do
     artifact="$ROOT_DIR/Vendor/GhosttyVt/$layout"
     if [ -e "$artifact" ] || [ -e "$artifact.version" ]; then

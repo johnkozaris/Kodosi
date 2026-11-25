@@ -13,18 +13,18 @@ use crate::{
     terminal::Waiting,
 };
 
-/// An agent that asks and goes on by itself within this time does not need its person.
+/// Grace period before marking a waiting state, avoiding alerts when an agent self-resolves.
 const SETTLE: Duration = Duration::from_secs(2);
 const QUIET_AFTER_SOUND: Duration = Duration::from_secs(30);
-/// A lost frame must not keep a mark that its person saw.
+/// Interval for re-sending remote "seen" acks in case an earlier frame was dropped.
 const SEEN_AGAIN: Duration = Duration::from_secs(10);
 
 #[derive(Default)]
 pub(super) struct Attention {
     kept: HashMap<String, Kept>,
     reported: HashMap<String, Reported>,
-    /// A bell, a title spinner that stops or a program's own notification marks a terminal for
-    /// the apps of this device only: the status carries only the mark of a state.
+    /// Device-local marks (bells, stopped title spinners, OSC notifications) that are not synced
+    /// via `TerminalStatus`.
     local: HashSet<String>,
     spinning: HashMap<String, bool>,
     started: Vec<(String, Waiting)>,
@@ -36,7 +36,7 @@ pub(super) struct Attention {
     listed: Option<u64>,
 }
 
-/// A mark that this runtime keeps: for the terminals that it hosts, and for friends' terminals.
+/// Attention state tracked locally by this runtime (hosted terminals and shared friends' ones).
 struct Kept {
     wait: Option<Waiting>,
     since: Instant,
@@ -45,8 +45,8 @@ struct Kept {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Look {
-    /// The state was there when this runtime first saw the terminal, or came while the terminal
-    /// did not call this device.
+    /// State was already present on discovery or arrived while the terminal did not call this
+    /// device.
     Quiet,
     Settling,
     Seen,
@@ -68,7 +68,7 @@ impl Kept {
     }
 }
 
-/// A mark that the host of one of the person's terminals reports.
+/// Attention state reported by the remote host of one of the user's own terminals.
 struct Reported {
     wait: Option<Waiting>,
     marked: bool,
@@ -179,8 +179,8 @@ impl Attention {
         self.local.insert(id.to_owned());
     }
 
-    /// `spinning` is absent while the title of a program without a state cannot be read, so a
-    /// terminal that comes back with a still title did not stop.
+    /// `None` means the terminal title cannot currently be read (e.g., disconnected); ignore it
+    /// rather than treating the missing title as a stopped spinner.
     pub(super) fn spinner_stopped(&mut self, id: &str, spinning: Option<bool>) -> bool {
         let Some(spinning) = spinning else {
             return false;
@@ -189,9 +189,8 @@ impl Attention {
         before == Some(true) && !spinning
     }
 
-    /// A list of the terminals is news only when an earlier list came on the same device
-    /// connection: the first list after a start or a reconnect holds the marks that were made
-    /// while this runtime did not hear.
+    /// Returns `true` only after the first snapshot on a connection; the initial snapshot after
+    /// startup or reconnect catches up existing marks without triggering new alerts.
     pub(super) fn listed(&mut self, connects: u64) -> bool {
         self.listed.replace(connects) == Some(connects)
     }
@@ -200,8 +199,8 @@ impl Attention {
         self.listed == Some(connects)
     }
 
-    /// The caller leaves out the reports of a host that is not connected, so a terminal that comes
-    /// back keeps its mark and makes no new one.
+    /// Callers omit updates from offline hosts so a returning terminal preserves its existing mark
+    /// instead of re-alerting.
     pub(super) fn report(&mut self, id: &str, status: Option<&TerminalStatus>, live: bool) {
         let wait = status.and_then(TerminalStatus::waiting);
         let marked = wait.is_some() && status.is_some_and(|status| status.attention);
@@ -245,7 +244,7 @@ impl Attention {
         }
     }
 
-    /// A mark that cannot be told yet waits for its terminal, not for a time.
+    /// Skips retry timers for terminals that cannot currently receive "seen" acks (`!can_tell`).
     pub(super) fn due(
         &self,
         watched: &BTreeSet<String>,
@@ -286,8 +285,7 @@ impl Attention {
         self.clients.insert(client, Client { presence, lifetime });
     }
 
-    /// A client that never says how its person uses the device, such as an attached command,
-    /// has a person who looks at the terminal.
+    /// Clients that never report presence (such as CLI attach) are assumed to be actively viewing.
     pub(super) fn looks(&self, client: &Uuid) -> bool {
         self.clients
             .get(client)
@@ -316,7 +314,7 @@ impl Attention {
             || self.elsewhere.here
     }
 
-    /// Whether the person stopped being present since the last call.
+    /// Returns `true` on the transition from present to away since the last call.
     pub(super) fn left(&mut self) -> bool {
         let present = self.person_present();
         let was = std::mem::replace(&mut self.present, present);
@@ -327,8 +325,8 @@ impl Attention {
         self.elsewhere = elsewhere;
     }
 
-    /// A device that lost its connection hears nothing about the others, and that is no change
-    /// of the devices that the person uses.
+    /// Resyncs `present` when remote presence is cleared on disconnect so losing the server link
+    /// does not falsely look like the user leaving.
     pub(super) fn lose_elsewhere(&mut self) {
         self.elsewhere = Elsewhere::default();
         self.present = self.person_present();
@@ -339,7 +337,7 @@ impl Attention {
         self.listed = None;
     }
 
-    /// A wait that showed only its sign while its person used Kodosi calls when the person leaves.
+    /// Fires deferred alerts for still-blocked terminals once the user leaves Kodosi.
     pub(super) fn call_waits(&mut self, now: Instant) -> Vec<(String, Cue)> {
         let Some(can_be_here) = self.shows() else {
             return Vec::new();
@@ -364,9 +362,8 @@ impl Attention {
             .collect()
     }
 
-    /// Whether this device shows a notification, and whether its person can be at it. A person
-    /// in Kodosi on any device sees the sign there, and a person at another computer gets the
-    /// notification there.
+    /// Returns `Some(can_be_here)` if this device should alert, or `None` if suppressed because
+    /// the user is active in Kodosi anywhere or actively using another device.
     fn shows(&self) -> Option<bool> {
         let nobody_elsewhere = !self.elsewhere.kodosi && !self.elsewhere.here;
         match self.device() {
@@ -391,8 +388,8 @@ impl Attention {
         Some(self.cue(can_be_here, wait == Waiting::Blocked, now))
     }
 
-    /// Only the device of its terminal has a program's own notification, so the devices that the
-    /// person uses elsewhere do not take it from this one.
+    /// Program OSC notifications exist only on the host device, so activity on other devices does
+    /// not suppress them while the user is `Here`.
     #[cfg(feature = "host")]
     pub(super) fn notification_cue(&mut self, now: Instant) -> Option<Cue> {
         let can_be_here = match self.device() {

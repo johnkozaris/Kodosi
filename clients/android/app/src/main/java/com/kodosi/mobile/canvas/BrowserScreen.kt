@@ -618,7 +618,7 @@ internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
             }
         }
     ).apply {
-        // While the detector listens for double taps, it gives the second tap of one to no other callback.
+        // Disable double-tap detection so the second tap still reaches onSingleTapUp.
         setOnDoubleTapListener(null)
     }
 
@@ -708,10 +708,8 @@ internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
         if (mouse("press", x, y, "right", 1)) mouse("release", x, y, "right", 1)
     }
 
-    /**
-     * A press that rests and then moves drags with the left button, which selects text as a mouse
-     * does; a press that rests and lets go opens the menu of the page, as a tap with two fingers does.
-     */
+    // Touch gesture mapping: long-press + drag sends a left-button drag (for text selection);
+    // long-press + release or a two-finger tap sends a right-click to open the context menu.
     private fun touch(event: MotionEvent) {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {

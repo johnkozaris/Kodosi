@@ -71,8 +71,8 @@ fn deck() -> Vec<u8> {
     writer.finish().unwrap().into_inner()
 }
 
-/// The deck with a text box in the place of the first slide's box, as python-pptx writes one:
-/// with no fill, and a bold run in the color that the box had.
+/// Replaces the first slide's box with a python-pptx-style text box (`<a:noFill/>` and a bold
+/// run in the box's former color).
 fn labelled_deck() -> Vec<u8> {
     let slide = slide_xml("First");
     let start = slide.find(r#"<p:sp><p:nvSpPr><p:cNvPr id="3""#).unwrap();

@@ -11,13 +11,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.JsonObject
 
-/**
- * The chat of one terminal as this device holds it. [answers] are the answers that a person gave
- * on this device, until their questions are gone or the chat comes again.
- */
+// answers tracks locally submitted responses until the host clears the ask or sends a new snapshot.
 data class ChatView(
     val chat: ChatSnapshot? = null,
-    /** The pipe is open and the chat as it is has come. */
+    // True once the pipe is open and the initial snapshot has arrived.
     val linked: Boolean = false,
     val failure: String? = null,
     val answers: Map<String, ChatAnswer> = emptyMap()
@@ -31,7 +28,6 @@ data class ChatView(
     val facts: ChatFacts get() = chat?.facts ?: ChatFacts()
     val now: ChatNow? get() = chat?.now
 
-    /** The first question that no person on this device answered yet. */
     val question: ChatAsk? get() = asks.firstOrNull { it.id !in answers }
     val working: Boolean get() = state == ChatState.WORKING || state == ChatState.ASKING
     val canWrite: Boolean get() = linked && state != ChatState.AWAY
@@ -47,7 +43,6 @@ data class ChatView(
     }
 }
 
-/** The chat of one terminal, as the terminal's computer keeps it. The pipe is open only while a view watches. */
 class TerminalChat internal constructor(
     private val store: CanvasStore,
     val session: String,
@@ -56,15 +51,13 @@ class TerminalChat internal constructor(
     val view: StateFlow<ChatView>
         field = MutableStateFlow(ChatView())
 
-    /** What a person writes here stays while the terminal does. */
     var draft = ""
     private var link: DocumentLink? = null
     private var watchers = 0
 
-    /** After each opening of the pipe the host sends the whole chat first, and the changes count from it. */
+    // Each pipe open starts with a full snapshot; ignore incremental updates until it arrives.
     private var awaitsSnapshot = true
 
-    /** Each view that shows the chat watches until it ends, and they share one pipe. */
     suspend fun watch() {
         watchers++
         try {
@@ -113,7 +106,7 @@ class TerminalChat internal constructor(
         }
     }
 
-    /** A typed message while a question waits answers it: the agent reads the words in place of what it asked to do. */
+    // Submitting text while a prompt is pending denies it with the text as feedback instead.
     fun submit(text: String): Boolean {
         val words = text.trim()
         val current = view.value
@@ -148,8 +141,8 @@ class TerminalChat internal constructor(
             if (!awaitsSnapshot) renew()
             return
         }
-        // The host closes a question when it takes its answer, and the pipe loses what an app sends
-        // while it is broken. A question that is still there waits for its answer.
+        // Clear local answers on a new snapshot: answered asks are already gone on the host, while
+        // any ask still present lost its reply during disconnect and must be answerable again.
         frame.snapshot?.let { snapshot ->
             awaitsSnapshot = false
             view.update { it.copy(chat = snapshot, answers = emptyMap(), linked = true, failure = null) }
@@ -166,10 +159,6 @@ class TerminalChat internal constructor(
         }
     }
 
-    /**
-     * A change that went missing leaves the chat wrong, so the pipe starts again and the host sends
-     * the chat as it is.
-     */
     private fun renew() {
         val current = link ?: return
         awaitsSnapshot = true
@@ -244,16 +233,13 @@ internal fun ChatSnapshot.applying(update: ChatUpdate): ChatSnapshot {
     )
 }
 
-/** What the app sends on the chat pipe. */
 internal sealed interface ChatRequest {
-    /** A message for the agent. It waits in the queue while the agent works. */
     data class Send(val text: String) : ChatRequest
 
     data class Unqueue(val id: String) : ChatRequest
 
     data class Answer(val ask: String, val answer: ChatAnswer) : ChatRequest
 
-    /** Stop the agent's turn and the commands of the turn. */
     data object Stop : ChatRequest
 
     fun json(): JsonObject = when (this) {
@@ -267,16 +253,13 @@ internal sealed interface ChatRequest {
 sealed interface ChatAnswer {
     data object Allow : ChatAnswer
 
-    /** Allow, with what the question offers to allow from now on. */
     data object Always : ChatAnswer
 
-    /** With words, the agent reads them and continues. Without, the agent stops. */
+    // Non-null text redirects the agent with feedback; null denies and stops the agent's turn.
     data class Deny(val text: String?) : ChatAnswer
 
-    /** For each question in order, the labels that the person chose or one text of their own. */
     data class Answers(val answers: List<List<String>>) : ChatAnswer
 
-    /** The way on after a plan that the person chose. */
     data class Plan(val choice: PlanChoice) : ChatAnswer
 
     fun json(): JsonObject = when (this) {

@@ -205,7 +205,6 @@ QSizeF TerminalTilingLayoutModel::nextTerminalSize() const
     return {tile->width - tileSides, tile->height - tileHeaderAndEdges};
 }
 
-/// A tile beside this one in that direction comes first.
 QString TerminalTilingLayoutModel::neighbor(const QString& sessionId, const QString& direction) const
 {
     const auto from = std::ranges::find(m_entries, sessionId, &Entry::sessionId);

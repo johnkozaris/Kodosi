@@ -9,7 +9,7 @@ pub const TERMINAL_SNAPSHOT_TEXT_MAX_BYTES: usize = 8 * 1024 * 1024;
 
 pub const TERMINAL_IMAGE_STORAGE_MAX_BYTES: u64 = ghostty_vt::IMAGE_STORAGE_MAX_BYTES;
 
-/// Text, plus two screens of stored images and unfinished transmissions, plus image records.
+/// Budget for text, primary+alt screen image storage and in-flight transfers (4x), plus metadata.
 #[expect(
     clippy::cast_possible_truncation,
     reason = "the image storage limit is 64 MiB"
@@ -119,7 +119,8 @@ impl TerminalPixelGeometry {
     }
 }
 
-/// The host's cell size, which every view keeps so images cover the same cells; zero if unknown.
+/// Host cell dimensions in pixels (0 if unknown), shared across views so images span identical
+/// cells.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct CellPixels {
     pub width: u32,
@@ -194,7 +195,7 @@ impl Default for TerminalSize {
     }
 }
 
-/// Every terminal of a computer has the look of that computer, on every device that shows it.
+/// Host-determined color scheme; every viewer renders the terminal in its host's look.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum TerminalLook {
@@ -203,9 +204,8 @@ pub enum TerminalLook {
     Light,
 }
 
-/// Where the agent that reports to a terminal's chat works, which is the face of the terminal that
-/// the apps show first: the terminal, or the chat for an agent that works in a session of its own
-/// there.
+/// Initial view shown by clients when a chat-reporting agent is active: the terminal itself, or
+/// the chat view for agents running in a dedicated chat session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum TerminalFace {
@@ -249,7 +249,6 @@ pub struct TerminalMetadata {
     pub context: Option<super::TerminalContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub canvas: Option<Box<crate::canvas::Canvas>>,
-    /// Where the agent that reports to the terminal's chat works, while one does.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub face: Option<TerminalFace>,
     /// The helpers of the agent that reports to the terminal's chat that work now.
@@ -290,8 +289,8 @@ impl TerminalMetadata {
     }
 }
 
-/// Hosts report folders in their own form: `/…` on macOS and Linux, and a drive
-/// (`C:\…`) or a share (`\\server\share`) on Windows. Viewers accept every form.
+/// Accepts POSIX (`/...`), Windows drive (`C:\...`), and UNC (`\\server\share`) paths because
+/// viewers validate folders reported by hosts on any OS.
 pub(crate) fn is_valid_folder(value: &str) -> bool {
     value.len() <= 4096
         && !value.chars().any(char::is_control)
@@ -309,10 +308,10 @@ pub struct Checkpoint {
     pub metadata: Option<Box<TerminalMetadata>>,
     size: TerminalSize,
     cell: CellPixels,
-    /// A Ghostty snapshot; one that ends at READY has no history.
+    /// Ghostty binary snapshot (visible-only if it terminates at `READY` without history).
     snapshot: Vec<u8>,
-    /// The host terminal is a console: a resize does not pull rows from history.
-    /// The snapshot does not hold this rule.
+    /// True for Windows `ConPTY` hosts, where resizes do not reflow rows out of scrollback (not
+    /// encoded inside the Ghostty snapshot itself).
     pub console: bool,
 }
 
@@ -327,8 +326,7 @@ pub enum TerminalCheckpointError {
 }
 
 impl Checkpoint {
-    /// Takes the size from the snapshot, so a snapshot of a terminal over the
-    /// size limits is refused before anything decodes it.
+    /// Validates dimensions from the header before full decoding to reject oversized grids.
     pub fn new(snapshot: Vec<u8>, console: bool) -> Result<Self, TerminalCheckpointError> {
         if snapshot.len() > TERMINAL_SNAPSHOT_MAX_BYTES {
             return Err(TerminalCheckpointError::SnapshotTooLarge {

@@ -11,8 +11,8 @@ Item {
     property color fill: look.raised
     property int elevation: 1
     property bool rim: true
-    // An opaque inside lets the scene graph skip all that the surface covers in each frame. Only
-    // for a surface that never fades, as a fading one would show its inside twice.
+    // Adds an opaque unrounded inner rectangle for scene-graph occlusion culling. Only enable on
+    // surfaces that never animate opacity, or the inner rect will double-blend.
     property bool solid: false
 
     readonly property int layers: elevation === 1 ? 3 : elevation === 2 ? 5 : 7

@@ -9,7 +9,7 @@ public extension TerminalLook {
         }
     }
 
-    /// A program that still draws for a dark ground stays readable on the light one.
+    /// Higher contrast in light mode keeps colors chosen for dark terminals legible.
     var minimumContrast: Double {
         switch self {
         case .dark: 1.1

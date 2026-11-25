@@ -14,10 +14,10 @@ namespace {
 using namespace std::chrono_literals;
 
 constexpr wchar_t windowClass[] = L"KodosiPresence";
-// GUID_SESSION_DISPLAY_STATUS: the display of this session is off, on or dimmed.
+// GUID_SESSION_DISPLAY_STATUS (session display on, off, or dimmed).
 constexpr GUID sessionDisplayStatus { 0x2b84c20e, 0xad23, 0x4ddf, { 0x93, 0xdb, 0x05, 0xff, 0xbd, 0x7e, 0xfc, 0xa5 } };
-// Windows tells the time of the last input but not the input itself. The server waits 30 seconds
-// before a push, so an input that ends a quiet time must count within that time.
+// Windows exposes last-input time via polling rather than events. Poll every 10s while idle so
+// new input is detected well within the server's 30s push-notification delay.
 constexpr std::chrono::milliseconds readWhileQuiet = 10s;
 
 LRESULT CALLBACK windowProcedure(HWND window, UINT message, WPARAM parameter, LPARAM detail)
@@ -52,7 +52,7 @@ WindowsPresenceSource::WindowsPresenceSource(QObject* parent)
     type.hInstance = instance;
     type.lpszClassName = windowClass;
     RegisterClassExW(&type);
-    // A hidden top-level window, because Windows sends suspend and resume only to top-level windows.
+    // Windows only sends suspend/resume broadcasts to top-level windows, not message-only ones.
     auto* window = CreateWindowExW(0, windowClass, L"", WS_POPUP, 0, 0, 0, 0, nullptr, nullptr, instance, nullptr);
     if (!window)
         return;

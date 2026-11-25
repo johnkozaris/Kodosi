@@ -27,7 +27,7 @@ pub(crate) fn title_words(title: &str) -> Option<String> {
 
 fn words(title: &str) -> &str {
     let words = title.trim_start_matches(is_mark);
-    // Codex blinks "[ ! ]" and "[ . ]" before its title while it waits for a person.
+    // Strip blinking status prefixes like "[ ! ]" and "[ . ]" that Codex prepends while waiting.
     match words
         .strip_prefix('[')
         .and_then(|rest| rest.split_once(']'))

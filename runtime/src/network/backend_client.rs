@@ -1404,8 +1404,8 @@ fn path_segment(value: &str) -> Result<String> {
     Ok(url.path().trim_start_matches('/').to_owned())
 }
 
-/// The server can only take people away from the host's own choice. A project change ends a
-/// terminal's people, as it does on the server.
+/// Security invariant: the server can only narrow `shared_with`, never add recipients.
+/// Changing the terminal's project clears direct shares to match server behavior.
 #[cfg(feature = "host")]
 fn follow_sharing(
     info: &mut LocalPublication,
@@ -1466,9 +1466,8 @@ pub(crate) fn device_label() -> Option<String> {
         .and_then(|value| normalize_host_label(&value))
 }
 
-/// A link proof covers the label, so the backend must not change it: the label has none of the
-/// invisible format characters that the backend removes, except the joiners, and at most 128
-/// bytes.
+/// Device link proofs sign this label verbatim, so strip Unicode format characters (except
+/// ZWJ/ZWNJ) and cap at 128 bytes to match backend normalization.
 fn normalize_host_label(value: &str) -> Option<String> {
     use unicode_properties::{GeneralCategory, UnicodeGeneralCategory as _};
     let visible = value

@@ -57,8 +57,8 @@ private:
     XSyncAlarm m_alarm = None;
     std::chrono::milliseconds m_quietTime {};
 
-    // The server counts the time since the last input. An alarm fires when the count reaches the
-    // quiet time, or, once it is quiet, when input sets the count back.
+    // IDLETIME tracks milliseconds since the last input. Arm a positive alarm to detect reaching
+    // quietTime, and once idle, arm a negative alarm to fire when new input resets the counter.
     void arm()
     {
         XSyncValue idle;
@@ -91,7 +91,7 @@ private:
 
 std::unique_ptr<IdleWatch> x11IdleWatch(IdleWatch::Quiet quiet)
 {
-    // Under XWayland the X server sees only the input of X windows.
+    // Under XWayland, the X server only observes input directed at X11 windows.
     if (QGuiApplication::platformName() != QStringLiteral("xcb") || qEnvironmentVariableIsSet("WAYLAND_DISPLAY"))
         return nullptr;
     auto* x11 = qGuiApp->nativeInterface<QNativeInterface::QX11Application>();

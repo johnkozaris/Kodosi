@@ -6,12 +6,11 @@ use sha2::{Digest as _, Sha256};
 
 use crate::contract::{HASH_BYTES, Hash, Rev, Seq};
 
-/// A short name of a text from its SHA-256, the same for the same text.
 pub fn short_hash(text: &str) -> String {
     crate::contract::hex(&Sha256::digest(text.as_bytes())[..HASH_BYTES / 4])
 }
 
-/// Pictures and other large parts never travel inside a change. A change names them by hash.
+/// Content-addressed store for binary assets referenced by hash in snapshots and changes.
 #[derive(Debug, Clone, Default)]
 pub struct Assets {
     held: HashMap<Hash, Arc<[u8]>>,
@@ -100,33 +99,31 @@ pub struct Guide {
     pub ops: Vec<GuideOp>,
 }
 
-/// Each function takes values and gives values, so a format has no network, disk or clock, and a
-/// test can run it with no server.
+/// Pure format implementation with no I/O, clock, or threading dependencies.
 pub trait Format: 'static {
     type Model: Send;
     type Change: Serialize + DeserializeOwned + Clone + Send + 'static;
     type Query: DeserializeOwned;
 
-    /// Whether a file opens live. A file that grows past this while it is open stays live, so
-    /// the writes of other programs still merge.
+    /// Validates whether a file may be opened for live editing. Checked only on open so files that
+    /// grow past limits while open keep merging external writes.
     fn opens(_file: &[u8]) -> Result<(), Unreadable> {
         Ok(())
     }
 
-    /// Reads a file. Parts that views load by hash go in `assets`.
+    /// Parses `file` into a model, storing binary blobs fetched lazily by views in `assets`.
     fn read(file: &[u8], assets: &mut Assets) -> Result<Self::Model, Unreadable>;
 
     fn snapshot(model: &Self::Model) -> Snapshot;
 
-    /// Whether a person or an agent may send this change. What only the server makes, such as the
-    /// merge of a write of another program, a sender could use to put anything in the file.
+    /// Rejects changes that only the host may produce (such as external-write merges) so clients
+    /// cannot inject arbitrary raw content.
     fn sendable(_change: &Self::Change) -> Result<(), String> {
         Ok(())
     }
 
-    /// Puts a change in the model, or changes nothing and refuses. `since` holds what came after
-    /// the sender's base. The result is the change as views must see it: a named op becomes
-    /// steps or fields.
+    /// Atomically applies `change` given intervening changes `since` the sender's base revision.
+    /// Returns the normalized change broadcast to views (e.g. expanding CLI ops into steps/fields).
     fn apply(
         model: &mut Self::Model,
         change: Self::Change,
@@ -134,34 +131,34 @@ pub trait Format: 'static {
         assets: &mut Assets,
     ) -> Result<Self::Change, Refused>;
 
-    /// What turns one state into another, in a form that holds on any later state.
+    /// Computes changes from `from` to `to` that can be applied on top of later states.
     fn compare(from: &Self::Model, to: &Self::Model) -> Vec<Self::Change>;
 
-    /// How far apart the two states lie that `compare` found these changes between. An outside
-    /// write merges from the nearest saved state, which is the one that its writer read.
+    /// Edit distance for changes returned by `compare`, used to pick the closest saved state as
+    /// the merge base for an external write.
     fn distance(changes: &[Self::Change]) -> usize {
         changes.len()
     }
 
-    /// Gives the bytes of the file. `file` is the file as it is on disk, and only what someone
-    /// edited differs from it.
+    /// Serializes `model` by patching `file` (the current bytes on disk) so untouched parts stay
+    /// intact.
     fn write(model: &Self::Model, file: &[u8], assets: &Assets) -> Result<Vec<u8>, Unwritable>;
 
     fn query(model: &Self::Model, query: Self::Query) -> Answer;
 
     fn guide() -> Guide;
 
-    /// Whether this change must leave no trace behind, such as a redaction. The file is then
-    /// saved at once, and a new journal starts.
+    /// Returns true if `change` must not remain in history (e.g. a redaction), triggering an
+    /// immediate save and fresh journal.
     fn seals(_change: &Self::Change) -> bool {
         false
     }
 
-    /// Moves a view's place across a change that came after it, as the change moves the content.
-    /// A place that names its parts by id stays as it is.
+    /// Transforms a selection (`place`) past a subsequent change; formats addressing by ID can
+    /// leave it unchanged.
     fn map_place(_place: &mut Value, _change: &Self::Change) {}
 
-    /// A place in the words of `read`, for agents.
+    /// Formats a view's selection in the coordinate space returned by `read` queries.
     fn describe_place(_model: &Self::Model, place: &Value) -> Value {
         place.clone()
     }

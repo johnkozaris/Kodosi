@@ -15,7 +15,7 @@ pub struct Page {
     pub rotation: i64,
 }
 
-/// In PDF points from the bottom left.
+/// `rect` is `[left, bottom, right, top]` in PDF points from the bottom-left origin.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Note {
@@ -43,8 +43,8 @@ pub enum PageWork {
     Redact { page: String, rects: Vec<[f64; 4]> },
 }
 
-/// Notes and form values name a key, so the last one wins. Page work names a page, the server
-/// does it, and views load the file again from the asset that the change names.
+/// Note and field edits are key-addressed (last write wins). Page operations (`Work`) run on the
+/// host and broadcast `Worked` with a new PDF asset hash for views to reload.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -68,7 +68,7 @@ pub enum Change {
         asset: String,
         pages: Vec<Page>,
     },
-    /// Another program changed the pages.
+    /// External write replaced the underlying PDF pages.
     Base {
         asset: String,
     },
@@ -96,13 +96,14 @@ pub enum Query {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Model {
-    /// The file as the last page work left it. A save appends to these bytes.
+    /// Baseline PDF bytes as of the last page operation; incremental saves append to this buffer.
     pub(crate) file: Arc<Vec<u8>>,
     pub(crate) asset: String,
     pub(crate) pages: Vec<Page>,
     pub(crate) notes: BTreeMap<String, Note>,
     pub(crate) fields: BTreeMap<String, String>,
-    /// What `file` holds, to find what a save must add.
+    /// Notes and fields already stored in `file`, diffed on save to emit minimal incremental
+    /// updates.
     pub(crate) file_notes: BTreeMap<String, Note>,
     pub(crate) file_fields: BTreeMap<String, String>,
 }

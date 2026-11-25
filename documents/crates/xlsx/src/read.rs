@@ -150,7 +150,7 @@ pub(crate) fn cell_of(element: Xml<'_, '_>, strings: &[String]) -> Cell {
     }
 }
 
-/// Prefixed attributes stay out, as their prefix has no meaning away from the file's own tag.
+/// Drops namespace-prefixed attributes because their prefixes may not be in scope when rewritten.
 fn kept_attributes(element: Xml<'_, '_>, read_here: &[&str]) -> String {
     element
         .attributes()
@@ -195,7 +195,6 @@ pub(crate) fn hidden_columns_of(root: Xml<'_, '_>) -> BTreeSet<u32> {
         .collect()
 }
 
-/// A sheet view holds where its frozen panes start, and its pane how many lines they hold.
 pub(crate) fn frozen_of(root: Xml<'_, '_>) -> Frozen {
     let Some(view) = local(root, "sheetViews").and_then(|views| local(views, "sheetView")) else {
         return Frozen::default();
@@ -312,8 +311,8 @@ fn link_of(element: Xml<'_, '_>, relations: &HashMap<String, Relation>) -> Optio
     }
 }
 
-/// A cell of a shared group holds only the group's number, so its formula comes from the group's
-/// first cell.
+/// Resolves OOXML shared formulas (`t="shared"`): follower cells reference the group's `si` and
+/// translate the master cell's formula by their row/column offset.
 pub(crate) fn formula_of(
     formula: Xml<'_, '_>,
     row: u32,

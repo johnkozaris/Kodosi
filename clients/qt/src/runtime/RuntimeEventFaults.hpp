@@ -7,7 +7,6 @@
 
 namespace kodosi {
 
-// A fault that comes again with each new event goes into the log once.
 class RuntimeEventFaults final {
 public:
     void unreadable(const QString& type, const QString& reason)

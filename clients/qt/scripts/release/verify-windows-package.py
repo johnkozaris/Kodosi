@@ -49,7 +49,7 @@ REQUIRED_FILES = (
     "translations/qtwebengine_locales/en-US.pak",
 )
 QML_IMPORT = re.compile(r"^\s*import\s+([A-Za-z][\w.]*)", re.MULTILINE)
-# Windows may hold an older copy of the C runtime.
+# Require C runtime DLLs to be bundled because System32 may contain an older version.
 C_RUNTIME = re.compile(r"(vcruntime|msvcp|concrt|vccorlib)\d")
 QT_SBOM_MODULES = ("qtbase", "qtdeclarative", "qtsvg", "qtpositioning", "qtwebchannel")
 QT_SBOM_FORMATS = ("spdx", "spdx.json", "cdx.json")

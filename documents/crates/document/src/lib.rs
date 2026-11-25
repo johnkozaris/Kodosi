@@ -1,4 +1,4 @@
-//! Nothing here touches a network, a disk, a clock or a thread.
+//! Sans-I/O live document state machine: no networking, disk I/O, clocks, or threads.
 
 pub mod contract;
 mod format;

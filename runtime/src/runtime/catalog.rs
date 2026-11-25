@@ -7,11 +7,9 @@ use crate::{
     protocol::{EventBody, SessionEntry},
 };
 
-/// An agent's spinner changes the title of its terminal several times a second, and an app reads
-/// the whole list of terminals again for each list that it gets.
+/// Minimum interval between catalog snapshots; throttles rapid title-spinner updates.
 pub(super) const PACE: Duration = Duration::from_millis(250);
 
-/// The list of terminals that the apps got last, and a newer one that waits for its moment.
 #[derive(Default)]
 pub(super) struct Catalog {
     sent: Option<Listing>,
@@ -28,12 +26,12 @@ pub(super) struct Listing {
 }
 
 impl Catalog {
-    /// An app that asks for the list waits for one, also when the list did not change.
+    /// Forces the next snapshot to emit even if unchanged, so explicit list requests always get
+    /// one.
     pub(super) fn ask(&mut self) {
         self.asked = true;
     }
 
-    /// The list goes out at once only when no list went out a moment ago.
     pub(super) fn changed(&mut self, listing: Listing, now: Instant) -> Option<Event> {
         if let Some((_, waiting)) = &mut self.waiting {
             *waiting = listing;

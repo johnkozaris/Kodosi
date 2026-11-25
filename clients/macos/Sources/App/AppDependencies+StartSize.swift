@@ -4,7 +4,7 @@ import KodosiTerminal
 import KodosiTerminalSessions
 
 extension AppDependencies {
-    /// A new terminal gets the grid of its tile, so that its program starts at its final width.
+    /// Pre-computes the new tile's grid so the terminal program launches at its final dimensions.
     func startSize(computer: String?, projectId: String?) -> JSONValue? {
         guard computer == nil, projectId == nil, let room = workbench.tileRoom,
               let scale = MainWindowLocator.mainWindow()?.backingScaleFactor,
@@ -31,7 +31,8 @@ extension AppDependencies {
         }
     }
 
-    /// The first terminal after a launch has no other on screen, so the last cell size is saved.
+    /// Persists the most recent cell metrics so the first terminal opened after launch can
+    /// estimate its grid before any Ghostty viewport is on screen.
     private func terminalCell(scale: CGFloat) -> DesktopSettings.TerminalCell? {
         if let live = terminalManager.viewportOnScreen {
             let cell = DesktopSettings.TerminalCell(width: live.cellWidthPixels, height: live.cellHeightPixels, scale: scale)

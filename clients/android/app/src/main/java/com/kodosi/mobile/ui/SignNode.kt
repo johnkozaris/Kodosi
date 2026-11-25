@@ -29,12 +29,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 
-/**
- * A moving sign draws once into a RenderNode of its own, and each step only turns, scales or fades that node.
- * Compose draws the whole window again for any drawing that changes, and its layers do not clip their damage, so
- * the display redraws the whole window for a step of a sign there. The node sits in a frame of the sign's own
- * size, which clips the damage of a step to the sign.
- */
+// Records an indicator once into a RenderNode and animates only its transform/alpha. Compose
+// layers do not clip damage rects, so animating in Compose invalidates the whole window; nesting
+// `node` inside a fixed-size `frame` RenderNode clips damage to the indicator's bounds.
 internal class SignNode(private val view: View) {
     val frame = RenderNode("sign frame")
     val node = RenderNode("sign").apply { setHasOverlappingRendering(false) }
@@ -64,10 +61,7 @@ internal fun rememberSignNode(): SignNode {
     return sign
 }
 
-/**
- * Draws [draw], in this element's size, into [sign]'s node and the node, in its frame, here. The node reaches
- * [reach] past the element on each side, so that a turn keeps the corners that the node's own bounds would cut.
- */
+// Expands node bounds by reach on each side so rotation does not clip the recorded corners.
 internal fun Modifier.sign(sign: SignNode, reach: Dp = 0.dp, draw: DrawScope.() -> Unit): Modifier = drawWithCache {
     val node = sign.node
     val pad = ceil(reach.toPx()).toInt()
@@ -92,7 +86,7 @@ internal fun Modifier.sign(sign: SignNode, reach: Dp = 0.dp, draw: DrawScope.() 
             if (canvas.nativeCanvas.isHardwareAccelerated) {
                 canvas.nativeCanvas.drawRenderNode(sign.frame)
             } else {
-                // A canvas in memory, such as a test's, cannot draw a RenderNode.
+                // Software canvases (e.g. in tests) cannot draw RenderNodes directly.
                 withTransform({
                     clipRect()
                     rotate(node.rotationZ)
@@ -107,14 +101,12 @@ internal fun Modifier.sign(sign: SignNode, reach: Dp = 0.dp, draw: DrawScope.() 
     }
 }
 
-// Compose's own dispatcher has no timer: there, each delay wakes a thread of its own.
+// AndroidUiDispatcher does not implement Delay, so switch to Main.immediate to use the main looper.
 internal suspend fun onMainLooper(steps: suspend CoroutineScope.() -> Unit) =
     withContext(Dispatchers.Main.immediate, steps)
 
-/**
- * Waits for the next display frame on the main looper and returns its time. A step of a sign then moves a node in
- * that frame; Compose's frame clock would run a frame of its own for each step.
- */
+// Wait for the next Choreographer frame directly; Compose's frame clock would trigger a Compose
+// frame pass on every tick.
 internal suspend fun displayFrameMillis(): Long = suspendCancellableCoroutine { waiting ->
     val choreographer = Choreographer.getInstance()
     val frame = Choreographer.FrameCallback { nanos -> waiting.resume(nanos / 1_000_000) }

@@ -44,7 +44,7 @@ export function play(
   try {
     return node.animate(keyframes, { ...options, ...more });
   } catch {
-    // A browser without linear() easing throws.
+    // Fall back when the browser does not support CSS linear() easing.
     return node.animate(keyframes, { ...options, easing: "ease-out", ...more });
   }
 }

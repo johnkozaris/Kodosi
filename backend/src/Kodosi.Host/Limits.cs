@@ -27,8 +27,8 @@ internal static class Limits
         return value;
     }
 
-    /// The text without the invisible format characters that reorder or hide letters, so that one
-    /// name cannot look like another. It keeps the joiners that scripts and emoji need.
+    // Strips invisible Unicode format characters (such as bidi overrides) to prevent name spoofing,
+    // while keeping ZWNJ (U+200C) and ZWJ (U+200D) for scripts and emoji.
     public static string Visible(string? value)
     {
         var visible = new System.Text.StringBuilder();

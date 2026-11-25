@@ -130,8 +130,7 @@ final class AppModel {
         refresh()
     }
 
-    /// iOS makes a scene inactive for a moment, as for Notification Center over Kodosi or the
-    /// question of Face ID, and the person is still in Kodosi then.
+    /// Treat `.inactive` (such as Notification Center or a Face ID prompt) as still in the app.
     private func reportPresence() {
         let state = scene == .background ? "away" : "kodosi"
         guard phase == .ready, state != reportedPresence,
@@ -140,8 +139,8 @@ final class AppModel {
         reportedPresence = state
     }
 
-    /// iOS suspends an app a few seconds after it leaves the screen and makes its sockets
-    /// defunct, so the app keeps running until the runtime has closed its connections.
+    /// Hold an iOS background task on backgrounding so the runtime can cleanly close its sockets
+    /// before the system suspends the process.
     private func reportLifecycle() {
         let state = scene == .background ? "background" : "foreground"
         guard phase == .ready, state != reportedLifecycle else { return }
@@ -215,8 +214,7 @@ final class AppModel {
         }
     }
 
-    /// The answers and the parts of documents that the app dropped are lost, so the requests
-    /// that wait for them end, each pipe starts again, and the runtime sends the whole state.
+    /// Inbox overflow may have dropped replies or document frames, so reset waiters and resync.
     private func catchUp() {
         commands.abandonPending()
         terminals.canvas.renewPipes()
@@ -278,7 +276,7 @@ final class AppModel {
         joinOpened()
     }
 
-    /// A code that opens the app before it knows its account joins once this device asks for trust.
+    /// Buffers join codes that arrive before auth completes and applies them once trust starts.
     func open(join code: String) {
         openedJoin = code
         joinOpened()

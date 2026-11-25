@@ -85,7 +85,7 @@ FreedesktopNotificationDriver::FreedesktopNotificationDriver(QObject* parent)
         });
 }
 
-// A later Kodosi cannot act on a click on a notification of this one.
+// Close open notifications on exit because a future instance cannot handle their clicks.
 FreedesktopNotificationDriver::~FreedesktopNotificationDriver()
 {
     QList<QDBusPendingCall> closing;
@@ -122,8 +122,8 @@ void FreedesktopNotificationDriver::post(
     hints.insert(
         QStringLiteral("desktop-entry"),
         QStringLiteral("com.kodosi.Kodosi"));
-    // A desktop shows no banner for a notification of low urgency, and GNOME plays a sound only for
-    // a notification that names one.
+    // Low urgency suppresses popups on desktop shells, and GNOME only plays a sound when one is
+    // explicitly specified.
     hints.insert(QStringLiteral("urgency"),
         QVariant::fromValue(static_cast<uchar>(notification.cue == NotificationCue::List ? 0 : 1)));
     if (notification.cue == NotificationCue::Sound)
@@ -230,8 +230,8 @@ void FreedesktopNotificationDriver::onNotificationClosed(
     const uint id,
     const uint reason)
 {
-    // A notification that only expired can stay in the desktop's list, where a click still opens
-    // it and a withdrawal must still remove it.
+    // Expired notifications can remain in the notification center, where clicks still invoke them
+    // and withdraw() must still close them.
     constexpr uint expired = 1;
     if (reason == expired)
         return;

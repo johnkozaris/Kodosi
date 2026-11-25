@@ -22,7 +22,7 @@ COLORREF colorRef(const QColor& color)
     return RGB(color.red(), color.green(), color.blue());
 }
 
-// Windows keeps an auto-hide taskbar hidden behind a window that covers its monitor.
+// Windows will not reveal an auto-hide taskbar behind a window that covers the full monitor.
 void leaveAutoHideTaskbars(HWND hwnd, RECT& client)
 {
     APPBARDATA state {};
@@ -107,7 +107,7 @@ bool WindowFrame::nativeEventFilter(const QByteArray& eventType, void* message, 
         *result = 0;
         return true;
     case WM_NCACTIVATE:
-        // The default handler repaints the frame in the system colours.
+        // Pass -1 to prevent DefWindowProcW from repainting the non-client frame in system colors.
         *result = DefWindowProcW(msg->hwnd, WM_NCACTIVATE, msg->wParam, -1);
         return true;
     default:
@@ -115,7 +115,7 @@ bool WindowFrame::nativeEventFilter(const QByteArray& eventType, void* message, 
     }
 }
 
-// Qt 6.12 leaves a native strip around an expanded client area, so the client covers the whole window.
+// Qt 6.12 leaves a native border around expanded client areas, so cover the entire window.
 bool WindowFrame::fitClient(void* parameters) const
 {
     const auto hwnd = static_cast<HWND>(m_handle);
@@ -131,8 +131,8 @@ bool WindowFrame::fitClient(void* parameters) const
     return true;
 }
 
-// Qt 6.12 hit-tests an expanded client area with a mouse press of its own, which the window then
-// gets again from Windows. The client area holds the whole window except its resize edges.
+// Qt 6.12 synthesizes a duplicate mouse press when hit-testing expanded client areas, so handle
+// WM_NCHITTEST directly and treat everything inside the resize border as HTCLIENT.
 qintptr WindowFrame::hitTest(int x, int y) const
 {
     const auto hwnd = static_cast<HWND>(m_handle);

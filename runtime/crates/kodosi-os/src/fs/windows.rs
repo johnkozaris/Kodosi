@@ -151,7 +151,7 @@ pub(super) fn prepare_private_parent(parent: &Path) -> io::Result<()> {
     reason = "matches the Unix version, which sets permissions"
 )]
 pub(super) const fn restrict_file(_file: &File) -> io::Result<()> {
-    // New files inherit the private folder's protected access list.
+    // New files inherit the parent directory's protected DACL.
     Ok(())
 }
 
@@ -160,7 +160,7 @@ pub(super) const fn restrict_file(_file: &File) -> io::Result<()> {
     reason = "matches the Unix version, which flushes the folder"
 )]
 pub(super) const fn sync_dir(_path: &Path) -> io::Result<()> {
-    // NTFS journals the rename; Windows has no directory flush for callers.
+    // NTFS journals renames; Windows exposes no directory fsync.
     Ok(())
 }
 

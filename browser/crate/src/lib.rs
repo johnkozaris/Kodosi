@@ -1,5 +1,5 @@
-//! The engine needs only the link and the messages, so a build without the `host` feature starts
-//! nothing.
+//! Without the `host` feature, only wire protocol types (`link` and `message`) are compiled
+//! for use by the engine binary.
 
 pub mod link;
 mod message;
@@ -71,16 +71,15 @@ mod host {
 
     #[derive(Debug, Clone)]
     pub struct Settings {
-        /// The browser program: an app bundle on a Mac, otherwise its executable.
+        /// Path to the browser engine (`.app` bundle on macOS, executable otherwise).
         pub engine: PathBuf,
         pub profiles: PathBuf,
-        /// The browsers keep the key of their cookies and saved passwords in the system's keychain
-        /// or keyring. A host whose profiles are thrown away, such as a test run, says no: then
-        /// the browsers use a fixed key and never touch the keychain of the person.
+        /// Store cookie/password encryption keys in the OS keychain. Set to `false` for ephemeral
+        /// or test profiles to use a mock key and avoid touching the user's keychain.
         pub system_keychain: bool,
     }
 
-    /// One browser process runs each profile.
+    /// Target browser window to open; each `profile` runs in its own engine process.
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct Place {
         pub profile: String,
@@ -138,12 +137,12 @@ mod host {
             Ok(engine)
         }
 
-        /// A browser that runs keeps its own engine.
+        /// Sets the engine binary path for future launches; running engine processes are unchanged.
         pub fn use_engine(&self, program: PathBuf) {
             *self.program.write().unwrap_or_else(PoisonError::into_inner) = program;
         }
 
-        /// `script` runs in the page before the page's own scripts.
+        /// Opens an offscreen host page, injecting `script` to run before page scripts.
         pub async fn host_page(
             &self,
             profile: &str,
@@ -159,7 +158,8 @@ mod host {
             page
         }
 
-        /// A host does this only for a person's own action.
+        /// Imports browser sign-in cookies into a profile; call only in response to an explicit
+        /// user action.
         pub async fn add_sign_ins(
             &self,
             profile: &str,

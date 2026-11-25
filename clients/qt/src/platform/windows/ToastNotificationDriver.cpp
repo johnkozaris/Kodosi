@@ -21,7 +21,7 @@ winrt::hstring wide(const QString& text)
     return { reinterpret_cast<const wchar_t*>(text.utf16()), static_cast<winrt::hstring::size_type>(text.size()) };
 }
 
-// Windows limits a toast tag and a toast group to 64 characters.
+// Windows limits toast tags and groups to 64 characters.
 winrt::hstring shortened(const QString& text)
 {
     return wide(QString::fromLatin1(QCryptographicHash::hash(text.toUtf8(), QCryptographicHash::Sha256).toHex().left(32)));

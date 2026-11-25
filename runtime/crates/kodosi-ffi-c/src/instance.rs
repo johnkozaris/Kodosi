@@ -194,8 +194,8 @@ fn executor() -> std::io::Result<Executor> {
     Executor::new()
 }
 
-/// Tokio starts a worker for each core and wakes idle ones to look for work. A phone pays for
-/// each wake, and its few terminal views need two.
+// Cap mobile viewer builds to two Tokio workers, enough for their few terminal
+// views, to avoid per-core wakeup overhead on battery-powered devices.
 #[cfg(not(feature = "host"))]
 fn executor() -> std::io::Result<Executor> {
     tokio::runtime::Builder::new_multi_thread()

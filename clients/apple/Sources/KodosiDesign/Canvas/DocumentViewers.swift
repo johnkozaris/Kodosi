@@ -37,8 +37,8 @@ public struct DocumentViewers: Equatable, Sendable {
     }
 }
 
-/// Written out, because a `RawRepresentable` type with `String` raw values would otherwise code
-/// itself as its raw value, which is this JSON.
+/// Explicit `Codable` avoids infinite recursion: Swift's default implementation for a `String`
+/// `RawRepresentable` encodes via `rawValue`, which calls `JSONEncoder().encode(self)`.
 extension DocumentViewers: Codable {
     private enum CodingKeys: String, CodingKey {
         case documents, documentPages, darkDocuments, sheets, darkSheets, presentations, pdfs, darkPdfs, texts
@@ -71,7 +71,7 @@ extension DocumentViewers: Codable {
     }
 }
 
-/// `@AppStorage` keeps the viewers as JSON text.
+/// `@AppStorage` persists the viewers as JSON text.
 extension DocumentViewers: RawRepresentable {
     public init?(rawValue: String) {
         guard let viewers = try? JSONDecoder().decode(Self.self, from: Data(rawValue.utf8)) else { return nil }

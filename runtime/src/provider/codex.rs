@@ -28,8 +28,8 @@ pub(super) fn conversation(root: &Path, group: u32, folder: Option<&Path>) -> Op
     )
 }
 
-/// `held` has none of the files of Codex's threads on Windows or with Codex's shared server.
-/// Then the one live conversation of `folder` counts.
+/// Falls back to matching the unique live thread in `folder` when `held` has no Codex files
+/// (e.g., on Windows or when Codex runs via its shared server).
 pub(super) fn shown(root: &Path, held: Vec<PathBuf>, folder: Option<&Path>) -> Option<String> {
     let (sessions, locks) = (root.join(SESSIONS), root.join(WRITER_LOCKS));
     let held = held
@@ -113,7 +113,7 @@ fn folders(parent: &Path) -> Vec<PathBuf> {
     folders
 }
 
-/// A rollout is `rollout-<time>-<thread>.jsonl`, and a revert names it
+/// Extracts `<thread>` from `rollout-<time>-<thread>.jsonl` or reverted
 /// `rollout-<time>-<thread>_<rollout>.jsonl`.
 fn rollout_thread(path: &Path) -> Option<&str> {
     let name = path

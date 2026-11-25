@@ -7,7 +7,7 @@ import { styleSheet } from "./styles";
 
 const schema = getSchema(extensions);
 
-/** The element that a browser builds from what the editor renders, as a paste reads it. */
+/** Minimal HTMLElement stub built from a ProseMirror DOMOutputSpec for parseDOM tests. */
 function element(rendered: unknown): HTMLElement {
   const [, attrs = {}, ...content] = rendered as [string, Record<string, unknown>?, ...unknown[]];
   return {

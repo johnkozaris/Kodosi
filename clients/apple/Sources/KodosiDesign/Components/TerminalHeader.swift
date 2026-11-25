@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// The parts of the caption sit in the stack around it, so that a fold key can follow them.
+/// Emits ungrouped sibling views so callers can place them in an outer stack alongside controls
+/// such as a collapse button.
 public struct ComputerCaption: View {
     let title: String
     let ownerName: String?

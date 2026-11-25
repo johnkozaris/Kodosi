@@ -35,7 +35,8 @@ public final class TerminalProcessFocusCoordinator {
         var focus: PendingFocus?
         var release: TerminalProcessFocusReleaseAuthority?
         var focusRetries = 0
-        /// The focus only comes back with the app or the view's connection, so it takes no size.
+        /// True for passive focus restoration (app foreground or reconnect), which should not
+        /// claim PTY size from another viewer.
         var returning = false
     }
 
@@ -99,7 +100,7 @@ public final class TerminalProcessFocusCoordinator {
         leases[lease]?.focus = nil
         if accepted {
             leases[lease]?.focusRetries = 0
-            // A person acted on the view while the focus that came back was on its way.
+            // The user interacted while passive focus was in flight; re-request active focus.
             if pending.returning, leases[lease]?.returning == false {
                 requestFocus(lease, generation: pending.generation)
             }
@@ -111,8 +112,8 @@ public final class TerminalProcessFocusCoordinator {
         }
     }
 
-    /// A person acts on a view that has the focus already, so the focus goes again as their act,
-    /// which takes the terminal's size for the view.
+    /// Promotes an already-focused surface to active focus after user interaction so it can claim
+    /// the terminal's PTY size.
     public func act(surfaceId: UUID) {
         guard let lease = leaseBySurfaceId[surfaceId], leases[lease] != nil else { return }
         leases[lease]?.returning = false

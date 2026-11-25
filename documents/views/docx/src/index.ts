@@ -38,7 +38,7 @@ const PAGE_INSET = 16;
 const MOST_PAUSES = 30;
 const PAUSE_MS = 100;
 
-/** Each top-level block keeps one id, so agents and saves can name it. */
+/** Ensures every top-level block has a unique ID for agent addressing and document saving. */
 function blockIds(): Plugin {
   return new Plugin({
     appendTransaction(transactions, _old, state) {
@@ -85,7 +85,7 @@ class DocxEditor implements ViewEditor, Pictures {
   private readonly root: HTMLElement;
   private readonly client: Client;
   private editor: Editor | undefined;
-  /** The state of an editor that a failed load took away, with the steps that still wait. */
+  // Preserves the previous state (and its unsent steps) across a failed load retry.
   private unloaded: EditorState | undefined;
   private readonly bar: DocxBar;
   private readonly status: Status;
@@ -220,9 +220,8 @@ class DocxEditor implements ViewEditor, Pictures {
   }
 
   /**
-   * The pages lay out once at their own size, so a zoom never moves a word: the scale only makes
-   * their picture larger or smaller. Text that fits the view lays out at the width that the
-   * scale gives it.
+   * In paged mode, scales visually via CSS transform without changing layout width so line breaks
+   * never reflow on zoom. In fit-to-width mode, adjusts width so text reflows to the viewport.
    */
   private scaleTo(scale: number): void {
     this.scale = scale;
@@ -235,7 +234,7 @@ class DocxEditor implements ViewEditor, Pictures {
     this.sizeSheet();
   }
 
-  /** A transform leaves the layout as it is, so the sheet holds the place of the scaled pages. */
+  // CSS transform does not affect layout size, so size the wrapper to match the scaled pages.
   private sizeSheet(): void {
     const root = this.editor?.view.dom;
     if (!root) return;
@@ -315,10 +314,8 @@ class DocxEditor implements ViewEditor, Pictures {
     if (own && this.placeWaits) this.sendPlace();
   }
 
-  /**
-   * The place goes as the document is at the client's rev. While this copy's steps wait for
-   * their answer, it differs from that rev, so the place waits too.
-   */
+  // Selection positions must match the client's confirmed rev, so defer reporting while local
+  // steps are awaiting acknowledgement.
   private sendPlace(): void {
     const state = this.editor?.state;
     if (!state) return;

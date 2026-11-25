@@ -26,14 +26,10 @@ import org.keycloak.models.utils.FormMessage;
 import org.keycloak.services.validation.Validation;
 import org.keycloak.sessions.AuthenticationSessionModel;
 
-/** The pages, the mails and the form posts of the code step, in each place that asks for a code. */
 final class CodeStep {
     enum Kind {
-        /** A sign-up: the code comes before the account. */
         SIGN_UP("sign-up"),
-        /** A forgotten password: the code goes to the address of the account, if there is one. */
         RESET("reset"),
-        /** A signed-in account whose address is not confirmed. */
         ACCOUNT("account");
 
         final String word;
@@ -59,10 +55,8 @@ final class CodeStep {
     private final UserModel account;
     private final MailCode codes;
 
-    /**
-     * {@code account} is the signed-in account for {@link Kind#ACCOUNT}, the account that a reset is for (or
-     * null when none matched) for {@link Kind#RESET}, and null for {@link Kind#SIGN_UP}.
-     */
+    // account is non-null for ACCOUNT, nullable for RESET (null when no user matched), and null
+    // for SIGN_UP.
     CodeStep(KeycloakSession session, AuthenticationSessionModel authSession, EventBuilder event,
             Supplier<LoginFormsProvider> forms, Kind kind, UserModel account) {
         this.session = session;
@@ -96,7 +90,7 @@ final class CodeStep {
         return codePage(false, null, null);
     }
 
-    /** Answers a form post: the next page, or null when the code passed. */
+    // Returns the next challenge page, or null once verification succeeds.
     Response post(MultivaluedMap<String, String> form) {
         if (form.containsKey("resend")) return send(true);
         if (kind != Kind.RESET) {
@@ -149,13 +143,13 @@ final class CodeStep {
             case ACCOUNT -> mail(to, "kdsAccountSubject", List.of(realmName()), "kodosi-account.ftl",
                     Map.of("username", owner.getUsername()));
         };
-        // A reset page must look the same whether a mail went out or not.
+        // Reset responses must not reveal whether an email was actually sent.
         boolean shownAsSent = mailed || kind == Kind.RESET;
         String problem = sent.shown() == MailCode.Shown.LATER ? "kdsCodeLater" : shownAsSent ? null : "kdsCodeUnsent";
         return codePage(again && sent.shown() == MailCode.Shown.SENT && shownAsSent, null, problem);
     }
 
-    /** Takes the address whose code passed; false when another account took it after its code went out. */
+    // Returns false if another account took the address after its code was sent.
     private boolean confirm(String address) {
         if (kind == Kind.ACCOUNT && !address.equals(normal(account.getEmail()))) {
             UserModel other = session.users().getUserByEmail(realm, address);
@@ -179,7 +173,6 @@ final class CodeStep {
         return codePage(false, words, null);
     }
 
-    /** The address that codes go to, or null when there is none, as for a reset of no account. */
     private String recipient() {
         return switch (kind) {
             case RESET -> account == null ? null : normal(account.getEmail());
@@ -212,8 +205,8 @@ final class CodeStep {
         return form.createForm("kodosi-code.ftl");
     }
 
-    // Keycloak's mail templates need a user, and a sign-up has none yet. This one carries the address and
-    // the language of the page that asked for the mail.
+    // EmailTemplateProvider requires a UserModel for address and locale, but sign-up has no user
+    // yet, so pass a lightweight stand-in.
     private boolean mail(String to, String subject, List<Object> subjectValues, String template, Map<String, Object> values) {
         UserModel reader = new LightweightUserAdapter(session, realm, null);
         reader.setEmail(to);

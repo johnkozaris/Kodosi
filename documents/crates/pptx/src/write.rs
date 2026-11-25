@@ -20,7 +20,7 @@ const LAYOUT_KIND: &str =
 const SLIDE_TYPE: &str = "application/vnd.openxmlformats-officedocument.presentationml.slide+xml";
 const PRESENTATION_RELATIONS: &str = "ppt/_rels/presentation.xml.rels";
 const CONTENT_TYPES: &str = "[Content_Types].xml";
-/// The fills of a shape, of which its properties hold one at most.
+/// Mutually exclusive `DrawingML` fill elements inside `p:spPr`.
 const FILLS: [&str; 6] = [
     "noFill",
     "solidFill",
@@ -231,7 +231,7 @@ impl Out<'_> {
     }
 }
 
-/// `kept` holds other attributes and children, split by a zero.
+/// `kept` encodes preserved attributes and child elements separated by `\0`.
 fn new_run_props(look: &RunLook, tag: &str, kept: &str) -> String {
     let (attributes, children) = kept.split_once('\u{0}').unwrap_or((kept, ""));
     let mut xml = format!("<{tag}{attributes}");
@@ -305,8 +305,8 @@ fn frame_xml(shape: &Shape, children: Option<&read::Frame>) -> String {
     )
 }
 
-/// A frame changes in its numbers only, so that a shape turned over and the frame of the children
-/// of a group stay.
+/// Updates only `off`, `ext`, and `rot` on `<a:xfrm>`, preserving flips (`flipH`/`flipV`) and
+/// group child transforms (`chOff`/`chExt`).
 fn moved_frame(xml: &str, transform: Xml<'_, '_>, shape: &Shape) -> String {
     let tag = |element: Xml<'_, '_>| {
         let text = &xml[element.range()];
@@ -361,8 +361,8 @@ fn appended(xml: &str, element: Xml<'_, '_>, added: String) -> (std::ops::Range<
     (at..at, added)
 }
 
-/// The schema puts a frame first in the properties of a shape, and a fill after its frame and
-/// geometry.
+/// Inserts new `<a:xfrm>` first in `spPr` and new fills after geometry to match `DrawingML`
+/// schema order.
 fn added_properties(
     xml: &str,
     properties: Xml<'_, '_>,
@@ -415,7 +415,7 @@ fn new_shape_xml(out: &Out<'_>, shape: &Shape) -> Result<String, String> {
     ))
 }
 
-/// `old` is the shape as `xml` holds it. With none, the frame, fill and text all go in anew.
+/// Patches `element` from `old` to `new`; when `old` is `None`, rewrites frame, fill, and text.
 fn patch_shape(
     out: &Out<'_>,
     xml: &str,
@@ -528,8 +528,8 @@ fn with_edits(xml: &str, mut edits: Vec<(std::ops::Range<usize>, String)>) -> St
     new_xml
 }
 
-/// A shape that the file held goes back as its piece holds it, changed in the frame and fill that
-/// changed since its slide read the piece, and with the text that it has now.
+/// Serializes a shape by patching its stored XML fragment with any frame, fill, or text edits
+/// made since it was read, or builds a new text box if it has no stored fragment.
 fn shape_xml(out: &Out<'_>, slide: &Slide, shape: &Shape) -> Result<String, String> {
     let Some(source) = &shape.source else {
         return new_shape_xml(out, shape);

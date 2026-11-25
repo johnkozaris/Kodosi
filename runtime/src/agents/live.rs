@@ -31,7 +31,8 @@ impl AgentSettings {
             .all(|value| is_value(value))
     }
 
-    /// A new model without an effort runs at its own effort, which Kodosi doesn't know.
+    /// Switching models without specifying an effort resets to the new model's unknown default,
+    /// so clear the previous effort.
     #[must_use]
     pub fn changed(&self, change: &Self) -> Self {
         let effort = match (&change.model, &change.effort) {
@@ -52,8 +53,8 @@ impl AgentSettings {
 #[cfg(feature = "host")]
 pub(crate) const NO_RUNNING_AGENT: &str = "No agent runs in front in this terminal.";
 
-/// What Claude Code asks a person before it switches the model or effort of a conversation
-/// whose cache is warm, without reporting that it waits.
+/// Confirmation prompts Claude Code prints before changing model or effort on a warm cache
+/// without signaling that it is waiting for input.
 #[cfg(feature = "host")]
 const CLAUDE_QUESTIONS: [&str; 2] = ["Switch model?", "Change effort level?"];
 
@@ -311,7 +312,7 @@ impl Agent {
             Self::Cursor if has(&["--force", "-f", "--yolo"]) => Some(Permissions::Unrestricted),
             Self::Antigravity => match value("--mode") {
                 Some("auto") => Some(Permissions::Auto),
-                // Kodosi's `acp` takes the empty mode as the mode that asks, and agy as no mode.
+                // `kodosi acp` uses `--mode=` for Ask, whereas `agy` treats it as unset (default).
                 Some("") if runs_acp(arguments) => Some(Permissions::Ask),
                 Some(_) => None,
                 None => match antigravity_setting(arguments, "agentMode").as_deref() {
@@ -355,14 +356,13 @@ impl Agent {
     }
 }
 
-/// The line runs an agent's server for the chat with Kodosi's `acp`.
 #[cfg(feature = "host")]
 fn runs_acp(arguments: &[String]) -> bool {
     matches!(arguments, [program, action, ..]
         if action == "acp" && std::path::Path::new(program).file_name().is_some_and(|name| name == "kodosi"))
 }
 
-/// A setting of the last `--settings` of Antigravity CLI's line, the only one that it takes.
+/// Antigravity CLI only honors the last `--settings` argument.
 #[cfg(feature = "host")]
 fn antigravity_setting(arguments: &[String], name: &str) -> Option<String> {
     let settings = last_value(arguments, "--settings", "{")?;

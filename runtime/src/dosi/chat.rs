@@ -310,7 +310,7 @@ impl Chat {
             .is_some_and(|devices| devices.contains(device))
     }
 
-    /// Sorts after every conversation that this device knows, also when its clock is behind.
+    /// Generates a conversation ID that sorts after all known ones, even when the local clock lags.
     fn fresh_id(&self) -> String {
         let id = Uuid::now_v7().to_string();
         let Some(floor) = self.marks.floor().filter(|floor| *floor >= id.as_str()) else {

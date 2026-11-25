@@ -84,7 +84,7 @@ fun KodosiButton(
     }
 }
 
-/** A key stays [down] while the answer that it gave is on its way. */
+// When down is true, the button stays visually pressed and non-clickable while pending.
 @Composable
 fun KodosiButton(
     onClick: () -> Unit,

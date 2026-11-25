@@ -11,23 +11,23 @@ pub(crate) use mac::Encoder;
 pub(crate) use software::Encoder;
 
 const FRAME_RATE: u32 = 60;
-/// After a picture that the encoder or the link dropped, it goes again this much later, so the
-/// viewers get the newest picture even when the page then stays still.
+/// Delay before re-encoding after a dropped frame so viewers still get the latest state if the
+/// page goes idle.
 const REDRAW_AFTER_MS: i64 = 100;
 
-/// A change gets the few bits that one frame allows, so once the page is still the encoder codes
-/// its last picture again and again, and the rate control spends the bits on its detail.
+/// After the page stays idle for `STILL_MS`, re-encode the last frame every `REFINE_MS` so
+/// rate control can spend extra bits sharpening static detail.
 pub(crate) const STILL_MS: i64 = 250;
 pub(crate) const REFINE_MS: i64 = 33;
-/// `OpenH264` goes from 40 to 54 dB on a still page of text in 45 frames, and then spends its bits
-/// on nothing; its rate control skips some of them.
+/// Cap on refinement passes: `OpenH264` converges from 40 to 54 dB on static text in ~45
+/// frames (plus some frames skipped by rate control), after which extra passes waste bits.
 const REFINEMENTS: u32 = 60;
-/// A caret or a typed letter gets fine bits in its own frame, so only changes that add up to this
-/// much of the page earn a clean-up.
+/// Small updates (like a blinking caret or typed character) already get enough bits in a
+/// single frame; only cumulative dirty area reaching this fraction triggers refinement.
 const LARGE_CHANGE: f64 = 1.0 / 16.0;
-/// A refinement of a clean picture takes a third of a frame's bits at most, as the encoder has
-/// little left to code. Right after a key frame the rate control gives refinements next to
-/// nothing for a while, and a refinement that spends all its bits is still at work.
+/// Stop refining once `CLEAN_AFTER` consecutive frames stay within 1/3 of a frame's bit
+/// budget. Require `FIRST_REFINEMENTS` passes first because rate control initially starves
+/// refinements right after a keyframe.
 const CLEAN_AFTER: usize = 3;
 const FIRST_REFINEMENTS: usize = 6;
 
@@ -39,8 +39,6 @@ pub(crate) struct Cleanup {
 }
 
 impl Cleanup {
-    /// Takes a picture that the page drew with `share` of it changed, and returns the picture
-    /// after which the page must stay still before a clean-up.
     pub(crate) fn drawn(&mut self, share: f64) -> Option<u64> {
         self.pictures += 1;
         self.changed += share;
@@ -51,12 +49,10 @@ impl Cleanup {
         (self.left > 0).then_some(self.pictures)
     }
 
-    /// Whether the page drew nothing since `picture` and its clean-up has a frame left.
     pub(crate) const fn due(&self, picture: u64) -> bool {
         picture == self.pictures && self.left > 0
     }
 
-    /// A busy encoder takes no refinement, so only those that it took count.
     pub(crate) const fn refined(&mut self) {
         self.left = self.left.saturating_sub(1);
     }
@@ -69,8 +65,6 @@ pub(crate) struct Convergence {
 }
 
 impl Convergence {
-    /// Takes the size of a coded refinement and the bytes that one frame may have, and returns
-    /// whether the picture is clean.
     pub(crate) fn refined(&mut self, bytes: usize, budget: usize) -> bool {
         self.sizes[self.refined % CLEAN_AFTER] = bytes;
         self.refined += 1;

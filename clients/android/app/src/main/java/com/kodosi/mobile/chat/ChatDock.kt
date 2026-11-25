@@ -102,12 +102,11 @@ import com.kodosi.mobile.ui.rememberWords
 import com.kodosi.mobile.ui.snappy
 import kotlinx.coroutines.delay
 
-/** What the facts row shows of the agent's models: their names and, for each, its levels of effort. */
 internal class KnownModels(val label: (String) -> String, val levels: (String?) -> List<String>)
 
 /**
- * What sits under the conversation: the agent's list of its work, the helpers that work for it,
- * the waiting messages, the question of the agent, the composer and the facts of the session.
+ * Everything below the conversation: the agent's task list, the helpers working for it, queued
+ * messages, the agent's open question, the composer and the session facts.
  */
 @Composable
 internal fun ChatDock(
@@ -245,7 +244,6 @@ internal fun ChatDock(
     )
 }
 
-/** The question takes the room that the composer and its facts leave, and the conversation keeps a strip. */
 @Composable
 private fun DockLayout(above: @Composable () -> Unit, card: @Composable () -> Unit, below: @Composable () -> Unit) {
     Layout(contents = listOf(above, card, below)) { (tops, cards, bottoms), constraints ->
@@ -329,7 +327,6 @@ private fun Queued(chat: TerminalChat, queued: ChatQueued, agent: AgentKind, sho
     }
 }
 
-/** The agent's list of its work while a step of it is open: how far it is and the step that it works on. */
 @Composable
 private fun ChatTasks(tasks: List<ChatTask>, modifier: Modifier = Modifier) {
     val colors = KodosiTheme.colors
@@ -712,7 +709,6 @@ internal fun UsageLevel.tint() = when (this) {
     UsageLevel.REACHED -> KodosiTheme.colors.danger
 }
 
-/** A symbol names itself in a tip at a long press. */
 @Composable
 private fun Tipped(words: String, content: @Composable () -> Unit) {
     val colors = KodosiTheme.colors

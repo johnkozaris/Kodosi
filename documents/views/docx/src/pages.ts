@@ -82,7 +82,7 @@ class Measure {
     this.origin = origin;
   }
 
-  /** Points must come in order. */
+  /** Requires y coordinates in ascending order because hole scanning only advances forward. */
   natural(y: number): number {
     for (let hole = this.holes[this.next]; hole && hole.top < y; hole = this.holes[this.next]) {
       this.passed += hole.height;
@@ -160,7 +160,7 @@ function linesOf(
   return lines;
 }
 
-/** Moves a break so that no heading stands alone and no line of a paragraph does. */
+/** Pulls a page break back to avoid widow/orphan lines and stranded keepNext blocks. */
 function settle(lines: readonly Line[], at: number, pageTop: number): number {
   let index = at;
   const line = lines[index];

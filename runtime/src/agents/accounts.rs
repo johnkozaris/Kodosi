@@ -205,7 +205,8 @@ fn expand(value: &str, home: &Path) -> Option<PathBuf> {
     .then_some(path)
 }
 
-/// Other tools keep their own folders beside the agent's, such as `~/.claude-squad`.
+/// Unrelated tools also create sibling folders like `~/.claude-squad`, so only accept empty
+/// directories or ones containing the agent's config files.
 fn sibling_homes(home: &Path, agent: Agent, folder: &str) -> Vec<(String, PathBuf)> {
     let Ok(entries) = std::fs::read_dir(home) else {
         return Vec::new();

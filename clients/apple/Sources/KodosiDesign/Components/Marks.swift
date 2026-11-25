@@ -42,7 +42,7 @@ public struct PersonAvatar: View {
         .system(size: size * letterScale, weight: .semibold, design: .rounded)
     }
 
-    /// Measured on the ink: two initials such as "LP" and "WW" differ by a third of a circle.
+    /// Uses CoreText ink bounds so overlapping avatars adapt to narrow vs. wide initials.
     static func initialsReachRightOfMiddle(of name: String, size: CGFloat) -> CGFloat {
         let points = size * letterScale
         let line = CTLineCreateWithAttributedString(NSAttributedString(

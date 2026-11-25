@@ -177,7 +177,7 @@ pub(super) fn path_from_file_url(host: &str, path: &str) -> Option<PathBuf> {
 
 #[cfg(not(target_os = "android"))]
 const EFFECTIVE_IDS: AtFlags = AtFlags::EACCESS;
-// Bionic has no AT_EACCESS, and an Android app runs with its real IDs.
+// Bionic does not support AT_EACCESS, and Android apps run with their real IDs.
 #[cfg(target_os = "android")]
 const EFFECTIVE_IDS: AtFlags = AtFlags::empty();
 

@@ -69,8 +69,8 @@ final class TerminalRendererDelegateProxy:
     }
 
     func terminalDidRequestOpenURL(_ url: String, kind: TerminalOpenURLKind) {
-        // Only a key that the person presses makes Ghostty write a file on this
-        // device, such as the screen, and open it. Ghostty opens these as they are.
+        // Non-.unknown kinds (.text, .html) come from Ghostty keybindings that export a local
+        // file (such as screen contents) and open it directly, bypassing ClickedLink checks.
         guard kind == .unknown else {
             return opensLink(URL(string: url).flatMap { $0.scheme == nil ? nil : $0 } ?? URL(filePath: url))
         }

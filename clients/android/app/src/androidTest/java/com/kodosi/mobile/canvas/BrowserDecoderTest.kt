@@ -54,10 +54,8 @@ class BrowserDecoderTest {
             }
     }
 
-    /**
-     * A decoder in software, such as the one of the emulator, shows a picture only after two more
-     * frames, so the key frame comes again as a stream goes on, until a picture of its size shows.
-     */
+    // Software decoders (like the emulator's) buffer frames before emitting output, so resend the
+    // keyframe until a decoded frame of the expected size arrives.
     private fun stream(decoder: BrowserDecoder, frame: String, size: IntSize): IntSize? {
         val bytes = Base64.getDecoder().decode(frame)
         val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)

@@ -36,7 +36,7 @@ public sealed class AccountDeletionSettings
         return new(issuer, new Uri(admin.GetLeftPart(UriPartial.Path).TrimEnd('/') + "/"), realm, clientId, secret);
     }
 
-    // Keycloak's delete_account action through its own account client. Nobody redeems the code.
+    // Starts Keycloak's delete_account action via account-console; the auth code is never redeemed.
     public string? ConfirmationUri()
     {
         if (!ReadsSignInService) return null;

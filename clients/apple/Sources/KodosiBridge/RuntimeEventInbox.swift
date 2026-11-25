@@ -1,12 +1,11 @@
 import Foundation
 import Synchronization
 
-/// A full inbox drops all that waits rather than grow without end, and says so before the next
-/// data, so that its reader can ask for the state again.
+/// Bounded FIFO event queue. On overflow it drops all queued events and emits `.behind` before
+/// any newer data so the consumer can resynchronize state.
 public final class RuntimeEventInbox: Sendable {
     public enum Arrival: Equatable, Sendable {
         case data(Data)
-        /// The inbox dropped these, as its reader did not keep up.
         case behind(Drop)
     }
 
@@ -16,19 +15,16 @@ public final class RuntimeEventInbox: Sendable {
         case behind(Drop)
     }
 
-    /// What a full inbox dropped, so that the log can say what filled it.
     public struct Drop: Equatable, Sendable {
         public var events = 0
         public var bytes = 0
-        /// How long the reader had not caught up.
         public var behindFor = Duration.zero
-        /// The kinds of events with the most bytes, most first.
+        /// Top dropped event types sorted by total bytes.
         public var kinds = ""
     }
 
     private struct State {
-        /// An array moves all that follow when its first item goes, so the newest events go on the
-        /// end of one array and the oldest come off the end of another.
+        /// Two-stack FIFO queue to avoid O(n) shifts from `Array.removeFirst()`.
         var incoming: [Data] = []
         var outgoing: [Data] = []
         var byteCount = 0
@@ -52,8 +48,8 @@ public final class RuntimeEventInbox: Sendable {
     private let maximumCount: Int
     private let decoder = JSONDecoder()
 
-    /// The default holds a file of the canvas at its largest, in the parts of one frame, and the
-    /// many small events that can come at once, while the app reads them.
+    /// Defaults fit a max-size canvas file transfer (up to 32 MB, base64-encoded) plus a burst of
+    /// smaller events while the consumer drains the queue.
     public init(maximumBytes: Int = 64 * 1024 * 1024, maximumCount: Int = 4096) {
         self.maximumBytes = maximumBytes
         self.maximumCount = maximumCount
@@ -68,7 +64,6 @@ public final class RuntimeEventInbox: Sendable {
         }
     }
 
-    /// Returns false when the inbox is closed, or when it was full and dropped all that waited.
     @discardableResult
     public func push(_ data: Data) -> Bool {
         var waiting: CheckedContinuation<Arrival?, Never>?
@@ -158,8 +153,8 @@ public final class RuntimeEventInbox: Sendable {
         }
     }
 
-    /// The runtime writes the keys of an event in order, and a long event keeps its type after
-    /// its data, so the type is near one of its ends.
+    /// The runtime serializes JSON keys in sorted order, so `"type"` appears near the end of
+    /// large payloads (after `"data"`) or near the start of small ones.
     private static func kind(of data: Data) -> String {
         for end in [data.suffix(256), data.prefix(256)] {
             let text = String(decoding: end, as: UTF8.self)

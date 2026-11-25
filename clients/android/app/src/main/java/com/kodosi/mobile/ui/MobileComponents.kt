@@ -842,7 +842,7 @@ fun rememberWords(text: String, markdown: Boolean): AnnotatedString {
                             fontWeight = if (run.strong) FontWeight.SemiBold else null,
                             fontStyle = if (run.emphasis) FontStyle.Italic else null,
                             fontFamily = if (run.code) FontFamily.Monospace else null,
-                            // The system's monospace font draws larger than the font of the text at one size.
+                            // Scale monospace down to match the optical size of body text.
                             fontSize = if (run.code) 0.9.em else TextUnit.Unspecified,
                             background = if (run.code) colors.ink.copy(alpha = 0.07f) else Color.Unspecified,
                             textDecoration = if (run.struck) TextDecoration.LineThrough else null
@@ -895,7 +895,7 @@ fun ListLine(
             }
         }
     ) { items, constraints ->
-        // A menu asks each row for its width with no limit, and a size near that limit is not a size.
+        // Menus measure rows with unbounded width; avoid arithmetic on Constraints.Infinity.
         val bounded = constraints.hasBoundedWidth
         val loose = constraints.copy(minWidth = 0, minHeight = 0, maxHeight = Constraints.Infinity)
         val mark = items[0].measure(loose)

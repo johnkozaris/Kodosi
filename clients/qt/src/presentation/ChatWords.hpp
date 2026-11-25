@@ -20,9 +20,8 @@ public:
     [[nodiscard]] static QString modeIcon(const QString& mode);
     [[nodiscard]] static QString duration(qint64 ms);
     [[nodiscard]] static QString cost(double dollars);
-    // An agent reports its model by its full ID, such as claude-sonnet-5-5 or
-    // claude-sonnet-4-5-20250929, where the launcher knows the model by a shorter one, such as
-    // sonnet: the name of the shorter one and the version after it make "Sonnet 5.5".
+    // Formats a full model ID (e.g. "claude-sonnet-4-5-20250929") using the launcher's shorter
+    // model catalog entries (e.g. "sonnet" -> "Sonnet 4.5").
     [[nodiscard]] static QString modelName(const QString& model, const QVariantMap& models);
 };
 

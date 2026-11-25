@@ -6,13 +6,12 @@ use text::{Mark, Node};
 
 use crate::{apply::block_id, model::schema, write::new_picture};
 
-/// The most columns that a table cell spans: as many as HTML lets a view draw a cell across.
+/// Maximum table cell column span, matching the HTML `colspan` limit.
 pub(crate) const MOST_SPAN: u64 = 1000;
 
-/// What a document holds that its tree names: the pieces of its file and the bytes of pictures.
 pub(crate) struct Held<'a> {
     pub(crate) raws: &'a HashMap<String, String>,
-    /// Pieces that come with the merge of a write of another program.
+    /// Raw XML fragments introduced by an external-write merge.
     pub(crate) keep: &'a BTreeMap<String, String>,
     pub(crate) assets: &'a Assets,
 }
@@ -45,7 +44,7 @@ impl Held<'_> {
     }
 }
 
-/// Refuses a change after which the writer could not save the document.
+/// Rejects changes that would leave the document unserializable.
 pub(crate) fn writable_change(before: &Node, after: &Node, held: &Held<'_>) -> Result<(), String> {
     let kept: HashMap<&str, &Node> = before
         .content()

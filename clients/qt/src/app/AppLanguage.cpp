@@ -14,8 +14,9 @@ QString g_current = QStringLiteral("en");
 QTranslator* g_own = nullptr;
 QTranslator* g_qt = nullptr;
 
-// Kodosi gives these texts of Qt their words, because Qt has no Greek words and words its text
-// menu only in German. Qt's own words come first, as its translator is installed last.
+// Provide fallback translations for Qt's built-in dialog and edit-menu strings, since Qt lacks
+// Greek translations and only translates text-edit actions in German. Qt's own translator is
+// installed last so its translations take precedence where present.
 [[maybe_unused]] constexpr std::array qtTexts {
     QT_TRANSLATE_NOOP("QPlatformTheme", "OK"),
     QT_TRANSLATE_NOOP("QPlatformTheme", "Cancel"),
@@ -32,7 +33,7 @@ QTranslator* g_qt = nullptr;
     QT_TRANSLATE_NOOP("SelectAllAction", "Select All"),
 };
 
-// Qt names Simplified Chinese by its region.
+// Qt uses the region code (zh_CN) for Simplified Chinese.
 QString qtName(const QString& tag)
 {
     return tag == QStringLiteral("zh-Hans") ? QStringLiteral("zh_CN") : tag;

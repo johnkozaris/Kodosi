@@ -2,7 +2,8 @@ import AppKit
 import KodosiBridge
 
 extension AppDependencies {
-    /// Keys reach this before the terminal, so a program never gets a key of the table.
+    /// Intercepts app shortcuts via a local event monitor before the terminal surface receives
+    /// them, preventing configured shortcuts from leaking to programs inside the terminal.
     func startShortcuts() {
         guard shortcutMonitor == nil else { return }
         shortcutMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -87,7 +88,7 @@ extension AppDependencies {
         }
     }
 
-    /// Terminal 9 is the last one, as in Ghostty.
+    /// Matches Ghostty: shortcut 9 always jumps to the last staged terminal.
     private func selectTerminal(number: Int) {
         let staged = workbench.stagedSessionIds
         guard !staged.isEmpty else { return }

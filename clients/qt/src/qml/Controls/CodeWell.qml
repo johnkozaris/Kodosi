@@ -1,7 +1,7 @@
 import Kodosi 1.0
 import QtQuick
 
-// What a command printed starts at its end, where a result or a fault is.
+// Pin command output to the bottom so the final result or error stays visible.
 Item {
     id: root
 

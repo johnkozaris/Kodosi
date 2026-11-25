@@ -22,9 +22,9 @@ export interface Person {
 }
 
 /**
- * What became of the batch that was on its way when a client joined again: none was on its way,
- * the document took it, it never got there, the document refused it, or the document lost what it
- * kept of the client and no longer knows.
+ * Outcome of an in-flight change batch after rejoining: no batch was in flight, the document
+ * accepted it, it never arrived, the document refused it, or the document lost client state and
+ * cannot tell.
  */
 export type Sent = "none" | "taken" | "lost" | "refused" | "unknown";
 
@@ -38,8 +38,8 @@ export interface Editor {
 }
 
 /**
- * Once the document took a client in, the client sends one batch at a time, and an editor's own
- * edit never waits for it.
+ * Sends at most one change batch in flight at a time after joining, while local edits proceed
+ * without waiting for acknowledgement.
  */
 export class Client {
   private readonly id = crypto.randomUUID();
@@ -75,7 +75,7 @@ export class Client {
       this.incoming = this.incoming.then(() => this.receive(frame)).catch(console.error);
     });
     this.join();
-    // An asset that the lost pipe was bringing never comes on the new one.
+    // Re-request pending assets because responses from the previous pipe will not arrive here.
     for (const hash of this.assetWaiters.keys()) pipe.send(encodeAssetRequest(hash));
   }
 
@@ -152,7 +152,7 @@ export class Client {
       case "refused":
         this.waitingSeq = null;
         if (message.reason === "invalid") {
-          // The document holds what this copy does not, so this copy went wrong.
+          // Local state diverged from the document; force a full snapshot reload.
           this.refused = true;
           this.reload();
         } else this.pull();
@@ -176,7 +176,8 @@ export class Client {
     }
   }
 
-  /** Only a batch that the view took the answer to is done; else it could go again. */
+  // Clear waitingSeq only after editor.apply succeeds; if apply throws, reload still needs
+  // waitingSeq intact so the next join reports that the batch was already taken.
   private applied(changed: Changed): void {
     const own = changed.client === this.id;
     this.rev = changed.rev;
@@ -186,9 +187,9 @@ export class Client {
   }
 
   /**
-   * The document keeps the number of the last batch of each client that it took, also when it
-   * closes and opens again, and gives none for a client that it does not know. So the batch goes
-   * again only when the document knows that it took the batch before it and not this one.
+   * The document persists each client's last accepted seq across reopens and returns null if it
+   * has no record of this client. A batch is treated as "lost" (safe to resend) only when the
+   * document confirms it accepted the immediately preceding seq.
    */
   private sentOf(seq: number | null): Sent {
     const waiting = this.waitingSeq;
@@ -200,9 +201,8 @@ export class Client {
   }
 
   /**
-   * A view that failed to take in what the document holds may hold what it would send in the
-   * document already, so it sends nothing until a join loads a snapshot again. That join says
-   * again what became of the batch on its way.
+   * Resets sync state so the next join fetches a full snapshot and blocks outgoing batches until
+   * then, while preserving waitingSeq so the rejoin still reports the in-flight batch's status.
    */
   private outOfStep(): void {
     this.joining = true;
@@ -210,7 +210,8 @@ export class Client {
     this.rev = 0;
   }
 
-  /** The document drops a pipe that joins twice, and the next pipe loads a snapshot. */
+  // Sending a second join makes the document drop this pipe so the host reconnects and loads a
+  // fresh snapshot.
   private reload(): void {
     this.outOfStep();
     this.join();
@@ -231,8 +232,8 @@ export class Client {
   }
 
   /**
-   * The place is as the document is at this client's rev. The document moves it across the
-   * changes that come after that rev.
+   * Reports the local selection relative to this client's current rev; the document transforms it
+   * across any later revisions.
    */
   place(body: unknown): void {
     this.nextPlace = { rev: this.rev, body: body as ToDocumentBody };

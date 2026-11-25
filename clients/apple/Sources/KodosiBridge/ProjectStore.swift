@@ -13,7 +13,6 @@ public final class ProjectStore {
     public private(set) var details: [String: ProjectDetail] = [:]
     public private(set) var detailFailures: [String: String] = [:]
     public private(set) var issues: [String: [ProjectIssue]] = [:]
-    /// The projects that the person was in and is no longer in.
     public private(set) var departed: Set<String> = []
     public var visibleProjectId: String?
 
@@ -22,10 +21,10 @@ public final class ProjectStore {
     @ObservationIgnored let commands: CommandSink
     @ObservationIgnored private var views: [String: ProjectViewState] = [:]
     @ObservationIgnored private var seen: [String: UInt64] = [:]
-    /// The projects of the lists since the last complete one. A complete list without one of them
-    /// means that the person left it.
+    /// Project IDs accumulated across snapshots since the last non-truncated list; any ID missing
+    /// from the next complete list is treated as departed.
     @ObservationIgnored private var listedProjects: Set<String> = []
-    /// The newest load of the people of each project, so that an older answer does not replace it.
+    /// The newest detail load of each project, so an older reply cannot replace a newer one.
     @ObservationIgnored private var detailLoads: [String: Int] = [:]
     @ObservationIgnored private var loads = 0
     @ObservationIgnored private var listWaiters: [UUID: CheckedContinuation<Void, Never>] = [:]
@@ -78,7 +77,8 @@ public final class ProjectStore {
         message.isWritten(by: userId)
     }
 
-    /// A person deletes their own messages and those of their agents.
+    /// Agent messages carry their owner's `authorId`, so users can delete both their own and
+    /// their agents' messages.
     public func canDelete(_ message: ProjectMessage) -> Bool {
         !message.deleted && message.authorId == userId
     }
@@ -91,7 +91,8 @@ public final class ProjectStore {
         details.values.lazy.flatMap(\.members).first { $0.userId == userId }
     }
 
-    /// A message of your own agent has you as its author, and you cannot block or report yourself.
+    /// Excludes the current user (and their agents, which share `authorId`) so you cannot block
+    /// or report yourself.
     public func otherAuthor(of message: ProjectMessage, in projectId: String) -> ProjectMemberEntry? {
         message.authorId == userId ? nil : member(message.authorId, in: projectId)
     }

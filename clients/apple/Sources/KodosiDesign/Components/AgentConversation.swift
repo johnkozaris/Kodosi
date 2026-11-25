@@ -20,8 +20,6 @@ struct PersonBubble: View {
     }
 }
 
-/// An agent's answer. Agents write Markdown: a block of code sits in a well, a heading stands out,
-/// a table has its columns, and the other lines keep their breaks with their inline marks.
 struct AgentProse: View {
     @Environment(\.theme) private var theme
     @Environment(\.proseFolder) private var folder
@@ -106,7 +104,7 @@ enum ProseBlock: Equatable {
     case code(String)
     case table(ProseTable)
 
-    /// A fence that is still open while the agent writes holds the rest.
+    /// Treats an unclosed code fence as a code block through the end of the text while streaming.
     static func blocks(of text: String) -> [Self] {
         var blocks: [Self] = []
         var lines: [Substring] = []
@@ -171,8 +169,6 @@ enum ProseBlock: Equatable {
     }
 }
 
-/// A table as an agent writes it in Markdown. The first row names the columns when a row of
-/// dashes follows it, and that row says on which side each column stands.
 struct ProseTable: Equatable {
     enum Side: Equatable {
         case leading, center, trailing
@@ -200,8 +196,6 @@ struct ProseTable: Equatable {
         column < sides.count ? sides[column] : .leading
     }
 
-    /// A bar after a backslash belongs to the words of its cell, and the bars at the two ends of a
-    /// row hold no cell.
     static func cells(_ line: Substring) -> [String] {
         var cells: [String] = []
         var cell = ""
@@ -249,7 +243,6 @@ struct ProseTable: Equatable {
     }
 }
 
-/// A table wider than the conversation moves sideways, and a long cell breaks its lines.
 private struct ProseTableView: View {
     private static let widestCell: CGFloat = 280
 
@@ -296,8 +289,6 @@ private struct ProseTableView: View {
     }
 }
 
-/// A conversation follows its newest line while the person is at the end, and stays where the
-/// person scrolled to.
 struct FollowsEnd: ViewModifier {
     @Binding var following: Bool
     @Binding var position: ScrollPosition
@@ -318,8 +309,7 @@ struct FollowsEnd: ViewModifier {
                         scroll(to: end)
                     }
                 } else if following, let aim, abs(offset - aim) < 0.5, abs(offset - end) > 0.5 {
-                    // A scroll of the view lands after the content changed again: its end then is
-                    // not the end now.
+                    // Re-scroll if our previous scroll target landed after content grew further.
                     scroll(to: end)
                 } else if offset >= end - 40 {
                     following = true
@@ -335,9 +325,9 @@ struct FollowsEnd: ViewModifier {
         withTransaction(\.disablesAnimations, true) { position.scrollTo(y: end) }
     }
 
-    /// A person's scroll on a touch screen always has a phase, while a mouse wheel moves the
-    /// Mac's view in the idle phase. The moves of the keyboard and of the app's own scrolls
-    /// must not stop the following.
+    /// Minimum upward delta to disengage auto-follow. Touch scrolling always enters an active
+    /// phase, whereas macOS wheel scrolling fires during `.idle`. Ignoring `.idle` on iOS keeps
+    /// keyboard animations and programmatic scrolls from breaking follow mode.
     private static func leaves(_ phase: ScrollPhase) -> CGFloat {
         switch phase {
         case .tracking, .interacting, .decelerating:

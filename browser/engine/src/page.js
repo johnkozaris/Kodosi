@@ -37,15 +37,14 @@
     pickFrom(select);
   }
 
-  // The words of a copy go to the person who made it, through the host. The browser's own copy
-  // would put them on the clipboard of the computer that runs it, so the script cancels that copy.
-  // A page's own handler may cancel the copy and give other words, so the words are read after
-  // the handlers, as the event leaves the window. A handler that stops the event hides it: then
-  // the browser copies, and the words are told after the event.
+  // Forward copied text to the host instead of writing to the host machine's clipboard. We
+  // attach a bubble listener to read text after page handlers run (which may override
+  // clipboardData) and cancel the native copy; the setTimeout fallback still forwards text if
+  // a page handler calls stopPropagation(), though the browser then also copies natively.
   function copied(event) {
     if (!event.isTrusted) return;
     const selected = String(selection() ?? "");
-    // Outside a field, a cut that no page handler takes does nothing.
+    // Native cut is a no-op outside editable elements unless a page handler intercepts it.
     const cuts = event.type === "cut" && can("cut");
     let told = false;
     const words = () => {
@@ -62,7 +61,8 @@
       toHost({ type: "copied", text });
       event.clipboardData?.clearData();
       event.preventDefault();
-      // A cancelled cut leaves its words in the field, and a page runs no command inside a command.
+      // Cancelling cut prevents native deletion, and execCommand cannot run reentrantly inside
+      // the cut event, so defer the delete.
       if (cuts && !own) soon(() => command("delete"), 0);
     };
     on(event.type, last);
@@ -75,7 +75,7 @@
     }, 0);
   }
 
-  // A copy button calls the clipboard of the page, which makes no copy event.
+  // Intercept Async Clipboard API writes, which do not fire DOM copy events.
   function ownClipboard() {
     if (!navigator.clipboard) return;
     const clipboard = Object.getPrototypeOf(navigator.clipboard);

@@ -85,14 +85,14 @@ fn main() -> tauri::Result<()> {
             },
         ))
         .plugin(tauri_plugin_dialog::init())
-        // Without a capability, the plugin's own script would catch a link and then fail to
-        // open it; a link goes to `on_new_window` instead.
+        // Disable the opener plugin's click handler because it lacks a capability to open URLs;
+        // external links are handled in `on_new_window` instead.
         .plugin(
             tauri_plugin_opener::Builder::new()
                 .open_js_links_on_click(false)
                 .build(),
         )
-        // A document comes from anyone and needs no camera, microphone or place.
+        // Documents may be untrusted and should not access camera, microphone, or location.
         .on_permission_request(|_, kind| match kind {
             PermissionKind::ClipboardRead => PermissionResponse::Default,
             _ => PermissionResponse::Deny,
@@ -121,8 +121,8 @@ fn main() -> tauri::Result<()> {
     Ok(())
 }
 
-/// A second launch of the app ends at once and gives its files to this one, so one server owns
-/// each file.
+/// Invoked on startup and when a second instance forwards its files here so a single process owns
+/// every open document.
 fn launched(app: &AppHandle, files: &[PathBuf]) -> tauri::Result<()> {
     if files.is_empty() {
         pick(app);
@@ -133,8 +133,8 @@ fn launched(app: &AppHandle, files: &[PathBuf]) -> tauri::Result<()> {
     Ok(())
 }
 
-/// The Mac has its app menu, and an Edit menu so that its web view takes the edit keys. Linux and
-/// Windows give a web view those keys by themselves.
+/// On macOS, a native Edit menu is required for the webview to receive cut/copy/paste/select-all
+/// shortcuts; Linux and Windows handle them directly.
 fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let item = |id: &str, text: &str, keys: &str| {
         MenuItemBuilder::with_id(id, text)

@@ -1,8 +1,8 @@
 import KodosiBridge
 import SwiftUI
 
-/// What sits under the conversation: the agent's list of its work, the helpers that work for it,
-/// the waiting messages, the question of the agent, the composer and the facts of the session.
+/// What sits below the conversation: the agent's task list, the subagents working for it, queued
+/// messages, the agent's question, the composer, and the session facts.
 struct ChatDock<ModelKey: View>: View {
     @Environment(\.theme) private var theme
     @Bindable var chat: TerminalChat
@@ -50,7 +50,7 @@ struct ChatDock<ModelKey: View>: View {
                 ChatQueuedRow(chat: chat, queued: queued, agent: agent, showTerminal: showTerminal).transition(AnyTransition.rise)
             }
             if let ask {
-                // The card takes the room before the composer, which needs only its own line.
+                // Give the prompt card layout priority so a growing composer does not squeeze it.
                 ChatAskCard(chat: chat, ask: ask, agent: agent).id(ask.id).transition(AnyTransition.rise)
                     .layoutPriority(1)
             }
@@ -94,7 +94,7 @@ struct ChatDock<ModelKey: View>: View {
         .onChange(of: chat.draft) { _, _ in picked = 0 }
         #if os(iOS)
             .sensoryFeedback(.impact(weight: .light), trigger: sends)
-            // The keyboard of a phone would leave a new question little room.
+            // Dismiss the keyboard when a new prompt arrives so it stays visible.
             .onChange(of: ask?.id) { _, id in
                 if id != nil, !typed {
                     focused.wrappedValue = false
@@ -211,8 +211,6 @@ struct ChatDock<ModelKey: View>: View {
     }
 }
 
-/// A message that waits until the agent is free: my bubble, with the sign that it waits and a key
-/// that takes it back.
 private struct ChatQueuedRow: View {
     @Environment(\.theme) private var theme
     let chat: TerminalChat
@@ -259,8 +257,6 @@ private struct ChatQueuedRow: View {
     }
 }
 
-/// The agent's list of its work while a step of it is open: how far the agent is and the step that
-/// it works on, and the whole list at a press.
 private struct ChatTasks: View {
     @Environment(\.theme) private var theme
     let tasks: [ChatTask]
@@ -685,7 +681,6 @@ struct ContextMeter: View {
     }
 }
 
-/// The agent's model by its name, and its effort as bars, as the key in a chat's facts shows them.
 public struct ChatModelFace: View {
     @Environment(\.theme) private var theme
     @Environment(\.chatMode) private var mode
@@ -735,9 +730,8 @@ public struct ChatModelFace: View {
         .fontWeight(.medium)
     }
 
-    /// An agent reports its model by its full ID, such as claude-sonnet-5-5 or
-    /// claude-sonnet-4-5-20250929, where the launcher knows the model by a shorter one, such as
-    /// sonnet: the name of the shorter one and the version after it make "Sonnet 5.5".
+    /// Maps a full model ID (e.g. `claude-sonnet-4-5-20250929`) to a display name by matching
+    /// a known short ID (e.g. `sonnet`) and joining 1-2 digit version segments (skipping dates).
     static func name(of model: String, in models: AgentModels?) -> String {
         guard let models else { return model }
         if let known = models.models.first(where: { $0.id == model }) {

@@ -14,7 +14,7 @@ final class AppLock {
         case opticID
         case passcode
 
-        /// Nil when the device has no passcode, so nothing can lock.
+        /// `nil` when the device has no passcode, so nothing can lock.
         static var current: Proof? {
             let context = LAContext()
             guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) else { return nil }
@@ -30,7 +30,6 @@ final class AppLock {
     enum Answer {
         case proved
         case refused
-        /// The system took the question away, as when Kodosi left the front.
         case interrupted
     }
 
@@ -65,8 +64,8 @@ final class AppLock {
         locked || (enabled && phase != .active)
     }
 
-    /// Kodosi asks once each time it comes to the front. The question of the system makes
-    /// Kodosi inactive, so after the person cancels it, Unlock asks again, not the return.
+    /// Prompt at most once per foreground visit. The system authentication sheet makes the scene
+    /// `.inactive` and then `.active` again on dismissal, so `asked` prevents a cancel loop.
     func sceneChanged(to phase: ScenePhase, now: ContinuousClock.Instant = .now) {
         switch phase {
         case .background:
@@ -104,7 +103,8 @@ final class AppLock {
         }
     }
 
-    /// Turns the lock on after the person proves it is them, so the lock works when it is on.
+    /// Asks the owner to authenticate before turning the lock on, so the lock is known to work
+    /// once it is on.
     func turn(on: Bool) async {
         if on, !canProve() {
             return
@@ -156,8 +156,8 @@ struct LockCover: View {
     }
 }
 
-/// Shows the lock cover in a window of its own, over the sheets, alerts and canvas that Kodosi
-/// presents. While Kodosi is locked, the cover's window takes the keys.
+/// Hosts the lock cover in a dedicated `UIWindow` above sheets, alerts, and full-screen covers,
+/// taking key-window focus while locked so hardware keyboard input cannot reach views underneath.
 struct LockWindow<Cover: View>: UIViewRepresentable {
     let covers: Bool
     let locked: Bool

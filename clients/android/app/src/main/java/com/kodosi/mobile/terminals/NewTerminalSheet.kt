@@ -279,7 +279,7 @@ fun NewTerminalSheet(model: AppModel, request: NewTerminalRequest, dismiss: () -
                             }
                             if (agent != null) {
                                 item {
-                                    // Every terminal of a computer has that computer's look.
+                                    // All terminals on a host share that host's theme.
                                     val known = terminals.sessions.firstOrNull { it.hostDeviceId == chosen.deviceId }
                                     FirstPrompt(agent, prompt, !busy, known?.look ?: TerminalLook.DARK)
                                 }

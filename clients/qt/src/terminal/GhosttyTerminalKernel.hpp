@@ -182,8 +182,8 @@ public:
 
 
     [[nodiscard]] Result installCheckpoint(const TerminalCheckpoint& checkpoint);
-    // Writes output and says whether the frame changed; latestFrame builds one frame for all
-    // output written since the last frame.
+    // Feeds output bytes and returns whether visible state changed; call latestFrame() to build
+    // one coalesced frame for all output written since the previous frame.
     [[nodiscard]] std::expected<bool, Failure> writeData(const TerminalData& data);
     [[nodiscard]] Result latestFrame();
     [[nodiscard]] TerminalClipboardOperations takeClipboardOperations();

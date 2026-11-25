@@ -51,8 +51,8 @@ struct ReplyError {
 }
 
 impl Devtools {
-    /// The reader takes each answer at once and queues the events without a limit, so a slow
-    /// reader of events never holds up the answers that it may wait for.
+    /// Command responses are dispatched immediately while events use an unbounded queue, so a
+    /// slow event consumer cannot stall or deadlock callers waiting for a response.
     pub(crate) async fn connect(
         address: &str,
     ) -> Result<(Self, mpsc::UnboundedReceiver<Event>), Error> {
@@ -145,7 +145,7 @@ impl Devtools {
             .map_err(|_| Error::Stopped)?
     }
 
-    /// A person's input must not wait for the page to take the event before it.
+    /// Enqueues a fire-and-forget command so user input does not block on prior event replies.
     pub(crate) fn send(&self, method: &str, params: &Value, session: Option<&str>) {
         let id = self.next.fetch_add(1, Ordering::Relaxed);
         let message = command(method, params, session, id);
@@ -154,7 +154,8 @@ impl Devtools {
         }
     }
 
-    /// Goes out at once, in order with `send`, and the answer comes when the page took it.
+    /// Enqueues a command without blocking (preserving order with `send`) and returns a handle
+    /// for the response.
     pub(crate) fn ask(
         &self,
         method: &str,

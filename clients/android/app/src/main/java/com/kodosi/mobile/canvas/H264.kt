@@ -33,7 +33,7 @@ internal object H264 {
         return payload.toByteArray()
     }
 
-    /** The fields follow section 7.3.2.1.1 of H.264. */
+    // Parses SPS fields per ITU-T H.264 section 7.3.2.1.1.
     private fun Bits.sequenceSize(): IntSize {
         val profile = bits(8)
         bits(16)

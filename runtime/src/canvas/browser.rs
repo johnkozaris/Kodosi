@@ -24,22 +24,21 @@ use crate::text::Text;
 
 const COMMAND_LIMIT: Duration = Duration::from_mins(2);
 const QUICK_LIMIT: Duration = Duration::from_secs(30);
-/// While people look, the agent's pointer reaches the element before the agent acts on it.
+/// Delay after showing the agent's target pointer so viewers see it move before the action runs.
 const POINTER_LEAD: Duration = Duration::from_millis(280);
 pub(super) const MOST_OUTPUT: usize = 1024 * 1024;
-/// A character of up to four bytes that crosses the limit is read whole, so that the cut drops it
-/// instead of showing a broken character.
+/// Read 3 extra bytes past `MOST_OUTPUT` so a 4-byte UTF-8 character straddling the boundary
+/// decodes intact and is cleanly dropped by `floor_char_boundary` instead of becoming U+FFFD.
 const MOST_READ: usize = MOST_OUTPUT + 3;
 const FIRST_SIZE: (u32, u32) = (1280, 720);
 const MOST_KEPT_ADDRESS: usize = 4096;
-/// agent-browser leaves the browser when the agent is idle, because a page can notice a client
-/// on its debug port.
+/// Disconnect `agent-browser` when idle because sites can detect an active CDP debug client.
 const DAEMON_IDLE_MS: &str = "60000";
 const FIRST_PAGE: &str = "about:blank";
-/// A new name would leave the sign-ins of the person in the old folder.
+/// Persisted on disk; renaming this would orphan users' existing browser profiles and sign-ins.
 pub(super) const KEPT_PROFILE: &str = "person";
-/// Options and commands that would give the browser of this terminal another session, profile,
-/// program or lifetime.
+/// `agent-browser` flags and subcommands blocked because Kodosi manages the browser's session,
+/// profile, binary, and lifecycle.
 const NOT_HERE: &[&str] = &[
     "--cdp",
     "--cdp-headers",
@@ -69,9 +68,8 @@ const NOT_HERE: &[&str] = &[
     "plugin",
     "doctor",
 ];
-/// How agent-browser starts its answer to a command with too few words. PowerShell, the usual
-/// shell of a terminal on Windows, takes `@e2` as an operator and `#name` as a comment, and
-/// gives the program nothing.
+/// Error prefix from `agent-browser` when arguments are missing. On Windows, PowerShell treats
+/// unquoted `@e2` as splatting and `#name` as a comment, silently dropping them.
 const MISSING_WORD: &str = "Missing arguments for:";
 const POWERSHELL_WORDS: &str = "PowerShell drops a word that starts with @ or #. Write a reference without the @ sign, for example e2, and a selector such as \"#name\" in quotes.";
 const LOOKS: &[&str] = &[
@@ -103,7 +101,8 @@ impl Places {
     }
 }
 
-/// The `kodosi` command can be a link to the app's own, and macOS names a program by the link.
+/// Canonicalize `current_exe()` because `kodosi` can be a symlink into the app bundle and
+/// macOS reports the symlink path rather than the real binary directory.
 pub(super) fn agent_browser() -> PathBuf {
     let name = if cfg!(windows) {
         "agent-browser.exe"
@@ -117,8 +116,8 @@ pub(super) fn agent_browser() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from(name))
 }
 
-/// A Unix socket path has at most 103 bytes, so the browsers' sockets are in the short private
-/// folder of the host's own socket.
+/// Unix domain socket paths are capped at 103 bytes, so place browser sockets in the host's
+/// short private IPC directory rather than under `data_root`.
 pub(super) fn sockets(data_root: &Path) -> PathBuf {
     #[cfg(unix)]
     if let Ok(folder) = kodosi_os::ipc::private_dir(&crate::local_host::namespace(data_root)) {
@@ -462,8 +461,9 @@ impl Browser {
         let (sender, mut from_view) = mpsc::channel::<Vec<u8>>(PIPE_QUEUE);
         let (to_view, receiver) = mpsc::channel(PIPE_QUEUE);
         tokio::spawn(async move {
-            // A message that finds no room waits here, and the window holds the next ones, so a
-            // view whose link is slow gets fewer pictures and never a broken one.
+            // Hold one pending frame when `to_view` is full and pause `pipe.receive()` so the
+            // window applies backpressure upstream: a slow view gets fewer frames instead of
+            // broken ones.
             let mut waiting: Option<Vec<u8>> = None;
             loop {
                 tokio::select! {
@@ -508,8 +508,8 @@ impl Browser {
         problem
     }
 
-    /// A terminal that becomes shared or private changes the profile of its browser, so the
-    /// browser sleeps and wakes with the other one.
+    /// Switching between shared and private profiles requires closing the running window so the
+    /// next wake reopens with the new profile.
     pub(super) async fn change_profile(&self) {
         let shared = *self.terminal.shared.borrow();
         self.change(|state| state.own_sign_ins = shared);
@@ -546,8 +546,8 @@ impl Browser {
         self.forget_pages().await;
     }
 
-    /// agent-browser keeps the page of its session in a file, so after the window ends it takes
-    /// that page for gone and opens a second tab in the next window.
+    /// Removes `agent-browser` session files; otherwise it treats the closed window's tab as lost
+    /// and opens a duplicate tab on the next launch.
     pub(super) async fn forget_pages(&self) {
         let sockets = self.places.sockets.clone();
         let session = format!("{}.", self.terminal.id.simple());
@@ -575,7 +575,7 @@ impl Browser {
         }
         prepare(&self.places).await?;
         let mut command = agent_browser_command(&self.places.binary, &self.places.sockets);
-        // Other users of the computer can read a command line, but not the environment.
+        // Pass CDP credentials via env vars so other local users cannot read them from `ps`.
         command
             .env("AGENT_BROWSER_CDP", driver.address())
             .env(
@@ -632,8 +632,8 @@ fn cut(text: &str, most: usize) -> String {
     text[..text.floor_char_boundary(most)].to_owned()
 }
 
-/// The page that the browser opens again after a restart, whole: the host saves it with its
-/// terminals, so a page with a longer address is not kept.
+/// Returns the active HTTP(S) URL to restore across restarts, dropping URLs over
+/// `MOST_KEPT_ADDRESS` instead of truncating them.
 pub(super) fn kept_address(tabs: &[shared_browser::Tab]) -> Option<&str> {
     tabs.iter()
         .find(|tab| tab.active)
@@ -641,7 +641,8 @@ pub(super) fn kept_address(tabs: &[shared_browser::Tab]) -> Option<&str> {
         .filter(|address| address.starts_with("http") && address.len() <= MOST_KEPT_ADDRESS)
 }
 
-/// `--all` with `close` would close the browsers of the other terminals.
+/// Rejects disallowed flags and subcommands, and `close --all`, which would close other
+/// terminals' browsers.
 pub(super) fn refused(arguments: &[String]) -> Option<&str> {
     let closing = arguments
         .iter()
@@ -658,7 +659,7 @@ pub(super) fn refused(arguments: &[String]) -> Option<&str> {
         .map(String::as_str)
 }
 
-/// agent-browser answers these by itself, without a browser or a terminal.
+/// Commands `agent-browser` can answer directly without an active terminal or browser window.
 pub(crate) fn answers_alone(arguments: &[String]) -> bool {
     let command = arguments
         .iter()
@@ -684,7 +685,8 @@ pub(crate) async fn answer_alone(
     Ok((run.output, run.code))
 }
 
-/// The rest is read only so that agent-browser never waits on a full pipe.
+/// Caps retained bytes at `MOST_READ` while draining the rest to avoid deadlocking the child on
+/// a full pipe.
 async fn read_most(
     pipe: Option<impl tokio::io::AsyncRead + Unpin>,
 ) -> std::io::Result<(Vec<u8>, bool)> {
@@ -748,7 +750,7 @@ fn agent_browser_command(binary: &Path, sockets: &Path) -> tokio::process::Comma
     command
         .env("AGENT_BROWSER_SOCKET_DIR", sockets)
         .env("AGENT_BROWSER_IDLE_TIMEOUT_MS", DAEMON_IDLE_MS)
-        // Kodosi updates Kodosi Browser itself, from its feed.
+        // Kodosi manages browser updates itself.
         .env("AGENT_BROWSER_NO_VERSION_CHECK", "1")
         .stdin(Stdio::null())
         .kill_on_drop(true);
@@ -774,7 +776,7 @@ async fn prepare(places: &Places) -> Result<(), Text> {
     .map_err(|error| Text::plain(format!("The browser folder could not be made: {error}")))
 }
 
-/// Leaves out what the agent types, which can be secret.
+/// Summarizes a browser command for display, omitting typed/evaluated text that may be secret.
 pub(super) fn words(arguments: &[String]) -> String {
     let words = arguments
         .iter()

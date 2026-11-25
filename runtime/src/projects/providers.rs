@@ -89,8 +89,8 @@ pub(crate) fn repository(remote: &str, provider: Option<&str>) -> Result<Reposit
     })
 }
 
-/// A repository from project content links only the address that it names, so its requests and
-/// credentials go to one host. A link of another person needs HTTPS.
+/// Verifies that a project repository's parsed fields match its URL so credentials cannot be
+/// redirected to another host. Repositories added by other members must use HTTPS.
 pub(crate) fn linkable(repo: &Repository, own: bool) -> bool {
     repository(&repo.url, Some(&repo.provider)).is_ok_and(|checked| {
         checked.url == repo.url
@@ -107,7 +107,8 @@ async fn gh() -> Option<std::path::PathBuf> {
     crate::agents::executable(&kodosi_os::process::default_shell(), "gh").await
 }
 
-/// The variables with which gh, also as a credential helper, gives one token to any host.
+/// Environment variables that cause `gh`, also as Git's credential helper, to send a single token
+/// to any host.
 #[cfg(feature = "host")]
 const HOSTLESS_TOKENS: [&str; 5] = [
     "GH_TOKEN",
@@ -117,7 +118,7 @@ const HOSTLESS_TOKENS: [&str; 5] = [
     "CODESPACES",
 ];
 
-/// A host other than github.com gets only a credential that was saved for it.
+/// Prevents leaking global GitHub token env vars to non-`github.com` hosts.
 #[cfg(feature = "host")]
 fn for_host(mut command: tokio::process::Command, host: &str) -> tokio::process::Command {
     if !host.eq_ignore_ascii_case("github.com") {

@@ -77,7 +77,7 @@ struct MainTabView: View {
 }
 
 private enum PresentedScreens {
-    /// The lock's cover has a window of its own above the normal level, and it must stay.
+    /// Restrict dismissal to `.normal` windows so the app lock cover window stays intact.
     static func close() {
         let windows = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows)
         for window in windows where window.windowLevel == .normal && window.rootViewController?.presentedViewController != nil {

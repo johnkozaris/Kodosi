@@ -21,8 +21,7 @@ pub(crate) fn new_terminal(taken: &HashSet<&str>) -> String {
     pair(taken, |adjective, animal| format!("{adjective} {animal}"))
 }
 
-/// The terminal on a new branch takes the branch's name, so the branch avoids the names of
-/// terminals too.
+/// Branch terminals reuse the branch name, so callers pass existing terminal names in `taken`.
 pub(crate) fn new_branch(taken: &HashSet<&str>) -> String {
     pair(taken, |adjective, animal| {
         format!("{}-{}", adjective.to_lowercase(), animal.to_lowercase())

@@ -11,15 +11,12 @@ import org.keycloak.models.KeycloakSessionFactory;
 import org.keycloak.models.UserModel;
 import org.keycloak.services.validation.Validation;
 
-/**
- * The code step for an account whose mail address is not confirmed, as after a sign-up with a provider
- * that does not vouch for the address. It takes the place of Keycloak's Verify Email.
- */
+// Required action replacing Keycloak's built-in Verify Email with the Kodosi mail code flow.
 public final class MailCodeAction implements RequiredActionProvider, RequiredActionFactory {
     static final String ID = "kodosi-mail-code";
 
-    // Keycloak lets a sign-in that names a pending required action in kc_action skip that action when the
-    // action does not take kc_action (CVE-2026-118959).
+    // Report SUPPORTED so a login specifying this pending action in kc_action cannot bypass it
+    // (Keycloak CVE-2026-118959).
     @Override
     public InitiatedActionSupport initiatedActionSupport() {
         return InitiatedActionSupport.SUPPORTED;

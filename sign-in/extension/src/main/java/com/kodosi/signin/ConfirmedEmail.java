@@ -17,10 +17,8 @@ import org.keycloak.models.UserModel;
 import org.keycloak.models.utils.FormMessage;
 import org.keycloak.provider.ProviderConfigProperty;
 
-/**
- * Gives the registration form the address that the code step confirmed, takes no other, and makes the
- * account with that address confirmed. It goes after Keycloak's step that makes the account.
- */
+// Locks registration to the email verified by CodeStep; must run after Registration User Profile
+// Creation so context.getUser() exists in success().
 public final class ConfirmedEmail implements FormAction, FormActionFactory {
     static final String ID = "kodosi-confirmed-email";
 
@@ -38,8 +36,8 @@ public final class ConfirmedEmail implements FormAction, FormActionFactory {
             context.success();
             return;
         }
-        // Keycloak's own step says whether an account has the address that came with the form. Only this
-        // answer goes back, so that a changed form cannot ask about an address.
+        // Suppress Keycloak's built-in validation errors so a tampered email field cannot be used
+        // to probe whether another account owns that address.
         context.error(Errors.INVALID_REGISTRATION);
         context.validationError(form, List.of(new FormMessage(null, "kdsBadEmail")));
         context.excludeOtherErrors();

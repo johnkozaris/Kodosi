@@ -2,9 +2,8 @@ import AppKit
 import SwiftUI
 
 extension View {
-    /// A double-click on empty space in the band of the title bar does what System Settings ›
-    /// Desktop & Dock gives a double-click on a title bar: to fill the screen, unless the person
-    /// chose to minimize or to do nothing.
+    /// Marks empty space in the custom title bar band so double-clicking it honors the system
+    /// title-bar double-click action (zoom, minimize, or none).
     func titleBarGap() -> some View {
         modifier(TitleBarGap())
     }
@@ -33,8 +32,7 @@ private enum TitleBarGaps {
         }
     }
 
-    /// The window's own title bar and its buttons answer a click that reaches them, so a gap takes
-    /// only a double-click that lands on the content.
+    /// Only handle double-clicks hitting `contentView`; native title-bar chrome handles its own.
     private static func doubleClick(_ event: NSEvent) {
         guard event.clickCount == 2, let window = event.window, window === MainWindowLocator.mainWindow(),
               let content = window.contentView, let hit = content.superview?.hitTest(event.locationInWindow),

@@ -4,8 +4,7 @@ import QtWebChannel
 import QtWebEngine
 import Kodosi.Models 1.0 as Models
 
-// The view bundle of the app draws in a closed frame, whose only way out is the pipe of the
-// document.
+// Sandboxed WebEngine view for bundled document views; communicates only via the document pipe.
 WebEngineView {
     id: root
 

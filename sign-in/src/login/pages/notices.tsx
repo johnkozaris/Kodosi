@@ -101,7 +101,7 @@ export function Info({ kcContext, i18n }: Page<"info.ftl">) {
   const short = said.length <= 34;
   const title = short ? said.replace(/\.$/, "") : msgStr(on ? "kdsOneMoreStep" : "kdsNoteTitle");
   const more = messageHeader ? plain(message.summary) : steps;
-  // Keycloak says that the person is signed out on a page of its sign-out address.
+  // Keycloak renders the post-logout info screen via info.ftl on the logout endpoint URL.
   const out = location.pathname.includes("/openid-connect/logout");
   return (
     <Stage
@@ -279,7 +279,7 @@ export function DeleteAccount({ kcContext, i18n }: Page<"delete-account-confirm.
         ))}
       </ul>
       <form id={form} action={url.loginAction} method="post" className={cn(rule, "p-3")}>
-        {/* No autofocus: a stray key must not delete an account. */}
+        {/* Omit autoFocus so an accidental keypress cannot trigger account deletion. */}
         <button
           type="submit"
           id="kc-delete"

@@ -22,18 +22,18 @@ class PresenceSource : public QObject {
 
 public:
     struct Input {
-        // No input on this computer for the away time.
+        // True when no local user input occurred within the away timeout.
         bool quiet = false;
-        // For a source that does not signal a change of `quiet` by itself: when to read it again.
+        // Next poll delay for sources that cannot push idle-state changes.
         std::optional<std::chrono::milliseconds> readAgainIn;
     };
 
     using QObject::QObject;
 
-    // Whether the system tells about input outside Kodosi's windows.
+    // Whether this source reports system-wide input outside Kodosi windows.
     [[nodiscard]] virtual bool reportsInput() const = 0;
     [[nodiscard]] virtual Input input() = 0;
-    // The screen is locked or asleep, or the computer goes to sleep.
+    // True when the screen is locked or off, or the system is suspending.
     [[nodiscard]] virtual bool away() const = 0;
     virtual void setAwayTime(std::chrono::milliseconds time) = 0;
 

@@ -31,8 +31,8 @@ public extension RuntimeSession {
         AgentKind(program: program)
     }
 
-    /// A list puts an agent's summary before the terminal's name only while the line below can
-    /// still name the terminal, rather than say its state.
+    /// Only promotes the agent summary to the primary title when the terminal is healthy and
+    /// running, so the subtitle can show the terminal name instead of connection status.
     func leadingSummary(_ summaryFirst: Bool) -> String? {
         guard summaryFirst, agent.isAgent, !isTroubled, connectionState != .connecting, status == .running else { return nil }
         return activity

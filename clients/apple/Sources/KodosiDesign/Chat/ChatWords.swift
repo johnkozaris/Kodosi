@@ -32,7 +32,6 @@ enum ChatWords {
         }
     }
 
-    /// What the call does or did, with its subject.
     static func step(_ tool: ChatTool) -> String {
         let subject = subject(of: tool)
         if tool.kind == .question, case let .question(questions, answers)? = tool.detail, let first = questions.first {
@@ -50,7 +49,6 @@ enum ChatWords {
         return [.skill, .other].contains(tool.kind) ? tool.name : nil
     }
 
-    /// One sentence for the calls of a turn, such as "Ran 3 commands and changed 2 files".
     static func summary(_ tools: [ChatTool]) -> String {
         var order: [ChatToolKind] = []
         var counts: [ChatToolKind: Int] = [:]
@@ -88,7 +86,6 @@ enum ChatWords {
         .other: { String(localized: "used \($0) tools", bundle: .module) },
     ]
 
-    /// The steps that did not go as the agent wanted, such as "1 failed".
     static func setbacks(_ tools: [ChatTool]) -> [(state: ChatToolState, words: String)] {
         [ChatToolState.failed, .denied, .stopped].compactMap { state in
             let count = tools.count { $0.state == state }

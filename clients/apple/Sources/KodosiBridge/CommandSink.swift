@@ -5,8 +5,7 @@ import Synchronization
 @MainActor
 public final class CommandSink {
     public typealias DispatchCompletion = @MainActor (Int32?) -> Void
-    /// A browser pipe sends from the task that reads its frames, so the transport takes commands
-    /// from any thread.
+    /// Must be thread-safe because browser pipes send commands from their background reader task.
     public typealias Transport = @Sendable (Data) -> Int32?
 
     public enum Delivery: Equatable, Sendable {
@@ -34,8 +33,8 @@ public final class CommandSink {
 
     private nonisolated let line = Mutex(Line())
     private var pending: [String: Pending] = [:]
-    /// The requests that their callers stopped waiting for, so that their late answers reach
-    /// nobody.
+    /// Cancelled or timed-out requests whose late replies should be swallowed instead of routed
+    /// to app-level error handling.
     private var abandoned: [Abandoned] = []
     public var onFailure: ((String) -> Void)?
 
@@ -73,7 +72,6 @@ public final class CommandSink {
         }
     }
 
-    /// Sends from any thread. Returns nil without a transport.
     nonisolated func post(_ type: String, _ fields: [String: JSONValue]) -> Int32? {
         do {
             return try post(Self.command(type, fields))
@@ -173,8 +171,8 @@ public final class CommandSink {
         }
     }
 
-    /// The answers that the app dropped when it fell behind are lost, so each caller that waits
-    /// hears that Kodosi cannot tell whether its request worked, and a late answer reaches nobody.
+    /// Fails all in-flight requests after dropped runtime events; late replies are ignored via
+    /// `abandoned`.
     public func abandonPending() {
         let waiting = pending
         pending.removeAll()
@@ -205,8 +203,8 @@ public final class CommandSink {
         result == Int32(KODOSI_FFI_OK)
     }
 
-    /// A view whose focus only comes back with the app or its connection says that it is
-    /// returning, which is no act of a person, so the focus takes no size.
+    /// Pass `returning: true` when focus is restored by app activation or reconnect rather than
+    /// user interaction, so the host does not resize the terminal to this client.
     public func sendTerminalFocus(sessionId: String, clientId: String, subscriptionGeneration: UInt64, requestId: String,
                                   expectedRuntimeIncarnationId: String, returning: Bool = false) -> Int32?
     {

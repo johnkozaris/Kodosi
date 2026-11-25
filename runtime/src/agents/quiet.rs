@@ -19,13 +19,13 @@ use super::{Agent, Output};
 
 const FILE: &str = "quiet-settings.json";
 const SETTINGS: &str = "settings.json";
-/// Copilot CLI writes its settings only while it holds a lock on this file.
+/// Lockfile Copilot CLI acquires around writes to `settings.json`.
 const SETTINGS_LOCK: &str = "settings.json.lock";
 const MOST_BYTES: usize = 1024 * 1024;
 const LOCK_WAIT: Duration = Duration::from_secs(5);
 const LOCK_RETRY: Duration = Duration::from_millis(50);
 
-/// Copilot CLI has no flag or variable for these, and reads them only from its saved settings.
+/// Copilot CLI exposes no CLI flags or env vars for these; they must be set in `settings.json`.
 fn quiet_values() -> [(&'static str, Value); 4] {
     [
         ("showReasoning", Value::Bool(false)),
@@ -62,7 +62,8 @@ struct Kept {
 }
 
 impl QuietSettings {
-    /// The terminals of an earlier host ended with it, so none of them holds its settings now.
+    /// Restores any quiet settings left behind by a previous host process, since its terminals
+    /// have already exited.
     pub(super) fn load(data_root: &Path) -> Self {
         let file = data_root.join(FILE);
         let records = std::fs::read(&file)
@@ -102,8 +103,8 @@ impl QuietSettings {
         true
     }
 
-    /// What Kodosi will change is saved before the settings change, so that a host that stops
-    /// in between still puts them back when it starts again.
+    /// Persist the backup record before modifying `settings.json` so a crash mid-write can still
+    /// restore the user's settings on next startup.
     fn apply(&self, settings: &Path) -> io::Result<()> {
         let _lock = lock_settings(settings)?;
         let (mut members, created) =
@@ -192,7 +193,7 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
-/// A key that no longer has what Kodosi wrote was changed by the person, so it stays.
+/// Skips restoring any key whose value no longer matches what Kodosi wrote (the user changed it).
 fn restore(settings: &Path, record: &Record) -> io::Result<()> {
     if record.keys.is_empty() {
         return Ok(());
@@ -230,7 +231,7 @@ fn lock_settings(settings: &Path) -> io::Result<File> {
     lock_beside(settings, SETTINGS_LOCK)
 }
 
-/// Copilot CLI changes its files under a lock of the file beside them.
+/// Acquires the sibling lockfile Copilot CLI uses to serialize edits to its config files.
 pub(super) fn lock_beside(file: &Path, name: &str) -> io::Result<File> {
     let lock = OpenOptions::new()
         .create(true)
@@ -250,7 +251,6 @@ pub(super) fn lock_beside(file: &Path, name: &str) -> io::Result<File> {
     }
 }
 
-/// A JSON file of Copilot CLI, which a person also changes. A missing file is none.
 pub(super) fn read<T: DeserializeOwned>(file: &Path) -> io::Result<Option<T>> {
     match std::fs::symlink_metadata(file) {
         Ok(metadata) if metadata.is_file() => {}
@@ -280,8 +280,8 @@ fn invalid(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message.into())
 }
 
-/// The settings in their own order, with each value as it was written, so that a change of a
-/// few keys leaves the rest of the file as it was.
+/// Preserves key order and raw JSON values so updating a few keys leaves the rest of
+/// `settings.json` untouched.
 #[derive(Default)]
 struct Members(Vec<(String, Box<RawValue>)>);
 

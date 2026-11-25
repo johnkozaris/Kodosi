@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Builds the agent-browser that AgentBrowser.lock pins, from its Git commit, with the pinned
-Rust and its own Cargo.lock, and copies it to <output-dir>. With --notices, writes its
-license and the licenses of its Rust crates to that folder. Prints the path of the program."""
+"""Build the pinned agent-browser commit from AgentBrowser.lock using the pinned Rust toolchain
+and its own Cargo.lock, then copy it to <output-dir>. With --notices <dir>, also write its license
+and Rust crate licenses to <dir>. Prints the output binary path."""
 
 # Xcode runs this with its own Python 3.9.
 from __future__ import annotations
@@ -62,16 +62,17 @@ def build(folder: Path, target: str) -> Path:
     name = "agent-browser.exe" if target.endswith("-windows-msvc") else "agent-browser"
     program = folder / "target" / target / "release" / name
     mark = program.with_name("agent-browser.made-with")
-    # Rust takes the pinned version of rust-toolchain.toml from the folder that it runs in.
+    # Run from ROOT so rustup picks up the pinned toolchain in rust-toolchain.toml.
     rust = subprocess.run(["rustc", "--version", "--verbose"], cwd=ROOT, check=True, capture_output=True, text=True).stdout
     made_with = "\n".join([rust, flags, *(os.environ.get(name, "") for name in CALLER_SETTINGS)])
-    # Cargo downloads each crate before it can say that nothing changed, and a workflow has none of them.
+    # Skip Cargo when inputs match: Cargo downloads crates before noticing nothing changed, and CI
+    # jobs with a cached binary do not have them.
     if not program.is_file() or not mark.is_file() or mark.read_text(encoding="utf-8") != made_with:
         environment = {
             **os.environ,
             "CARGO_ENCODED_RUSTFLAGS": flags,
             "CARGO_INCREMENTAL": "0",
-            # Each commit of Kodosi uses this one program, so its C code takes the date of its own commit.
+            # Pin SOURCE_DATE_EPOCH to agent-browser's commit for reproducible C builds.
             "SOURCE_DATE_EPOCH": git(folder, "log", "-1", "--format=%ct"),
         }
         subprocess.run(

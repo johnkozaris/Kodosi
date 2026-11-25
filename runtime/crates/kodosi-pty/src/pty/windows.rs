@@ -53,7 +53,7 @@ const READ_BYTES: usize = 64 * 1024;
 const THREAD_STACK: usize = 64 * 1024;
 const POLL: Duration = Duration::from_millis(20);
 const MAX_JOB_PROCESSES: usize = 4096;
-/// Shells whose programs run where Windows cannot see them.
+// Shells whose child processes run outside the Windows job (remotely or in WSL).
 const OPAQUE_SHELLS: [&str; 2] = ["ssh", "wsl"];
 
 type CreateFn = unsafe extern "system" fn(COORD, HANDLE, HANDLE, u32, *mut HPCON) -> i32;
@@ -237,8 +237,8 @@ impl KodosiPty {
             &environment,
             working_dir,
         )?;
-        // Without our reference the console ends with its last client and closes the
-        // output pipe. A failed release only delays that end.
+        // Release our reference so the pseudoconsole closes its output pipe
+        // when the last attached process exits; failure only delays EOF.
         drop(hresult(unsafe { (api.release)(console.handle) }));
         let (input, requests) = std_mpsc::channel();
         spawn_writer(input_write, requests)?;
@@ -272,7 +272,7 @@ impl KodosiPty {
         ))
     }
 
-    /// Windows cannot read another process's folder; OSC 7 and OSC 9;9 report it.
+    /// On Windows, working directory updates come from OSC 7 and OSC 9;9.
     pub const fn working_directory(&self) -> Option<PathBuf> {
         None
     }
@@ -307,12 +307,10 @@ impl KodosiPty {
         self.observe().agent.map(|(_, name)| name.to_owned())
     }
 
-    /// Windows cannot read another process's environment.
     pub const fn foreground_variable(&self, _name: &str) -> Option<String> {
         None
     }
 
-    /// Kodosi does not read the arguments of another process on Windows.
     pub const fn foreground_arguments(&self) -> Vec<String> {
         Vec::new()
     }
@@ -474,7 +472,8 @@ impl PtyReader {
         self.receive(chunk, buf)
     }
 
-    /// Cancel-safe: a later call reports a write handed over before cancellation.
+    /// Cancel-safe: if cancelled while a write is in flight, a later call
+    /// reports its completion.
     pub async fn transfer(
         &mut self,
         read: &mut [u8],
@@ -591,13 +590,13 @@ fn start(
     let mut information = PROCESS_INFORMATION::default();
     let application = wide(application.as_os_str());
     let directory = directory.map(|directory| wide(directory.as_os_str()));
-    // A program inherits its parent's choice to ignore Ctrl+C, which a host
-    // started in a new process group makes, so Ctrl+C is restored first.
+    // A host started in a new process group ignores Ctrl+C, and children inherit
+    // that setting. Re-enable Ctrl+C before spawning the child.
     // SAFETY: a null handler only changes this process's Ctrl+C attribute.
     unsafe { SetConsoleCtrlHandler(None, 0) };
-    // Windows refuses to create a packaged app, which an app execution alias
-    // starts, into a job while another copy of it runs. The program instead
-    // starts suspended and runs once it is in the job.
+    // Start suspended and assign the job afterward rather than via a startup
+    // attribute, because Windows rejects creating a packaged app (launched via
+    // an app execution alias) directly in a job when another instance runs.
     // SAFETY: every string is NUL-terminated, the command line is writable, and
     // the environment block is double-NUL-terminated UTF-16.
     if unsafe {
@@ -660,8 +659,8 @@ fn spawn_writer(mut pipe: PipeWriter, requests: std_mpsc::Receiver<Write>) -> io
     Ok(())
 }
 
-/// std reads a closed pipe as its end. The pinned `ConPTY` never writes zero bytes, so an empty
-/// read is the end of the console.
+// Rust maps a closed Windows pipe to EOF (0 bytes), and the pinned ConPTY never
+// emits zero-byte writes, so an empty read reliably signals console exit.
 fn spawn_reader(mut pipe: PipeReader) -> io::Result<mpsc::Receiver<io::Result<Vec<u8>>>> {
     let (sender, receiver) = mpsc::channel(8);
     std::thread::Builder::new()
@@ -691,7 +690,7 @@ fn resolve_program(program: &Path, working_dir: Option<&Path>) -> Result<PathBuf
             .and_then(kodosi_os::process::find_executable)
             .unwrap_or_default()
     };
-    // App execution aliases are reparse points that only `symlink_metadata` reads.
+    // App execution aliases are reparse points that only `symlink_metadata` can read.
     if std::fs::symlink_metadata(&candidate).is_ok_and(|metadata| !metadata.is_dir()) {
         Ok(candidate)
     } else {
@@ -722,8 +721,8 @@ fn is_batch(program: &Path) -> bool {
     })
 }
 
-/// Batch files run through `cmd.exe /d /s /c`, which admits only arguments that
-/// `cmd` cannot reinterpret.
+// Batch files must run via `cmd.exe /d /s /c`, so reject paths or arguments
+// containing metacharacters that `cmd` could interpret.
 fn command_line(program: &Path, arguments: &[String]) -> Result<(PathBuf, Vec<u16>)> {
     let mut line = Vec::new();
     if !is_batch(program) {
@@ -781,7 +780,7 @@ fn safe_for_cmd(value: &str) -> bool {
         })
 }
 
-/// Appends one argument quoted as `CommandLineToArgvW` reads it back.
+// Quotes an argument using `CommandLineToArgvW` escaping rules.
 fn push_argument(line: &mut Vec<u16>, argument: &OsStr) {
     let units: Vec<u16> = argument.encode_wide().collect();
     let space = u16::from(b' ');
@@ -809,7 +808,7 @@ fn push_argument(line: &mut Vec<u16>, argument: &OsStr) {
     line.push(quote);
 }
 
-/// Windows expects the environment block sorted.
+// Windows requires environment blocks to be sorted case-insensitively by name.
 fn environment_block(
     inherited: impl IntoIterator<Item = (OsString, OsString)>,
     overrides: &[(&str, &str)],
@@ -877,9 +876,8 @@ fn image_path(process: &OwnedHandle) -> Option<PathBuf> {
     )))
 }
 
-/// Where a 64-bit process keeps what it started with, which Windows documents only in part:
-/// the parameters in its process block, and in them its folder, its command line and its
-/// variables.
+// 64-bit PEB and `RTL_USER_PROCESS_PARAMETERS` field offsets (partially
+// undocumented by Windows) for current directory, command line, and environment.
 const PARAMETERS: usize = 0x20;
 const FOLDER: usize = 0x38;
 const COMMAND_LINE: usize = 0x70;
@@ -930,7 +928,8 @@ impl Memory {
             .filter(|bytes| bytes.len() == length)
     }
 
-    /// The bytes at the address, up to the first that the process does not have.
+    // `ReadProcessMemory` returns 0 on partial reads across unmapped pages but
+    // still writes the bytes read so far into `read`.
     fn read_some(&self, address: usize, length: usize) -> Option<Vec<u8>> {
         let mut bytes = vec![0; length];
         let mut read = 0;
@@ -947,8 +946,8 @@ impl Memory {
         (read > 0).then_some(bytes)
     }
 
-    /// A string that the record at `place` of `header` names by its length and its address. A
-    /// process that has only just started has not yet written its folder there.
+    // Reads a 64-bit `UNICODE_STRING` (length at `place`, pointer at `place + 8`).
+    // Newly started processes may temporarily have a zero-length directory.
     fn text(&self, header: &[u8], place: usize) -> Option<Vec<u16>> {
         let length = usize::from(u16::from_ne_bytes(
             header.get(place..place + 2)?.try_into().ok()?,
@@ -1000,7 +999,7 @@ fn split_command_line(line: &[u16]) -> Option<Vec<String>> {
     Some(arguments)
 }
 
-/// The names that start with `=` hold the folders of the drives for `cmd.exe`.
+// Skip Windows `=C:=...` per-drive working directory entries (empty name before `=`).
 fn variable_pairs(block: &[u8]) -> Vec<(String, String)> {
     wide_units(block)
         .split(|unit| *unit == 0)
@@ -1160,8 +1159,7 @@ mod tests {
         const NAME: &str =
             "pty::windows::tests::interrupt_reaches_a_program_of_a_host_that_ignores_ctrl_c";
         const HOST: &str = "KODOSI_TEST_HOST_IGNORES_CTRL_C";
-        // Ignoring Ctrl+C is an attribute of the whole process, so the host runs
-        // alone in another copy of this test program.
+        // Ignoring Ctrl+C is process-wide, so run the test in a child process.
         if std::env::var_os(HOST).is_none() {
             let output = std::process::Command::new(std::env::current_exe().unwrap())
                 .args(["--exact", NAME, "--test-threads=1"])
@@ -1175,7 +1173,7 @@ mod tests {
             );
             return;
         }
-        // The CLI starts its host in a new process group, which ignores Ctrl+C.
+        // Mirror a host started by the CLI in a new process group (Ctrl+C ignored).
         // SAFETY: a null handler only changes this process's Ctrl+C attribute.
         unsafe { SetConsoleCtrlHandler(None, 1) };
         let system = std::env::var_os("SystemRoot").unwrap();

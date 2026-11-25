@@ -1,17 +1,19 @@
 # Kodosi for Android
 
-The Android app follows and controls remote terminals, starts them on your computers,
-and joins projects, friends and Dosi. It embeds the viewer build of the Rust runtime as
-a shared library and draws each terminal from Ghostty's state. It hosts no terminals.
-See [PRODUCT.md](PRODUCT.md) for its behavior and [DESIGN.md](DESIGN.md) for its theme.
+Native Android app for watching and controlling remote terminals, launching terminals on your
+computers, and using projects, friends, and Dosi. It embeds the viewer build of the Rust runtime
+as a shared library and renders terminals from Ghostty's state without hosting local terminals.
+See [PRODUCT.md](PRODUCT.md) for product behavior and [DESIGN.md](DESIGN.md) for visual design.
 
-You need JDK 21, the Android SDK in `~/Library/Android/sdk` (`ANDROID_HOME` names another)
-with the platform tools and the platform, build tools, NDK and CMake that
-[libs.versions.toml](gradle/libs.versions.toml) pins as `compileSdk`, `buildTools`, `ndk`
-and `cmake`, and the pinned Rust toolchain with the Android target and cargo-ndk
-(`just android-tools-install`). On Linux the default SDK is `.tools/android/sdk/` and the
-JDK is `.tools/java/`; `ANDROID_HOME` and `JAVA_HOME` override those paths. On a Mac, from
-the repository root:
+## Prerequisites and setup
+
+Requires JDK 21, the Android SDK at `~/Library/Android/sdk` (override with `ANDROID_HOME`) with
+`platform-tools` plus the exact `compileSdk`, `buildTools`, `ndk`, and `cmake` versions pinned in
+[libs.versions.toml](gradle/libs.versions.toml), and the pinned Rust toolchain with the Android
+target and `cargo-ndk` (`just android-tools-install`). On Linux, default paths are
+`.tools/android/sdk/` and `.tools/java/` (overridable via `ANDROID_HOME` and `JAVA_HOME`).
+
+Setup on macOS from the repository root:
 
 ```sh
 brew install openjdk@21
@@ -22,91 +24,89 @@ android --sdk="$HOME/Library/Android/sdk" sdk install platform-tools \
 just android-tools-install
 ```
 
-To run the app in the emulator, also install `emulator` and an ARM64 system image.
+To use an emulator, also install `emulator` and an ARM64 system image.
 
-`just android-build` builds the runtime with cargo-ndk, then the Debug app; Gradle keeps
-its files in `.tools/gradle/` of the main checkout, so that its worktrees share the
-downloads and the daemons. `just android-run` installs the app on the device or
-emulator that `adb` sees and opens it. Debug builds use a
-[local backend](../../docs/DEVELOPMENT.md#run-the-backend) at `127.0.0.1:5180` that signs
-in with the disposable Keycloak of `sign-in/keycloak.sh` at `127.0.0.1:8284`, or the
-`KODOSI__BACKEND__API` and `KODOSI__AUTH__ISSUER` of the build's environment. An emulator
-reaches them after `adb reverse tcp:5180 tcp:5180` and `adb reverse tcp:8284 tcp:8284`.
-Release builds use the Kodosi service.
+## Building and running
+
+`just android-build` compiles the Rust runtime with `cargo-ndk` and builds the Debug APK. Gradle
+stores its cache and daemons in `.tools/gradle/` inside the main checkout so worktrees share them.
+`just android-run` installs and launches the app on the connected device or emulator via `adb`.
+
+Debug builds point to a [local backend](../../docs/DEVELOPMENT.md#run-the-backend) at
+`127.0.0.1:5180` and the disposable Keycloak from `sign-in/keycloak.sh` at `127.0.0.1:8284`
+(overridable via `KODOSI__BACKEND__API` and `KODOSI__AUTH__ISSUER` at build time). On an emulator,
+forward both ports first with `adb reverse tcp:5180 tcp:5180` and `adb reverse tcp:8284 tcp:8284`.
+Release builds point to the production Kodosi backend.
 
 Run checks from the repository root:
 
-| Command | Does |
+| Command | Purpose |
 | --- | --- |
-| `just android-check` | Build, lint the Android runtime and Kotlin, run Android lint and JVM tests, and check translations |
+| `just android-check` | Build, lint Android Rust and Kotlin, run Android Lint and JVM tests, and verify translations |
 | `just android-format` | Format Kotlin and Gradle Kotlin scripts |
-| `just android-test` | Run JVM regression tests |
-| `just android-device-test` | Build and run terminal, MediaCodec and Keystore boundary tests on an attached ARM64 device |
+| `just android-test` | Run JVM unit tests |
+| `just android-device-test` | Run terminal, MediaCodec, and Keystore tests on an attached ARM64 device |
 | `just android-release-build` | Build an optimized release APK |
-| `just android-bundle-build` | Build an optimized Android App Bundle |
+| `just android-bundle-build` | Build an optimized Android App Bundle (AAB) |
 
-The Debug APK is `app/build/outputs/apk/debug/app-debug.apk`. With no signing environment,
-the release APK is `app/build/outputs/apk/release/app-release-unsigned.apk`. The bundle is
-`app/build/outputs/bundle/release/app-release.aab`.
+Outputs:
 
-For distribution, set `KODOSI_ANDROID_KEYSTORE` to the absolute path of your key store,
-`KODOSI_ANDROID_KEY_ALIAS` to its alias, and `KODOSI_ANDROID_STORE_PASSWORD` and
-`KODOSI_ANDROID_KEY_PASSWORD` to their passwords. All four must be set together. The
-same recipes then sign the APK (`app-release.apk`) and bundle. Use the existing upload
-key for an app that is already in Google Play, and keep keys and passwords outside the
-repository and command history. Google Play App Signing uses the upload key for the
-bundle and the app-signing key for the APKs that it delivers.
+- Debug APK: `app/build/outputs/apk/debug/app-debug.apk`
+- Unsigned release APK: `app/build/outputs/apk/release/app-release-unsigned.apk`
+- App Bundle: `app/build/outputs/bundle/release/app-release.aab`
 
-Android installs only a higher version code, and Google Play takes each version code
-once. The version code comes from the product version and `KODOSI_BUILD`, which is 1
-when you do not set it. Raise `KODOSI_BUILD` to upload the same version again.
+## Signing, versioning, and compatibility
 
-Native libraries and APK packaging use 16 KB alignment. Run the boundary tests on
-Android 15 and on a current 16 KB system image. `adb shell getconf PAGE_SIZE` reports
-16384 on a 16 KB image. Android's x86_64 `google_apis_ps16k` image simulates 16 KB
-userspace; use an ARM64 16 KB image or device to test an actual 16 KB kernel.
+To sign release builds (`app-release.apk` and AAB), set all four variables together:
+`KODOSI_ANDROID_KEYSTORE` (absolute path), `KODOSI_ANDROID_KEY_ALIAS`,
+`KODOSI_ANDROID_STORE_PASSWORD`, and `KODOSI_ANDROID_KEY_PASSWORD`. Keep keys and passwords out of
+Git and shell history. For apps already on Google Play, sign with the existing upload key; Play
+App Signing handles delivery signing.
 
-The runtime checks certificates with Android's own verifier through the Android part of
-`rustls-platform-verifier`, which Gradle takes from the rustls project's Maven archive. Its
-version in [libs.versions.toml](gradle/libs.versions.toml) is the one of
-`rustls-platform-verifier-android` in `runtime/Cargo.lock`, and
-[verification-metadata.xml](gradle/verification-metadata.xml) pins its checksums; change
-the three together.
+Android requires monotonically increasing version codes, and Google Play accepts each version code
+only once. The version code combines the app version and `KODOSI_BUILD` (defaults to `1`); bump
+`KODOSI_BUILD` to upload a new build of the same version.
 
-The app needs Android 15 (API level 35, released in 2024) and targets Android 17
-(API level 37). It builds for 64-bit ARM only. The Android SDK floor also sets the
-viewer runtime's NDK platform. Per-app language, notification permission, device
-authentication and app-switcher privacy use the platform APIs directly, without
-older Android compatibility paths. Android supplies edge-to-edge window layout;
-the app sets system-bar icon appearance from its own light or dark theme.
+Native libraries and APK packaging use 16 KB page alignment. Run the boundary tests on Android 15
+and on a 16 KB system image (`adb shell getconf PAGE_SIZE` prints `16384`). Android's x86_64
+`google_apis_ps16k` image only emulates 16 KB userspace; use an ARM64 16 KB image or hardware
+device to test a real 16 KB kernel.
+
+TLS certificate verification uses Android's platform verifier via `rustls-platform-verifier` (pulled
+from rustls's Maven repository). Keep the version in [libs.versions.toml](gradle/libs.versions.toml),
+`rustls-platform-verifier-android` in `runtime/Cargo.lock`, and the checksums in
+[verification-metadata.xml](gradle/verification-metadata.xml) updated together.
+
+The app targets 64-bit ARM (`arm64-v8a`) only, requires Android 15 (API 35), and targets Android
+17 (API 37); the runtime's NDK platform matches the SDK floor. Per-app language, notification
+permissions, device authentication, app-switcher privacy, and edge-to-edge layout use native
+Android 15+ APIs directly without legacy compatibility paths.
 
 ## Push notifications
 
-Put a Firebase Android configuration at `app/google-services.json` to enable push.
-The file is ignored by Git. It must contain a client whose package matches the build:
-`com.kodosi.mobile` for release or `com.kodosi.mobile.debug` for Debug. A build without
-the file or without a matching client works with push off. The build supplies
-`FirebaseOptions` directly; it does not need the Google Services Gradle plugin.
+To enable push notifications, drop a Firebase config at `app/google-services.json` (gitignored)
+containing a client matching the build's package name (`com.kodosi.mobile` for Release or
+`com.kodosi.mobile.debug` for Debug). Builds without it run cleanly with push disabled. The build
+supplies `FirebaseOptions` directly and doesn't need the Google Services Gradle plugin.
 
-The backend must have FCM HTTP v1 configured. After device approval, the app asks for
-notification permission and registers its FCM token through the runtime. Token changes
-use WorkManager to retry registration with a network connection. Notification payloads
-contain only identifiers and state; the app keeps a bounded private name cache. No
-server service-account credential belongs in the app.
+The backend must have FCM HTTP v1 configured. After device approval, the app requests notification
+permission and registers its FCM token with the runtime, using WorkManager to retry token updates
+once online. Push payloads only carry terminal IDs, agents, and states; human-readable names come
+from a bounded local cache. Never ship server service-account credentials in the app.
 
-## Code and assets
+## Architecture overview
 
-Compose screens collect the account, terminal, project, people, Dosi and canvas stores.
-`AppModel` owns the native runtime and routes its ordered events; `CommandSink` pairs
-requests with their replies and rejects replies from another account. The application
-keeps that state across Activity recreation. Navigation3 restores small navigation
-state, not terminal or document contents.
+Compose screens observe dedicated stores for account, terminals, projects, friends, Dosi, and
+canvas. `AppModel` owns the native runtime and dispatches ordered events; `CommandSink` correlates
+commands with replies and discards replies from another account. Application-scoped state survives
+Activity recreation, while Navigation3 persists lightweight navigation state only (not terminal or
+document payloads).
 
-JNI bridges the viewer and Ghostty. The credential bridge encrypts saved keys and
-sign-in data with AES-GCM and an Android Keystore key. Document editors use the shared
-document views; the shared browser decodes its host's H.264 frames with MediaCodec.
-Files use the Storage Access Framework rather than broad storage permission.
+JNI bridges the Rust viewer runtime and Ghostty. Credential storage encrypts keys and auth tokens
+with AES-GCM using an Android Keystore key. Document editors load the shared web document views,
+the shared browser decodes H.264 video frames via `MediaCodec`, and file import/export uses the
+Storage Access Framework rather than broad storage permissions.
 
-The build packages the notices of the runtime's Rust crates, JVM dependencies, Ghostty,
-JetBrains Mono, provider marks and document views. Settings shows them under Licenses.
-The runtime and app each link their own Ghostty terminal library.
+The build bundles third-party notices for Rust crates, JVM dependencies, Ghostty, JetBrains Mono,
+provider icons, and document views (displayed under **Settings › Licenses**). The runtime and the
+Android app each link their own Ghostty VT library.

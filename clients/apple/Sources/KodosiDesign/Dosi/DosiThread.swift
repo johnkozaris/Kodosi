@@ -86,7 +86,7 @@ public struct DosiThread: View {
         removal: .opacity.combined(with: .offset(y: -12)),
     )
 
-    /// `listening` is whether the person writes to Dosi now.
+    /// Pass `true` while the user is actively composing a message to Dosi.
     public init(listening: Bool) {
         self.listening = listening
     }

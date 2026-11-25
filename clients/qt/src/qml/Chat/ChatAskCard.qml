@@ -6,7 +6,7 @@ import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import Kodosi.Models 1.0 as Models
 
-// With little room, what the answer is about gets less of it, so that the keys stay.
+// When vertical space is tight, shrink or hide preview content so action buttons remain visible.
 Item {
     id: root
 

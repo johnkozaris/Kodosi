@@ -75,11 +75,6 @@ import com.kodosi.mobile.ui.reducedMotion
 import com.kodosi.mobile.ui.snappy
 import com.kodosi.mobile.ui.well
 
-/**
- * A question of the agent, open above the composer. The key that a person pressed stays down until
- * the question is gone, and the others wait. Above a phone's keyboard the card gives up the text of
- * a change, a command or a plan first, and keeps its keys.
- */
 @Composable
 internal fun ChatAskCard(chat: TerminalChat, view: ChatView, ask: ChatAsk, agent: AgentKind) {
     val colors = KodosiTheme.colors
@@ -134,11 +129,10 @@ internal fun ChatAskCard(chat: TerminalChat, view: ChatView, ask: ChatAsk, agent
 private val KeepsBody = 48.dp
 private val BodyMost = 320.dp
 
-/** A command that its line does not hold whole shows whole below it: a person reads all of what they allow. */
+// Show the full command in the body if truncated or long so the user sees everything they approve.
 private fun whole(tool: ChatTool): String? =
     (tool.detail as? ChatToolDetail.Command)?.command?.takeIf { it != tool.target || it.length > 96 }
 
-/** A question without [symbol] ends with the question sign, and an approval with the hand that waves when it comes. */
 @Composable
 private fun AskHeader(
     agent: AgentKind,
@@ -256,7 +250,6 @@ private fun PlanKeys(chat: TerminalChat, view: ChatView, ask: ChatAsk, choices: 
     }
 }
 
-/** On a phone the ways on after a plan stand under each other at the full width of the card. */
 @Composable
 private fun Keys(stacked: Boolean, content: @Composable (Modifier) -> Unit) {
     if (stacked) {
@@ -309,7 +302,6 @@ private fun AnswerKey(
     }
 }
 
-/** One question with one choice goes at the first press; more of them wait for Send. */
 @Composable
 private fun Questions(
     chat: TerminalChat,
@@ -380,11 +372,6 @@ private fun Questions(
     )
 }
 
-/**
- * The options of one question sink into a well as the choices of a stacked segmented control do.
- * A chosen row rises as the raised thumb: with one answer the one thumb slides to it, and with many
- * answers each chosen row has its own and ends with a copper check.
- */
 @Composable
 private fun Options(
     question: ChatQuestion,
@@ -497,6 +484,8 @@ private fun CheckCircle(on: Boolean) {
     }
 }
 
+// Keeps header and action buttons visible when vertical space is tight (e.g. keyboard open),
+// dropping the body if less than keepsBody remains.
 @Composable
 private fun AskLayout(
     header: @Composable () -> Unit,

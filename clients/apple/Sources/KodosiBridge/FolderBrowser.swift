@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// The newest question wins.
+/// The newest request wins.
 @MainActor
 @Observable
 public final class FolderBrowser {

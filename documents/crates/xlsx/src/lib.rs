@@ -1,6 +1,5 @@
-//! Sheets (.xlsx). The server keeps each sheet's cells, and a save swaps only the cells that
-//! changed. Each side works out formula results for itself: the view for what it shows, and
-//! the server for the values that the file holds.
+//! XLSX format support. Saves patch only modified cells in sheet XML. Views evaluate formulas
+//! locally for display, while the host evaluates them for queries and saved cached values.
 
 mod apply;
 mod blank;

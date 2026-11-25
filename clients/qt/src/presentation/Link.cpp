@@ -16,7 +16,7 @@
 namespace kodosi {
 namespace {
 
-// Opening one of these runs code, whatever the program in the terminal says it is.
+// Refuse local files that the OS could execute rather than open as data.
 bool runsCode(const QFileInfo& target)
 {
     static const QSet<QString> suffixes {

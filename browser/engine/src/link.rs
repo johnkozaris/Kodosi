@@ -8,18 +8,16 @@ use shared_browser::link::{Address, EncodedFrame, FrameKind, FromEngine, ToEngin
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;
 
-/// A host that leaves this many reports unread is gone.
 const REPORTS_WAITING: usize = 1024;
-/// A picture that finds no room is lost, so a slow host never piles up pictures.
+/// Small frame queue cap so a slow host drops frames instead of building latency.
 const FRAMES_WAITING: usize = 4;
 
-/// Any thread may send on the link.
 #[derive(Clone)]
 pub(crate) struct Link {
     reports: mpsc::Sender<Message>,
     frames: mpsc::Sender<Message>,
-    /// The windows that lost a picture. The pictures after it need it, so a window sends
-    /// nothing more until its next key frame.
+    /// Windows that dropped a frame; subsequent non-keyframes are skipped until the next
+    /// keyframe since decoders cannot apply them cleanly.
     broken: Arc<Mutex<HashSet<i64>>>,
 }
 
@@ -30,7 +28,7 @@ impl Link {
         }
     }
 
-    /// A still is no part of the video, so it neither breaks nor mends it.
+    /// Stills are independent of the video stream, so they bypass and never alter `broken`.
     pub(crate) fn send_frame(&self, frame: &EncodedFrame) -> bool {
         if frame.still {
             return self
@@ -52,7 +50,8 @@ impl Link {
     }
 }
 
-/// The engine quits when the link ends, so it never outlives its host.
+/// Connects to the host and posts `ToEngine::Quit` when the link closes or fails to start, so
+/// the engine never outlives its host.
 pub(crate) fn connect(address: Address) -> Link {
     let (reports, waiting_reports) = mpsc::channel(REPORTS_WAITING);
     let (frames, waiting_frames) = mpsc::channel(FRAMES_WAITING);

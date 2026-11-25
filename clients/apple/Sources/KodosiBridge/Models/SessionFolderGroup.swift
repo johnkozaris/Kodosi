@@ -1,7 +1,7 @@
 import Foundation
 
-/// A terminal whose folder is not known, such as a friend's terminal that you have not opened, is
-/// in the group without a directory.
+/// Terminals whose working directory is unknown (such as unopened shared terminals) are grouped
+/// with `directory == nil`.
 public struct SessionFolderGroup: Identifiable, Sendable {
     public struct Owner: Equatable, Sendable {
         public let name: String
@@ -57,8 +57,8 @@ public struct SessionComputerGroup: Identifiable, Sendable {
         session.kind == .local ? "local" : session.hostDeviceId ?? session.ownerUserId ?? session.id
     }
 
-    /// A pinned terminal shows apart from its folder and still is a terminal of it. Terminal IDs are
-    /// UUID version 7, so the greatest ID is the newest terminal.
+    /// Pinned terminals are omitted from each folder's `sessions` list but still count toward its
+    /// `newestAgentTerminal`. Session IDs are UUIDv7, so lexicographic max yields the newest one.
     public static func groups(_ sessions: [RuntimeSession], pinned: Set<String> = []) -> [Self] {
         let computers = Dictionary(grouping: sessions, by: key)
         let friendsComputers = Dictionary(grouping: computers.values.compactMap(\.first).filter { $0.kind != .local && !$0.isOwner }) {

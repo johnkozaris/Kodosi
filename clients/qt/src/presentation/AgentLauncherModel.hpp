@@ -33,8 +33,7 @@ public:
     explicit AgentLauncherModel(CommandDispatcher& commands, QObject* parent = nullptr, QString computer = {});
 
     QString computer() const { return m_computer; }
-    // The launcher of another computer of this person, which keeps what that computer answered;
-    // this launcher for an empty computer.
+    // Returns the cached launcher for a remote computer, or this instance when computer is empty.
     Q_INVOKABLE kodosi::AgentLauncherModel* of(const QString& computer);
     QVariantList agents() const { return m_agents; }
     QVariantMap models() const { return m_models; }
@@ -66,9 +65,8 @@ public:
     Q_INVOKABLE void listFolders(const QString& path = {}, bool browse = false);
     Q_INVOKABLE void closeFolders();
 
-    // A limit of a plan with its window and the words that say it.
     [[nodiscard]] static QVariantMap describedLimit(QVariantMap limit);
-    // The limit nearest to its end, of those that count for `model` when one is given.
+    // Returns the limit closest to exhaustion, among those that count for `model` when given.
     [[nodiscard]] static QVariant nearestLimit(const QVariantList& limits, const QString& model);
 
     void apply(const QJsonObject& event);

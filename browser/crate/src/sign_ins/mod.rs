@@ -1,5 +1,5 @@
-//! Copies sign-ins from a person's real browsers into a kept profile, so most sign-ins never
-//! happen here. A host starts this only for a person's own action.
+//! Imports sign-in cookies from installed browsers into a Kodosi profile.
+//! Must only be invoked in response to an explicit user action.
 
 mod chromium;
 mod firefox;
@@ -21,7 +21,7 @@ use crate::{Error, devtools::Devtools};
 
 const COPIED_FILE: &str = "copied-sign-ins.json";
 const COOKIES_PER_CALL: usize = 500;
-/// A date in the past, which removes a cookie.
+/// Past Unix timestamp passed to `Storage.setCookies` to expire and delete a cookie.
 const GONE: f64 = 1.0;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,8 +35,7 @@ enum Kind {
 pub struct SignInSource {
     pub name: String,
     pub browser: &'static str,
-    /// macOS keeps the data of the browser from Kodosi until the person gives Kodosi Full Disk
-    /// Access, so its profiles are not known yet.
+    /// True when macOS blocks access to this browser's data until Full Disk Access is granted.
     pub protected: bool,
     kind: Kind,
     folder: PathBuf,
@@ -67,8 +66,7 @@ impl From<rusqlite::Error> for CopyError {
     }
 }
 
-/// macOS refuses the files of another app's data with `EPERM` until the person gives Kodosi
-/// Full Disk Access.
+/// macOS returns `EPERM` when reading another app's protected data without Full Disk Access.
 impl From<io::Error> for CopyError {
     fn from(error: io::Error) -> Self {
         #[cfg(target_os = "macos")]
@@ -121,7 +119,8 @@ impl SignInSource {
         }
     }
 
-    /// Copies of open stores go in `working`, a private folder that goes when the read ends.
+    /// Reads cookies using `working` as a private temporary directory for DB copies, deleting it
+    /// on return.
     pub async fn read(&self, working: &Path) -> Result<SignIns, CopyError> {
         let reader = {
             let source = self.clone();
@@ -148,8 +147,7 @@ pub fn copied_sites(profiles: &Path, profile: &str) -> usize {
     sites(keys.iter().map(|key| key.domain.as_str()))
 }
 
-/// Nothing here reads the data of a browser that macOS keeps from Kodosi, so looking never makes
-/// macOS refuse or warn.
+/// Lists available browser sources without reading protected app data, avoiding macOS TCC prompts.
 pub fn sign_in_sources() -> Vec<SignInSource> {
     let Some(home) = std::env::home_dir().filter(|home| !home.is_empty()) else {
         return Vec::new();
@@ -160,9 +158,8 @@ pub fn sign_in_sources() -> Vec<SignInSource> {
     sources
 }
 
-/// Whether Kodosi may read a file that is there. macOS keeps the data of other apps from Kodosi
-/// until the person gives it Full Disk Access, and answers this without asking the person and
-/// without counting it as a refused read.
+/// Checks file readability via `access(R_OK)`, which queries macOS TCC without triggering a
+/// permission prompt or logging a denied read.
 #[cfg(target_os = "macos")]
 fn readable(path: &Path) -> bool {
     rustix::fs::access(path, rustix::fs::Access::READ_OK).is_ok()
@@ -173,8 +170,7 @@ fn readable(_path: &Path) -> bool {
     true
 }
 
-/// Reads a store through a copy, as the browser may hold the real one open. Open stores keep
-/// their journal beside them.
+/// Copies the SQLite DB and its WAL/journal sidecars so we can read stores held open by a browser.
 fn store_copy(store: &Path, working: &Path) -> Result<PathBuf, CopyError> {
     std::fs::create_dir_all(working)?;
     let copy = working.join("store");
@@ -192,8 +188,8 @@ fn store_copy(store: &Path, working: &Path) -> Result<PathBuf, CopyError> {
     Ok(copy)
 }
 
-/// Opens a store of another program for reading. Any program of the person can write it, so
-/// its schema runs no function that SQLite does not mark as safe for any schema.
+/// Opens an external browser's SQLite DB read-only with `TRUSTED_SCHEMA` disabled, since another
+/// local process could have modified the schema.
 fn open_store(store: &Path) -> rusqlite::Result<Connection> {
     let connection = Connection::open_with_flags(
         store,
@@ -203,8 +199,8 @@ fn open_store(store: &Path) -> rusqlite::Result<Connection> {
     Ok(connection)
 }
 
-/// Copies only the bytes of a file. macOS refuses a copy of the extended attributes of another
-/// app's file, even where it lets Kodosi read the file.
+/// Copies file contents without extended attributes; `std::fs::copy` fails on macOS when copying
+/// xattrs from another app's files even if the file itself is readable.
 fn copy_data(from: &Path, to: &Path) -> io::Result<()> {
     let mut source = std::fs::File::open(from)?;
     let mut target = std::fs::File::create(to)?;

@@ -21,7 +21,7 @@ struct TilingStage: View {
         }
     }
 
-    /// A canvas goes with its terminal, which stays selected while the canvas closes.
+    /// Falls back to the selected terminal's look while the canvas closes so colors do not flash.
     private var canvasLook: TerminalLook {
         (canvasSession ?? workbench.selectedSessionId.flatMap(deps.session))?.terminalLook ?? .dark
     }

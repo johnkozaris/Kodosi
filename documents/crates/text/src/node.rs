@@ -104,7 +104,7 @@ struct Inner {
     leaf: bool,
 }
 
-/// Nodes are shared and never change: an edit makes new nodes along one path.
+/// Immutable, `Arc`-shared tree node; edits perform structural sharing along the modified path.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Node(Arc<Inner>);
 
@@ -173,7 +173,6 @@ impl Node {
         self.0.leaf
     }
 
-    /// In UTF-16 units.
     pub(crate) fn units(&self) -> Option<&[u16]> {
         self.0.text.as_deref()
     }
@@ -410,7 +409,7 @@ impl Fragment {
         }
     }
 
-    /// Joins adjacent text with the same marks.
+    /// Builds a fragment, merging adjacent text nodes that share identical marks.
     pub fn from_array(nodes: Vec<Node>) -> Self {
         let mut joined: Vec<Node> = Vec::with_capacity(nodes.len());
         for node in nodes {

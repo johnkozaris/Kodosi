@@ -129,7 +129,7 @@ async fn change(pipe: &Pipe, seq: u64, base: u64, key: &str, value: &str) {
     pipe.send(contract::encode_message(&change)).await.unwrap();
 }
 
-/// A megabyte of text that gzip cannot shrink much.
+/// Generates 1 MB of barely compressible text so gzip framing still triggers pipe backpressure.
 fn noise(seed: u64) -> String {
     let mut state = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1;
     (0..1024 * 1024)

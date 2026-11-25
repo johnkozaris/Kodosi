@@ -39,12 +39,12 @@ class TerminalFrame(
 
     fun foreground(column: Int, row: Int): Int = foregrounds[index(column, row)]
 
-    /** Zero is the terminal's own background. */
+    // 0 means the terminal's default background color.
     fun background(column: Int, row: Int): Int = backgrounds[index(column, row)]
 
     fun style(column: Int, row: Int): Int = styles[index(column, row)] and 0xFFFF
 
-    /** Two for a wide character, one for a narrow one, zero for the cell after a wide one. */
+    // 2 for wide glyphs, 1 for narrow glyphs, 0 for the trailing cell of a wide glyph.
     fun width(column: Int, row: Int): Int = styles[index(column, row)] ushr 16
 
     fun text(column: Int, row: Int): String? = texts[index(column, row)]

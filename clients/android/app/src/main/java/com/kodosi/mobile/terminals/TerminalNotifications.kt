@@ -176,8 +176,8 @@ class TerminalNotifications(private val application: Context, private val prefer
             .setAutoCancel(true)
             .setVisibility(visibility())
             .addExtras(Bundle().apply { putString(COMPUTER_NAME, computer) })
-            // A channel has one sound. Android mutes a group child that leaves the alert to its summary,
-            // and a summary of Kodosi never alerts.
+            // Notifications in a channel share one sound setting. Suppress alerts per notification by assigning
+            // GROUP_ALERT_SUMMARY while summaries use GROUP_ALERT_CHILDREN (so neither alerts).
             .setGroup(group ?: QUIET.takeUnless { entry.sound })
             .setGroupAlertBehavior(if (entry.sound) Notification.GROUP_ALERT_ALL else Notification.GROUP_ALERT_SUMMARY)
             .build()

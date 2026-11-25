@@ -1,7 +1,5 @@
-//! A write of another program, merged three ways as Git merges: what the writer changed since the
-//! saved state that it read goes into the text as it is now. Lines that a person changed and the
-//! writer did not stay as the person left them. Where both changed the same lines, the writer's
-//! lines win.
+//! Three-way merge for external writes against the saved base state. Non-overlapping live edits
+//! are preserved; on conflicting lines, the external write wins.
 
 use std::ops::Range;
 
@@ -106,8 +104,8 @@ pub(crate) fn edits(now: &Text, written: &Written) -> Vec<Edit> {
     edits
 }
 
-/// Splits stretches that a person changed line for line, so a writer's change next to one of
-/// those lines leaves the others as the person made them.
+/// Splits equal-length replacement hunks into per-line hunks so an external conflict on one line
+/// does not discard adjacent live edits.
 fn one_to_one(hunks: Vec<Hunk>) -> Vec<Hunk> {
     hunks
         .into_iter()
@@ -123,8 +121,8 @@ fn one_to_one(hunks: Vec<Hunk>) -> Vec<Hunk> {
         .collect()
 }
 
-/// Whether two changes touch the same lines. Lines added at the edge of a change, or two
-/// insertions at one place, do not.
+/// Returns true if two ranges conflict; insertions at the same point or at a range boundary do not
+/// overlap.
 fn overlaps(one: &Range<usize>, other: &Range<usize>) -> bool {
     match (one.is_empty(), other.is_empty()) {
         (true, true) => false,

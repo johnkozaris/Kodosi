@@ -19,7 +19,7 @@ SBOM_FORMATS = {
     "spdx.json": "spdx-json",
     "cdx.json": "cyclonedx-json",
 }
-# Qt WebEngine has a version of its own and ships its Chromium part in an SBOM of its own.
+# Qt WebEngine uses an independent version number and ships Chromium in a separate SBOM.
 WEBENGINE_SBOMS = ("qtwebengine", "qtwebengine-chromium-webengine")
 QT_ARCHIVE_SHA256 = {
     "qtbase": "a951bd163c7b80fc6b8c88d7668fb56abf91c152373e13c10666763238131307",
@@ -29,7 +29,7 @@ QT_ARCHIVE_SHA256 = {
     "qtpositioning": "b060d410fac7413b05a0e7938bbf3325f7ad08d7df14af3956270f0696e76763",
     "qtwebchannel": "9afdfb64855b33c1cc16a4fdce69a556876f0d5b9df79d88de7306ffa2dca327",
 }
-# Qt WebEngine is released apart from Qt, as an extension of the Qt repository.
+# Qt WebEngine is published separately as a Qt repository extension.
 QT_WEBENGINE_ARCHIVE = (
     "https://download.qt.io/online/qtsdkrepository/all_os/extensions/qtwebengine/6120/61400/src_doc_examples/"
     "extensions.qtwebengine.6120.61400.src/6.12.0-0-202611110526qtwebengine-everywhere-src-6.140.0.tar.xz",

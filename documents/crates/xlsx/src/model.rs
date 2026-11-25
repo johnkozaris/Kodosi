@@ -16,7 +16,7 @@ pub enum Value {
     Error { error: String },
 }
 
-/// A cell that the file holds as a formula also holds its last value.
+/// Formula cells also retain their last cached `value`.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Cell {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -51,7 +51,7 @@ pub(crate) enum Link {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub(crate) struct Sheet {
     pub(crate) id: String,
-    /// The number that the file knows this sheet by.
+    /// OOXML `sheetId` attribute.
     pub(crate) number: u32,
     pub(crate) name: String,
     pub(crate) part: Option<String>,
@@ -62,19 +62,18 @@ pub(crate) struct Sheet {
     pub(crate) hidden_rows: BTreeSet<u32>,
     pub(crate) hidden_columns: BTreeSet<u32>,
     pub(crate) frozen: Frozen,
-    /// The attributes of rows and columns that this crate only keeps.
+    /// Preserved raw XML attributes on `<row>` and `<col>` elements not modeled directly.
     pub(crate) row_looks: BTreeMap<u32, String>,
     pub(crate) column_looks: BTreeMap<u32, String>,
     pub(crate) anchors: Vec<Anchor>,
-    /// Rows or columns moved, so a save writes the whole sheet.
+    /// Set after row/column insertions or deletions to force rewriting `<sheetData>` in full.
     pub(crate) moved: bool,
-    /// A chart sheet, like any sheet without sheet data, has no cells: a save keeps it as it is,
-    /// and a change to its cells, rows or columns is refused.
+    /// True for chart sheets (or any sheet without `<sheetData>`), which are preserved verbatim
+    /// and reject cell/row/column edits.
     pub(crate) chart: bool,
 }
 
-/// The rows and the columns that stay in sight while the rest of a sheet scrolls: `rows` rows from
-/// `top` and `columns` columns from `left`.
+/// Frozen pane bounds: `rows` rows starting at `top` and `columns` columns starting at `left`.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
 pub(crate) struct Frozen {
     pub(crate) top: u32,
@@ -84,7 +83,8 @@ pub(crate) struct Frozen {
 }
 
 impl Frozen {
-    /// A side with nothing frozen starts at 0, so that equal panes compare equal.
+    /// Normalizes `top`/`left` to 0 when the corresponding count is 0 so equivalent panes compare
+    /// equal.
     pub(crate) fn new(top: u32, left: u32, rows: u32, columns: u32) -> Self {
         Self {
             top: if rows == 0 { 0 } else { top },
@@ -98,9 +98,8 @@ impl Frozen {
         self.rows > 0 || self.columns > 0
     }
 
-    /// Lines that come in before the first line that scrolls join the frozen ones, and lines that
-    /// go before it leave them, though one stays. Univer moves the panes this way for a person's
-    /// own change, so every copy moves them alike.
+    /// Adjusts frozen pane counts on row/column shifts, keeping at least one line when deleting
+    /// inside a frozen pane. Matches Univer's local behavior so all views stay in sync.
     pub(crate) fn moved(self, shift: Shift, rows: bool) -> Self {
         let split = |first: u32, count: u32| -> (u32, u32) {
             let end = first + count;
@@ -166,25 +165,23 @@ pub struct Look {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Model {
     pub(crate) sheets: Vec<Sheet>,
-    /// The looks that cells name by index. A file's styles hold the first of them: those that
-    /// it had and those that saves added.
+    /// Cell style table indexed by `Cell::style`; prefix entries match the file's `<cellXfs>`.
     pub(crate) looks: Vec<Look>,
     pub(crate) names: Vec<DefinedName>,
-    /// The highest sheet number so far, so that a new sheet never takes a removed one's.
+    /// High-water mark for `sheetId` allocation so new sheets never reuse a deleted sheet's ID.
     pub(crate) last_number: u32,
-    /// Whether the file counts days from 1904, as Excel for Mac once did, rather than from 1900.
     pub(crate) dates_from_1904: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct DefinedName {
     pub(crate) name: String,
-    /// The place of the only sheet that knows this name, if one sheet owns it.
+    /// 0-based local sheet index (`localSheetId`), or `None` for workbook-scoped names.
     pub(crate) sheet: Option<usize>,
     pub(crate) text: String,
 }
 
-/// serde reads `null` as a field that is not there, which would keep what `null` empties.
+/// Distinguishes an omitted field (`None`) from an explicit `null` (`Some(None)`).
 #[expect(
     clippy::option_option,
     reason = "a field that is not there keeps, and `null` empties"
@@ -195,12 +192,12 @@ fn emptied<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
     Option::<T>::deserialize(value).map(Some)
 }
 
-/// What a change does not name stays.
+/// Partial cell update: omitted fields stay unchanged; an explicit `null` clears `value`,
+/// `formula`, or `style`.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct CellChange {
     pub row: u32,
     pub column: u32,
-    /// `null` empties the cell. Without it, the value stays.
     #[serde(
         default,
         deserialize_with = "emptied",
@@ -223,8 +220,8 @@ pub struct CellChange {
     pub look: Option<Look>,
 }
 
-/// JSON names a line by its number as text, which serde does not read as a number in a tagged
-/// change.
+/// Parses stringified integer map keys, which serde cannot deserialize into `u32` inside an
+/// internally tagged enum.
 fn line_keys<'de, D: Deserializer<'de>, V: Deserialize<'de>>(
     lines: D,
 ) -> Result<BTreeMap<u32, V>, D::Error> {
@@ -234,8 +231,8 @@ fn line_keys<'de, D: Deserializer<'de>, V: Deserialize<'de>>(
         .collect()
 }
 
-/// Cells name a key, so the last change wins. Rows and columns name positions, so a view moves
-/// its older cell changes across them.
+/// Cell edits are key-addressed (last write wins). Row and column shifts move indices, so views
+/// rebase pending cell changes past them.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -273,7 +270,7 @@ pub enum Change {
         sheet: String,
         #[serde(default, deserialize_with = "line_keys")]
         widths: BTreeMap<u32, f64>,
-        /// `null` makes a row fit what it holds.
+        /// `None` (`null`) resets a row to auto-fit height.
         #[serde(default, deserialize_with = "line_keys")]
         heights: BTreeMap<u32, Option<f64>>,
     },
@@ -284,7 +281,6 @@ pub enum Change {
         #[serde(default)]
         remove: Vec<[u32; 4]>,
     },
-    /// `true` hides a line and `false` shows it.
     Hidden {
         sheet: String,
         #[serde(default, deserialize_with = "line_keys")]
@@ -292,7 +288,7 @@ pub enum Change {
         #[serde(default, deserialize_with = "line_keys")]
         columns: BTreeMap<u32, bool>,
     },
-    /// No rows and no columns unfreeze the sheet.
+    /// Setting `rows` and `columns` to 0 unfreezes the sheet.
     Freeze {
         sheet: String,
         top: u32,

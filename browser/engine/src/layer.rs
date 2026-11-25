@@ -1,8 +1,7 @@
-//! A window's page as a Core Animation layer, which the app on this Mac hosts by the layer's
-//! context: the window server draws the page into the app's window, with no video between.
-//!
-//! `CAContext` and `CALayerHost` are private classes of Core Animation, which Chromium uses in
-//! the same way to show the pages of its GPU process in its windows.
+//! Renders a tab into a Core Animation layer hosted in the macOS app via `CAContext` /
+//! `CALayerHost`, letting the window server composite frames directly without video encoding.
+//! Both classes are private Core Animation APIs, which Chromium uses the same way to show the
+//! pages of its GPU process.
 
 use std::{
     ffi::c_void,
@@ -32,29 +31,26 @@ use crate::{
     link::Link,
 };
 
-/// The window server holds the picture that it shows, and for a moment the one before, so the
-/// layer draws into a surface of its own that it holds neither.
+/// Triple-buffer cap: the window server can hold both the current and previous `IOSurface`,
+/// leaving one spare surface for the next paint.
 const MOST_SURFACES: usize = 3;
 const REDRAW_MS: i64 = 16;
 const BGRA: u32 = u32::from_be_bytes(*b"BGRA");
 const BYTES_PER_PIXEL: usize = 4;
 const METAL_BGRA8: usize = 80;
 const METAL_COMPLETED: usize = 4;
-/// A still shows the page as it stays, so it waits until the page rests this long.
 const SETTLE: Duration = Duration::from_millis(500);
-/// Each still costs the coding of a whole picture, so stills come at most once in this time,
-/// also while the page keeps changing.
+/// Rate-limits still snapshots because each one encodes a full keyframe.
 const STILL_EVERY: Duration = Duration::from_secs(3);
-/// A still is one key frame, with no refinement after it, so it gets the bits of a sharp page.
+/// High bitrate because stills are single keyframes with no follow-up refinement passes.
 const STILL_BITRATE: u32 = 40_000_000;
 
-/// `IOSurfaceRef`, as Objective-C methods take it.
 #[repr(C)]
 struct IOSurface {
     _opaque: [u8; 0],
 }
 
-// SAFETY: the encoding of `IOSurfaceRef` in Objective-C.
+// SAFETY: matches Objective-C's type encoding for `IOSurfaceRef`.
 unsafe impl RefEncode for IOSurface {
     const ENCODING_REF: Encoding = Encoding::Pointer(&Encoding::Struct("__IOSurface", &[]));
 }
@@ -64,7 +60,7 @@ struct CGColor {
     _opaque: [u8; 0],
 }
 
-// SAFETY: the encoding of `CGColorRef` in Objective-C.
+// SAFETY: matches Objective-C's type encoding for `CGColorRef`.
 unsafe impl RefEncode for CGColor {
     const ENCODING_REF: Encoding = Encoding::Pointer(&Encoding::Struct("CGColor", &[]));
 }
@@ -96,22 +92,21 @@ pub(crate) struct Layer {
     queue: Retained<AnyObject>,
     shown: Option<Surface>,
     spare: Vec<Surface>,
-    /// The tab whose page the layer shows, or none while no view hosts the layer.
+    /// Active tab bound to this layer, or `None` while detached from views.
     pub(crate) tab: Option<i64>,
     reported: bool,
-    /// Codes the layer's picture as a still, which the views that host the layer keep for the
-    /// time that the layer cannot show the page, as while the browser sleeps.
+    /// Encodes standalone still frames so views hosting this layer have a fallback image when
+    /// the layer is unavailable (for example, while the browser sleeps).
     encoder: Encoder,
     stills: Stills,
-    /// A look at the stills waits.
     looking: bool,
 }
 
-/// A still goes once the layer's picture rests for `SETTLE`, or after `STILL_EVERY` while the
-/// picture keeps changing, and never sooner than `STILL_EVERY` after the one before.
+/// Schedules a still after the page stays idle for `SETTLE`, or after `STILL_EVERY` of
+/// continuous updates, and never sooner than `STILL_EVERY` after the previous still.
 #[derive(Default)]
 struct Stills {
-    /// When the first picture came that no still shows yet.
+    /// Timestamp of the first change not yet captured in a still.
     waiting: Option<Instant>,
     drawn: Option<Instant>,
     made: Option<Instant>,
@@ -127,7 +122,6 @@ impl Stills {
         self.waiting.get_or_insert(now);
     }
 
-    /// How long the next still waits, or none while each still shows the picture.
     fn due_in(&self, now: Instant) -> Option<Duration> {
         let waiting = self.waiting?;
         let rested = self.drawn.unwrap_or(waiting) + SETTLE;
@@ -149,12 +143,12 @@ struct Surface {
 }
 
 impl Surface {
-    /// A surface with CEF's format and attachments, such as its color space.
+    /// Allocates a surface matching `source`'s pixel format and metadata (such as color space).
     fn like(source: *mut c_void, width: usize, height: usize) -> Option<Self> {
-        // SAFETY: the source is a live surface for the length of the paint call.
+        // SAFETY: `source` is a valid `IOSurface` for the duration of the paint callback.
         let format = unsafe { IOSurfaceGetPixelFormat(source) };
         let raw = new_surface(width, height, format)?;
-        // SAFETY: both surfaces are live; the values are a dictionary that this code then owns.
+        // SAFETY: both surfaces are valid; `IOSurfaceCopyAllValues` returns an owned CFDictionary.
         unsafe {
             if let Some(values) = Owned::new(IOSurfaceCopyAllValues(source)) {
                 IOSurfaceSetValues(raw.mutable(), values.0);
@@ -164,7 +158,7 @@ impl Surface {
     }
 
     fn in_use(&self) -> bool {
-        // SAFETY: the surface is live while this code holds it.
+        // SAFETY: `self.raw` owns a valid `IOSurface`.
         unsafe { IOSurfaceIsInUse(self.raw.mutable()) != 0 }
     }
 }
@@ -174,7 +168,7 @@ fn new_surface(width: usize, height: usize, format: u32) -> Option<Owned> {
     let high = number_i64(i64::try_from(height).ok()?)?;
     let bytes = number_i64(i64::try_from(BYTES_PER_PIXEL).ok()?)?;
     let format = number_i64(i64::from(format))?;
-    // SAFETY: the keys are constants of the framework and the values are live numbers.
+    // SAFETY: the keys are framework CF constants and the values are live CFNumber objects.
     let properties = dictionary(&unsafe {
         [
             (kIOSurfaceWidth, wide.0),
@@ -183,15 +177,15 @@ fn new_surface(width: usize, height: usize, format: u32) -> Option<Owned> {
             (kIOSurfacePixelFormat, format.0),
         ]
     })?;
-    // SAFETY: the properties are a live dictionary; the new surface is this code's.
+    // SAFETY: `properties` is a valid CFDictionary; `IOSurfaceCreate` returns an owned surface.
     Owned::new(unsafe { IOSurfaceCreate(properties.0) }.cast_const())
 }
 
 impl Layer {
     pub(crate) fn new(window: i64, link: Link) -> Result<Self, String> {
         let options = dictionary(&[]).ok_or("no options")?;
-        // SAFETY: the classes are Core Animation's and Metal's, and each message is one that
-        // they take, with arguments of their types; the device comes retained.
+        // SAFETY: the selectors and argument types match Core Animation and Metal APIs, and
+        // `MTLCreateSystemDefaultDevice` returns a retained object.
         let (context, root, device, queue) = unsafe {
             let context_class =
                 AnyClass::get(c"CAContext").ok_or("Core Animation has no CAContext")?;
@@ -211,7 +205,8 @@ impl Layer {
         };
         let encoder = Encoder::stills(window, STILL_BITRATE, link.clone());
         transaction(|| {
-            // SAFETY: the root is a live layer, and white is a live color until its release.
+            // SAFETY: `root` and `context` are valid CA objects, and `white` stays live until
+            // `CGColorRelease`.
             unsafe {
                 let white = CGColorCreateSRGB(1.0, 1.0, 1.0, 1.0);
                 let _: () = msg_send![&*root, setBackgroundColor: white];
@@ -240,10 +235,10 @@ impl Layer {
         })
     }
 
-    /// Copies a picture that CEF drew on the GPU. CEF takes its surface back once the paint call
-    /// returns, so the layer never shows that surface itself.
+    /// Copies CEF's GPU `IOSurface` into a surface owned by this layer, since CEF reclaims its
+    /// surface once the paint callback returns.
     pub(crate) fn draw_surface(&mut self, source: *mut c_void, size: Size) {
-        // SAFETY: CEF gives a live surface for the length of the paint call.
+        // SAFETY: CEF provides a valid `IOSurface` for the duration of the paint callback.
         let (width, height, bytes) = unsafe {
             (
                 IOSurfaceGetWidth(source),
@@ -294,15 +289,14 @@ impl Layer {
         self.show(target, size);
     }
 
-    /// A new size of the page shows at once, with the last picture fitted into it until the page
-    /// draws at that size, as the views place the page by its new size.
+    /// Updates layer bounds immediately, as views place the page by its new size, so the previous
+    /// surface scales to fit until the page paints at the new dimensions.
     pub(crate) fn resize(&self, size: Size) {
         if let Some(shown) = &self.shown {
             self.place(shown, size);
         }
     }
 
-    /// A view that hosts the layer has no still of its picture yet.
     pub(crate) fn want_still(&mut self) {
         self.stills.wanted(Instant::now());
         self.look();
@@ -313,8 +307,8 @@ impl Layer {
         self.look();
     }
 
-    /// Codes the picture as a still once the rule allows it, and else looks again then. A view
-    /// that hosts the layer again makes the page draw, so a still waits only while one hosts it.
+    /// Encodes a still when due, or schedules a timer until then. Skips encoding while no tab
+    /// is bound; rebinding a tab invalidates the view and retriggers this path.
     fn look(&mut self) {
         if self.looking {
             return;
@@ -338,9 +332,8 @@ impl Layer {
         }
     }
 
-    /// A surface of this size that the window server holds no more, or a new one while there
-    /// are few. While the window server holds them all, the page draws again a frame later, so
-    /// the layer still gets the page as it is now.
+    /// Returns an unused surface of matching dimensions or allocates up to `MOST_SURFACES`. If
+    /// the window server still holds all surfaces, schedules a redraw one frame later.
     fn free(
         &mut self,
         width: usize,
@@ -361,8 +354,8 @@ impl Layer {
 
     fn copy(&self, source: *mut c_void, target: &Surface) -> Result<(), String> {
         autoreleasepool(|_| {
-            // SAFETY: the device, the queue and the surfaces are live, each message is one that
-            // Metal takes, and the copy ends before this call returns, while CEF's surface is live.
+            // SAFETY: device, queue, and surfaces are valid, selectors match Metal's API, and
+            // `waitUntilCompleted` finishes the blit before CEF reclaims `source`.
             unsafe {
                 let descriptor_class = AnyClass::get(c"MTLTextureDescriptor").ok_or("no Metal")?;
                 let descriptor: Option<Retained<AnyObject>> = msg_send![
@@ -418,8 +411,8 @@ impl Layer {
         }
     }
 
-    /// The layer has the page's size in its points. A picture of that size and scale fills it
-    /// pixel for pixel from its top left; another one, from before a new size, fits into it.
+    /// Uses top-left 1:1 gravity when the surface matches the viewport size and scale, or
+    /// aspect-fit gravity for a stale surface from before a resize.
     fn place(&self, surface: &Surface, size: Size) {
         let scale = f64::from(size.scale);
         let (width, height) = (f64::from(size.width), f64::from(size.height));
@@ -427,8 +420,8 @@ impl Layer {
         let drawn_at_size = (pixels(surface.width) - width * scale).abs() < 1.0
             && (pixels(surface.height) - height * scale).abs() < 1.0;
         transaction(|| {
-            // SAFETY: the root is a live layer, the surface is live, and the gravities are
-            // constants of the framework.
+            // SAFETY: `self.root` and `surface` are valid, and the gravity statics are
+            // QuartzCore constants.
             unsafe {
                 let root = &*self.root;
                 let bounds = CGRect::new(CGPoint::ZERO, CGSize::new(width, height));
@@ -445,7 +438,7 @@ impl Layer {
         });
     }
 
-    /// The host gives the views video once the layer fails.
+    /// Notifies the host to fall back to video streaming.
     fn fail(&mut self, problem: &str) {
         self.tab = None;
         self.link.send(&FromEngine::NoLayer {
@@ -457,19 +450,20 @@ impl Layer {
 
 impl Drop for Layer {
     fn drop(&mut self) {
-        // SAFETY: the context is live; an invalid context shows nothing in the views that host it.
+        // SAFETY: `self.context` is a valid `CAContext`; invalidating detaches hosted views.
         unsafe {
             let _: () = msg_send![&*self.context, invalidate];
         }
     }
 }
 
-/// Without a transaction of its own, Core Animation animates each change of a layer.
+/// Wraps layer updates in a `CATransaction` with actions disabled to suppress implicit
+/// animations.
 fn transaction(change: impl FnOnce()) {
     let Some(class) = AnyClass::get(c"CATransaction") else {
         return change();
     };
-    // SAFETY: the messages are ones that `CATransaction` takes, in this order.
+    // SAFETY: `CATransaction` accepts `begin`, `setDisableActions:`, and `commit` in this order.
     unsafe {
         let _: () = msg_send![class, begin];
         let _: () = msg_send![class, setDisableActions: true];

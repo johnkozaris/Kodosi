@@ -1,100 +1,102 @@
 # Self-hosting
 
-Run the backend with PostgreSQL and an OIDC sign-in service, behind HTTPS. The
-[sign-in theme and its extension](../sign-in/README.md) give Keycloak the look of the apps
-and the mail check by a typed code.
+Run the Kodosi backend with PostgreSQL and an OIDC identity provider behind HTTPS. The
+[sign-in theme and Keycloak extension](../sign-in/README.md) match the apps' visual style and
+replace email verification links with typed codes.
 
-## Sign-in
+## OIDC sign-in
 
-Create a public OIDC client `kodosi-app` with refresh tokens, the scopes
-`openid profile offline_access`, authorization code with PKCE (S256) for the apps, and
-device authorization for the command line. Allow the redirects
-`http://127.0.0.1/callback` on any port (Mac, Linux, Windows) and `com.kodosi:/auth`
-(iPhone, iPad and Android).
+Configure a public OIDC client named `kodosi-app` with:
 
-The issuer's discovery document must give its authorization, device authorization and
-token endpoints on the issuer's origin, over HTTPS (loopback HTTP for development).
-Access tokens must be RS256 or ES256, name the issuer and the audience `kodosi-app`, and
-carry `sub`, an expiry and `auth_time`; deleting an account or starting fresh needs a
-recent sign-in. The backend keys accounts by issuer and subject. Each
-account must also have a `preferred_username` of 3 to 64 characters from `a` to `z`, `0` to
-`9`, `_` and `-` (capital letters become small) that belongs to that account only and never
-changes: it is the person's user name in Kodosi. The backend refuses a sign-in without such
-a name, or with a name that another account has. `name` gives the display name.
+- Refresh tokens enabled and scopes `openid profile offline_access`
+- Authorization code flow with PKCE (`S256`) for the apps
+- Device authorization flow for the CLI
+- Redirect URIs `http://127.0.0.1/callback` on any port (macOS, Linux, Windows) and
+  `com.kodosi:/auth` (iOS and Android)
+
+The issuer's OIDC discovery document must expose authorization, device authorization, and token
+endpoints on the issuer's own origin over HTTPS (loopback HTTP is permitted in development).
+
+Access tokens must be signed with `RS256` or `ES256`, include the issuer, audience `kodosi-app`,
+`sub`, an expiration, and `auth_time` (recent authentication is required to delete an account or
+start fresh). The backend identifies accounts by `(issuer, sub)`. Each account must also have a
+unique, immutable `preferred_username` of 3 to 64 characters using `a-z`, `0-9`, `_`, and `-`
+(uppercase is lowercased); logins missing a valid username or colliding with another account are
+rejected. The `name` claim supplies the display name.
 
 ## Backend
 
-Build with the pinned .NET SDK, or build the image (below). On x86-64 the backend needs
-the x86-64-v2 instructions, also in a virtual machine.
-Use PostgreSQL 15 or later.
-Set:
+Build with the pinned .NET SDK or use the Docker image below. On x86-64 (including VMs), the
+backend requires `x86-64-v2` CPU instructions. Use PostgreSQL 15 or newer.
+
+Set these environment variables:
 
 | Variable | Value |
 | --- | --- |
 | `ConnectionStrings__Kodosi` | PostgreSQL connection string |
 | `Auth__Authority` | OIDC issuer URL |
 | `Auth__Audience` | `kodosi-app` |
-| `ASPNETCORE_URLS` | Listening address |
-| `Proxy__Addresses__0`, `__1`, … | Trusted reverse proxies for forwarded headers |
+| `ASPNETCORE_URLS` | Bind address |
+| `Proxy__Addresses__0`, `__1`, … | Trusted reverse-proxy IPs for forwarded headers |
 
-Run the host once with the argument `migrate`, then start it with no argument;
-`just backend-run` does both. Run one serving instance, and back up the database before
-upgrades. Terminate HTTPS at a reverse proxy that passes WebSockets. `/health/live`
-checks that the process runs, and `/health/ready` checks that it can serve.
+Run the binary once with `migrate`, then start it normally (`just backend-run` does both). Run a
+single backend instance and back up PostgreSQL before upgrading. Terminate HTTPS at a reverse proxy
+that forwards WebSockets. `/health/live` checks process liveness and `/health/ready` checks serving
+readiness.
 
-The backend uses up to 32 pooled database connections plus one more; `Maximum Pool Size`
-in the connection string changes the 32. It logs its load each minute, and the meter
-`Kodosi.Server` gives the same values.
+The backend opens up to 32 pooled database connections plus one dedicated connection (override the
+pool size via `Maximum Pool Size` in the connection string). It logs load metrics every minute and
+exports the same counters under the `Kodosi.Server` meter.
 
-## Apps
+## Pointing clients at your server
 
-The apps and the `kodosi` command use `https://api.kodosi.com` and
-`https://auth.kodosi.com/realms/kodosi` unless their environment sets
-`KODOSI__BACKEND__API` to your backend URL and `KODOSI__AUTH__ISSUER` to your issuer
-URL, each HTTPS (or loopback HTTP) without a query.
+Clients and the `kodosi` CLI default to `https://api.kodosi.com` and
+`https://auth.kodosi.com/realms/kodosi`. Override them by setting `KODOSI__BACKEND__API` and
+`KODOSI__AUTH__ISSUER` to your HTTPS URLs (or loopback HTTP for dev) without query strings.
 
-Two things do not come from your backend. The apps get their updates and Kodosi Browser
-from `updates.kodosi.com`. And when two devices of one person look for a
-[straight connection](SECURITY.md#straight-connections), each asks a STUN server of
-Cloudflare for its public address.
+Two external endpoints remain independent of your backend:
 
-## Account deletion
+- App updates and Kodosi Browser downloads come from `updates.kodosi.com`.
+- When two devices belonging to the same user attempt a
+  [direct connection](SECURITY.md#direct-connections), they query a Cloudflare STUN server to
+  discover their public IP.
 
-With Keycloak, the backend follows account deletions in Keycloak's events. Give it a
-confidential client with only a service account, the `realm-management` role
-`view-events` and the client scope `kc-admin-api`, and set:
+## Account deletion sync
+
+When using Keycloak, the backend can follow account deletions through Keycloak's events. Create a
+confidential client with only a service account enabled, grant it the `realm-management` role
+`view-events` and the `kc-admin-api` client scope, and set:
 
 | Variable | Value |
 | --- | --- |
 | `Auth__AccountDeletion__ClientId` | Client ID |
 | `Auth__AccountDeletion__ClientSecret` | Client secret |
-| `Auth__AccountDeletion__AdminUrl` | Optional Keycloak admin address (HTTPS or loopback HTTP) when the public one refuses `/admin` |
+| `Auth__AccountDeletion__AdminUrl` | Optional Keycloak admin URL (HTTPS or loopback HTTP) if the public URL blocks `/admin` |
 
-The backend asks for `kc-admin-api`, because Keycloak's Admin API accepts only tokens that
-carry it.
+The backend requests `kc-admin-api` because Keycloak's Admin API rejects tokens without that scope.
 
 ## Push notifications
 
-The backend sends a push notification to a person's iPhone, iPad and Android devices when
-one of their terminals starts to wait, finishes or fails while the person uses none of
-their devices. Without these settings it sends none. Set those of Apple, of Google or both. Apple delivers only to the apps of the team
-that owns the key, and Google only to the apps of the Firebase project:
+The backend sends push notifications to iOS and Android devices when a terminal starts waiting,
+finishes, or fails while the user is inactive on all devices. Leave these unset to disable push, or
+configure APNs, FCM, or both. APNs only delivers to apps signed by the team owning the key, and FCM
+only delivers to apps registered in that Firebase project:
 
 | Variable | Value |
 | --- | --- |
-| `Push__Apns__TeamId` | Apple team ID |
-| `Push__Apns__KeyId` | Key ID of the APNs authentication key |
-| `Push__Apns__PrivateKey` | Text of the key's `.p8` file |
-| `Push__Apns__Topic` | Bundle ID of the iPhone and iPad app, `com.kodosi.mobile` |
+| `Push__Apns__TeamId` | Apple Team ID |
+| `Push__Apns__KeyId` | APNs auth key ID |
+| `Push__Apns__PrivateKey` | Contents of the `.p8` private key file |
+| `Push__Apns__Topic` | iOS app bundle ID (`com.kodosi.mobile`) |
 | `Push__Fcm__ProjectId` | Firebase project ID |
-| `Push__Fcm__ServiceAccount` | JSON text of a Google service account that may send Firebase Cloud Messaging messages |
+| `Push__Fcm__ServiceAccount` | JSON credentials for a Google service account authorized to send FCM messages |
 
-A part of either set, or a key that does not load, stops the backend at start.
+Partially configured credentials or an unreadable key will prevent the backend from starting.
 
-## Plans
+## Account plans
 
-The setting `Plans` limits what an account can have, and the column `users.Plan` names
-an account's plan (the default plan otherwise):
+Configure per-account quotas under `Plans`. The `users.Plan` column assigns an account's plan
+(falling back to `Default`):
 
 ```json
 "Plans": {
@@ -108,27 +110,28 @@ an account's plan (the default plan otherwise):
 }
 ```
 
-The limits are `Devices`, `OwnedProjects`, `ProjectPeople` in an owned project (with the
-owner and open invitations), `SharePeople` who can see one of the account's terminals,
-`ProjectBytes` of encrypted data in an owned project, `Friends`, `SentFriendRequests` and
-`ReceivedFriendRequests`. An unset limit keeps the backend's own limit, and the owner's
-plan applies to a project or terminal. Past `ProjectBytes` a project drops its oldest
-messages. A smaller plan removes nothing, recovery is never limited, and a changed
-`users.Plan` applies at once. The backend does not start with a setting that is not
-valid, and names the value that it refuses.
+Supported limits: `Devices`, `OwnedProjects`, `ProjectPeople` (in an owned project, counting the
+owner and pending invites), `SharePeople` (people who can see one of the user's terminals),
+`ProjectBytes` (encrypted storage in an owned project), `Friends`, `SentFriendRequests`, and
+`ReceivedFriendRequests`.
 
-## Bans
+Any omitted field falls back to the backend's built-in limit, and a project or terminal uses its
+owner's plan. Exceeding `ProjectBytes` evicts the project's oldest messages. Moving to a smaller
+plan never deletes existing data, account recovery is never capped, and edits to `users.Plan` take
+effect immediately. Invalid plan config stops startup and logs the offending value.
 
-A user name tells whether its account exists, so the backend limits how many user names
-of strangers an account can try. It bans an account that keeps trying for hours: it ends
-the account's connections and refuses all its requests. The column `users.BannedAt` holds
-the time of the ban; set it to null to remove the ban.
+## Rate limits and bans
 
-## Image
+Because username lookups reveal whether an account exists, the backend rate-limits how many
+unknown usernames an account can probe. Accounts that keep probing over several hours are banned
+automatically: their connections are closed and all requests are rejected. `users.BannedAt` records
+the ban timestamp; clear it to `NULL` to unban an account.
+
+## Container image
 
 ```sh
 just backend-package linux/amd64 registry.example.com/kodosi/backend:1
 ```
 
-This builds the image for one platform, with an optional tag, into your local Docker
-images.
+Builds and loads a single-platform Docker image (with an optional tag) into your local Docker
+daemon.

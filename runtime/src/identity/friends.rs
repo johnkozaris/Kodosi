@@ -81,8 +81,8 @@ impl FriendList {
             .find(|(_, friend)| friend.handle.eq_ignore_ascii_case(handle))
     }
 
-    /// The friend whose new identity a click can trust: one that has a record and was never
-    /// verified. A verified friend proves a new identity with a new invite.
+    /// Returns a recorded friend whose changed identity can be trusted directly. Previously
+    /// verified friends must be re-verified with a new invite instead.
     pub(crate) fn trustable(&self, handle: &str) -> Option<(&String, &Friend)> {
         self.by_handle(handle)
             .filter(|(_, friend)| !friend.verified)
@@ -168,15 +168,13 @@ pub(crate) fn broken() -> Error {
 #[derive(Debug)]
 pub(crate) enum Newest {
     Signed(FriendList, Head, SignedFriendList),
-    /// The device signs its newest trusted list again, on top of a newest list that a removed
-    /// device signed.
+    /// Re-sign the last trusted list on top of a head signed by a revoked device.
     Resign(FriendList, Head),
 }
 
-/// Follows the signed lists of an account in revision order. Each list names the SHA-256 of
-/// the list before it, so a device takes only lists that continue the list it keeps. A list
-/// of an approved device needs its valid signature; the newest list may come from a device
-/// that is not approved only when this device knows that it was removed.
+/// Verifies an account's hash-chained friend list revisions in order. Approved signers must
+/// have a valid signature; an unapproved head is accepted only if the signer is known to be
+/// revoked (in which case `end()` returns `Newest::Resign`).
 pub(crate) struct Chain<'a> {
     user_id: &'a str,
     devices: &'a BTreeMap<String, DeviceCertificate>,
@@ -210,8 +208,8 @@ impl<'a> Chain<'a> {
         self.head.as_ref().map_or(0, |head| head.revision)
     }
 
-    /// Starts from the list that this device keeps, which it trusts even when the device
-    /// that signed it was removed.
+    /// Anchors the chain at the locally stored list, trusting it even if its signer was later
+    /// revoked.
     pub(crate) fn anchor(&mut self, kept: SignedFriendList) -> Result<()> {
         self.step(kept, true)
     }

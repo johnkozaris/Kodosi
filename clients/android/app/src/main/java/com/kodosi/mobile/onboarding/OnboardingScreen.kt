@@ -84,7 +84,8 @@ fun OnboardingScreen(account: AccountStore, openSignIn: (String) -> Unit) {
     val haptics = LocalHapticFeedback.current
     var lastStage by remember { mutableStateOf<SignInStage>(SignInStage.Idle) }
     LaunchedEffect(state.stage) { if (state.stage != SignInStage.SignedIn) lastStage = state.stage }
-    // Once this phone is signed in, the onboarding fades out on the stage that it showed, not on the sign-in card.
+    // Keep showing the previous stage while onboarding fades out after sign-in, instead of
+    // flashing back to the initial Welcome card.
     val shownStage = if (state.stage == SignInStage.SignedIn) lastStage else state.stage
     LaunchedEffect(state.signInPage) { state.signInPage?.let(openSignIn) }
     LaunchedEffect(state.stage is SignInStage.Failed) {

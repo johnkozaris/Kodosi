@@ -31,7 +31,7 @@ if [[ $KODOSI_DOWNLOAD_URL != *"$version"* ]]; then
 fi
 url=$(printf '%s' "$KODOSI_DOWNLOAD_URL" | sed "s/${version//./\\.}/#{version}/g")
 mkdir -p "$(dirname "$output")"
-# No zap stanza: an uninstall keeps the Kodosi data and the device identity of this Mac.
+# Intentionally omit a zap stanza so uninstalling keeps Kodosi data and this Mac's device identity.
 cat >"$output" <<RUBY
 cask "kodosi" do
   version "$version"

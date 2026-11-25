@@ -42,7 +42,7 @@ public:
         std::uint64_t incarnation,
         GhosttyTerminalKernel::Frame frame);
     [[nodiscard]] GhosttyTerminalKernel::Frame take(std::uint64_t incarnation);
-    // Notes output that has no frame yet and says whether a drain must be queued for it.
+    // Marks unmaterialized output pending; returns true if the caller must schedule a drain.
     [[nodiscard]] bool markOutput(std::uint64_t incarnation);
     [[nodiscard]] bool takeOutput(std::uint64_t incarnation);
 
@@ -140,7 +140,8 @@ signals:
     void asksBeforeClipboardReadChanged();
     void otherComputerChanged();
     void frameChanged();
-    // Focus that comes back with the window does not count: the window can come back for another terminal.
+    // Not emitted on window-activation focus restoration, since the window may be activating for a
+    // different terminal.
     void focused();
     void terminalError(QString message);
     void operationError(QString message);
@@ -231,8 +232,8 @@ private:
     QString m_pendingFocusRequestId;
     bool m_focusClaimed = false;
     bool m_focusMovedHere = false;
-    // The focus that waits only gives back the focus that the view had before its connection
-    // came back, which takes no size.
+    // Pending focus request is a reconnect restoration (returning=true) that does not claim resize
+    // ownership.
     bool m_focusReturning = false;
     bool m_terminalReady = false;
     bool m_focusRetryQueued = false;
@@ -244,7 +245,8 @@ private:
     bool m_asksBeforeClipboardRead = true;
     QString m_otherComputer;
     std::deque<QByteArray> m_inputQueue;
-    // The newest pasted pictures, which their files keep until the host has read them.
+    // Temporary files for the most recently pasted images, kept so the host can still read them
+    // after the paste.
     std::deque<std::unique_ptr<QTemporaryFile>> m_pictures;
     void pastePicture(const QMimeData& mime);
     qsizetype m_queuedInputBytes = 0;

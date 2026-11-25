@@ -5,7 +5,7 @@ pub struct KodosiVideoDecoder {
     rgba: Vec<u8>,
 }
 
-/// The last picture. Its pixels stay valid until the next call with this decoder.
+/// Decoded RGBA frame. `rgba` stays valid until the next call on this decoder.
 #[repr(C)]
 pub struct KodosiPicture {
     pub width: u32,
@@ -23,8 +23,8 @@ pub extern "C" fn kodosi_video_decoder_new() -> *mut KodosiVideoDecoder {
     })
 }
 
-/// Decodes one H.264 access unit. Returns 1 with a picture, 0 without one and -1 on a broken
-/// unit.
+/// Decodes one H.264 access unit. Returns 1 if a frame was produced, 0 if no
+/// frame is ready yet, or -1 on error.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn kodosi_video_decoder_decode(
     decoder: *mut KodosiVideoDecoder,
@@ -70,9 +70,9 @@ pub unsafe extern "C" fn kodosi_video_decoder_free(decoder: *mut KodosiVideoDeco
     }
 }
 
-// The engine's encoder writes limited-range BT.601 (Kr 0.299, Kb 0.114), and the stream does not
-// say so. These are the factors of that matrix, with 255/219 for luma and 255/224 for chroma,
-// scaled by 2^13 so that each fits in 16 bits: then the compiler multiplies eight lanes at once.
+// The encoder emits limited-range BT.601 (Kr = 0.299, Kb = 0.114) without color
+// metadata. Coefficients combine 255/219 luma and 255/224 chroma scaling and
+// are scaled by 2^13 so each fits in 16 bits for SIMD auto-vectorization.
 const SHIFT: u32 = 13;
 const ROUND: i32 = 1 << (SHIFT - 1);
 const LUMA: i32 = 9_539;
@@ -82,8 +82,6 @@ const GREEN_FROM_V: i32 = -6_660;
 const BLUE_FROM_U: i32 = 16_525;
 const BLOCK: usize = 32;
 
-/// Writes a YUV 4:2:0 picture as RGBA, each channel rounded to the nearest value. Returns false
-/// when a plane is too short for the picture or `rgba` is not its size.
 fn write_rgba(
     planes: [&[u8]; 3],
     strides: [usize; 3],
@@ -125,10 +123,9 @@ fn write_rgba(
     true
 }
 
-/// A block of fixed size, whose chroma is first spread to each pixel, so that both loops become
-/// vector code.
-// The release build checks each addition for overflow, also the count of `enumerate`, and that
-// check keeps a loop from vector code. The index of a fixed range needs no check.
+// Fixed-size loops over `0..BLOCK` with chroma upsampled up front so both loops
+// auto-vectorize. Release builds enable overflow checks (including `enumerate`),
+// which otherwise prevent vectorization.
 fn write_block(
     pixels: &mut [u8; BLOCK * 4],
     luma: &[u8; BLOCK],

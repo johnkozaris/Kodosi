@@ -58,8 +58,8 @@ public extension ClickedLink {
             }
         }
 
-        /// Alert text breaks long words with hyphens, so the link shows exactly in a box of its
-        /// own.
+        /// NSAlert hyphenates long informative text, so show the exact link in a char-wrapped
+        /// monospace accessory view instead.
         private func alert(_ title: String, _ text: String) -> NSAlert {
             let alert = NSAlert()
             alert.alertStyle = .warning

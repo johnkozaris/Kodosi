@@ -18,7 +18,7 @@ public:
     [[nodiscard]] bool away() const override { return m_locked || m_disconnected || m_displayOff || m_sleeping; }
     void setAwayTime(std::chrono::milliseconds time) override;
 
-    // Called by the window procedure of the hidden window that receives the session and power notices.
+    // Entry point for the hidden top-level window's WndProc.
     void receive(unsigned int message, std::uintptr_t parameter, std::intptr_t detail);
 
 private:

@@ -16,7 +16,7 @@ const RECEIVING_BYTES: usize = 16 * 1024 * 1024;
 const ACK_AFTER: Duration = Duration::from_millis(200);
 const ACK_COUNT: u64 = 32;
 const STALL: Duration = Duration::from_secs(3);
-/// About when a person notices that the keys they typed do not appear.
+/// Delay before flagging unacknowledged traffic as late (about when typing lag is noticed).
 const LATE: Duration = Duration::from_secs(1);
 const RESUME_WAIT: Duration = Duration::from_secs(10);
 const ANSWER_WAIT: Duration = Duration::from_secs(10);
@@ -27,7 +27,7 @@ pub(crate) enum Path {
     Direct,
 }
 
-/// Only the viewer moves a route to a direct lane; either side moves it back to the relay.
+/// Only the viewer initiates promotion to a direct lane; either side may fall back to the relay.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Role {
     Viewer,
@@ -49,11 +49,10 @@ enum Incoming {
     Closed(Option<Error>),
 }
 
-/// The transport of a terminal channel: one ordered stream of whole messages to one device. It
-/// starts on the relay pipe, which stays the anchor of the channel, moves to a direct lane when
-/// the two devices find one, and back when the lane fails, and it loses, repeats and reorders no
-/// message on the way. Each message carries a sequence and acknowledges the other side's, and
-/// after a move each side sends again what the other did not acknowledge.
+/// Reliable, ordered message transport over a relay pipe with seamless failover to/from a direct
+/// QUIC lane. The relay pipe remains the channel anchor; every message carries a sequence number
+/// and cumulative ack so unacknowledged messages replay across path switches without loss,
+/// duplication, or reordering.
 pub(super) struct Route {
     outgoing: mpsc::Sender<Vec<u8>>,
     incoming: mpsc::UnboundedReceiver<Incoming>,
@@ -278,8 +277,6 @@ impl<R: Transport> Actor<R> {
         Ok(())
     }
 
-    /// The other side moved to `from` and has all messages up to `received`: answer there when
-    /// this side did not propose the move, send again what it lacks, and go on there.
     async fn resumed(&mut self, from: Carrier, received: u64) -> Result<()> {
         self.acknowledge(received);
         if self.proposed != Some(from) {
@@ -309,8 +306,6 @@ impl<R: Transport> Actor<R> {
         Ok(())
     }
 
-    /// The lane ended or stopped answering. When the route used it or was moving to it, the
-    /// route goes back to the relay and sends nothing new until the other side answers there.
     async fn lost(&mut self) -> Result<()> {
         self.lane = None;
         let on_lane = self.sending == Carrier::Lane || self.proposed == Some(Carrier::Lane);
@@ -381,8 +376,8 @@ impl<R: Transport> Actor<R> {
         }
     }
 
-    /// The relay pipe carries its messages before its close, and a lane does not, so an ending
-    /// route waits until what it sent on a lane is acknowledged.
+    /// Relay pipes flush in-flight messages on close, but direct lanes may drop them, so closing
+    /// while using a lane waits for pending messages to be acknowledged.
     fn delivers_on_lane(&self) -> bool {
         !self.unacknowledged.is_empty()
             && (self.held || self.sending == Carrier::Lane || self.proposed == Some(Carrier::Lane))
@@ -514,8 +509,8 @@ fn number(rest: &[u8]) -> Result<u64> {
         .map_err(|_| broken())
 }
 
-/// The search for a direct path of one route. The two sides trade their addresses in path frames
-/// inside their channel, so the service never sees them.
+/// Direct-path discovery for a route. Peer addresses are exchanged inside the encrypted channel
+/// so the relay server never sees them.
 pub(super) struct Finder {
     frames: mpsc::Receiver<Frame>,
     side: Side,
@@ -545,8 +540,6 @@ enum Side {
 }
 
 impl Finder {
-    /// A viewer offers its addresses, tries the host's, and tries again later when the lane
-    /// ends. Without `peers`, the route stays on the relay.
     pub(super) fn viewer(
         peers: Option<Arc<Peers>>,
         paths: Paths,
@@ -579,8 +572,6 @@ impl Finder {
         }
     }
 
-    /// A host answers each offer with its addresses and waits for the viewer. Without `peers`,
-    /// it answers with none, and the route stays on the relay.
     #[cfg(feature = "host")]
     pub(super) fn host(
         peers: Option<Arc<Peers>>,
@@ -679,7 +670,7 @@ async fn look(
     let mut changes = peers.changes();
     loop {
         let addresses = peers.addresses().await;
-        // An answer that came after its wait belongs to the offer before.
+        // Drain any late PathAnswer left over from a previous timed-out offer.
         while answers.try_recv().is_ok() {}
         if addresses.is_empty() {
             if changes.changed().await.is_err() {

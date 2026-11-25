@@ -1,7 +1,8 @@
 import Foundation
 import Network
 
-/// The runtime cannot see on iOS that the phone moved to another network, so the app tells it.
+/// Monitors iOS network path changes via `NWPathMonitor` and notifies the runtime, which cannot
+/// observe interface transitions directly on iOS.
 @MainActor
 final class NetworkWatch {
     private let monitor = NWPathMonitor()

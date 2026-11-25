@@ -20,8 +20,7 @@ struct XmlDocument;
 
 namespace kodosi {
 
-// While Kodosi runs, Windows only stages a newer package; it installs the package when
-// Kodosi starts again.
+// Stages MSIX updates in the background; Windows applies the staged package on next launch.
 class PackageUpdate final : public QObject {
     Q_OBJECT
 

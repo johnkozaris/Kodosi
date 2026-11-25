@@ -59,7 +59,7 @@ fn variable(environment: &[(&str, &str)], name: &str) -> Option<OsString> {
         .or_else(|| env::var_os(name))
 }
 
-/// The bash 3.2 of macOS has no PS0.
+// macOS ships bash 3.2, which does not support PS0.
 fn is_macos_system_bash(program: &Path) -> bool {
     cfg!(target_os = "macos") && program == Path::new("/bin/bash")
 }

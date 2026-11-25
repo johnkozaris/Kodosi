@@ -266,9 +266,8 @@ public final class RuntimeHandle: Sendable {
         return Unmanaged<RuntimeHandle>.fromOpaque(ud).takeUnretainedValue()
     }
 
-    /// The runtime calls this callback and the ones below on its own threads, which drain no
-    /// autorelease pool, so each call drains its own; else what Foundation autoreleases there stays
-    /// until the app quits.
+    /// These FFI callbacks run on Rust runtime threads without an autorelease pool, so each wraps
+    /// its body in `autoreleasepool` to avoid leaking autoreleased Foundation objects.
     private static let onEvent: kodosi_event_cb_t = { json, len, ud in
         autoreleasepool {
             guard len <= KODOSI_MAX_FRAME_BYTES, let json, let runtime = resolve(ud) else { return }

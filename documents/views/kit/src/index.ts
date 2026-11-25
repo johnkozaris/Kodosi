@@ -6,7 +6,7 @@ import "./fonts.css";
 export type Kind = "docx" | "xlsx" | "pptx" | "pdf" | "text";
 
 export interface Preferences {
-  /** Without pages, the text of a document fits the width of the view. */
+  /** When false, reflows document text to fit the viewport width instead of paginating. */
   pages?: boolean;
   dark?: boolean;
 }
@@ -19,7 +19,7 @@ const DEFAULTS: Record<Kind, Required<Preferences>> = {
   text: { pages: false, dark: true },
 };
 
-/** CSS variables without their leading dashes, and `scheme`, light or dark. */
+/** CSS custom properties without leading "--", plus optional "scheme" ("light" or "dark"). */
 export type Theme = Record<string, string>;
 
 export interface Options {
@@ -27,16 +27,16 @@ export interface Options {
   theme?: Theme;
   preferences?: Preferences;
   language?: string;
-  /** Runs when the file shows, and each time that the view joins it again. */
+  /** Called after initial load and after each reconnect rejoin. */
   ready?(): void;
-  /** Lays out the whole file for pictures, with no bar and nothing that scrolls. */
+  /** Renders the entire document without a toolbar or scroll container for snapshot capture. */
   render?: boolean;
 }
 
 export interface View {
-  /** Takes a new pipe, at the start and after each lost link. */
+  /** Connects a transport pipe on startup and after each reconnect. */
   attach(pipe: Pipe): void;
-  /** The link is gone. The person can go on, and the edits wait for the next pipe. */
+  /** Marks the transport disconnected; local edits continue and queue until the next attach. */
   detach(): void;
   selection(): string;
   restyle(theme: Theme): void;
@@ -46,7 +46,6 @@ export interface View {
 type FileEditor = Editor & Pictures & { selection(): string };
 type EditorFactory = (element: HTMLElement, client: Client) => FileEditor;
 
-/** Each format's code loads only when a file of that format opens. */
 async function factoryOf(kind: Kind): Promise<EditorFactory> {
   switch (kind) {
     case "docx":
@@ -62,7 +61,7 @@ async function factoryOf(kind: Kind): Promise<EditorFactory> {
   }
 }
 
-/** Pictures of a file show it as it is, so they take no choices. */
+// Snapshot rendering ignores user preferences so captured pages stay canonical.
 function setPreferences(
   element: HTMLElement,
   options: Options,
@@ -138,7 +137,7 @@ function bytesOf(data: string): Uint8Array {
   return bytes;
 }
 
-/** A view in a native app, whose pipe carries each frame as Base64 text. */
+/** Bridge entry point for native app webviews, transporting binary frames as Base64 strings. */
 function hosted(options: Options, post: (frame: string) => void) {
   const element = document.body.appendChild(document.createElement("div"));
   if (!options.render) element.style.height = "100vh";

@@ -20,7 +20,8 @@ pub(crate) const PIPE_PART: usize = 32 * 1024;
 pub(crate) const MOST_DIRECT_ADDRESSES: usize = 16;
 #[cfg(feature = "host")]
 pub(crate) const OUTPUT_FRAME: usize = 32 * 1024;
-/// A picture part fills a frame of 32 KiB, as output does, so it needs no padding.
+/// Sized so header + 16-byte UUID + 8-byte offset + payload fills a 32 KiB frame exactly, as
+/// output does, so it needs no padding.
 pub(crate) const PICTURE_PART: usize = 32 * 1024 - HEADER - 24;
 const CALL_REQUEST: usize = 64 * 1024;
 const CALL_ANSWER: usize = 512 * 1024;
@@ -83,7 +84,7 @@ pub(crate) enum PictureStep {
 pub(crate) struct PictureState {
     pub id: Uuid,
     pub received: u64,
-    /// When the host had them: microseconds since it asked for the parts.
+    /// Host timestamp in microseconds since the host requested the picture parts.
     pub at: u64,
     pub step: PictureStep,
     #[serde(default, skip_serializing_if = "Option::is_none")]

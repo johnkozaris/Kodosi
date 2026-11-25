@@ -86,7 +86,6 @@ public final class TerminalSessionManager {
         self.onFocusResult = onFocusResult
     }
 
-    /// Each terminal takes the style that the app gives its look now.
     public func restyle() {
         for (sessionId, managed) in sessions {
             managed.renderer.setStyle(style(look(of: sessionId)))
@@ -301,7 +300,7 @@ public final class TerminalSessionManager {
         resizeViewport(viewport, sessionId: sessionId, surfaceGeneration: managed.renderer.nativeSurfaceGeneration)
     }
 
-    /// A terminal that has the size of this view needs no note that another view sizes it.
+    /// Clears the "resized by another view" notice once the host size matches this viewport.
     func noteHostSize(_ host: TerminalViewport, sessionId: String, token: TerminalConnectionToken) {
         guard resizeNotesBySession[sessionId] != nil,
               let managed = sessions[sessionId], managed.token === token,

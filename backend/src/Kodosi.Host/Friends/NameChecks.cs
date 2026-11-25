@@ -5,9 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.Friends;
 
-/// A user name tells whether its account exists, so an account can try only a few names of
-/// people that it has no friendship or request with: a burst, then one each interval. An
-/// account that is refused in many intervals in a row is banned; a burst of refusals counts once.
+// Rate-limits lookups of unrelated usernames to prevent account enumeration: allows an initial
+// burst followed by one check per interval, and bans accounts rejected across too many consecutive
+// intervals (counting multiple rejections in one interval once).
 public sealed class NameChecks(KodosiDbContext db, ConnectionDirectory connections, DeviceSessions deviceSessions, TimeProvider clock)
 {
     public const int Burst = 20;

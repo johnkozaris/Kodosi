@@ -54,7 +54,8 @@ public struct CanvasDock: View {
                         .transition(.scale(scale: 0.7).combined(with: .opacity))
                 }
             }
-            // Under all keys, as the iPhone lifts the chosen key over the key that it slides from.
+            // Drawn in the container background so the sliding highlight stays behind every key:
+            // the iPhone lifts the chosen key over the key that it slides from.
             .background {
                 if let chosen, sections.contains(chosen) {
                     RaisedBackground(shape: Capsule(), fill: theme.colors.raised, elevation: .resting)
@@ -107,8 +108,8 @@ public struct CanvasDock: View {
         tellings += 1
     }
 
-    /// The chosen key always shows its close key, so that its size never follows the pointer: the
-    /// key that was left after a close flickered under a pointer that stood still.
+    /// Always shows the close button on the selected key so its width never follows the pointer;
+    /// otherwise the key left after a close flickered under a stationary pointer.
     private func key(_ section: CanvasSection, canvas: KodosiBridge.Canvas?) -> some View {
         let selected = section == chosen
         let closing = close != nil && (selected || pointed == section)
@@ -136,8 +137,8 @@ public struct CanvasDock: View {
             .appTextStyle(.footnote).fontWeight(.medium)
             .padding(.leading, words == nil ? 7 : 9).padding(.trailing, (words == nil ? 7 : 11) + (closing ? 16 : 0))
             .frame(minWidth: 26).controlHeight(24)
-            // A label fades out where it was, outside its key once the key is narrower, and at the end
-            // of the dock over the add key. The news dot is not clipped, as its ring reaches beyond the key.
+            // Clip the label inside the shrinking pill as it fades out, before adding the unread
+            // dot overlay whose pulse ring extends outside the bounds.
             .clipped()
             .background { Color.clear.matchedGeometryEffect(id: section, in: thumb) }
             .wash(trigger: newest, radius: 12)
@@ -166,7 +167,7 @@ public struct CanvasDock: View {
             }
         }
         .modifier(CloseMenu(close: close.map { close in { close(section) } }))
-        // As the label, a close key fades out inside its key. A clip leaves its touch target as it is.
+        // Clips the fading close button inside the pill without shrinking its touch target.
         .overlay {
             ZStack(alignment: .trailing) {
                 if closing, let close {
@@ -187,7 +188,7 @@ public struct CanvasDock: View {
             }
         }
         #if os(iOS)
-        // The touch target of the next key reaches back over the end of this one, where the close key is.
+        // Raise above the next key so its expanded touch target does not cover this close button.
         .zIndex(closing ? 1 : 0)
         #endif
     }
@@ -243,7 +244,7 @@ public struct CanvasDock: View {
     }
 }
 
-/// Closes a part from the menu of its key too, for a touch screen that has no pointer.
+/// Adds a context-menu close action so touch devices without hover can close inactive sections.
 private struct CloseMenu: ViewModifier {
     let close: (() -> Void)?
 

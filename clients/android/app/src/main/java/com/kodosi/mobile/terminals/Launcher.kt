@@ -71,7 +71,6 @@ data class FolderList(
 
     fun child(name: String): String = path.trimEnd('/', '\\') + separator + name
 
-    /** A folder of the person's home shows from the home, as a shell writes it. */
     fun shown(folder: String): String {
         val start = home.trimEnd('/', '\\') + separator
         return when {

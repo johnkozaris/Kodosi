@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use ts_rs::TS;
 
-/// Views and the CLI with another number cannot join.
+/// Protocol version required to join a live document; mismatched clients are rejected.
 pub const CONTRACT: u32 = 3;
 
 const JSON_FRAME: u8 = 0;
@@ -18,7 +18,7 @@ const MOST_UNPACKED: u64 = 256 * 1024 * 1024;
 pub type Rev = u64;
 pub type Seq = u64;
 
-/// Each view of one person has the same `id`.
+/// Identifies a user across multiple open views (`id` is shared by all views of the same user).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Viewer {
     pub id: String,
@@ -38,8 +38,8 @@ pub enum ToDocument {
         client: String,
         epoch: u64,
         rev: Rev,
-        /// The client sent no batch yet and has none on its way, so a document that does not
-        /// know it took nothing from it.
+        /// True when the client has never sent a change batch and has none in flight, so an
+        /// unknown client ID implies no prior changes were accepted.
         fresh: bool,
     },
     Change {
@@ -47,7 +47,7 @@ pub enum ToDocument {
         base: Rev,
         body: Value,
     },
-    /// Where the person is, as the document was at `rev`.
+    /// Cursor or selection state as of `rev`.
     Place {
         rev: Rev,
         body: Value,
@@ -56,8 +56,7 @@ pub enum ToDocument {
         id: u64,
         body: Value,
     },
-    /// Who else is here and where, in the words of `read`. The answer is a list of names and
-    /// places.
+    /// Requests connected peers and their selections in the format returned by `read`.
     People {
         id: u64,
     },
@@ -73,8 +72,8 @@ pub struct Changed {
     pub body: Value,
 }
 
-/// `person` is the viewer's id, the same in each view of them, and `place` is where they are as
-/// the document is now.
+/// `person` is the `Viewer::id` shared across a user's views; `place` is mapped to the current
+/// revision.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct Peer {
@@ -98,19 +97,18 @@ pub enum Catchup {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub enum RefusedReason {
-    /// Move the change across what came first and send it again, or read again.
+    /// Transform the change past intervening revisions and retry, or re-read.
     Behind,
-    /// Load again.
+    /// Change is invalid against the current document; reload.
     Invalid,
 }
 
-/// Views of another contract read why they could not join, so these names stay.
+/// Wire variant names are kept stable so clients on other protocol versions can still parse join
+/// rejections.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub enum ClosedReason {
-    /// Update this app.
     ClientOutdated,
-    /// Update the app on the computer with the file.
     HostOutdated,
     Removed,
     Failed,
@@ -129,8 +127,8 @@ pub enum ToClient {
         can_edit: bool,
         epoch: u64,
         rev: Rev,
-        /// The last batch of this client that the document took, and none when the document does
-        /// not know the client, so that it cannot tell whether it took the batch on its way.
+        /// Last accepted sequence number for this client, or `None` if the client is unknown and
+        /// in-flight batch status cannot be determined.
         seq: Option<Seq>,
         peers: Vec<Peer>,
         catchup: Catchup,
@@ -163,7 +161,6 @@ pub enum ToClient {
 
 pub type Hash = [u8; HASH_BYTES];
 
-/// The bytes in lowercase hexadecimal, as an asset or a short hash goes in a snapshot.
 pub fn hex(bytes: &[u8]) -> String {
     const DIGITS: &[u8; 16] = b"0123456789abcdef";
     let mut text = String::with_capacity(bytes.len() * 2);
@@ -174,7 +171,6 @@ pub fn hex(bytes: &[u8]) -> String {
     text
 }
 
-/// The hash that [`hex`] wrote.
 pub fn hash_from_hex(text: &str) -> Option<Hash> {
     let (pairs, []) = text.as_bytes().as_chunks::<2>() else {
         return None;
@@ -188,8 +184,7 @@ pub fn hash_from_hex(text: &str) -> Option<Hash> {
     Some(hash)
 }
 
-/// One frame of a pipe: JSON, gzip JSON when it is large, or the raw bytes of an asset.
-/// An asset frame with no bytes asks for that asset.
+/// An empty `Asset` payload requests that asset by hash from the host.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Frame<T> {
     Message(T),
@@ -282,8 +277,8 @@ mod tests {
         found
     }
 
-    /// The views build with the committed files, so a stale one is written again here and
-    /// fails the check, for the same commit to take it.
+    /// The views build from the committed generated files, so a stale file is rewritten here and
+    /// the test fails, so that the same commit includes the fresh one.
     #[test]
     fn the_views_have_the_contract_and_its_number_from_here() {
         let fresh = std::env::temp_dir().join(format!("document-contract-{}", std::process::id()));

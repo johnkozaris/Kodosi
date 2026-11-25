@@ -33,7 +33,7 @@ interface Snapshot {
 class PlainEditor implements ViewEditor, Pictures {
   private readonly client: Client;
   private view: EditorView | undefined;
-  /** The state of a view that a failed load took away, with the steps that still wait. */
+  // Preserves the previous state (and its unsent steps) across a failed load retry.
   private unloaded: EditorState | undefined;
   private readonly bar: Bar;
   private readonly status: Status;
@@ -228,10 +228,8 @@ class PlainEditor implements ViewEditor, Pictures {
     if (own && this.placeWaits) this.sendPlace();
   }
 
-  /**
-   * The place goes as the text is at the client's rev. While this copy's steps wait for their
-   * answer, it differs from that rev, so the place waits too.
-   */
+  // Selection positions must match the client's confirmed rev, so defer reporting while local
+  // steps are awaiting acknowledgement.
   private sendPlace(): void {
     const state = this.view?.state;
     if (!state) return;

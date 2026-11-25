@@ -1,5 +1,5 @@
-//! A person's terminals share one browser, so a driver sees only the tabs of its own window, and
-//! the commands that would change the browser for every window get their answer here.
+//! Scopes a CDP driver connection to a single window's tabs within the shared browser process,
+//! intercepting or rejecting browser-wide commands.
 
 use std::{
     borrow::Cow,
@@ -22,17 +22,16 @@ use tokio_tungstenite::tungstenite::Message;
 
 use crate::{engine::Engine, link::ToEngine, socket};
 
-/// A driver keeps one connection while it works, so more are left over from earlier drivers.
+/// Active drivers hold one connection, so excess ones are stale and evicted oldest-first.
 const MOST_DRIVERS: usize = 8;
 const MOST_OPENING: usize = 8;
 const MOST_ASKED: usize = 1024;
 const MOST_HELD: usize = 256;
 const HOLD_LIMIT: Duration = Duration::from_secs(5);
 const BLANK: &str = "about:blank";
-/// The host attaches to each tab itself, because CEF's browser-wide auto-attach holds back the
-/// pages that a page opens, and it keeps the downloads of every window in one place.
+/// Intercepted and acknowledged locally: CEF's browser-wide auto-attach pauses popup pages
+/// (so the host attaches per tab), and download routing is managed centrally across windows.
 const ANSWERED: [&str; 2] = ["Target.setAutoAttach", "Browser.setDownloadBehavior"];
-/// Commands that would end the browser or reach past the windows.
 const REFUSED: [&str; 6] = [
     "Browser.close",
     "Browser.crash",
@@ -44,8 +43,8 @@ const REFUSED: [&str; 6] = [
 
 const PATH: &str = "/devtools/browser";
 
-/// Where a driver reaches the tabs of its window, and the authorization that it shows there.
-/// The token is not a part of the address, because a driver prints the address of its browser.
+/// The token is sent via the `Authorization` header rather than the URL because drivers
+/// commonly log the WebSocket address.
 #[derive(Clone)]
 pub struct Driver {
     address: String,
@@ -57,14 +56,14 @@ impl Driver {
         &self.address
     }
 
-    /// The value of the `Authorization` header of the driver's WebSocket handshake.
+    /// Full `Authorization` header value (`Bearer ...`) for the WebSocket handshake.
     pub fn authorization(&self) -> &str {
         &self.authorization
     }
 }
 
-/// Only a driver that shows the token opens the driver port, so a page that finds the port gets
-/// nothing.
+/// Accepts only drivers that present the token, so a web page that finds the driver port gets
+/// nothing from it.
 pub(crate) struct Listener {
     tcp: TcpListener,
     driver: Driver,
@@ -223,7 +222,6 @@ enum Ask {
     Pass,
     Show(String),
     Answer(String),
-    /// The engine answers the dialog of this tab, and the view answers the driver.
     Dialog {
         target: String,
         accept: bool,
@@ -247,7 +245,7 @@ enum Tell {
 enum Whose {
     Ours,
     Theirs,
-    /// The engine has not placed it yet, or it is no tab.
+    /// Not yet assigned to a window by the engine, or not a tab.
     Unknown,
 }
 
@@ -283,13 +281,13 @@ struct Head<'a> {
 
 struct View {
     window: i64,
-    /// Tabs that this driver opened, before the engine places them.
+    /// Tabs opened by this driver before the engine reports their window.
     opened: HashSet<String>,
-    /// Targets that the driver knows of.
+    /// Targets already announced to the driver.
     told: HashSet<String>,
     sessions: HashMap<String, String>,
     asked: HashMap<u64, Asked>,
-    /// News of pages that are not placed yet, in their order.
+    /// Target events buffered in order until the engine assigns their window.
     held: VecDeque<Held>,
 }
 
@@ -305,8 +303,8 @@ impl View {
         }
     }
 
-    /// A tab of this window, a tab that this driver opened, or a frame or worker of one of its
-    /// sessions is the driver's own.
+    /// Checks `sessions` as well as `place` so child frames and workers attached under a tab's
+    /// session are recognized even though the engine only maps top-level tabs.
     fn whose(&self, target: &str, place: impl Fn(&str) -> Option<i64>) -> Whose {
         if self.opened.contains(target) || self.sessions.values().any(|own| own == target) {
             return Whose::Ours;
@@ -528,7 +526,7 @@ impl View {
         }
     }
 
-    /// The active tab comes first, because a driver takes the first page when it starts.
+    /// Places the active tab first because CDP drivers pick the first page on startup.
     fn targets(
         &mut self,
         text: &str,

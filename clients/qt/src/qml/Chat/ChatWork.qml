@@ -5,7 +5,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import Kodosi.Models 1.0 as Models
 
-// The line is there from the first step, so that a person can open a step while it runs.
+// Render the collapsible work row from the first step so the user can inspect running steps.
 Column {
     id: root
 

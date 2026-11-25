@@ -17,11 +17,10 @@ const ANCHOR: u8 = 2;
     rename_all_fields = "camelCase"
 )]
 pub(crate) enum ToWindow {
-    /// A viewer whose decoder takes an anchor after frames that it missed says so. A view that
-    /// a person opened by an act on its device says so too; one that only comes back on the
-    /// screen, or joins again after a lost link, does not. A view that can host the page's Core
-    /// Animation layer says so, and gets the layer in place of the video when it runs on the
-    /// browser's own computer.
+    /// Initial handshake from a viewer:
+    /// - `anchors`: decoder supports anchor-frame recovery after dropped frames.
+    /// - `opened`: user explicitly opened the view (false on reconnect or visibility resume).
+    /// - `layer`: client can host the Core Animation layer instead of video when local.
     Watch {
         size: Size,
         #[serde(default)]
@@ -43,7 +42,7 @@ pub(crate) enum ToWindow {
     },
 }
 
-/// Positions are in the CSS pixels of the page.
+/// Pointer coordinates are in page CSS pixels.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(
     tag = "kind",
@@ -134,8 +133,8 @@ pub(crate) enum KeyAction {
     Up,
 }
 
-/// The data is H.264 in Annex B form. A delta frame depends on the frame before it, so a viewer
-/// that missed one goes on at the next key frame or anchor.
+/// Annex B H.264 video frame. A delta frame depends on the one before it, so a viewer that
+/// missed one resumes at the next keyframe or anchor.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Frame {
     pub(crate) id: u32,

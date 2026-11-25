@@ -109,7 +109,6 @@ fn mark_names(node: &Value) -> Vec<&str> {
     })
 }
 
-/// A picture that names the relationship rId9 of `with_picture`.
 fn drawing(id: u32) -> String {
     format!(
         concat!(
@@ -995,9 +994,9 @@ fn a_person_or_an_agent_cannot_send_the_pieces_that_only_a_merge_brings() {
     assert!(Docx::sendable(&merge).is_err());
 }
 
-/// The view checks a paste against what the file takes before it sends it, so it takes those
-/// rules from here. It builds with the committed file, so a stale one is written again here and
-/// fails the check, for the same commit to take it.
+/// Keeps `writable.ts` in sync so the view validates pastes with the same limits and image
+/// signatures as the writer. The view builds from the committed file, so a stale one is
+/// rewritten here and the test fails, so that the same commit includes the fresh one.
 #[test]
 fn the_view_has_what_the_file_takes_from_here() {
     let starts: Vec<&[u8]> = crate::write::PICTURES

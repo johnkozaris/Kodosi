@@ -35,7 +35,7 @@ private let notes = CanvasItem(key: "notes.txt", name: "notes.txt", kind: .docum
     }
     let store = CanvasStore(commands: commands)
     let link = store.document(notes, in: "01992e43-53db-7040-8e02-f6ebf4149b28")
-    // This test gives the pipe its events on the main actor.
+    // All document events in this test are delivered on MainActor.
     nonisolated(unsafe) var news: [DocumentLink.News] = []
     nonisolated(unsafe) var frames = 0
     link.onNews = { news.append($0) }

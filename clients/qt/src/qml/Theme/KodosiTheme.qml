@@ -93,8 +93,8 @@ QtObject {
         return name === "light" ? lightLook : darkLook
     }
 
-    // The outline of a rounded rectangle with Apple's continuous corners, as SVG path data.
-    // Each corner bends from 1.53 radii along one edge to 1.53 radii along the next.
+    // SVG path for an Apple-style continuous-corner rounded rectangle (each corner spans ~1.53r
+    // along each adjacent edge).
     function squircle(x: real, y: real, width: real, height: real, radius: real): string {
         const r = Math.max(0, Math.min(radius, Math.min(width, height) / 3.05732966))
         const curve = [[1.52866483, 0], [1.08849323, 0], [0.86840689, 0.02189748], [0.66993427, 0.065496],

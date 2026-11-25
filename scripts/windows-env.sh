@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Git Bash may run emulated and see AMD64, so read the system's architecture.
+# Git Bash may run under x64 emulation and report AMD64, so read the native OS architecture.
 kodosi_windows_arch() {
     case "$(reg query 'HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' //v PROCESSOR_ARCHITECTURE |
         awk '$1 == "PROCESSOR_ARCHITECTURE" { print $3 }' | tr -d '\r')" in

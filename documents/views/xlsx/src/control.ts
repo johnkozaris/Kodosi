@@ -135,7 +135,7 @@ export class SheetControl {
     this.setStyle("ff", font);
   }
 
-  /** A color as `#RRGGBB`, or null for the automatic one. */
+  /** Accepts `#RRGGBB`, or null to reset to the automatic color. */
   setColor(color: string | null): void {
     this.setStyle("cl", { rgb: color });
   }
@@ -186,8 +186,9 @@ export class SheetControl {
   }
 
   /**
-   * Where a function goes and what it counts: under each column of a block, after a row, or in
-   * one cell with the numbers right above it or right before it.
+   * Computes AutoSum-style target cells and source ranges: below each column for multi-row
+   * selections, to the right for single-row ranges, or in the active cell over contiguous numbers
+   * immediately above (or to the left).
    */
   private functionPlaces(): { row: number; column: number; source: string }[] {
     const sheet = this.sheet();

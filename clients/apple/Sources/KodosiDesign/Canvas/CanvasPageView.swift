@@ -20,9 +20,9 @@ public struct CanvasAsk {
     }
 }
 
-/// A page runs its own scripts in a closed frame, but it reaches no network, no files and no
-/// storage that stays. Each page view has a frame of its own, so no web page ever shows in two
-/// places at once.
+/// Displays an HTML canvas page in a sandboxed WebView with no network, file, or persistent
+/// storage access. Each view owns its own `CanvasFrame` because a `WebPage` cannot be shown in
+/// two views simultaneously.
 public struct CanvasPageView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.theme) private var theme
@@ -85,8 +85,8 @@ public struct CanvasPageView: View {
         .animation(theme.motion.snappy, value: frame.selection)
     }
 
-    /// Above the words with a pointer; under them on a touch screen, where the system's menu is
-    /// above.
+    /// Places the action pill above the selection on macOS and below it on iOS to avoid the
+    /// system edit menu.
     private static func place(of words: CGRect) -> CGFloat {
         #if os(iOS)
             words.maxY + 26
@@ -148,7 +148,7 @@ final class CanvasFrame {
     nonisolated static let scheme = "kodosi-canvas"
     nonisolated static let policy = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; "
         + "font-src data:; media-src data: blob:; form-action 'none'; base-uri 'none'"
-    /// Kodosi's own scripts run in a world of their own, which the page's scripts cannot reach.
+    /// Isolated `WKContentWorld` for Kodosi's injected scripts, unreachable from page JavaScript.
     nonisolated static let world = "kodosi"
     nonisolated static let watch = """
     (() => {
@@ -199,8 +199,8 @@ final class CanvasFrame {
         }
     }
 
-    /// WebKit keeps a content controller that has a message handler, and each handler with what it
-    /// holds, after the page ends.
+    /// WebKit retains `WKUserContentController` and its script message handlers past `WebPage`
+    /// teardown unless explicitly removed.
     isolated deinit {
         scripts.removeAllScriptMessageHandlers()
     }
@@ -246,10 +246,10 @@ private final class SelectionWatcher: NSObject, WKScriptMessageHandler {
     }
 }
 
-/// A page's scripts can click its links, and WebKit does not tell the app who clicked. So a link
-/// opens only after a click, a tap or a key other than Escape of the person in the same page,
-/// which no script can make, within the time that WebKit gives such a gesture, and one link for
-/// each gesture.
+/// Prevents untrusted page scripts from programmatically opening external links. WebKit does not
+/// distinguish script-triggered clicks in navigation delegates, so we record `event.isTrusted`
+/// user gestures (excluding Escape) in an isolated content world and allow at most one link
+/// navigation per gesture within `gestureLasts`.
 @MainActor
 final class CanvasLinks: NSObject, WKScriptMessageHandler {
     private static let gestures = """

@@ -1,6 +1,6 @@
-//! PDF files. The view draws pages, and notes and form values are fields. A save appends them as
-//! an incremental update, so each byte of the file stays. The server does page work, and a
-//! redaction rewrites the file, so the removed words stay nowhere.
+//! PDF format support. Annotations and form values are saved via incremental updates to preserve
+//! existing bytes, while page operations run on the host; redactions perform a full rewrite so
+//! removed content cannot survive in prior revisions.
 
 mod model;
 mod ops;

@@ -44,14 +44,13 @@ public:
         QString key;
     };
 
-    // `started` is when the app started, in milliseconds since 1970: a show from before opens nothing.
+    // Launch timestamp (epoch ms); canvas updates older than this do not auto-open.
     CanvasModel(CommandDispatcher& commands, SessionCatalogModel& sessions,
         quint64 started = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch()), QObject* parent = nullptr);
 
     [[nodiscard]] int revision() const { return m_revision; }
-    // What Settings › Browser shows: the last status of this computer, the part of a download of
-    // Kodosi Browser from 0 to 100 or -1, the step that runs, by the source's name, "engine",
-    // "forget" or "clear", and what each step did.
+    // Browser settings state: browserGetting is download progress (0 to 100, or -1 when idle);
+    // browserWork holds the active operation key (a source name, "engine", "forget", or "clear").
     [[nodiscard]] bool browserKnown() const { return m_browserKnown; }
     [[nodiscard]] QStringList browserSources() const { return m_browserSources; }
     [[nodiscard]] int browserSites() const { return m_browserSites; }
@@ -183,13 +182,10 @@ private:
     QHash<QString, QString> m_picks;
     QHash<QString, QString> m_lastFiles;
     QHash<QString, QHash<QString, quint64>> m_closed;
-    // The time of the newest show of each terminal's agent that this device acted on, or the start
-    // of the app.
+    // High-water timestamps (epoch ms) of handled agent-open and canvas-change marks per session.
     QHash<QString, quint64> m_opened;
-    // The same for the changes of each canvas.
     QHash<QString, quint64> m_noticed;
-    // The terminals whose canvas a person closed on this device since it last opened or its agent
-    // last showed something.
+    // Sessions whose canvas the user explicitly closed, cleared on reopen or a new agent show.
     QSet<QString> m_shut;
     quint64 m_started = 0;
     QSet<QString> m_opening;
@@ -206,7 +202,7 @@ private:
     int m_browserSites = 0;
     QString m_browserEngine;
     int m_browserGetting = -1;
-    // The engine before a person's check for a newer one, until the status after it.
+    // Previous browser engine version saved during an update check to detect "Up to date".
     std::optional<QString> m_browserChecked;
     QString m_browserStatusRequest;
     QString m_browserStepRequest;

@@ -19,8 +19,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import kotlin.math.floor
 
-/** The card stays light in both appearances, as a printed code does, so that each camera reads its
- *  dark modules. */
+// Always use light mode so QR codes stay dark-on-light for reliable camera scanning.
 @Composable
 fun ScanCodeCard(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
     KodosiTheme(dark = false) {

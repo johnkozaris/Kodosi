@@ -179,7 +179,7 @@ fun Modifier.groundBackdrop(colors: KodosiColors): Modifier = drawWithCache {
     }
 }
 
-/** The shadow falls on the ground of [colors]; the body and its edge have the terminal's own [look]. */
+// Uses [colors] for the outer shadow on the app surface and [look] for the terminal's own theme.
 fun Modifier.terminalTile(colors: KodosiColors, radius: Dp = Radius.tile, look: KodosiColors = colors): Modifier {
     val shape = RoundedCornerShape(radius)
     return dropShadow(

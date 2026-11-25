@@ -30,8 +30,8 @@ pub(crate) struct Found {
     pub saved_hash: Option<Hash>,
 }
 
-/// A copy of the file as it was opened, and each change since. It lives in the host's state
-/// folder, only the user can read it, and a clean close deletes it.
+/// Per-document crash recovery log storing the initial file and appended changes under a
+/// user-only (`0700`) state directory; removed on clean close.
 pub(crate) struct Journal {
     folder: PathBuf,
     records: Option<std::fs::File>,
@@ -55,8 +55,8 @@ fn open_records(folder: &Path) -> io::Result<std::fs::File> {
         .open(folder.join(RECORDS))
 }
 
-/// The meta goes first: a folder without it is no journal, whatever a crash or a failure leaves of
-/// the rest.
+/// Remove `meta.json` first so the directory is immediately invalidated as a journal even if
+/// removing the remaining files fails or crashes midway.
 fn discard(folder: &Path) -> io::Result<()> {
     if let Err(problem) = std::fs::remove_file(folder.join(META))
         && problem.kind() != io::ErrorKind::NotFound
@@ -103,7 +103,7 @@ impl Journal {
         })
     }
 
-    /// A torn last record is a change that nobody heard of, so it goes.
+    /// Truncates any torn trailing record, since a change is never broadcast until synced.
     pub(crate) fn find(folder: &Path, path: &Path) -> Option<(Self, Found)> {
         let meta: Meta = serde_json::from_slice(&std::fs::read(folder.join(META)).ok()?).ok()?;
         if meta.path != path {
@@ -253,9 +253,9 @@ mod tests {
         assert_eq!(found.records, [b"whole".to_vec(), b"next".to_vec()]);
     }
 
-    /// On APFS, which lists by a hash of the name, `zk` comes after the records and before the
-    /// rest, and `pc` before them all, so a folder of that name that cannot go stops a removal
-    /// there.
+    /// On APFS (which iterates directory entries by name hash), `zk` sorts between `records` and
+    /// the other files while `pc` sorts before all of them, letting a read-only directory simulate
+    /// a partial `remove_dir_all` failure at those points.
     #[cfg(unix)]
     fn stuck(folder: &Path, name: &str) -> PathBuf {
         use std::os::unix::fs::PermissionsExt as _;

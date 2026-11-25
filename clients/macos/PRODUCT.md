@@ -1,33 +1,50 @@
 # Kodosi for macOS
 
-[PRODUCT.md](../../PRODUCT.md) has the shared intent and [DESIGN.md](DESIGN.md) the
-visual system. This app is the reference for the desktop: the Linux and Windows app
-follows it.
+See [PRODUCT.md](../../PRODUCT.md) for shared product decisions and [DESIGN.md](DESIGN.md) for
+the visual system. The macOS app is the desktop reference client; the Linux and Windows app
+matches its behavior.
 
-- **One window.** A sidebar lists the terminals by computer and folder, then the
-  terminals of friends, and the projects. The stage beside it shows the open terminals
-  as a grid or one at a time. Go to finds every terminal, project, person and action
-  from the keyboard.
-- **The launcher is the terminal about to open.** It chooses the computer, the folder,
-  the agent with its account and choices, and a first prompt. Each agent keeps its
-  choices for the next terminal, and Settings changes them too. Quick Terminal, Same
-  Agent and the + of a folder open a terminal without it.
-- **A terminal's header holds its actions.** They start an agent or change the running
-  one, share the terminal, open its canvas and rename it.
-- **The screen and the chat are two views of a terminal.** A terminal opens on the view
-  where its agent works, the header switches between them, the screen stays live while the
-  chat shows, and the model of the agent changes from either.
-- **The canvas opens beside its terminal.** It can take the stage while the terminal
-  stays live in its corner.
-- **A project keeps its conversation beside its work:** its terminals, tasks and
-  repositories.
-- **Dosi lives in the sidebar,** which widens for the conversation. A question about a
-  terminal also shows on that terminal.
-- **Keys.** The app's keys are Ghostty's for the actions that both have, and Settings
-  changes each one. Every other key goes to the program in the terminal.
-- **Permissions.** The programs in a terminal have the macOS permissions that the person
-  gives Kodosi, as in any terminal app. Settings shows them and asks macOS for them.
-- **Provider conversations.** The app previews an agent's saved conversations without
-  changing them, and resumes one in a new terminal through the provider's own CLI.
-- **Trust.** Before a person adds or accepts a friend, the app asks them to stop and
-  read, because a friend can type in each terminal that is shared with them.
+## Window and navigation
+
+The app lives in a single window. A sidebar lists your terminals grouped by computer and folder,
+followed by shared terminals from friends, and then projects. The main stage renders open
+terminals as a grid or one at a time. A keyboard command palette (**Go to**) jumps to any
+terminal, project, person, or action.
+
+## Starting and controlling terminals
+
+The launcher represents the terminal about to open: choose the host computer, folder, agent
+(along with its account and options), and an optional first prompt. Each agent remembers its last
+options for the next launch, and you can edit those defaults in Settings. Quick Terminal, Same
+Agent, and a folder's `+` button bypass the launcher to open a terminal immediately.
+
+Each terminal's header holds its controls: start an agent or adjust the running one, share the
+terminal, toggle its canvas, and rename it.
+
+A terminal supports both a terminal screen view and a chat view. It opens in whichever view its
+agent works in, the header switches between them, the terminal screen stays live while chat is
+shown, and you can switch the agent's model from either view.
+
+## Canvas, projects, and Dosi
+
+The canvas opens beside its terminal and can expand to take over the main stage while keeping the
+terminal live in a small corner tile.
+
+Each project puts its chat alongside its work: terminals, tasks, and linked repositories.
+
+Dosi lives at the bottom of the sidebar, which widens to hold the conversation. If Dosi asks a
+question about a specific terminal, that prompt also appears directly on the terminal.
+
+## Shortcuts, permissions, and trust
+
+App shortcuts match Ghostty's defaults for shared actions and are customizable in Settings. All
+other keystrokes go directly to the program running in the terminal.
+
+Programs running inside Kodosi inherit the macOS permissions granted to Kodosi, just like any
+other terminal app. Settings displays permission status and triggers macOS permission prompts.
+
+The app can preview an agent's saved provider conversations read-only without modifying them, and
+resume any conversation in a new terminal via the provider's CLI.
+
+Before adding or accepting a friend, the app pauses to confirm you understand the trust model,
+since friends get full interactive control over any terminal you share with them.

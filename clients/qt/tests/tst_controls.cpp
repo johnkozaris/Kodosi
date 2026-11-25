@@ -21,8 +21,6 @@ Q_IMPORT_QML_PLUGIN(KodosiPlugin)
 #include <mutex>
 
 namespace {
-// Takes commands from the GUI thread and from the browser's own thread, and hands the events of a
-// pipe to the thread of its reader, as the bridge does.
 class PipeCommands final : public kodosi::CommandDispatcher, public kodosi::PipeRouter {
 public:
     Result send(QByteArrayView bytes) override
@@ -64,7 +62,6 @@ public:
         std::lock_guard lock(m_mutex);
         return messagesLocked(pipe, type);
     }
-    // Waits without the event loop of the GUI thread.
     bool waitForMessage(const QString& pipe, const QString& type)
     {
         std::unique_lock lock(m_mutex);
@@ -102,8 +99,6 @@ std::unique_ptr<QSettings> settingsIn(const QTemporaryDir& directory, const char
     return std::make_unique<QSettings>(directory.filePath(QLatin1String(name)), QSettings::IniFormat);
 }
 
-// The view of a terminal's shared browser, alone or in its canvas, with the models that they read,
-// on stand-in pipes.
 class BrowserViews {
 public:
     BrowserViews()
@@ -146,7 +141,6 @@ public:
         });
         return types;
     }
-    // The watches that the view sent on its pipe, once the pipe opened.
     QList<QJsonObject> watchesAfterOpening(const QString& pipe)
     {
         commands.deliverOpened(pipe);

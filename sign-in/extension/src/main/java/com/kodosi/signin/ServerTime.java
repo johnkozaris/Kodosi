@@ -14,14 +14,12 @@ import org.keycloak.models.KeycloakSessionFactory;
 import org.keycloak.services.resource.RealmResourceProvider;
 import org.keycloak.services.resource.RealmResourceProviderFactory;
 
-/**
- * Keycloak's time, for the account page. Keycloak accepts a DPoP proof only within seconds of its own clock,
- * and its responses carry no Date header that a page could read it from.
- */
+// Exposes Keycloak's current time to the account page: DPoP proofs require clock alignment within
+// seconds, and Keycloak responses do not expose a readable Date header.
 public final class ServerTime implements RealmResourceProvider, RealmResourceProviderFactory {
     static final String ID = "kodosi-time";
 
-    // Keycloak serves the methods of a realm resource only from a @Provider class, in a jar with
+    // Keycloak only exposes realm resource endpoints on a @Provider class packaged with
     // META-INF/beans.xml.
     @Provider
     public static final class Now {

@@ -41,15 +41,16 @@ bool punctuation(QChar character)
     return character.isPunct() || character.isSymbol();
 }
 
-// A path as Ghostty finds one: names with slashes between them, and a line after a colon.
+// Matches file paths the way Ghostty finds them: slash-separated names with an optional `:line`
+// or `:line:column` suffix.
 const QRegularExpression& filePath()
 {
     static const QRegularExpression path(QStringLiteral(R"((?<![\w/.:@-])(?:~/|\.{1,2}/|/)?(?:[\w.-]+/)+[\w.-]+(?::\d+){0,2})"));
     return path;
 }
 
-// A path that does not start at a folder ends with the extension of a file, so words such as
-// "and/or" and numbers such as 3/4 stay text.
+// A path that does not start at a folder (`/`, `~/`, `./` or `../`) must end in a file extension,
+// so words like "and/or" and fractions like 3/4 stay plain text.
 QString fileAddress(QStringView found, const QString& folder)
 {
     static const QRegularExpression line(QStringLiteral(R"((?::\d+){1,2}$)"));
@@ -69,7 +70,6 @@ QString fileAddress(QStringView found, const QString& folder)
     return QUrl::fromLocalFile(QDir::cleanPath(path)).toString(QUrl::FullyEncoded);
 }
 
-// The marks of one line. A mark that is never closed is the agent's own character.
 class Inline {
 public:
     explicit Inline(QStringView text, std::optional<QString> folder = std::nullopt)

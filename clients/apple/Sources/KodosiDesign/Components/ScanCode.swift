@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// The card stays light in both appearances, as a printed code does, so that each camera
-/// reads its dark modules.
+/// Forces a light surface even in dark mode so cameras can reliably scan the dark QR modules.
 public struct ScanCodeCard<Content: View>: View {
     @Environment(\.theme) private var theme
     private let content: Content

@@ -124,7 +124,8 @@ export function NewPasskey({ kcContext, i18n }: Page<"webauthn-register.ftl">) {
   const name = useRef<HTMLInputElement>(null);
   useNewPasskey({ authButtonId: PASSKEY_BUTTON, kcContext, i18n });
   useEffect(() => {
-    // Keycloak's webauthnRegister.js asks for the passkey name with window.prompt: the row answers.
+    // Keycloak's webauthnRegister.js collects the passkey label via window.prompt; supply our
+    // input's value instead.
     const box = window.prompt;
     window.prompt = (_question, first) => name.current?.value.trim() || first || "";
     return () => {

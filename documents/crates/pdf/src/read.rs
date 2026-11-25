@@ -56,8 +56,7 @@ pub(crate) fn inherited<'d>(
     None
 }
 
-/// The text of a string of the file. A string that is not valid in the encoding that it names
-/// still reads, with what cannot be read replaced.
+/// Decodes a PDF text string, falling back to lossy UTF-16BE or UTF-8 if `lopdf` rejects it.
 pub(crate) fn text_of(string: &Object) -> Option<String> {
     let bytes = string.as_str().ok()?;
     Some(lopdf::decode_text_string(string).unwrap_or_else(|_| {

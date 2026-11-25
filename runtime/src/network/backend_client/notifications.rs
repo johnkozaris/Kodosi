@@ -12,8 +12,8 @@ use super::{
 
 const RETRY_LIMIT: Duration = Duration::from_mins(1);
 
-/// A terminal that waits for the link ends a wait. When that early try fails too, the next wait
-/// runs in full, so that a link that keeps ending cannot connect again and again.
+/// A waiting terminal can cut a reconnect backoff short once (`hurried`); if that early attempt
+/// also fails, the next backoff runs in full to prevent a tight reconnect loop.
 #[derive(Debug, PartialEq, Eq)]
 struct Retry {
     delay: u64,

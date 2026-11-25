@@ -22,8 +22,8 @@ use crate::{
     link::Link,
 };
 
-/// The most pictures that wait in the encoder. A picture that finds no room is dropped, and the
-/// page draws again as soon as there is room, so the viewer still sees the page as it is now.
+/// Maximum in-flight frames allowed in the encoder. Excess frames are dropped and a redraw is
+/// scheduled once capacity frees up so viewers still receive the latest page state.
 const MOST_WAITING: usize = 2;
 const START_CODE: [u8; 4] = [0, 0, 0, 1];
 const SEQUENCE_PARAMETERS: u8 = 7;
@@ -51,11 +51,9 @@ const NV12: u32 = u32::from_be_bytes(*b"420v");
 const BGRA: u32 = u32::from_be_bytes(*b"BGRA");
 const MICROSECONDS: i32 = 1_000_000;
 const KEY_INTERVAL: i64 = 3600;
-/// A second of bursts may go half again above the average.
+/// Multiplier over average bitrate allowed for 1-second bursts in `DataRateLimits`.
 const BURST: f64 = 1.5;
-/// The flag of the encoder's callback for a picture that it dropped.
 const FRAME_DROPPED: u32 = 1 << 1;
-/// What a picture carries to the encoder's callback.
 const REFINEMENT: usize = 1;
 const RECOVERY: usize = 2;
 
@@ -165,23 +163,19 @@ unsafe extern "C" {
     static kCMSampleAttachmentKey_NotSync: Ref;
 }
 
-/// What the encoder's callback needs. Each session has its own, so a session that ends takes
-/// its count of waiting pictures with it.
+/// Shared state passed to the `VideoToolbox` callback. Scoped per session so an ending session
+/// takes its in-flight `waiting` count with it.
 struct Output {
     window: i64,
     link: Link,
     still: bool,
     waiting: AtomicUsize,
     failed: AtomicBool,
-    /// The link lost a picture, which every viewer needs, so the next one is a key frame.
     want_key: AtomicBool,
-    /// The encoder dropped an anchor, so the next picture is one.
     want_anchor: AtomicBool,
-    /// A picture found the encoder full, so the page draws again when there is room.
     missed: AtomicBool,
     clean: AtomicBool,
     sharpening: Mutex<Convergence>,
-    /// The bytes that one frame may have at the session's bitrate.
     budget: AtomicUsize,
 }
 
@@ -194,8 +188,8 @@ struct Session {
 
 impl Drop for Session {
     fn drop(&mut self) {
-        // SAFETY: the session is live; completing its frames runs the callbacks that are due
-        // before the session and its output go.
+        // SAFETY: `self.raw` is valid; completing frames flushes all pending callbacks before the
+        // session and its `Output` refcon are released.
         unsafe {
             VTCompressionSessionCompleteFrames(self.raw, NO_TIME);
             VTCompressionSessionInvalidate(self.raw);
@@ -209,17 +203,16 @@ pub(crate) struct Encoder {
     window: i64,
     link: Link,
     bitrate: u32,
-    /// The encoder codes stills of the window's layer. A still that fails stops nothing, as each
-    /// view keeps the one before, so the host hears of no failure.
+    /// When true, encodes standalone still snapshots for the layer; failures are ignored
+    /// because views keep the previous still.
     still: bool,
     want_key: bool,
     recover: bool,
-    /// The marks that every viewer holds, for the next picture.
+    /// LTR tokens acknowledged by all viewers, attached to the next frame.
     held: Vec<u64>,
     started: Instant,
     session: Option<Session>,
     transfer: *mut c_void,
-    /// The newest picture in the session's format, which a refinement codes again.
     last: Option<Owned>,
 }
 
@@ -253,8 +246,8 @@ impl Encoder {
         self.want_key = true;
     }
 
-    /// `VideoToolbox` makes an anchor from a mark that every viewer holds, or a key frame when
-    /// none does.
+    /// Requests an LTR refresh frame referencing an acknowledged mark, falling back to a
+    /// keyframe if no mark is held by all viewers.
     pub(crate) fn recover(&mut self) {
         self.recover = true;
     }
@@ -274,7 +267,6 @@ impl Encoder {
         }
     }
 
-    /// Codes the last picture again, unless the encoder is still busy.
     pub(crate) fn refine(&mut self) -> bool {
         let (Some(session), Some(last)) = (&self.session, &self.last) else {
             return false;
@@ -289,10 +281,10 @@ impl Encoder {
         self.submit(last, true)
     }
 
-    /// Encodes a picture that CEF drew on the GPU. The surface is CEF's only during this call,
-    /// so it is copied into one of the encoder's buffers first.
+    /// Copies CEF's GPU `IOSurface` into the encoder's buffer pool before encoding, since CEF
+    /// reclaims the surface once the paint callback returns.
     pub(crate) fn encode_surface(&mut self, surface: *mut c_void) {
-        // SAFETY: CEF gives a live IOSurface for the length of the paint call.
+        // SAFETY: CEF provides a valid IOSurface for the duration of the paint callback.
         let (width, height) = unsafe { (IOSurfaceGetWidth(surface), IOSurfaceGetHeight(surface)) };
         let mut source = ptr::null_mut();
         // SAFETY: the surface is live, and the buffer retains it.
@@ -377,7 +369,7 @@ impl Encoder {
             return;
         }
         let mut target = ptr::null_mut();
-        // SAFETY: the session is live, and its pool gives buffers of its size and format.
+        // SAFETY: the session is valid and its pool returns buffers matching its size and format.
         unsafe {
             let pool = VTCompressionSessionGetPixelBufferPool(session.raw);
             if !pool.is_null() {
@@ -387,7 +379,7 @@ impl Encoder {
         let Some(target) = Owned::new(target) else {
             return;
         };
-        // SAFETY: both buffers are live; the copy ends before this call returns.
+        // SAFETY: both buffers are valid and the pixel transfer completes synchronously.
         let copied = unsafe {
             VTPixelTransferSessionTransferImage(self.transfer, source.mutable(), target.mutable())
         };
@@ -407,8 +399,8 @@ impl Encoder {
         }
     }
 
-    /// A refinement carries a marker to the callback, because the page need not draw again for
-    /// one that the encoder dropped, and so does an anchor, which the callback names.
+    /// Tags `frame_refcon` with refinement and recovery flags so the callback can skip redraws
+    /// for dropped refinements, emit `FrameKind::Anchor`, and retry dropped recovery frames.
     fn submit(&mut self, target: *mut c_void, refinement: bool) -> bool {
         let Some(session) = &self.session else {
             return false;
@@ -429,7 +421,7 @@ impl Encoder {
             array(&tokens.iter().map(|token| token.0).collect::<Vec<_>>())
         };
         let mut pairs = Vec::new();
-        // SAFETY: the keys and the boolean are constants of the frameworks.
+        // SAFETY: these framework extern statics are valid Core Foundation constants.
         unsafe {
             if key {
                 pairs.push((kVTEncodeFrameOptionKey_ForceKeyFrame, kCFBooleanTrue));
@@ -457,8 +449,8 @@ impl Encoder {
             epoch: 0,
         };
         output.waiting.fetch_add(1, Ordering::AcqRel);
-        // SAFETY: the session and the buffer are live, and the session retains the buffer
-        // until it encoded it.
+        // SAFETY: the session and pixel buffer are valid, and `VideoToolbox` retains the buffer
+        // until encoding completes.
         let status = unsafe {
             VTCompressionSessionEncodeFrame(
                 session.raw,
@@ -479,7 +471,8 @@ impl Encoder {
         status == 0
     }
 
-    /// Makes every value first, so that no failure leaves a session behind.
+    /// Allocates all CF parameters before creating the session so early `?` returns cannot
+    /// leak the raw session or refcon.
     fn start(&self, width: usize, height: usize) -> Option<Session> {
         let (session_width, session_height) =
             (i32::try_from(width).ok()?, i32::try_from(height).ok()?);
@@ -489,7 +482,7 @@ impl Encoder {
         let wide = number_i64(i64::try_from(width).ok()?)?;
         let high = number_i64(i64::try_from(height).ok()?)?;
         let surface = dictionary(&[])?;
-        // SAFETY: the keys are constants of the frameworks and the values are live.
+        // SAFETY: the keys are framework CF constants and the values are live CF objects.
         let attributes = dictionary(&unsafe {
             [
                 (kCVPixelBufferPixelFormatTypeKey, format.0),
@@ -544,8 +537,7 @@ impl Encoder {
             self.fail(&format!("the encoder did not start: {status}"));
             return None;
         }
-        // SAFETY: the session is live and the values are live CF objects of the kinds that the
-        // keys take.
+        // SAFETY: `raw` is a valid session and each value matches the CF type expected by its key.
         unsafe {
             VTSessionSetProperty(raw, kVTCompressionPropertyKey_RealTime, kCFBooleanTrue);
             VTSessionSetProperty(
@@ -609,17 +601,17 @@ fn set_bitrate(session: *mut c_void, bitrate: u32) {
     let Some(limits) = array(&[bytes.0, second.0]) else {
         return;
     };
-    // SAFETY: the session is live and the values have the kinds that the keys take.
+    // SAFETY: `session` is valid and each value matches the CF type expected by its key.
     unsafe {
         VTSessionSetProperty(session, kVTCompressionPropertyKey_AverageBitRate, average.0);
         VTSessionSetProperty(session, kVTCompressionPropertyKey_DataRateLimits, limits.0);
     }
 }
 
-/// The encoder's callback, on a thread of `VideoToolbox`. When the newest picture did not go
-/// out, the page draws again, as a still page would never send it. The page draws rather than
-/// the last picture being coded again: this thread cannot reach the encoder, and a picture that
-/// the busy encoder skipped was never copied, as CEF's surface lives only during its paint.
+/// `VideoToolbox` output callback (runs on a `VideoToolbox` thread). Requests a CEF redraw when
+/// a frame was skipped or dropped so a static page still delivers its latest state. We redraw
+/// instead of re-encoding locally because this thread cannot access `Encoder`, and frames
+/// skipped under backpressure were never copied from CEF's transient `IOSurface`.
 unsafe extern "C" fn encoded(
     refcon: *mut c_void,
     marker: *mut c_void,
@@ -627,8 +619,8 @@ unsafe extern "C" fn encoded(
     flags: u32,
     sample: *mut c_void,
 ) {
-    // SAFETY: `refcon` is the session's `Output`, which lives until the session completed its
-    // frames.
+    // SAFETY: `refcon` points to the session's `Output`, kept alive until
+    // `VTCompressionSessionCompleteFrames` finishes in `Session::drop`.
     let output = unsafe { &*refcon.cast::<Output>() };
     let refinement = marker.addr() & REFINEMENT != 0;
     let recovery = marker.addr() & RECOVERY != 0;
@@ -687,12 +679,12 @@ struct Coded {
     data: Vec<u8>,
 }
 
-/// The picture as Annex B, with the parameter sets before a key frame, and the mark that the
-/// encoder gave it.
+/// Converts a compressed `CMSampleBuffer` to Annex B (prepending parameter sets on keyframes)
+/// and extracts its LTR acknowledgement mark, if any.
 ///
 /// # Safety
 ///
-/// `sample` is a live compressed sample buffer.
+/// `sample` must be a valid `CMSampleBufferRef`.
 unsafe fn annex_b(sample: *mut c_void) -> Option<Coded> {
     // SAFETY: the sample is live; the attachments and their values are borrowed from it.
     let (key, mark) = unsafe {
@@ -724,7 +716,7 @@ unsafe fn annex_b(sample: *mut c_void) -> Option<Coded> {
     let mut out = Vec::new();
     let mut count = 0;
     let mut length_size = 4;
-    // SAFETY: the description is live; asking for set 0 gives the count and the length size.
+    // SAFETY: `description` is valid; querying index 0 populates `count` and `length_size`.
     unsafe {
         CMVideoFormatDescriptionGetH264ParameterSetAtIndex(
             description,

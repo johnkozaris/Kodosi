@@ -22,24 +22,24 @@ const NO_FRAMEWORK: i32 = 70;
 const NO_START: i32 = 71;
 const NO_HOST: i32 = 72;
 
-/// The browser process, and on Linux also each of its child processes.
+/// Entry point for the browser process (and on Linux, CEF subprocesses).
 pub fn run() -> i32 {
     start(std::ptr::null_mut())
 }
 
-/// A page process that crashes ends at once. Otherwise the system first writes a core file of
-/// Chromium's size, which takes a minute, and the tab waits for it.
+/// Disables core dumps so a crashed renderer exits immediately instead of stalling the tab
+/// while the OS writes a Chromium-sized core file.
 #[cfg(target_os = "linux")]
 fn no_core_files() {
     let none = libc::rlimit {
         rlim_cur: 0,
         rlim_max: 0,
     };
-    // SAFETY: `setrlimit` only reads the limit, which lives for the call.
+    // SAFETY: `none` is a valid `libc::rlimit` for the duration of the call.
     unsafe { libc::setrlimit(libc::RLIMIT_CORE, &raw const none) };
 }
 
-/// CEF's bootstrap program calls this in each process on Windows, once it started the sandbox.
+/// Entry point invoked by CEF's Windows bootstrap executable after initializing the sandbox.
 #[cfg(windows)]
 #[unsafe(no_mangle)]
 pub extern "C" fn RunWinMain(
@@ -71,7 +71,7 @@ fn start(sandbox: *mut u8) -> i32 {
         return code;
     }
     #[cfg(target_os = "linux")]
-    // SAFETY: `geteuid` only reads the user of this process.
+    // SAFETY: `geteuid` has no preconditions and cannot fail.
     if unsafe { libc::geteuid() } == 0 {
         eprintln!("Kodosi Browser: Chromium's sandbox does not run as root.");
         return shared_browser::link::AS_ROOT;
@@ -103,9 +103,9 @@ fn start(sandbox: *mut u8) -> i32 {
         log_file: CefString::from(log.to_string_lossy().as_ref()),
         log_severity: LogSeverity::WARNING,
         background_color: engine::OPAQUE_WHITE,
-        // Chromium keeps the key of its cookies in the Mac's keychain under Chromium's names, so
-        // names of its own keep Kodosi Browser and an installed Chromium from sharing one key. An
-        // update that renames them makes a new key, and each sign-in under the old one is lost.
+        // Use dedicated macOS Keychain names so Kodosi Browser does not share Chromium's cookie
+        // encryption key. Never rename these values, or existing encrypted cookies and logins
+        // become unreadable.
         keychain_service_name: CefString::from("Kodosi Browser Safe Storage"),
         keychain_account_name: CefString::from("Kodosi Browser"),
         ..Default::default()
@@ -125,7 +125,7 @@ fn start(sandbox: *mut u8) -> i32 {
     0
 }
 
-/// A child process on a Mac, which runs from one of the helper apps.
+/// Entry point for macOS CEF helper subprocesses.
 #[cfg(target_os = "macos")]
 pub fn run_helper() -> i32 {
     let args = Args::new();
