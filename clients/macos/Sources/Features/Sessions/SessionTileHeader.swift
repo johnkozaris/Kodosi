@@ -251,7 +251,7 @@ private struct TerminalActions: View {
                 PanelMenuDivider()
             }
             PanelMenuHeader(title: "Terminal")
-            if session.kind == .local, session.isOwner {
+            if session.isOwner {
                 PanelMenuRow(Text("Share…"), icon: .symbol("person.badge.plus"), identifier: "\(stageId).share") {
                     deps.workbench.sharingSessionId = session.id
                 }

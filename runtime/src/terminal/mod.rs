@@ -32,7 +32,6 @@ pub use picture::{Picture, PictureFormat, TERMINAL_PICTURE_MAX_BYTES};
 pub(crate) use remote::RemoteTerminal;
 #[cfg(feature = "host")]
 pub(crate) use session::{TerminalSession, pipe};
-#[cfg(feature = "host")]
 pub(crate) use status::display_text;
 pub use status::{BlockedKind, ProgramState, ProgramStatus, Waiting};
 pub use subscribers::{ControlFrame, DataFrame, Frame, RefreshRetry, Subscription};

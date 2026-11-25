@@ -2346,41 +2346,6 @@
     </message>
 </context>
 <context>
-    <name>FriendTrustDialog</name>
-    <message>
-        <source>I trust %1</source>
-        <translation>Je fais confiance à %1</translation>
-    </message>
-    <message>
-        <source>I trust them</source>
-        <translation>Je lui fais confiance</translation>
-    </message>
-    <message>
-        <source>You</source>
-        <translation>Vous</translation>
-    </message>
-    <message>
-        <source>Stop and read</source>
-        <translation>Prenez le temps de lire</translation>
-    </message>
-    <message>
-        <source>Do you trust %1 completely?</source>
-        <translation>Faites-vous entièrement confiance à %1&#xa0;?</translation>
-    </message>
-    <message>
-        <source>Do you trust this person completely?</source>
-        <translation>Faites-vous entièrement confiance à cette personne&#xa0;?</translation>
-    </message>
-    <message>
-        <source>A friend can type in each terminal that you share with them, as you, with your rights on that computer.</source>
-        <translation>Un ami peut taper dans chaque terminal que vous partagez avec lui, en votre nom, avec vos droits sur cet ordinateur.</translation>
-    </message>
-    <message>
-        <source>Add only a person that you would let use your computer.</source>
-        <translation>N&apos;ajoutez que des personnes à qui vous laisseriez utiliser votre ordinateur.</translation>
-    </message>
-</context>
-<context>
     <name>GeneralSettings</name>
     <message>
         <source>Continue in your browser</source>
@@ -3131,10 +3096,6 @@
         <translation>Quitter le projet…</translation>
     </message>
     <message>
-        <source>Share with %1</source>
-        <translation>Partager avec %1</translation>
-    </message>
-    <message>
         <source>Terminal</source>
         <translation>Terminal</translation>
     </message>
@@ -3193,6 +3154,10 @@
     <message>
         <source>Report…</source>
         <translation>Signaler…</translation>
+    </message>
+    <message>
+        <source>Share with project %1</source>
+        <translation>Partager avec le projet %1</translation>
     </message>
     <message>
         <source>Delete %1?</source>
@@ -3410,33 +3375,6 @@
     <message>
         <source>Refresh</source>
         <translation>Actualiser</translation>
-    </message>
-</context>
-<context>
-    <name>ProjectShareDialog</name>
-    <message>
-        <source>the project</source>
-        <translation>le projet</translation>
-    </message>
-    <message>
-        <source>Share %1 with %2?</source>
-        <translation>Partager %1 avec %2&#xa0;?</translation>
-    </message>
-    <message>
-        <source>this terminal</source>
-        <translation>ce terminal</translation>
-    </message>
-    <message>
-        <source>Share</source>
-        <translation>Partager</translation>
-    </message>
-    <message>
-        <source>Everyone in %1 gets full control of it. It leaves %2.</source>
-        <translation>Tout le monde dans %1 en aura le contrôle total. Il quitte %2.</translation>
-    </message>
-    <message>
-        <source>Everyone in %1 gets full control of it.</source>
-        <translation>Tout le monde dans %1 en aura le contrôle total.</translation>
     </message>
 </context>
 <context>
@@ -3816,6 +3754,10 @@
 <context>
     <name>SessionDetails</name>
     <message>
+        <source>Shared with project %1</source>
+        <translation>Partagé avec le projet %1</translation>
+    </message>
+    <message>
         <source>Shared with %1</source>
         <translation>Partagé avec %1</translation>
     </message>
@@ -3928,6 +3870,10 @@
     <message>
         <source>Stop sharing</source>
         <translation>Arrêter le partage</translation>
+    </message>
+    <message>
+        <source>Share with project %1</source>
+        <translation>Partager avec le projet %1</translation>
     </message>
     <message>
         <source>Shared</source>
@@ -5342,10 +5288,6 @@
     <message>
         <source>You cannot do this in the selected terminal.</source>
         <translation>Vous ne pouvez pas faire cela dans le terminal sélectionné.</translation>
-    </message>
-    <message>
-        <source>Change sharing on the computer that hosts this terminal.</source>
-        <translation>Modifiez le partage sur l&apos;ordinateur qui héberge ce terminal.</translation>
     </message>
     <message>
         <source>Sign in before you share a terminal.</source>

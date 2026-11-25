@@ -6,26 +6,24 @@ extension AppDependencies {
         try await mutateSession("session.attachProject", session: target, fields: ["projectId": .null])
     }
 
-    func askToShare(_ id: String, with projectId: String) -> Bool {
+    func share(_ id: String, with projectId: String) -> Bool {
         guard let target = session(id), target.projectId != projectId else { return false }
         guard target.isOwner else {
             errorMessage = String(localized: "Only the owner of \(target.name) can share it with a project.")
             return false
         }
-        workbench.projectShare = ProjectShare(sessionId: id, projectId: projectId)
-        return true
-    }
-
-    func share(_ share: ProjectShare) {
-        guard let target = session(share.sessionId) else { return }
         Task {
             do {
-                try await mutateSession("session.attachProject", session: target, fields: ["projectId": .string(share.projectId)])
-                openProject(id: share.projectId)
-                projectWorkspace(share.projectId).shownSection = 0
-                activateSession(share.sessionId, inProject: share.projectId)
-            } catch { errorMessage = error.localizedDescription }
+                try await mutateSession("session.attachProject", session: target, fields: ["projectId": .string(projectId)])
+                openProject(id: projectId)
+                projectWorkspace(projectId).shownSection = 0
+                activateSession(id, inProject: projectId)
+            } catch RuntimeError.refused {
+            } catch {
+                errorMessage = error.localizedDescription
+            }
         }
+        return true
     }
 
     func place(_ id: String, at target: String) -> Bool {

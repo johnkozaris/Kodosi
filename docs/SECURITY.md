@@ -21,9 +21,15 @@ project. Removing a friend immediately revokes access to your terminals and remo
 from projects owned by the other. Blocking a user does the same and prevents future friend
 requests.
 
-Each of your approved devices can control all your terminals, launch new ones on your other
-computers running Kodosi, and message Dosi on those computers (where Dosi acts with the same local
-access as when you use it directly). Removing a device revokes its access to terminals and Dosi.
+Kodosi asks you first, in the app of the device where it starts, before any change that lets someone
+new into your terminals or projects, including changes the `kodosi` command asks for, such as an
+agent's. This guards against mistakes and agents; someone typing in a terminal you shared acts as
+you and can get around it.
+
+Each of your approved devices can control all your terminals, choose who they're shared with, launch
+new ones on your other computers running Kodosi, and message Dosi on those computers (where Dosi
+acts with the same local access as when you use it directly). Removing a device revokes its access
+to terminals and Dosi.
 
 ### Canvas and shared browser
 

@@ -2,6 +2,7 @@ package com.kodosi.mobile.runtime
 
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -31,5 +32,31 @@ class CommandSinkTest {
 
         sink.setAccount("bo", 2)
         assertEquals(TestWords.accountChanged, pending.await().exceptionOrNull()?.message)
+    }
+
+    @Test
+    fun aRequestThatMayWaitForTheOwnersOkOutlastsTheUsualMinute() = runTest {
+        val pending = async(start = CoroutineStart.UNDISPATCHED) { runCatching { sink.request("session.share") } }
+
+        delay(2 * 60_000L)
+        assertTrue(pending.isActive)
+        sent.reply("session.share")
+        assertTrue(pending.await().isSuccess)
+    }
+
+    @Test
+    fun aRequestTheOwnerRefusedEndsAsRefusedSoNoOneReportsIt() = runTest {
+        val pending = async(start = CoroutineStart.UNDISPATCHED) { runCatching { sink.request("session.share") } }
+        val requestId = sent.last("session.share").string("requestId")
+
+        sink.receive(
+            answer(
+                "session.error",
+                requestId,
+                "session.share",
+                """"message":"You did not allow this.","refused":true"""
+            )
+        )
+        assertTrue(pending.await().exceptionOrNull() is Refused)
     }
 }

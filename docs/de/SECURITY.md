@@ -23,10 +23,15 @@ tun können. Wenn du einen Freund entfernst, wird der Zugriff auf deine Terminal
 und ihr werdet gegenseitig aus den Projekten des jeweils anderen entfernt. Das Blockieren einer
 Person hat dieselbe Wirkung und verhindert künftige Freundschaftsanfragen.
 
-Jedes deiner freigegebenen Geräte kann alle deine Terminals steuern, neue Terminals auf deinen
-anderen Computern mit laufendem Kodosi starten und Dosi auf diesen Computern schreiben (wo Dosi mit
-demselben lokalen Zugriff handelt wie bei direkter Nutzung am Computer). Das Entfernen eines Geräts
-entzieht ihm den Zugriff auf deine Terminals und auf Dosi.
+Bevor jemand Neues Zugang zu deinen Terminals oder Projekten bekommt, fragt Kodosi dich in der App
+des Geräts, auf dem die Änderung beginnt, auch wenn der Befehl `kodosi` sie anfordert, zum Beispiel
+für einen Agent. Das schützt vor Versehen und vor Agents; wer in einem Terminal tippt, das du
+geteilt hast, handelt als du und kann diese Frage umgehen.
+
+Jedes deiner freigegebenen Geräte kann alle deine Terminals steuern, bestimmen, mit wem sie geteilt
+sind, neue Terminals auf deinen anderen Computern mit laufendem Kodosi starten und Dosi auf diesen
+Computern schreiben (wo Dosi mit demselben lokalen Zugriff handelt wie bei direkter Nutzung am
+Computer). Das Entfernen eines Geräts entzieht ihm den Zugriff auf deine Terminals und auf Dosi.
 
 ### Canvas und geteilter Browser
 

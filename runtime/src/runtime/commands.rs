@@ -102,6 +102,7 @@ impl Runtime {
                     event.recipient = Some(consumer);
                     self.send_event(event);
                 }
+                self.show_approvals(consumer);
                 self.result(command);
                 Ok(())
             }
@@ -798,7 +799,7 @@ impl Runtime {
         Ok(())
     }
 
-    fn command_session(&self, command: &Command) -> Result<Uuid> {
+    pub(super) fn command_session(&self, command: &Command) -> Result<Uuid> {
         let (Command::RenameSession {
             session_id: id,
             expected_runtime_incarnation_id: incarnation,
@@ -987,13 +988,22 @@ impl Runtime {
         Ok(())
     }
 
-    fn change_membership(&mut self, command: &Command) -> Result<()> {
+    /// The checks of a change to the people of a terminal that this computer makes before it asks
+    /// the owner, and again before it runs the change.
+    #[cfg_attr(
+        not(feature = "host"),
+        expect(
+            clippy::needless_pass_by_ref_mut,
+            reason = "only a computer that hosts terminals publishes them"
+        )
+    )]
+    pub(super) fn membership_checks(&mut self, command: &Command) -> Result<Uuid> {
         let id = self.command_session(command)?;
         match command {
             #[cfg(feature = "host")]
             Command::ShareSession {
                 expected_user_ids, ..
-            } => {
+            } if self.local.contains_key(&id) => {
                 if let Some(expected) = expected_user_ids
                     && self.local.get(&id).is_some_and(|local| {
                         expected.iter().collect::<BTreeSet<_>>()
@@ -1002,20 +1012,24 @@ impl Runtime {
                 {
                     return Err(Error::Refused(super::sharing_changed()));
                 }
-                if !self.local.contains_key(&id) {
-                    return Err(Error::Refused(super::share_on_host()));
-                }
                 self.require_publication(id)?;
             }
-            #[cfg(not(feature = "host"))]
             Command::ShareSession { .. } => {
-                return Err(Error::Refused(super::share_on_host()));
+                return Err(Error::Refused(super::hosted_elsewhere()));
             }
             Command::AttachSession { .. } => {
                 self.require_owner(id)?;
                 #[cfg(feature = "host")]
                 self.require_publication(id)?;
             }
+            _ => {}
+        }
+        Ok(id)
+    }
+
+    fn change_membership(&mut self, command: &Command) -> Result<()> {
+        let id = self.membership_checks(command)?;
+        match command {
             Command::LeaveSession { .. }
                 if self.hosts(&id) || self.remotes.get(&id).is_some_and(|entry| entry.is_owner) =>
             {
@@ -1050,13 +1064,7 @@ impl Runtime {
 
     #[cfg(feature = "host")]
     fn create(&mut self, command: Command) -> Result<()> {
-        let Command::CreateSession {
-            request_id,
-            resume,
-            like,
-            ..
-        } = &command
-        else {
+        let Command::CreateSession { request_id, .. } = &command else {
             return Err(Error::Invalid("expected session creation".to_owned()));
         };
         let existing = self.local.iter().find_map(|(id, local)| {
@@ -1072,6 +1080,17 @@ impl Runtime {
             self.emit(json!({"type":"session.result", "requestId":request_id, "sessionId":id, "operation":"session.create"}));
             return Ok(());
         }
+        let like = self.can_start(&command)?;
+        self.begin_creation(command, like, None, None).map(drop)
+    }
+
+    /// The checks of a new terminal that this computer makes before it asks the owner, and
+    /// again before it starts the terminal.
+    #[cfg(feature = "host")]
+    pub(super) fn can_start(&self, command: &Command) -> Result<Option<RunningAgent>> {
+        let Command::CreateSession { resume, like, .. } = command else {
+            return Err(Error::Invalid("expected session creation".to_owned()));
+        };
         if let Some(resume) = resume
             && self.local.values().map(|local| &local.creation).chain(self.creating.values())
                 .any(|command| matches!(command, Command::CreateSession { resume: Some(active), .. } if active == resume)) {
@@ -1081,7 +1100,32 @@ impl Runtime {
             Some(terminal) => self.running_agent(terminal)?,
             None => None,
         };
-        self.begin_creation(command, like, None, None).map(drop)
+        self.room_for_terminal()?;
+        Ok(like)
+    }
+
+    #[cfg(feature = "host")]
+    fn room_for_terminal(&self) -> Result<()> {
+        if self.local.len() + self.creating.len() >= MAX_SESSIONS {
+            return Err(Error::Busy);
+        }
+        self.job_capacity()
+    }
+
+    /// Whether a terminal of this computer started for this request already.
+    #[cfg(feature = "host")]
+    pub(super) fn started_by(&self, request: &str) -> bool {
+        self.local
+            .values()
+            .map(|local| &local.creation)
+            .chain(self.creating.values())
+            .any(|command| command.request_id() == request)
+    }
+
+    #[cfg(not(feature = "host"))]
+    #[expect(clippy::unused_self, reason = "a viewer starts no terminals")]
+    pub(super) const fn started_by(&self, _request: &str) -> bool {
+        false
     }
 
     #[cfg(feature = "host")]
@@ -1112,10 +1156,7 @@ impl Runtime {
         screen: Option<PathBuf>,
         quiet_settings: Option<PathBuf>,
     ) -> Result<Uuid> {
-        if self.local.len() + self.creating.len() >= MAX_SESSIONS {
-            return Err(Error::Busy);
-        }
-        self.job_capacity()?;
+        self.room_for_terminal()?;
         let id = Uuid::now_v7();
         let config = self.config.clone();
         let changes = self.changes.clone();
@@ -1618,6 +1659,7 @@ impl Runtime {
                     self.error(&command, &error);
                 }
             }
+            Completion::Checked { held, facts } => self.checked(held, &facts, current),
             Completion::TerminalFolders {
                 device,
                 asked,

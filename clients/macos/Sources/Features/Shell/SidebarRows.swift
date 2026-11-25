@@ -329,7 +329,7 @@ struct SidebarTerminalRow: View {
 
     private var sharing: String? {
         if session.projectId != nil {
-            return session.projectName.map { String(localized: "Shared with \($0)") } ?? String(localized: "Shared with a project")
+            return session.projectName.map { String(localized: "Shared with project \($0)") } ?? String(localized: "Shared with a project")
         }
         return session.isOwner && !session.sharedWith.isEmpty ? String(localized: "Shared") : nil
     }
@@ -472,8 +472,6 @@ struct SidebarTerminalRow: View {
         }
         if session.isOwner {
             Button("Rename…") { draft = session.name; renaming = true; nameFocused = true }
-        }
-        if session.isOwner, session.kind == .local {
             Button("Share…") {
                 if deps.activateSession(session.id) {
                     deps.workbench.sharingSessionId = session.id

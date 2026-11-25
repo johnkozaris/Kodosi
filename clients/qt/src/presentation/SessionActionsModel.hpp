@@ -61,6 +61,9 @@ public:
         const QStringList& expectedUserIds = {});
     Q_INVOKABLE bool leave(const QString& sessionId);
     Q_INVOKABLE bool attachProject(const QString& sessionId, const QString& projectId);
+    // The terminal shows in the project only once it is in, since the runtime may ask the owner
+    // first.
+    Q_INVOKABLE bool dropOnProject(const QString& sessionId, const QString& projectId);
 
 signals:
     void busyChanged();
@@ -87,6 +90,7 @@ private:
     TerminalTypeAhead m_typeAhead;
     std::function<QJsonObject()> m_startSize;
     void completeCreation(const QString& sessionId, const QString& projectId, bool chat = false);
+    void showInProject(const QString& sessionId, const QString& projectId);
     bool activateSession(const QString& sessionId, bool inProject);
     bool opening(const QString& sessionId) const;
     bool openRemote(const QString& sessionId, bool quiet = false);
@@ -96,7 +100,8 @@ private:
     bool createInternal(const QString& name, const QString& directory,
         const QString& provider, const QString& nativeConversationId, const QString& projectId = {},
         const QString& branch = {}, const QJsonObject& line = {});
-    bool command(QString type, const QString& id, QJsonObject values = {}, bool ownerOnly = false);
+    bool command(QString type, const QString& id, QJsonObject values = {}, bool ownerOnly = false,
+        QString projectId = {});
     void route(const DeepLinkDestination& destination);
     void activatePendingLink();
     void showNotified();

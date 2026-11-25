@@ -79,6 +79,10 @@ terminal's current one.
   `kodosi project repo issues <repository>` lists open issues.
 - `kodosi project share [terminal]`: shares a terminal (defaults to this one) with full control to
   all project members.
+- Every command that lets someone new in waits until the user allows it in the Kodosi app, so
+  tell the user to answer there: `kodosi terminal share <terminal> <friend>`,
+  `kodosi project share [terminal]`, `kodosi project invite <friend>`,
+  `kodosi friends add <username>` and `kodosi friends accept <username>`.
 
 ## Posting guidelines
 

@@ -21,10 +21,15 @@ struct SessionSharingPopover: View {
         projectId != current.projectId || people != originalPeople
     }
 
+    /// People are shared by the computer that runs the terminal, so they wait for it.
+    private var offline: Bool {
+        current.kind == .remote && current.status == .offline
+    }
+
     private var actionTitle: String {
         if projectId != current.projectId {
             if let projectId, let name = deps.projects.entries.first(where: { $0.id == projectId })?.name {
-                return String(localized: "Share with \(name)")
+                return String(localized: "Share with project \(name)")
             }
             return String(localized: "Stop sharing")
         }
@@ -66,7 +71,7 @@ struct SessionSharingPopover: View {
             } else {
                 choices
                 if let error {
-                    ErrorNote(message: error)
+                    ErrorNote(message: error).transition(AnyTransition.rise)
                 }
                 Button(action: save) {
                     Text(saving ? String(localized: "Sharing…") : actionTitle).frame(maxWidth: .infinity).shimmer(saving)
@@ -82,6 +87,7 @@ struct SessionSharingPopover: View {
         .popoverSheet(width: 360)
         .animation(theme.motion.snappy, value: people)
         .animation(theme.motion.snappy, value: projectId)
+        .animation(theme.motion.spring, value: error)
         .onAppear {
             originalPeople = Set(current.sharedWith); people = originalPeople; projectId = current.projectId
         }
@@ -113,6 +119,11 @@ struct SessionSharingPopover: View {
         if projectId == nil, current.projectId == nil {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Friends").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
+                if offline {
+                    Text("\(current.hostLabel) is offline. Share with friends when it is back.")
+                        .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if deps.people.friends.isEmpty {
                     Button { dismiss(); deps.workbench.section = .people } label: { Label("Add a friend", systemImage: "person.badge.plus") }
                         .buttonStyle(.kodosi(.secondary))
@@ -143,9 +154,11 @@ struct SessionSharingPopover: View {
         } label: {
             FriendChoice(name: name, key: friend.userId, selected: selected, changed: friend.identityChanged, blocked: blocked)
         }
-        .buttonStyle(PressScaleStyle()).disabled(saving || blocked)
+        .buttonStyle(PressScaleStyle()).disabled(saving || blocked || offline)
         .help(blocked ? String(localized: "Their identity changed. Trust them in Friends first.") : "\(name) (@\(friend.handle))")
-        .accessibilityLabel(Text(verbatim: "\(name) (@\(friend.handle))")).accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityLabel(Text(verbatim: "\(name) (@\(friend.handle))"))
+        .accessibilityValue(friend.identityChanged ? Text("New identity") : Text(verbatim: ""))
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func save() {
@@ -164,7 +177,10 @@ struct SessionSharingPopover: View {
                     ])
                 }
                 dismiss()
-            } catch { self.error = error.localizedDescription }
+            } catch RuntimeError.refused {
+            } catch {
+                self.error = error.localizedDescription
+            }
         }
     }
 }

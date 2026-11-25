@@ -6871,6 +6871,56 @@
               }
             ]
           },
+          "allow": {
+            "type": "boolean"
+          },
+          "approvalId": {
+            "type": "string"
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "sharing.answer"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "approvalId",
+          "allow"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "action": {
             "oneOf": [
               {
@@ -10844,6 +10894,9 @@
           "operation": {
             "type": "string"
           },
+          "refused": {
+            "type": "boolean"
+          },
           "requestId": {
             "type": "string"
           },
@@ -11093,6 +11146,9 @@
           },
           "operation": {
             "type": "string"
+          },
+          "refused": {
+            "type": "boolean"
           },
           "requestId": {
             "type": "string"
@@ -11567,6 +11623,9 @@
           },
           "operation": {
             "type": "string"
+          },
+          "refused": {
+            "type": "boolean"
           },
           "requestId": {
             "type": "string"
@@ -12910,6 +12969,9 @@
           "operation": {
             "type": "string"
           },
+          "refused": {
+            "type": "boolean"
+          },
           "requestId": {
             "type": "string"
           },
@@ -13953,11 +14015,235 @@
               }
             ]
           },
+          "refused": {
+            "type": "boolean"
+          },
           "requestId": {
             "type": "string"
           },
           "type": {
             "const": "project.error"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation",
+          "message"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approvalId": {
+            "type": "string"
+          },
+          "confirm": {
+            "type": "string"
+          },
+          "from": {
+            "oneOf": [
+              {
+                "const": "app"
+              },
+              {
+                "const": "command"
+              }
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "const": "sharing.approval"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "approvalId",
+          "operation",
+          "title",
+          "message",
+          "confirm",
+          "from"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approvalId": {
+            "type": "string"
+          },
+          "outcome": {
+            "oneOf": [
+              {
+                "const": "allowed"
+              },
+              {
+                "const": "refused"
+              },
+              {
+                "const": "expired"
+              }
+            ]
+          },
+          "type": {
+            "const": "sharing.approvalEnded"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "approvalId",
+          "outcome"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "sharing.waiting"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation",
+          "message"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "sharing.result"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "sharing.error"
           }
         },
         "required": [
@@ -18063,7 +18349,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 111,
+  "protocolVersion": 112,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

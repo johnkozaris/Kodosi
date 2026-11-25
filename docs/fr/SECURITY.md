@@ -23,10 +23,15 @@ un projet partagé. Retirer un ami révoque immédiatement l'accès à vos termi
 vous des projets appartenant à l'autre. Bloquer un utilisateur a le même effet et empêche toute
 future demande d'ami.
 
-Chacun de vos appareils approuvés peut contrôler tous vos terminaux, en lancer de nouveaux sur vos
-autres ordinateurs exécutant Kodosi et envoyer des messages à Dosi sur ces ordinateurs (où Dosi
-agit avec le même accès local que lorsque vous l'utilisez directement). Retirer un appareil révoque
-son accès aux terminaux et à Dosi.
+Avant que quelqu'un de nouveau n'accède à vos terminaux ou à vos projets, Kodosi vous le demande
+dans l'application de l'appareil où le changement commence, y compris quand la commande `kodosi` le
+demande, par exemple pour un agent. Cela protège contre les erreurs et les agents ; une personne qui
+tape dans un terminal que vous avez partagé agit en votre nom et peut contourner cette question.
+
+Chacun de vos appareils approuvés peut contrôler tous vos terminaux, choisir avec qui ils sont
+partagés, en lancer de nouveaux sur vos autres ordinateurs exécutant Kodosi et envoyer des messages
+à Dosi sur ces ordinateurs (où Dosi agit avec le même accès local que lorsque vous l'utilisez
+directement). Retirer un appareil révoque son accès aux terminaux et à Dosi.
 
 ### Canvas et navigateur partagé
 

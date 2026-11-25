@@ -580,6 +580,12 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             online: true,
             consumers: HashMap::new(),
             leaving: FuturesUnordered::new(),
+            approvals: BTreeMap::new(),
+            lane: sharing::Lane::default(),
+            #[cfg(feature = "host")]
+            terminals_owner: None,
+            #[cfg(feature = "host")]
+            sign_in_origin: None,
             #[cfg(feature = "host")]
             publishing: BTreeSet::new(),
             #[cfg(feature = "host")]
@@ -699,7 +705,7 @@ async fn a_terminal_started_on_another_computer_is_answered_when_it_shows_here()
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn another_device_gets_answers_only_to_the_choices_of_a_new_terminal() {
     let runtime = TestRuntime::new().await;
-    let caller = runtime.handle.command_client();
+    let caller = runtime.handle.command_client(Origin::Device);
     let asked = Uuid::now_v7().to_string();
     let answer = caller
         .answer_call(json!({"type":"folders.list","requestId":asked}))
@@ -771,6 +777,7 @@ async fn a_client_that_goes_lets_go_of_the_terminals_that_it_opened_at_once() {
             envelope: shows,
             consumer: client,
             lifetime: lifetime.clone(),
+            origin: Origin::App,
         })
         .await
         .unwrap();
@@ -806,14 +813,14 @@ async fn a_stream_of_document_parts_leaves_room_for_the_requests_of_its_client()
             more: false,
             data: String::new(),
         };
-        runtime.command(&envelope(part), consumer, lifetime.clone());
+        runtime.command(&envelope(part), consumer, lifetime.clone(), Origin::App);
     }
     let visible = Command::Visible {
         request_id: Uuid::now_v7().to_string(),
         session_ids: Vec::new(),
         watching: true,
     };
-    runtime.command(&envelope(visible), consumer, lifetime);
+    runtime.command(&envelope(visible), consumer, lifetime, Origin::App);
     let answers: Vec<_> = std::iter::from_fn(|| events.try_recv().ok())
         .map(|event| (event.event.kind(), event.recipient))
         .collect();
@@ -834,7 +841,7 @@ async fn an_app_that_fell_behind_gets_the_whole_state_again_also_after_an_accoun
             request_id: Uuid::now_v7().to_string(),
         },
     };
-    runtime.command(&resync, consumer, lifetime);
+    runtime.command(&resync, consumer, lifetime, Origin::App);
     let heard: Vec<_> = std::iter::from_fn(|| events.try_recv().ok())
         .map(|event| (event.event.kind(), event.recipient, event.account_epoch))
         .collect();
@@ -876,7 +883,12 @@ fn open_document(runtime: &mut Runtime, session: Uuid) -> OpenDocument {
         pipe: pipe.to_string(),
         key: "browser".to_owned(),
     };
-    runtime.command(&as_client(runtime, open), consumer, lifetime.clone());
+    runtime.command(
+        &as_client(runtime, open),
+        consumer,
+        lifetime.clone(),
+        Origin::App,
+    );
     OpenDocument {
         pipe,
         consumer,
@@ -896,6 +908,7 @@ fn send_part(runtime: &mut Runtime, document: &OpenDocument, more: bool, part: &
         &as_client(runtime, send),
         document.consumer,
         document.lifetime.clone(),
+        Origin::App,
     );
 }
 
@@ -1129,12 +1142,11 @@ async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_
     let runtime = TestRuntime::new().await;
     let (_, mut events) = runtime.handle.observe().await.unwrap();
     let request_id = Uuid::now_v7().to_string();
-    let project_id = Uuid::now_v7().to_string();
     let command = Command::CreateSession {
         request_id: request_id.clone(),
         name: "ordered".to_owned(),
         working_dir: None,
-        project_id: Some(project_id.clone()),
+        project_id: None,
         resume: None,
         branch: None,
         worktrees: None,
@@ -1145,16 +1157,13 @@ async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_
         size: None,
     };
     runtime.send(command).await;
-    assert_eq!(
-        created(&mut events, &request_id).await["projectId"],
-        project_id
-    );
+    assert_eq!(created(&mut events, &request_id).await["name"], "ordered");
     runtime
         .send(Command::CreateSession {
             request_id: request_id.clone(),
             name: "ordered".to_owned(),
             working_dir: Some(ROOT.to_owned()),
-            project_id: Some(project_id.clone()),
+            project_id: None,
             resume: None,
             branch: None,
             worktrees: None,
@@ -1630,6 +1639,7 @@ async fn a_phone_in_the_background_wakes_for_no_work_of_its_own_until_it_comes_b
             envelope: foreground,
             consumer: client,
             lifetime,
+            origin: Origin::App,
         })
         .await
         .unwrap();
@@ -1846,7 +1856,12 @@ async fn a_view_that_goes_while_it_connects_is_answered_and_a_waiting_close_goes
         expected_runtime_incarnation_id: remote.incarnation_id.to_string(),
     };
     for command in [&open, &close] {
-        runtime.command(&envelope(command.clone()), consumer, lifetime.clone());
+        runtime.command(
+            &envelope(command.clone()),
+            consumer,
+            lifetime.clone(),
+            Origin::App,
+        );
     }
     assert_eq!(runtime.opening[&id].commands, [open.clone(), close.clone()]);
 
@@ -1854,7 +1869,7 @@ async fn a_view_that_goes_while_it_connects_is_answered_and_a_waiting_close_goes
         session_id: id.to_string(),
         request_id: Uuid::now_v7().to_string(),
     };
-    runtime.command(&envelope(leave.clone()), consumer, lifetime);
+    runtime.command(&envelope(leave.clone()), consumer, lifetime, Origin::App);
     let answered: Vec<_> = std::iter::from_fn(|| events.try_recv().ok())
         .filter(|event| event.event.is_answer())
         .filter_map(|event| event.event.request_id().map(str::to_owned))
@@ -2267,6 +2282,7 @@ async fn a_marked_terminal_that_its_person_looked_at_while_its_link_was_lost_hea
             envelope: looks,
             consumer: client,
             lifetime: lifetime.clone(),
+            origin: Origin::App,
         })
         .await
         .unwrap();
@@ -2722,6 +2738,1426 @@ async fn folders_from_another_computer_fill_only_its_terminals_and_an_open_view_
     );
 }
 
+fn know_friends(runtime: &mut Runtime, friends: &[(&str, &str, &str)]) {
+    let friends = friends
+        .iter()
+        .map(|(id, handle, name)| {
+            json!({"userId":id,"handle":handle,"displayName":name,
+            "verified":true,"identityState":"fixed","inviteNeeded":false})
+        })
+        .collect::<Vec<_>>();
+    runtime.cached_events.insert(
+        "friends.snapshot".to_owned(),
+        json!({"type":"friends.snapshot","friends":friends,"incoming":[],"outgoing":[],"blocked":[]}),
+    );
+}
+
+/// The friend list that this account's devices signed, with friends whose identity did not
+/// change.
+fn signed(friends: &[(&str, &str)]) -> sharing::Friends {
+    let mut list = crate::identity::friends::FriendList::new("owner");
+    for (user, handle) in friends {
+        list.friends.insert(
+            (*user).to_owned(),
+            crate::identity::friends::Friend {
+                handle: (*handle).to_owned(),
+                root: None,
+                verified: false,
+            },
+        );
+    }
+    sharing::Friends {
+        list,
+        changed: BTreeSet::new(),
+    }
+}
+
+fn joined(runtime: &mut Runtime, origin: Origin) -> (Uuid, CancellationToken) {
+    let (consumer, lifetime) = (Uuid::now_v7(), CancellationToken::new());
+    runtime.know_consumer(consumer, origin, &lifetime);
+    (consumer, lifetime)
+}
+
+fn share(terminal: &RemoteSession, users: &[&str]) -> Command {
+    Command::ShareSession {
+        request_id: Uuid::now_v7().to_string(),
+        session_id: terminal.id.to_string(),
+        expected_runtime_incarnation_id: terminal.incarnation_id.to_string(),
+        user_ids: users.iter().map(|user| (*user).to_owned()).collect(),
+        expected_user_ids: Some(terminal.shared_with.clone()),
+    }
+}
+
+fn allow(approval: &Value, allow: bool) -> Command {
+    Command::AnswerSharing {
+        request_id: Uuid::now_v7().to_string(),
+        approval_id: approval["approvalId"].as_str().unwrap().to_owned(),
+        allow,
+    }
+}
+
+fn heard_by(events: &mut broadcast::Receiver<Event>) -> Vec<(Option<Uuid>, Value)> {
+    std::iter::from_fn(|| events.try_recv().ok())
+        .filter(|event| event.event.kind() != "sessions.snapshot")
+        .map(|event| {
+            let mut value = serde_json::to_value(&event).unwrap();
+            crate::text::render(&mut value, crate::text::Language::English);
+            (event.recipient, value)
+        })
+        .collect()
+}
+
+fn question(runtime: &Runtime, facts: &sharing::Facts, command: &Command) -> Option<[String; 3]> {
+    match runtime.gate(command, Origin::Command, facts).unwrap() {
+        sharing::Gate::Ask(question) => {
+            Some([question.title, question.message, question.confirm].map(|text| text.to_string()))
+        }
+        sharing::Gate::Open => None,
+    }
+}
+
+fn asks(words: [&str; 3]) -> [String; 3] {
+    words.map(str::to_owned)
+}
+
+fn attach(terminal: &RemoteSession, project: Uuid) -> Command {
+    Command::AttachSession {
+        request_id: Uuid::now_v7().to_string(),
+        session_id: terminal.id.to_string(),
+        expected_runtime_incarnation_id: terminal.incarnation_id.to_string(),
+        project_id: Some(project.to_string()),
+    }
+}
+
+fn befriend(username: &str, accept: bool) -> Command {
+    let (request_id, username) = (Uuid::now_v7().to_string(), username.to_owned());
+    if accept {
+        Command::AcceptFriend {
+            username,
+            request_id,
+        }
+    } else {
+        Command::RequestFriend {
+            username,
+            request_id,
+        }
+    }
+}
+
+fn trust(username: &str) -> Command {
+    Command::TrustFriend {
+        username: username.to_owned(),
+        request_id: Uuid::now_v7().to_string(),
+    }
+}
+
+fn verify(username: &str, invite: String) -> Command {
+    Command::VerifyFriend {
+        username: username.to_owned(),
+        invite,
+        request_id: Uuid::now_v7().to_string(),
+    }
+}
+
+fn verified(people: &[&str], listed: Vec<crate::network::ProjectMember>) -> sharing::Membership {
+    sharing::Membership {
+        verified: Some(people.iter().map(|person| (*person).to_owned()).collect()),
+        listed,
+    }
+}
+
+fn member(id: &str, handle: &str) -> crate::network::ProjectMember {
+    crate::network::ProjectMember {
+        user_id: id.to_owned(),
+        handle: handle.to_owned(),
+    }
+}
+
+struct Sharing {
+    runtime: Runtime,
+    _root: tempfile::TempDir,
+    ana: String,
+    ben: String,
+    terminal: RemoteSession,
+    events: broadcast::Receiver<Event>,
+}
+
+/// An account whose terminal "Build" on the laptop Ana has, with Ben as another friend. The
+/// device is not approved, so that it asks its computers for no folders, and its server does not
+/// answer, so that this device reads nothing for its questions.
+fn sharing_fixture() -> Sharing {
+    let (mut runtime, root) = registry_fixture();
+    sign_in(&mut runtime, false);
+    let (ana, ben) = (Uuid::now_v7().to_string(), Uuid::now_v7().to_string());
+    know_friends(
+        &mut runtime,
+        &[(&ana, "ana", "Ana Lima"), (&ben, "ben", "Ben Okafor")],
+    );
+    let terminal = RemoteSession {
+        name: "Build".to_owned(),
+        shared_with: vec![ana.clone()],
+        ..my_terminal("laptop")
+    };
+    runtime.replace_remotes(vec![terminal.clone()]);
+    let events = runtime.events.subscribe();
+    Sharing {
+        runtime,
+        _root: root,
+        ana,
+        ben,
+        terminal,
+        events,
+    }
+}
+
+#[expect(
+    clippy::too_many_lines,
+    reason = "one question from its asking to the share that it lets through"
+)]
+#[tokio::test]
+async fn a_share_that_the_kodosi_command_widens_waits_for_the_app_then_goes_to_its_computer() {
+    let Sharing {
+        mut runtime,
+        ana,
+        ben,
+        terminal,
+        mut events,
+        ..
+    } = sharing_fixture();
+    let (app, app_life) = joined(&mut runtime, Origin::App);
+    let (command, command_life) = joined(&mut runtime, Origin::Command);
+    let widening = share(&terminal, &[&ana, &ben]);
+    runtime.command(
+        &as_client(&runtime, widening.clone()),
+        command,
+        command_life.clone(),
+        Origin::Command,
+    );
+    assert_eq!(
+        heard_by(&mut events),
+        [],
+        "the question waits for what it needs"
+    );
+    complete_next_job(&mut runtime).await;
+    let asked = heard_by(&mut events);
+    assert_eq!(asked.len(), 2, "{asked:?}");
+    let (question, waiting) = (&asked[0], &asked[1]);
+    assert_eq!(question.0, Some(app), "only the app hears the question");
+    assert_eq!(
+        question.1,
+        json!({"type":"sharing.approval","approvalId":question.1["approvalId"],
+            "operation":"session.share","title":"Share “Build” with @ben?",
+            "message":"@ben gets full control: they can type anything as you on laptop. The kodosi command asked for this.",
+            "confirm":"Share","from":"command","accountUserId":"owner","accountEpoch":0}),
+        "a person whom this device cannot find in the signed friend list goes by the handle"
+    );
+    assert_eq!(waiting.0, Some(command));
+    assert_eq!(
+        (waiting.1["type"].as_str(), waiting.1["message"].as_str()),
+        (
+            Some("sharing.waiting"),
+            Some("Waiting for your OK in the Kodosi app.")
+        )
+    );
+    assert!(runtime.jobs.is_empty(), "nothing runs before the answer");
+
+    let (later, later_life) = (Uuid::now_v7(), CancellationToken::new());
+    runtime.join(later, &later_life, Origin::App, oneshot::channel().0);
+    let shown = heard_by(&mut events);
+    assert_eq!(
+        (shown[0].0, &shown[0].1["approvalId"]),
+        (Some(later), &question.1["approvalId"]),
+        "an app that joins later shows the question too"
+    );
+
+    runtime.command(
+        &as_client(&runtime, allow(&question.1, true)),
+        command,
+        command_life,
+        Origin::Command,
+    );
+    let refused = heard_by(&mut events);
+    assert_eq!(
+        (refused[0].0, refused[0].1["message"].as_str()),
+        (
+            Some(command),
+            Some("Only the Kodosi app can allow sharing.")
+        )
+    );
+    assert!(runtime.jobs.is_empty());
+
+    runtime.command(
+        &as_client(&runtime, allow(&question.1, true)),
+        app,
+        app_life,
+        Origin::App,
+    );
+    let mut answered = heard_by(&mut events)
+        .into_iter()
+        .map(|(to, event)| (to, event["type"].as_str().unwrap().to_owned()))
+        .collect::<Vec<_>>();
+    answered.sort();
+    let mut expected = vec![
+        (Some(app), "sharing.approvalEnded".to_owned()),
+        (Some(later), "sharing.approvalEnded".to_owned()),
+        (Some(app), "sharing.result".to_owned()),
+    ];
+    expected.sort();
+    assert_eq!(answered, expected);
+    assert_eq!(
+        runtime
+            .destination(&widening, None, Origin::Command)
+            .unwrap()
+            .as_deref(),
+        Some("laptop")
+    );
+    let sent = timeout(Duration::from_secs(30), runtime.jobs.join_next())
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert!(
+        matches!(&sent.completion, Completion::Asked { command, .. } if *command == widening),
+        "the allowed share goes to the computer of the terminal as it was sent"
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_question_that_the_app_refuses_that_waits_too_long_or_that_another_account_finds_ends() {
+    let Sharing {
+        mut runtime,
+        ana,
+        ben,
+        terminal,
+        mut events,
+        ..
+    } = sharing_fixture();
+    let (app, app_life) = joined(&mut runtime, Origin::App);
+    let (command, command_life) = joined(&mut runtime, Origin::Command);
+    let ask = async |runtime: &mut Runtime, events: &mut broadcast::Receiver<Event>| {
+        runtime.command(
+            &as_client(runtime, share(&terminal, &[&ana, &ben])),
+            command,
+            command_life.clone(),
+            Origin::Command,
+        );
+        complete_next_job(runtime).await;
+        heard_by(events).swap_remove(0).1
+    };
+    let ended = |events: &mut broadcast::Receiver<Event>| {
+        let heard = heard_by(events);
+        let outcome = heard
+            .iter()
+            .find(|(to, event)| *to == Some(app) && event["type"] == "sharing.approvalEnded")
+            .map(|(_, event)| event["outcome"].clone());
+        let error = heard
+            .iter()
+            .find(|(to, event)| *to == Some(command) && event["type"] == "session.error")
+            .map(|(_, event)| (event["message"].clone(), event.get("refused").cloned()));
+        (outcome, error)
+    };
+
+    let question = ask(&mut runtime, &mut events).await;
+    runtime.command(
+        &as_client(&runtime, allow(&question, false)),
+        app,
+        app_life,
+        Origin::App,
+    );
+    assert_eq!(
+        ended(&mut events),
+        (
+            Some(json!("refused")),
+            Some((
+                json!("You did not allow this in Kodosi."),
+                Some(json!(true))
+            ))
+        ),
+        "an app ends a request that the owner did not allow without an error"
+    );
+
+    ask(&mut runtime, &mut events).await;
+    let almost = crate::protocol::APPROVAL_WAIT
+        .checked_sub(Duration::from_secs(1))
+        .unwrap();
+    tokio::time::advance(almost).await;
+    runtime.expire_approvals();
+    assert_eq!(ended(&mut events), (None, None));
+    tokio::time::advance(Duration::from_secs(1)).await;
+    runtime.expire_approvals();
+    assert_eq!(
+        ended(&mut events),
+        (
+            Some(json!("expired")),
+            Some((
+                json!("Kodosi did not get your OK in time."),
+                Some(json!(true))
+            ))
+        )
+    );
+
+    ask(&mut runtime, &mut events).await;
+    runtime.network.assume_identity(crate::network::Identity {
+        user_id: "someone else".to_owned(),
+        device_id: "this-device".to_owned(),
+        display_name: "Other".to_owned(),
+        enrolled: true,
+    });
+    runtime.synchronize_account().unwrap();
+    assert_eq!(
+        ended(&mut events),
+        (
+            Some(json!("expired")),
+            Some((json!(Error::Stale.text().to_string()), None))
+        ),
+        "a question that another account ends was never the owner's to refuse"
+    );
+    assert!(runtime.approvals.is_empty() && runtime.jobs.is_empty());
+}
+
+#[tokio::test]
+async fn with_no_app_a_widening_is_refused_and_narrowing_or_another_device_asks_nothing() {
+    let Sharing {
+        mut runtime,
+        ana,
+        ben,
+        terminal,
+        mut events,
+        ..
+    } = sharing_fixture();
+    let (command, command_life) = joined(&mut runtime, Origin::Command);
+    let mut sent = async |runtime: &mut Runtime, users: &[&str], origin: Origin| {
+        runtime.command(
+            &as_client(runtime, share(&terminal, users)),
+            command,
+            command_life.clone(),
+            origin,
+        );
+        if origin == Origin::Command && users.len() > 1 {
+            complete_next_job(runtime).await;
+        }
+        heard_by(&mut events)
+            .into_iter()
+            .map(|(to, event)| (to, event["type"].clone(), event["message"].clone()))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        sent(&mut runtime, &[&ana, &ben], Origin::Command).await,
+        [(
+            Some(command),
+            json!("session.error"),
+            json!("Open the Kodosi app on this computer to allow this.")
+        )]
+    );
+    assert!(runtime.approvals.is_empty() && runtime.jobs.is_empty());
+    assert_eq!(
+        sent(&mut runtime, &[&ana, &ben], Origin::Device).await,
+        [(
+            Some(command),
+            json!("session.error"),
+            json!("Only the computer that hosts this terminal can change it.")
+        )],
+        "a share from another device was asked there, and does not travel on"
+    );
+    assert!(runtime.jobs.is_empty());
+    assert_eq!(
+        sent(&mut runtime, &[], Origin::Command).await,
+        Vec::<(Option<Uuid>, Value, Value)>::new()
+    );
+    assert_eq!(
+        runtime.jobs.len(),
+        1,
+        "a narrowing share goes to the computer of the terminal at once"
+    );
+    runtime.jobs.shutdown().await;
+}
+
+#[tokio::test]
+async fn only_the_owner_shares_a_terminal_of_another_computer_and_only_while_it_is_online() {
+    let (mut runtime, _root) = registry_fixture();
+    sign_in(&mut runtime, false);
+    let friends = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let away = RemoteSession {
+        online: false,
+        ..my_terminal("desk")
+    };
+    runtime.replace_remotes(vec![friends.clone(), away.clone()]);
+    for (terminal, refusal) in [
+        (&friends, "Only the owner can share this terminal."),
+        (&away, "desk is offline. Share when it is back."),
+    ] {
+        let refused = runtime
+            .destination(&share(terminal, &[]), None, Origin::App)
+            .unwrap_err();
+        assert_eq!(refused.to_string(), refusal);
+    }
+}
+
+#[tokio::test]
+async fn a_question_comes_only_after_the_checks_that_this_device_can_make() {
+    let Sharing {
+        mut runtime,
+        mut events,
+        ..
+    } = sharing_fixture();
+    let (_app, _app_life) = joined(&mut runtime, Origin::App);
+    let (command, command_life) = joined(&mut runtime, Origin::Command);
+    let theirs = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    runtime.replace_remotes(vec![theirs.clone()]);
+    runtime.cached_events.insert(
+        "devices.hosts".to_owned(),
+        json!({"type":"devices.hosts","deviceIds":["desk"]}),
+    );
+    let start = json!({"type":"session.create","requestId":Uuid::now_v7(),"name":"New",
+        "projectId":Uuid::now_v7()});
+    let mut away = as_client(&runtime, serde_json::from_value::<Command>(start).unwrap());
+    away.computer = Some("laptop".to_owned());
+    for (envelope, refusal) in [
+        (
+            as_client(&runtime, attach(&theirs, Uuid::now_v7())),
+            "Only the owner can change this terminal.",
+        ),
+        (away, "That computer is not online."),
+    ] {
+        runtime.command(&envelope, command, command_life.clone(), Origin::Command);
+        let heard = heard_by(&mut events);
+        assert_eq!(
+            heard
+                .iter()
+                .map(|(_, event)| (event["type"].as_str(), event["message"].as_str()))
+                .collect::<Vec<_>>(),
+            [(Some("session.error"), Some(refusal))],
+            "{heard:?}"
+        );
+        assert!(runtime.jobs.is_empty() && runtime.approvals.is_empty());
+    }
+}
+
+#[expect(clippy::too_many_lines, reason = "one case of each rule")]
+#[tokio::test]
+async fn the_owner_is_asked_only_when_someone_new_would_get_in() {
+    let (mut runtime, _root) = registry_fixture();
+    sign_in(&mut runtime, false);
+    let user = || Uuid::now_v7().to_string();
+    let (ana, ben, carl, erin, eve) = (user(), user(), user(), user(), user());
+    know_friends(
+        &mut runtime,
+        &[
+            (&ana, "ana", "Ana Lima"),
+            (&ben, "ben", "Ben Okafor"),
+            (&erin, "erin", "Erin Wu"),
+            (&eve, "eve", "Your Bank"),
+        ],
+    );
+    let friends = || signed(&[(&ana, "ana"), (&ben, "ben"), (&erin, "erin")]);
+    let project = || Uuid::now_v7();
+    let (release, solo, team) = (project(), project(), project());
+    let (quiet, crowded, unchecked) = (project(), project(), project());
+    runtime.cached_events.insert(
+        "projects.snapshot".to_owned(),
+        json!({"type":"projects.snapshot","invitations":[],"projects":[
+            {"id":release,"name":"Release","ownerUserId":"owner"},
+            {"id":solo,"name":"Solo","ownerUserId":"owner"},
+            {"id":team,"name":"Team","ownerUserId":"owner"},
+            {"id":quiet,"name":"Quiet","ownerUserId":"owner"},
+            {"id":crowded,"name":"Crowded","ownerUserId":"owner"},
+            {"id":unchecked,"name":"Unchecked","ownerUserId":"owner"}]}),
+    );
+    let in_release = RemoteSession {
+        name: "Deploy".to_owned(),
+        project_id: Some(release),
+        shared_with: vec![ana.clone()],
+        ..my_terminal("laptop")
+    };
+    let with_ben = RemoteSession {
+        name: "Docs".to_owned(),
+        shared_with: vec![ben.clone()],
+        ..my_terminal("laptop")
+    };
+    let in_solo = RemoteSession {
+        name: "Notes".to_owned(),
+        project_id: Some(solo),
+        ..my_terminal("laptop")
+    };
+    let terminals = vec![in_release.clone(), with_ben.clone(), in_solo];
+    runtime.replace_remotes(terminals.clone());
+    let me = member("owner", "you");
+    let facts_with = |release_people: sharing::Membership| sharing::Facts {
+        friends: Some(friends()),
+        terminals: Some(terminals.clone()),
+        members: sharing::Members::from([
+            (release, release_people),
+            (solo, verified(&["owner"], vec![me.clone()])),
+            (
+                team,
+                verified(&["owner", &ben], vec![me.clone(), member(&ben, "ben")]),
+            ),
+            (quiet, verified(&["owner", &ben], vec![me.clone()])),
+            (
+                crowded,
+                verified(&["owner"], vec![me.clone(), member(&ben, "ben")]),
+            ),
+            (unchecked, sharing::Membership::default()),
+        ]),
+        device: None,
+    };
+    let listed_release = vec![me.clone(), member(&ana, "ana"), member(&carl, "carl")];
+    let all = facts_with(verified(
+        &["owner", &ana, &carl, &eve],
+        listed_release.clone(),
+    ));
+    let carl_unlisted = facts_with(verified(
+        &["owner", &ana, &carl],
+        vec![me.clone(), member(&ana, "ana")],
+    ));
+    let only_friends = facts_with(verified(&["owner", &ana], listed_release.clone()));
+    let unverified = facts_with(sharing::Membership::default());
+    let mut resent = share(&with_ben, &[&ben]);
+    if let Command::ShareSession {
+        expected_user_ids, ..
+    } = &mut resent
+    {
+        *expected_user_ids = None;
+    }
+    let create = |project: Uuid| {
+        let start =
+            json!({"type":"session.create","requestId":user(),"projectId":project,"name":"New"});
+        serde_json::from_value::<Command>(start).unwrap()
+    };
+    let root = [0xab; 32];
+    let invite = |handle: &str| crate::identity::friends::invite(handle, &root);
+    let mut known_root = facts_with(verified(&["owner", &ana, &carl], listed_release));
+    if let Some(friends) = &mut known_root.friends {
+        friends.list.friends.get_mut(&ben).unwrap().root = Some(crate::hex::hex(&root));
+    }
+    let mut erin_verified = facts_with(verified(&["owner", &ana, &carl], Vec::new()));
+    if let Some(friends) = &mut erin_verified.friends {
+        friends.list.friends.get_mut(&erin).unwrap().verified = true;
+    }
+    let befriend_carl = "@carl is in Release with your terminal there. As your friend, they get full control of it. Be friends only with people you would let use your computer.";
+    let befriend_anybody = "Friends you share a terminal or project with get full control of it. Be friends only with people you would let use your computer.";
+    let identity = "The identity in the invite starts with abab abab abab abab.";
+    let cases = [
+        (&all, share(&with_ben, &[&ben]), None),
+        (&all, share(&with_ben, &[]), None),
+        (
+            &all,
+            share(&with_ben, &[&ben, &ana, &erin]),
+            Some(asks([
+                "Share “Docs” with Ana Lima (@ana) and Erin Wu (@erin)?",
+                "Ana Lima (@ana) and Erin Wu (@erin) get full control: they can type anything as you on laptop.",
+                "Share",
+            ])),
+        ),
+        (
+            &all,
+            resent,
+            Some(asks([
+                "Share “Docs” with Ben Okafor (@ben)?",
+                "Ben Okafor (@ben) gets full control: they can type anything as you on laptop.",
+                "Share",
+            ])),
+        ),
+        (&all, attach(&with_ben, solo), None),
+        (&all, attach(&with_ben, team), None),
+        (
+            &all,
+            attach(&in_release, team),
+            Some(asks([
+                "Share “Deploy” with Team?",
+                "Ben Okafor (@ben) gets full control, and so will friends of yours who join later. It leaves Release.",
+                "Share",
+            ])),
+        ),
+        (
+            &all,
+            attach(&in_release, quiet),
+            Some(asks([
+                "Share “Deploy” with Quiet?",
+                "Ben Okafor (@ben) gets full control, and so will friends of yours who join later. It leaves Release.",
+                "Share",
+            ])),
+        ),
+        (
+            &all,
+            attach(&in_release, unchecked),
+            Some(asks([
+                "Share “Deploy” with Unchecked?",
+                "Members of Unchecked who are your friends get full control, and so will friends of yours who join later. It leaves Release.",
+                "Share",
+            ])),
+        ),
+        (&all, attach(&in_release, release), None),
+        (&all, create(solo), None),
+        (&all, create(crowded), None),
+        (
+            &all,
+            create(team),
+            Some(asks([
+                "Start the new terminal in Team?",
+                "Ben Okafor (@ben) gets full control of it, and so will friends of yours who join later.",
+                "Start",
+            ])),
+        ),
+        (
+            &all,
+            create(unchecked),
+            Some(asks([
+                "Start the new terminal in Unchecked?",
+                "Members of Unchecked who are your friends get full control of it, and so will friends of yours who join later.",
+                "Start",
+            ])),
+        ),
+        (
+            &all,
+            Command::InviteProject {
+                request_id: user(),
+                project_id: release.to_string(),
+                user_id: eve.clone(),
+            },
+            Some(asks([
+                "Invite @eve to Release?",
+                "@eve sees its chat and tasks and gets full control of your terminal in it.",
+                "Invite",
+            ])),
+        ),
+        (
+            &all,
+            befriend("CARL", true),
+            Some(asks(["Accept @carl as a friend?", befriend_carl, "Accept"])),
+        ),
+        (
+            &all,
+            befriend("eve", false),
+            Some(asks(["Add @eve as a friend?", befriend_anybody, "Add"])),
+        ),
+        (
+            &carl_unlisted,
+            befriend("carl", false),
+            Some(asks(["Add @carl as a friend?", befriend_anybody, "Add"])),
+        ),
+        (
+            &only_friends,
+            befriend("dora", false),
+            Some(asks(["Add @dora as a friend?", befriend_anybody, "Add"])),
+        ),
+        (
+            &all,
+            befriend(&invite("dora"), false),
+            Some(asks([
+                "Add @dora as a friend?",
+                &format!("{befriend_anybody} {identity}"),
+                "Add",
+            ])),
+        ),
+        (
+            &all,
+            befriend("ana", false),
+            Some(asks([
+                "Add Ana Lima (@ana) as a friend?",
+                befriend_anybody,
+                "Add",
+            ])),
+        ),
+        (
+            &all,
+            trust("ben"),
+            Some(asks([
+                "Trust the new identity of Ben Okafor (@ben)?",
+                "Whoever holds it gets full control of your terminals shared with Ben Okafor (@ben). Trust it only if they told you that their identity changed.",
+                "Trust",
+            ])),
+        ),
+        (
+            &all,
+            trust("erin"),
+            Some(asks([
+                "Trust the new identity of Erin Wu (@erin)?",
+                "Whoever holds it can act as Erin Wu (@erin), with full control of each terminal and project that you share with them. Trust it only if they told you that their identity changed.",
+                "Trust",
+            ])),
+        ),
+        (
+            &unverified,
+            trust("erin"),
+            Some(asks([
+                "Trust the new identity of Erin Wu (@erin)?",
+                "Whoever holds it gets full control of your terminals shared with Erin Wu (@erin). Trust it only if they told you that their identity changed.",
+                "Trust",
+            ])),
+        ),
+        (&erin_verified, trust("erin"), None),
+        (
+            &all,
+            verify("ben", invite("ben")),
+            Some(asks([
+                "Trust the new identity of Ben Okafor (@ben)?",
+                &format!(
+                    "Whoever holds it gets full control of your terminals shared with Ben Okafor (@ben). {identity}"
+                ),
+                "Trust",
+            ])),
+        ),
+        (
+            &known_root,
+            verify("ben", invite("ben")),
+            Some(asks([
+                "Verify Ben Okafor (@ben)?",
+                &format!(
+                    "Whoever holds it gets full control of your terminals shared with Ben Okafor (@ben). {identity}"
+                ),
+                "Verify",
+            ])),
+        ),
+        (
+            &all,
+            verify("erin", invite("erin")),
+            Some(asks([
+                "Trust the new identity of Erin Wu (@erin)?",
+                &format!(
+                    "Whoever holds it can act as Erin Wu (@erin), with full control of each terminal and project that you share with them. {identity}"
+                ),
+                "Trust",
+            ])),
+        ),
+        (
+            &all,
+            verify("carl", invite("carl")),
+            Some(asks([
+                "Add @carl as a friend?",
+                &format!("{befriend_carl} {identity}"),
+                "Add",
+            ])),
+        ),
+        (&all, verify("carl", invite("ana")), None),
+    ];
+    for (facts, command, expected) in cases {
+        assert_eq!(question(&runtime, facts, &command), expected, "{command:?}");
+    }
+}
+
+#[tokio::test]
+async fn a_device_joins_the_account_only_with_the_owners_ok_in_the_app() {
+    let (mut runtime, _root) = registry_fixture();
+    sign_in(&mut runtime, true);
+    let approve = Command::ApproveDevice {
+        code: "abcd efgh jkmn".to_owned(),
+        request_id: Uuid::now_v7().to_string(),
+    };
+    let shows = sharing::Facts {
+        device: Some(Ok("Phone of Mallory".to_owned())),
+        ..sharing::Facts::default()
+    };
+    assert_eq!(
+        question(&runtime, &shows, &approve),
+        Some(asks([
+            "Add the device “Phone of Mallory” to your account?",
+            "It gets full control of your terminals. Approve it only if it is yours and shows the code ABCD-EFGH-JKMN.",
+            "Approve",
+        ]))
+    );
+    let unknown = sharing::Facts {
+        device: Some(Err(crate::text::Text::plain("No device has this code."))),
+        ..sharing::Facts::default()
+    };
+    assert_eq!(
+        runtime
+            .gate(&approve, Origin::Command, &unknown)
+            .err()
+            .map(|error| error.to_string()),
+        Some("No device has this code.".to_owned()),
+        "a code that approves nothing asks nothing"
+    );
+    let offer = Command::OfferDevice {
+        request_id: Uuid::now_v7().to_string(),
+    };
+    let key = Command::CreateRecoveryKey {
+        request_id: Uuid::now_v7().to_string(),
+    };
+    let none = sharing::Facts::default();
+    assert_eq!(
+        question(&runtime, &none, &offer),
+        Some(asks([
+            "Show a code that adds a device to your account?",
+            "A device that uses the code joins your account and gets full control of your terminals.",
+            "Show code",
+        ]))
+    );
+    assert_eq!(
+        question(&runtime, &none, &key).map(|[title, ..]| title),
+        Some("Make a new recovery key?".to_owned())
+    );
+    for command in [&approve, &offer, &key] {
+        assert!(
+            matches!(
+                runtime.gate(command, Origin::App, &shows),
+                Ok(sharing::Gate::Open)
+            ),
+            "the app's own screen is the owner's OK"
+        );
+    }
+}
+
+#[expect(
+    clippy::too_many_lines,
+    reason = "one case of each thing that this device may not know"
+)]
+#[tokio::test]
+async fn the_owner_is_asked_while_this_device_cannot_tell_who_would_get_in() {
+    let Sharing {
+        mut runtime,
+        ana,
+        ben,
+        terminal,
+        ..
+    } = sharing_fixture();
+    let (team, solo) = (Uuid::now_v7(), Uuid::now_v7());
+    runtime.cached_events.insert(
+        "projects.snapshot".to_owned(),
+        json!({"type":"projects.snapshot","invitations":[],"projects":[
+            {"id":team,"name":"Team","ownerUserId":"owner"},
+            {"id":solo,"name":"Solo","ownerUserId":"owner"}]}),
+    );
+    let friends = || Some(signed(&[(&ana, "ana"), (&ben, "ben")]));
+    let in_solo = RemoteSession {
+        shared_with: Vec::new(),
+        project_id: Some(solo),
+        ..terminal.clone()
+    };
+    let facts = |terminals: Option<Vec<RemoteSession>>| sharing::Facts {
+        friends: friends(),
+        terminals,
+        members: sharing::Members::from([
+            (team, verified(&["owner", &ben], Vec::new())),
+            (solo, verified(&["owner"], Vec::new())),
+        ]),
+        device: None,
+    };
+    let fresh = facts(Some(vec![terminal.clone()]));
+    let generic = "Members of Team who are your friends get full control, and so will friends of yours who join later.";
+    let message = |runtime: &Runtime, facts: &sharing::Facts, command: &Command| {
+        question(runtime, facts, command).map(|[_, message, _]| message)
+    };
+    assert_eq!(
+        message(&runtime, &fresh, &attach(&terminal, team)),
+        Some(
+            "Ben Okafor (@ben) gets full control, and so will friends of yours who join later."
+                .to_owned()
+        )
+    );
+
+    know_friends(&mut runtime, &[(&ana, "ana", "Ana Lima")]);
+    assert_eq!(
+        message(&runtime, &fresh, &attach(&terminal, team)),
+        Some("@ben gets full control, and so will friends of yours who join later.".to_owned()),
+        "a friend of the signed list whom the server leaves out still gets in"
+    );
+    let friends_unknown = sharing::Facts {
+        friends: None,
+        ..facts(Some(vec![terminal.clone()]))
+    };
+    assert_eq!(
+        message(&runtime, &friends_unknown, &attach(&terminal, team)).as_deref(),
+        Some(generic),
+        "a device that could not read the signed friend list asks"
+    );
+    know_friends(
+        &mut runtime,
+        &[(&ana, "ana", "Ana Lima"), (&ben, "ben", "Ben Okafor")],
+    );
+
+    let stale = RemoteSession {
+        project_id: Some(team),
+        ..in_solo.clone()
+    };
+    runtime.replace_remotes(vec![stale.clone()]);
+    assert_eq!(
+        message(&runtime, &facts(Some(vec![in_solo.clone()])), &attach(&stale, team)),
+        Some(
+            "Ben Okafor (@ben) gets full control, and so will friends of yours who join later. It leaves Solo."
+                .to_owned()
+        ),
+        "the server's list of now decides where the terminal is, not the list that this device keeps"
+    );
+    assert_eq!(
+        message(&runtime, &facts(None), &attach(&stale, team)),
+        Some(
+            "Ben Okafor (@ben) gets full control, and so will friends of yours who join later."
+                .to_owned()
+        ),
+        "a device that could not read where the terminal is asks"
+    );
+
+    runtime.replace_remotes(vec![in_solo.clone()]);
+    let in_solo_only = facts(Some(vec![in_solo]));
+    assert_eq!(
+        message(&runtime, &in_solo_only, &trust("ben")),
+        Some(
+            "Whoever holds it can act as Ben Okafor (@ben), with full control of each terminal and project that you share with them. Trust it only if they told you that their identity changed."
+                .to_owned()
+        )
+    );
+    assert_eq!(
+        message(&runtime, &facts(None), &trust("ben")),
+        Some(
+            "Whoever holds it gets full control of your terminals shared with Ben Okafor (@ben). Trust it only if they told you that their identity changed."
+                .to_owned()
+        ),
+        "a device that could not read the terminals of the account counts the friend in"
+    );
+
+    runtime.scope.user = None;
+    assert!(matches!(
+        runtime.gate(&attach(&terminal, team), Origin::Command, &fresh),
+        Err(Error::Refused(text)) if text.to_string() == "Sign in to continue."
+    ));
+}
+
+#[tokio::test]
+async fn requests_that_change_who_has_access_decide_one_after_another() {
+    let Sharing {
+        mut runtime,
+        ana,
+        ben,
+        terminal,
+        mut events,
+        ..
+    } = sharing_fixture();
+    let (app, _app_life) = joined(&mut runtime, Origin::App);
+    let (first, first_life) = joined(&mut runtime, Origin::Command);
+    let (second, second_life) = joined(&mut runtime, Origin::Command);
+    runtime.command(
+        &as_client(&runtime, share(&terminal, &[&ana, &ben])),
+        first,
+        first_life.clone(),
+        Origin::Command,
+    );
+    let accept = befriend("eve", true);
+    runtime.command(
+        &as_client(&runtime, accept.clone()),
+        second,
+        second_life,
+        Origin::Command,
+    );
+    let waits = heard_by(&mut events);
+    assert_eq!(
+        waits
+            .iter()
+            .map(|(to, event)| (*to, event["type"].as_str(), event["message"].as_str()))
+            .collect::<Vec<_>>(),
+        [(
+            Some(second),
+            Some("sharing.waiting"),
+            Some("Waiting for an earlier request to end.")
+        )]
+    );
+    assert_eq!(runtime.jobs.len(), 1, "only the first request reads");
+    complete_next_job(&mut runtime).await;
+    let asked = heard_by(&mut events);
+    assert_eq!(asked[0].1["operation"], "session.share");
+    assert!(runtime.jobs.is_empty(), "the second request still waits");
+
+    first_life.cancel();
+    runtime.expire_approvals();
+    runtime.advance_lane();
+    assert_eq!(
+        runtime.jobs.len(),
+        1,
+        "the second request reads only after the first one ended"
+    );
+    complete_next_job(&mut runtime).await;
+    let asked = heard_by(&mut events);
+    let question = asked
+        .iter()
+        .find(|(to, event)| *to == Some(app) && event["type"] == "sharing.approval")
+        .unwrap();
+    assert_eq!(question.1["operation"], "friends.request.accept");
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_request_whose_wait_runs_out_ends_while_the_question_before_it_stays_open() {
+    let Sharing {
+        mut runtime,
+        ana,
+        ben,
+        terminal,
+        mut events,
+        ..
+    } = sharing_fixture();
+    let (_app, _app_life) = joined(&mut runtime, Origin::App);
+    let (first, first_life) = joined(&mut runtime, Origin::Command);
+    let (second, second_life) = joined(&mut runtime, Origin::Command);
+    runtime.command(
+        &as_client(&runtime, share(&terminal, &[&ana, &ben])),
+        first,
+        first_life,
+        Origin::Command,
+    );
+    runtime.command(
+        &as_client(&runtime, befriend("eve", true)),
+        second,
+        second_life,
+        Origin::Command,
+    );
+    tokio::time::advance(Duration::from_secs(1)).await;
+    complete_next_job(&mut runtime).await;
+    heard_by(&mut events);
+    let rest = crate::protocol::APPROVAL_WAIT
+        .checked_sub(Duration::from_secs(1))
+        .unwrap();
+    tokio::time::advance(rest).await;
+    runtime.expire_approvals();
+    runtime.advance_lane();
+    assert_eq!(
+        heard_by(&mut events)
+            .iter()
+            .map(|(to, event)| (*to, event["type"].as_str(), event["message"].as_str()))
+            .collect::<Vec<_>>(),
+        [(
+            Some(second),
+            Some("friends.error"),
+            Some("Other requests wait for your OK in the Kodosi app. Answer them first.")
+        )]
+    );
+    assert!(
+        runtime.approvals_due() > Some(Instant::now()),
+        "no deadline that passed stays due, so the runtime does not wake for it again and again"
+    );
+}
+
+#[tokio::test]
+async fn a_project_choice_asks_when_its_people_cannot_be_verified_and_counts_only_signed_friends() {
+    let Sharing {
+        mut runtime,
+        ana,
+        ben,
+        terminal,
+        mut events,
+        ..
+    } = sharing_fixture();
+    let (app, app_life) = joined(&mut runtime, Origin::App);
+    let (command, command_life) = joined(&mut runtime, Origin::Command);
+    let team = Uuid::now_v7();
+    runtime.cached_events.insert(
+        "projects.snapshot".to_owned(),
+        json!({"type":"projects.snapshot","invitations":[],"projects":[
+            {"id":team,"name":"Team","ownerUserId":"owner"}]}),
+    );
+    runtime.command(
+        &as_client(&runtime, attach(&terminal, team)),
+        command,
+        command_life.clone(),
+        Origin::Command,
+    );
+    assert_eq!(heard_by(&mut events), []);
+    complete_next_job(&mut runtime).await;
+    let unverified = heard_by(&mut events);
+    assert_eq!(
+        (unverified[0].0, &unverified[0].1["message"]),
+        (
+            Some(app),
+            &json!(
+                "Members of Team who are your friends get full control, and so will friends of yours who join later. The kodosi command asked for this."
+            )
+        ),
+        "a project whose people this device cannot verify asks"
+    );
+    assert_eq!(unverified[1].1["type"], "sharing.waiting");
+
+    runtime.command(
+        &as_client(&runtime, allow(&unverified[0].1, false)),
+        app,
+        app_life,
+        Origin::App,
+    );
+    let hidden = attach(&terminal, team);
+    runtime.command(
+        &as_client(&runtime, hidden.clone()),
+        command,
+        command_life.clone(),
+        Origin::Command,
+    );
+    runtime.jobs.shutdown().await;
+    heard_by(&mut events);
+    let requester = sharing::Requester {
+        consumer: command,
+        lifetime: command_life,
+        origin: Origin::Command,
+    };
+    let eve = Uuid::now_v7().to_string();
+    know_friends(
+        &mut runtime,
+        &[
+            (&ana, "ana", "Ana Lima"),
+            (&ben, "ben", "Ben Okafor"),
+            (&eve, "eve", "Eve Adams"),
+        ],
+    );
+    let facts = |people: &[&str]| sharing::Facts {
+        friends: Some(signed(&[(&ana, "ana"), (&ben, "ben")])),
+        terminals: Some(vec![terminal.clone()]),
+        members: sharing::Members::from([(team, verified(people, vec![member("owner", "you")]))]),
+        device: None,
+    };
+    runtime.complete(Job {
+        scope: runtime.scope.clone(),
+        completion: Completion::Checked {
+            held: sharing::Held::new(&hidden, None, requester),
+            facts: facts(&["owner", &ben, &eve]),
+        },
+    });
+    let asked = heard_by(&mut events);
+    assert_eq!(
+        (asked[0].0, &asked[0].1["operation"], &asked[0].1["message"]),
+        (
+            Some(app),
+            &json!("session.attachProject"),
+            &json!(
+                "Ben Okafor (@ben) gets full control, and so will friends of yours who join later. The kodosi command asked for this."
+            )
+        ),
+        "a signed friend whom the server leaves out of the project asks, and a friend whom only the server lists is not named"
+    );
+    assert_eq!(asked[1].1["type"], "sharing.waiting");
+    assert_eq!(
+        question(&runtime, &facts(&["owner", &eve]), &attach(&terminal, team)),
+        None,
+        "a friend whom only the server lists gets no terminal, so nobody is asked"
+    );
+}
+
+#[tokio::test]
+async fn reading_the_state_again_gives_an_app_its_open_questions_after_the_ready_event() {
+    let Sharing {
+        mut runtime,
+        ana,
+        ben,
+        terminal,
+        ..
+    } = sharing_fixture();
+    let (app, _app_life) = joined(&mut runtime, Origin::App);
+    let (command, command_life) = joined(&mut runtime, Origin::Command);
+    runtime.command(
+        &as_client(&runtime, share(&terminal, &[&ana, &ben])),
+        command,
+        command_life,
+        Origin::Command,
+    );
+    complete_next_job(&mut runtime).await;
+    let mut observed = |consumer: Uuid| {
+        let (reply, mut answer) = oneshot::channel();
+        runtime.request(Request::Observe { consumer, reply });
+        let (events, _) = answer.try_recv().unwrap().unwrap();
+        events
+            .into_iter()
+            .map(|event| (event.recipient, event.event.kind().to_owned()))
+            .collect::<Vec<_>>()
+    };
+    let again = observed(app);
+    assert_eq!(again[0].1, "system.ready");
+    assert_eq!(
+        again.last(),
+        Some(&(Some(app), "sharing.approval".to_owned())),
+        "an app that clears its questions on the ready event gets them again after it"
+    );
+    assert!(
+        !observed(command)
+            .iter()
+            .any(|(_, kind)| kind == "sharing.approval"),
+        "only an app answers questions"
+    );
+}
+
+#[cfg(all(unix, feature = "host"))]
+async fn running_here(runtime: &mut Runtime) -> Uuid {
+    runtime.config.initial_shell = Some(SHELL.to_owned());
+    let start = Command::CreateSession {
+        request_id: Uuid::now_v7().to_string(),
+        name: "Here".to_owned(),
+        working_dir: None,
+        project_id: None,
+        resume: None,
+        branch: None,
+        worktrees: None,
+        command: None,
+        agent: None,
+        prompt: None,
+        like: None,
+        size: None,
+    };
+    runtime
+        .expect_answer(&start, Uuid::now_v7(), CancellationToken::new())
+        .unwrap();
+    runtime.apply(&start).unwrap();
+    timeout(Duration::from_secs(20), async {
+        while runtime.local.is_empty() {
+            complete_next_job(runtime).await;
+        }
+    })
+    .await
+    .unwrap();
+    *runtime.local.keys().next().unwrap()
+}
+
+#[cfg(all(unix, feature = "host"))]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_share_of_a_terminal_here_asks_only_once_it_can_run() {
+    let (mut runtime, _root) = registry_fixture();
+    sign_in(&mut runtime, false);
+    let ben = Uuid::now_v7().to_string();
+    know_friends(&mut runtime, &[(&ben, "ben", "Ben Okafor")]);
+    let id = running_here(&mut runtime).await;
+    let incarnation = runtime.local[&id].terminal.incarnation_id;
+    let (_app, _app_life) = joined(&mut runtime, Origin::App);
+    let (command, command_life) = joined(&mut runtime, Origin::Command);
+    let mut events = runtime.events.subscribe();
+    for (expected, refusal) in [
+        (
+            vec![ben.clone()],
+            "The sharing of this terminal changed. Open sharing again before you save.",
+        ),
+        (
+            Vec::new(),
+            "Remote access is still connecting. Try again when this device is online and approved.",
+        ),
+    ] {
+        let widening = Command::ShareSession {
+            request_id: Uuid::now_v7().to_string(),
+            session_id: id.to_string(),
+            expected_runtime_incarnation_id: incarnation.to_string(),
+            user_ids: vec![ben.clone()],
+            expected_user_ids: Some(expected),
+        };
+        runtime.command(
+            &as_client(&runtime, widening),
+            command,
+            command_life.clone(),
+            Origin::Command,
+        );
+        assert_eq!(
+            heard_by(&mut events)
+                .iter()
+                .map(|(_, event)| (event["type"].as_str(), event["message"].as_str()))
+                .collect::<Vec<_>>(),
+            [(Some("session.error"), Some(refusal))]
+        );
+        assert!(runtime.approvals.is_empty());
+    }
+    let terminal = runtime.local.remove(&id).unwrap().terminal;
+    terminal.close().await.unwrap();
+    drop(terminal);
+}
+
+#[cfg(all(unix, feature = "host"))]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_sign_in_of_the_kodosi_command_asks_before_another_account_takes_the_terminals_here() {
+    let (mut runtime, _root) = registry_fixture();
+    sign_in(&mut runtime, false);
+    let id = running_here(&mut runtime).await;
+    runtime.terminals_owner = Some("owner".to_owned());
+    let mut events = runtime.events.subscribe();
+    let signing = |user: &str| {
+        let (reply, answer) = oneshot::channel();
+        let sign_in = crate::network::SignIn {
+            user_id: user.to_owned(),
+            handle: "intruder".to_owned(),
+            request_id: Uuid::now_v7().to_string(),
+            reply,
+        };
+        (sign_in, answer)
+    };
+    let decided = |runtime: &mut Runtime, origin: Origin, user: &str| {
+        runtime.sign_in_origin = Some(origin);
+        let (sign_in, mut answer) = signing(user);
+        runtime.sign_in_asked(sign_in);
+        answer
+            .try_recv()
+            .map(|answer| answer.map_err(|error| error.text().to_string()))
+    };
+    assert!(matches!(
+        decided(&mut runtime, Origin::App, "intruder"),
+        Ok(Ok(()))
+    ));
+    assert!(matches!(
+        decided(&mut runtime, Origin::Command, "owner"),
+        Ok(Ok(()))
+    ));
+    assert_eq!(
+        decided(&mut runtime, Origin::Command, "intruder"),
+        Ok(Err(
+            "Close the terminals on this computer, or sign in from the Kodosi app.".to_owned()
+        )),
+        "a computer without the app refuses while the terminals run"
+    );
+
+    let (app, app_life) = joined(&mut runtime, Origin::App);
+    let (sign_in, mut answer) = signing("intruder");
+    runtime.sign_in_asked(sign_in);
+    let asked = heard_by(&mut events);
+    assert_eq!(
+        (
+            asked[0].0,
+            &asked[0].1["operation"],
+            &asked[0].1["title"],
+            &asked[0].1["message"]
+        ),
+        (
+            Some(app),
+            &json!("auth.login.start"),
+            &json!("Sign in as intruder?"),
+            &json!(
+                "The terminal that runs on this computer moves to that account, which gets full control of it. The kodosi command asked for this."
+            )
+        )
+    );
+    assert!(
+        answer.try_recv().is_err(),
+        "the sign-in waits for the owner"
+    );
+    runtime.command(
+        &as_client(&runtime, allow(&asked[0].1, true)),
+        app,
+        app_life,
+        Origin::App,
+    );
+    assert!(matches!(answer.try_recv(), Ok(Ok(()))));
+    let terminal = runtime.local.remove(&id).unwrap().terminal;
+    terminal.close().await.unwrap();
+    drop(terminal);
+}
+
+#[cfg(feature = "host")]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn another_device_shares_a_terminal_of_this_computer_but_cannot_answer_its_questions() {
+    let runtime = TestRuntime::new().await;
+    let (session, incarnation) = runtime.create().await;
+    let caller = runtime.handle.command_client(Origin::Device);
+    let asked = Uuid::now_v7().to_string();
+    let answer = caller
+        .answer_call(
+            json!({"type":"session.share","requestId":asked,"sessionId":session,
+            "expectedRuntimeIncarnationId":incarnation,"userIds":[Uuid::now_v7()]}),
+        )
+        .await;
+    assert_eq!(
+        (answer["type"].as_str(), answer["requestId"].as_str()),
+        (Some("session.error"), Some(asked.as_str()))
+    );
+    assert_eq!(
+        answer["message"]["$text"],
+        not_published().words(),
+        "the computer that hosts the terminal shares it itself"
+    );
+    let answer = caller
+        .answer_call(json!({"type":"sharing.answer","requestId":asked,
+            "approvalId":Uuid::now_v7(),"allow":true}))
+        .await;
+    assert_eq!(answer["type"], "sharing.error");
+    drop(caller);
+    runtime.shutdown().await;
+    drop(runtime);
+}
+
 #[cfg(feature = "host")]
 #[test]
 fn a_restored_server_of_the_chat_loads_its_conversation_again() {
@@ -3072,6 +4508,7 @@ async fn saved_terminals_wait_for_an_app_and_stay_saved_until_they_start() {
         name: name.to_owned(),
         folder: None,
         sharing: None,
+        owner: None,
         line: None,
         worktree: None,
         canvas: Vec::new(),
@@ -3102,6 +4539,7 @@ async fn a_saved_screen_keeps_its_newest_lines_until_its_terminal_comes_back() {
         name: "Notes".to_owned(),
         folder: None,
         sharing: None,
+        owner: None,
         line: None,
         worktree: None,
         canvas: Vec::new(),

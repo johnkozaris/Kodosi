@@ -77,7 +77,5 @@ class PeopleStore(private val commands: CommandSink) {
                 HANDLE.matches(parts[1]) && IDENTITY.matches(parts[2])
             return trimmed.takeIf { valid }
         }
-
-        fun handle(text: String): String = invite(text)?.split(':')?.get(1) ?: text.trim()
     }
 }

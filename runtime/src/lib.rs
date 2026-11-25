@@ -63,6 +63,9 @@ pub enum Error {
     Stale,
     Invalid(String),
     Refused(text::Text),
+    /// The owner did not allow the request in the app: they refused it, or did not answer in
+    /// time.
+    NotAllowed(text::Text),
     Text(text::Text),
     Unsent(text::Text),
     HostBusy(text::Text),
@@ -83,9 +86,11 @@ impl Error {
             Self::NotFound => text!("This terminal is not available."),
             Self::Stale => text!("The terminal or the account changed. Try again."),
             Self::Invalid(words) | Self::Other(words) => text::Text::plain(words.clone()),
-            Self::Refused(text) | Self::Text(text) | Self::Unsent(text) | Self::HostBusy(text) => {
-                text.clone()
-            }
+            Self::Refused(text)
+            | Self::NotAllowed(text)
+            | Self::Text(text)
+            | Self::Unsent(text)
+            | Self::HostBusy(text) => text.clone(),
             Self::HostOutdated { .. } => {
                 text!("Kodosi was updated, but its host still runs the earlier version.")
             }
@@ -143,6 +148,7 @@ impl From<network::Error> for Error {
         match error {
             network::Error::Busy => Self::Busy,
             network::Error::Stale => Self::Stale,
+            network::Error::NotAllowed(text) => Self::NotAllowed(text),
             refusal @ (network::Error::Trust(_)
             | network::Error::SignedOut
             | network::Error::EnrollmentRequired

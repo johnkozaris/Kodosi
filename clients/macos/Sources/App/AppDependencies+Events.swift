@@ -30,6 +30,7 @@ extension AppDependencies {
             people.reset(userId: event.accountUserId); inviteRequested = nil
             dosi.reset()
             projects.reset(userId: event.accountUserId); projectWorkspaces.removeAll()
+            approvals.reset()
             freshTerminals.removeAll(); reportedVisible = nil
             activationTasks.values.forEach { $0.cancel() }; activationTasks.removeAll()
             accountKnown = true
@@ -57,6 +58,7 @@ extension AppDependencies {
         case "connection": try account.receiveConnection(event)
         case "project", "projects": try receiveProject(event)
         case "dosi": try receiveDosi(event)
+        case "sharing": try approvals.receive(event)
         case "term", "session", "document": receiveTerminal(event)
         default: break
         }
@@ -79,7 +81,7 @@ extension AppDependencies {
         let stage = account.stage
         let inItsSheet = account.absorb(error: event, message: message)
             && ["devices.link.offer", "devices.link.check", "devices.link.approve"].contains(event.string("operation"))
-        guard !inItsSheet, !signInPresented || account.stage == stage, !event.failedRefresh else { return }
+        guard !inItsSheet, !signInPresented || account.stage == stage, !event.failedRefresh, !event.refused else { return }
         errorMessage = message
     }
 
@@ -133,7 +135,6 @@ extension AppDependencies {
         workbench.launcher = nil
         workbench.detailsSessionId = nil
         workbench.sharingSessionId = nil
-        workbench.trusting = nil
         workbench.reporting = nil
         workbench.blocking = nil
         workbench.section = .sessions

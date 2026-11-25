@@ -56,7 +56,7 @@ private struct ProjectTerminals: View {
     }
 
     private var mine: [RuntimeSession] {
-        deps.sessions.filter { $0.isOwner && $0.kind == .local && $0.projectId != projectId }
+        deps.listedSessions.filter { $0.isOwner && $0.projectId != projectId }
     }
 
     var body: some View {
@@ -271,7 +271,10 @@ private struct ProjectTerminals: View {
             do {
                 try await deps.mutateSession("session.attachProject", session: session, fields: ["projectId": .string(projectId)])
                 workspace.shownSection = 0; deps.activateSession(session.id, inProject: projectId)
-            } catch { state.failure = error.localizedDescription }
+            } catch RuntimeError.refused {
+            } catch {
+                state.failure = error.localizedDescription
+            }
         }
     }
 }

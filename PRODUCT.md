@@ -28,7 +28,8 @@ You can switch freely between the terminal screen and chat view, and anything yo
 up in the other.
 
 ### Sharing
-Share any terminal with friends or with a project. Everyone with access gets full control.
+Share any terminal with friends or with a project, from any of your devices. Everyone with access
+gets full control.
 
 ### Projects
 A project groups a chat, tasks, linked repositories, and terminals from multiple computers. You
@@ -59,6 +60,12 @@ A shared terminal runs under its owner's account, so anyone in it can do whateve
 there. Kodosi defends against the network, the backend, and unauthorized users, not against people
 you explicitly chose to share with. Removing or blocking a friend revokes everything shared
 between you.
+
+Every change that lets someone new into your terminals or projects asks you first in the Kodosi
+app of the device where it starts, including changes the `kodosi` command asks for on behalf of an
+agent or of anyone typing in your terminals. This guards against mistakes and agents, not against
+a person in your shell, who acts as you. The computer that runs a terminal stays the only one that
+writes who may enter it; your other devices ask it over the encrypted channel.
 
 ### Agents stay with their providers
 Agents run through their own CLIs. Execution, prompts, permissions, settings, memory, and

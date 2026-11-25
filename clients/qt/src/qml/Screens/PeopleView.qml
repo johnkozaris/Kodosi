@@ -15,7 +15,8 @@ Item {
     function add(): void {
         if (handle.text.trim().length === 0)
             return;
-        trust.askToAdd(handle.text);
+        Models.People.request(handle.text);
+        handle.clear();
     }
 
     Accessible.id: objectName
@@ -169,7 +170,7 @@ Item {
                             objectName: "panel.peopleView.accept" + "." + incoming.modelData.userId
                             text: qsTr("Accept…")
 
-                            onClicked: trust.askToAccept(incoming.modelData)
+                            onClicked: Models.People.accept(incoming.modelData.handle)
                         }
                         KButton {
                             Accessible.id: objectName
@@ -475,10 +476,6 @@ Item {
             }
             Item { Layout.preferredHeight: 30 }
         }
-    }
-    FriendTrustDialog {
-        id: trust
-        onAdded: handle.clear()
     }
     BlockPersonDialog { id: blockPerson }
     ReportPersonDialog { id: reportPerson }

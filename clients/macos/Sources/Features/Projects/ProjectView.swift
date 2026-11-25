@@ -26,7 +26,7 @@ struct ProjectView: View {
                     if !(narrow && workspace.conversationVisible) {
                         ProjectContentView(projectId: projectId, state: state, workspace: workspace)
                             .overlay {
-                                DropSlot(radius: Radius.xl, shown: dropping, label: String(localized: "Share with \(detail.project.name)"))
+                                DropSlot(radius: Radius.xl, shown: dropping, label: String(localized: "Share with project \(detail.project.name)"))
                                     .padding(6)
                             }
                             .projectDrop(projectId, deps: deps, targeted: $dropping)
@@ -335,6 +335,8 @@ struct ProjectPeoplePopover: View {
         Task {
             do {
                 try await deps.projects.invite(friend.userId, to: detail.project.id)
+            } catch RuntimeError.refused {
+                invited.remove(friend.userId)
             } catch {
                 invited.remove(friend.userId)
                 state.failure = error.localizedDescription

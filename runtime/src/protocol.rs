@@ -37,9 +37,11 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 111;
+pub const VERSION: u32 = 112;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
+/// How long a command that lets someone new in waits for the owner's answer in the app.
+pub const APPROVAL_WAIT: std::time::Duration = std::time::Duration::from_mins(5);
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
 pub(crate) const REPORT_NOTE_BYTES: usize = 1000;
 const DEVICE_CODE_BYTES: usize = 256;
@@ -527,6 +529,15 @@ pub enum Command {
         expected_runtime_incarnation_id: String,
         #[serde(rename = "projectId")]
         project_id: Option<String>,
+    },
+    /// The owner's answer to `sharing.approval`. Only an app of this device can send it.
+    #[serde(rename = "sharing.answer")]
+    AnswerSharing {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "approvalId")]
+        approval_id: String,
+        allow: bool,
     },
     #[serde(rename = "project.act")]
     ActInProject {
@@ -1208,6 +1219,10 @@ pub enum EventBody {
         request_id: String,
         operation: String,
         message: Text,
+        /// The owner refused the request in the app, or did not answer in time, so an app ends it
+        /// without showing an error.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        refused: bool,
     },
     #[serde(rename = "friends.snapshot")]
     FriendsSnapshot {
@@ -1231,6 +1246,10 @@ pub enum EventBody {
         request_id: String,
         operation: String,
         message: Text,
+        /// The owner refused the request in the app, or did not answer in time, so an app ends it
+        /// without showing an error.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        refused: bool,
     },
     #[serde(rename = "devices.list")]
     DevicesList {
@@ -1285,6 +1304,10 @@ pub enum EventBody {
         request_id: String,
         operation: String,
         message: Text,
+        /// The owner refused the request in the app, or did not answer in time, so an app ends it
+        /// without showing an error.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        refused: bool,
     },
     #[serde(rename = "push.result")]
     PushResult {
@@ -1332,6 +1355,10 @@ pub enum EventBody {
         message: Text,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         session_id: Option<String>,
+        /// The owner refused the request in the app, or did not answer in time, so an app ends it
+        /// without showing an error.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        refused: bool,
     },
     #[serde(rename = "project.snapshot")]
     ProjectSnapshot { content: crate::projects::Snapshot },
@@ -1372,6 +1399,44 @@ pub enum EventBody {
         message: Text,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         project_id: Option<String>,
+        /// The owner refused the request in the app, or did not answer in time, so an app ends it
+        /// without showing an error.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        refused: bool,
+    },
+    /// A command waits for the owner's OK, so each app of this device shows the question with the
+    /// confirm button and a Cancel button, as the runtime words them.
+    #[serde(rename = "sharing.approval")]
+    SharingApproval {
+        approval_id: String,
+        operation: String,
+        title: Text,
+        message: Text,
+        confirm: Text,
+        from: ClientKind,
+    },
+    #[serde(rename = "sharing.approvalEnded")]
+    SharingApprovalEnded {
+        approval_id: String,
+        outcome: ApprovalOutcome,
+    },
+    /// The command of a client that is not the app waits for the owner's OK in the app.
+    #[serde(rename = "sharing.waiting")]
+    SharingWaiting {
+        request_id: String,
+        operation: String,
+        message: Text,
+    },
+    #[serde(rename = "sharing.result")]
+    SharingResult {
+        request_id: String,
+        operation: String,
+    },
+    #[serde(rename = "sharing.error")]
+    SharingError {
+        request_id: String,
+        operation: String,
+        message: Text,
     },
     #[serde(rename = "canvas.result")]
     CanvasResult {
@@ -1594,6 +1659,23 @@ pub enum CredentialStore {
 pub enum DeviceLinkOutcome {
     Approved,
     Cancelled,
+    Expired,
+}
+
+/// What kind of program on this computer sends commands to its host.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum ClientKind {
+    App,
+    /// The `kodosi` command or another program.
+    Command,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum ApprovalOutcome {
+    Allowed,
+    Refused,
     Expired,
 }
 
@@ -1833,6 +1915,9 @@ impl EventBody {
             | Self::SessionError { request_id, .. }
             | Self::ProjectResult { request_id, .. }
             | Self::ProjectError { request_id, .. }
+            | Self::SharingWaiting { request_id, .. }
+            | Self::SharingResult { request_id, .. }
+            | Self::SharingError { request_id, .. }
             | Self::ProviderResult { request_id, .. }
             | Self::ProviderError { request_id, .. }
             | Self::FoldersResult { request_id, .. }
@@ -1895,6 +1980,11 @@ impl EventBody {
             Self::ProjectsSnapshot { .. } => "projects.snapshot",
             Self::ProjectResult { .. } => "project.result",
             Self::ProjectError { .. } => "project.error",
+            Self::SharingApproval { .. } => "sharing.approval",
+            Self::SharingApprovalEnded { .. } => "sharing.approvalEnded",
+            Self::SharingWaiting { .. } => "sharing.waiting",
+            Self::SharingResult { .. } => "sharing.result",
+            Self::SharingError { .. } => "sharing.error",
             Self::ProviderResult { .. } => "provider.result",
             Self::ProviderError { .. } => "provider.error",
             Self::FoldersResult { .. } => "folders.result",
@@ -2031,6 +2121,7 @@ impl Command {
             Self::LeaveSession { .. } => "session.leave",
             Self::HideSession { .. } => "session.hide",
             Self::AttachSession { .. } => "session.attachProject",
+            Self::AnswerSharing { .. } => "sharing.answer",
             Self::ActInProject { .. } => "project.act",
             Self::CanvasShow { .. } => "canvas.show",
             Self::CanvasBrowse { .. } => "canvas.browser",
@@ -2110,6 +2201,7 @@ impl Command {
                 | Self::ListFolders { .. }
                 | Self::ListSessionFolders { .. }
                 | Self::CreateSession { resume: None, .. }
+                | Self::ShareSession { .. }
         )
     }
 
@@ -2178,6 +2270,7 @@ impl Command {
             | Self::LeaveSession { request_id, .. }
             | Self::HideSession { request_id, .. }
             | Self::AttachSession { request_id, .. }
+            | Self::AnswerSharing { request_id, .. }
             | Self::ActInProject { request_id, .. }
             | Self::CanvasShow { request_id, .. }
             | Self::CanvasBrowse { request_id, .. }
@@ -2695,7 +2788,12 @@ impl Command {
                 environment,
                 ..
             } => push_token(*platform, token, *environment)?,
-            Self::CancelReset { reset_id, .. } => parse_id(reset_id).map(drop)?,
+            Self::CancelReset { reset_id: id, .. }
+            | Self::AnswerSharing {
+                approval_id: id, ..
+            } => {
+                parse_id(id).map(drop)?;
+            }
             Self::FinishLogin { url, .. } => text(url, "url", 8192)?,
             Self::CheckDevice { code, .. }
             | Self::ApproveDevice { code, .. }
@@ -3135,7 +3233,9 @@ pub(crate) mod tests {
             json!({"type":"app.resync","requestId":ID}),
             json!({"type":"app.look","requestId":ID,"look":"light"}),
             json!({"type":"session.share","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"userIds":[ID]}),
+            json!({"type":"session.share","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"userIds":[ID],"expectedUserIds":[]}),
             json!({"type":"session.attachProject","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"projectId":null}),
+            json!({"type":"sharing.answer","requestId":ID,"approvalId":ID,"allow":true}),
             json!({"type":"session.hide","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID}),
             json!({"type":"project.create","requestId":ID,"name":"Release"}),
             json!({"type":"project.rename","requestId":ID,"projectId":ID,"name":"Renamed"}),

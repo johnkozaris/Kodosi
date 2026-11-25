@@ -23,15 +23,20 @@ pub use backend_client::BackendClient;
 pub(crate) use backend_client::device_label;
 #[cfg(feature = "host")]
 pub(crate) use backend_client::host_label;
-pub(crate) use backend_client::{DELETION_LIFE, SIGN_IN_LIFE};
+pub(crate) use backend_client::{DELETION_LIFE, ProjectMember, SIGN_IN_LIFE, SignIn, shareable};
 #[cfg(feature = "host")]
 pub(crate) use terminal_connections::Answering;
 
 #[derive(Debug)]
 pub enum Error {
-    Invalid { reason: String },
+    Invalid {
+        reason: String,
+    },
     Text(Text),
     Trust(Text),
+    /// The owner did not allow the request in the app: they refused it, or did not answer in
+    /// time.
+    NotAllowed(Text),
     SignedOut,
     AccountDeleted,
     AccountBanned,
@@ -46,19 +51,25 @@ pub enum Error {
     Timeout,
     Dropped,
     Json(serde_json::Error),
-    Backend { status: u16, message: Text },
+    Backend {
+        status: u16,
+        message: Text,
+    },
     UpdateRequired,
     ServerOutdated,
-    ChannelVersion { peer_newer: bool },
+    ChannelVersion {
+        peer_newer: bool,
+    },
 }
 
 impl Error {
     pub fn text(&self) -> Text {
         match self {
             Self::Invalid { reason } => Text::plain(reason.clone()),
-            Self::Text(text) | Self::Trust(text) | Self::Backend { message: text, .. } => {
-                text.clone()
-            }
+            Self::Text(text)
+            | Self::Trust(text)
+            | Self::NotAllowed(text)
+            | Self::Backend { message: text, .. } => text.clone(),
             Self::SignedOut => text!("Sign in to continue."),
             Self::AccountDeleted => text!("This Kodosi account was deleted."),
             Self::AccountBanned => text!(

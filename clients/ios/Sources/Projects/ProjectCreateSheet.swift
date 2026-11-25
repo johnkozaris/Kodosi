@@ -146,22 +146,3 @@ struct ProjectCreateSheet: View {
         }
     }
 }
-
-private struct ChangedIdentityNote: View {
-    @Environment(\.theme) private var theme
-    let name: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 6) {
-                Circle().fill(theme.colors.caution).frame(width: 6, height: 6)
-                Text(name).appTextStyle(.caption).foregroundStyle(theme.colors.ink)
-            }
-            Text("Their identity changed. Trust them in Friends first.")
-                .appTextStyle(.caption).fontWeight(.regular)
-                .foregroundStyle(theme.colors.inkMuted)
-                .padding(.leading, 12)
-        }
-        .accessibilityElement(children: .combine)
-    }
-}

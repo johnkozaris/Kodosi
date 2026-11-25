@@ -295,7 +295,9 @@ richiesta dovrà comunque confermare di fidarsi di te.
 
 Apri il menu delle azioni nell'intestazione del terminale, fai clic su **Condividi** e seleziona
 amici o progetti. Chiunque riceva la condivisione ottiene il pieno controllo con le tue
-autorizzazioni di sistema su quella macchina. Gli altri tuoi terminali restano privati.
+autorizzazioni di sistema su quella macchina. Gli altri tuoi terminali restano privati. Puoi
+condividere da qualsiasi tuo dispositivo, anche dal telefono, finché il computer che esegue il
+terminale è online. Kodosi ti chiede conferma ogni volta che qualcuno di nuovo ottiene l'accesso.
 
 ### Progetti
 

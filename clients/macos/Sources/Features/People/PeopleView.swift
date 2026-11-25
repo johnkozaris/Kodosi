@@ -7,6 +7,7 @@ struct PeopleView: View {
     @Environment(\.theme) private var theme
     @State private var pendingRemoval: FriendEntry?
     @State private var copied = false
+    @State private var sending = false
     @FocusState private var adding: Bool
 
     private var facts: String {
@@ -34,10 +35,12 @@ struct PeopleView: View {
                     if !deps.people.incoming.isEmpty || !deps.people.outgoing.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
                             ForEach(deps.people.incoming) { request in
-                                FriendRequestCard(request: request, identifier: "people.request.\(request.handle)") {
+                                FriendRequestCard(request: request, busy: deps.people.isBusy(request.handle),
+                                                  identifier: "people.request.\(request.handle)")
+                                {
                                     deps.people.decline(request)
                                 } accept: {
-                                    deps.workbench.trusting = .accept(request)
+                                    deps.people.accept(request)
                                 } block: {
                                     deps.workbench.blocking = BlockTarget(handle: request.handle, name: request.personName)
                                 } report: {
@@ -110,9 +113,11 @@ struct PeopleView: View {
                 .textFieldStyle(.plain).appTextStyle(.callout).focused($adding)
                 .onSubmit { add(trimmed) }
                 .accessibilityIdentifier("people.username")
-            Button("Add friend") { add(trimmed) }
-                .buttonStyle(.kodosi(.primary)).disabled(trimmed.isEmpty)
-                .accessibilityIdentifier("people.add")
+            Button { add(trimmed) } label: {
+                Text("Add friend").shimmer(sending)
+            }
+            .buttonStyle(.kodosi(.primary)).disabled(trimmed.isEmpty || sending)
+            .accessibilityIdentifier("people.add")
         }
         .padding(.leading, 18).padding(.trailing, 7).frame(height: 48).frame(maxWidth: 620)
         .background {
@@ -123,8 +128,18 @@ struct PeopleView: View {
     }
 
     private func add(_ name: String) {
-        guard !name.isEmpty else { return }
-        deps.workbench.trusting = .add(name)
+        guard !name.isEmpty, !sending else { return }
+        sending = true
+        Task {
+            defer { sending = false }
+            do {
+                try await deps.people.add(name)
+                deps.workbench.friendDraft = ""
+            } catch RuntimeError.refused {
+            } catch {
+                deps.errorMessage = error.localizedDescription
+            }
+        }
     }
 }
 
@@ -160,17 +175,20 @@ private struct FriendItem: View {
                 HStack(spacing: 6) {
                     TextField("Paste the invite \(name) sent you", text: $invite)
                         .accessibilityIdentifier("people.verifyInvite.\(AccessibilityIdentifier.token(friend.id))")
-                    Button("Verify") {
-                        deps.people.verify(friend, invite: invite)
-                        verifying = false; invite = ""
-                    }
-                    .buttonStyle(.kodosi(.primary, size: .small))
-                    .disabled(invite.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Button("Verify") { deps.people.verify(friend, invite: invite) }
+                        .buttonStyle(.kodosi(.primary, size: .small))
+                        .disabled(invite.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || deps.people.isBusy(friend.handle))
                 }
                 .transition(AnyTransition.unfold)
             }
         }
         .animation(theme.motion.spring, value: verifying)
+        .onChange(of: friend.isVerified) { _, verified in
+            if verified {
+                verifying = false
+                invite = ""
+            }
+        }
     }
 
     private func open(_ session: RuntimeSession) {

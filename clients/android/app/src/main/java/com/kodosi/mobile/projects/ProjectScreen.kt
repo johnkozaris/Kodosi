@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -46,6 +47,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,7 +61,10 @@ import com.kodosi.mobile.R
 import com.kodosi.mobile.people.BlockDialog
 import com.kodosi.mobile.people.Person
 import com.kodosi.mobile.people.ReportDialog
+import com.kodosi.mobile.runtime.Refused
+import com.kodosi.mobile.runtime.fields
 import com.kodosi.mobile.terminals.AgentKind
+import com.kodosi.mobile.terminals.RuntimeSession
 import com.kodosi.mobile.terminals.TerminalCard
 import com.kodosi.mobile.ui.ActionIcon
 import com.kodosi.mobile.ui.AgentMark
@@ -73,6 +80,7 @@ import com.kodosi.mobile.ui.KodosiTextButton
 import com.kodosi.mobile.ui.KodosiTheme
 import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.MessageComposer
+import com.kodosi.mobile.ui.OfflineNote
 import com.kodosi.mobile.ui.PageHeader
 import com.kodosi.mobile.ui.PersonAvatar
 import com.kodosi.mobile.ui.ProgressCaption
@@ -540,9 +548,59 @@ private fun ProjectTerminals(model: AppModel, projectId: String, terminal: (Stri
     val terminals by model.terminals.state.collectAsStateWithLifecycle()
     val account by model.account.state.collectAsStateWithLifecycle()
     val preferences by model.preferences.state.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    var choosing by remember { mutableStateOf(false) }
+    var adding by remember { mutableStateOf(false) }
+    var failure by remember { mutableStateOf<String?>(null) }
     val sessions = terminals.sessions.filter { it.projectId == projectId }
+    val mine = terminals.sessions.filter {
+        it.isOwner && it.projectId != projectId && it.status != RuntimeSession.Status.CLOSING && !it.hidden
+    }
+    fun add(session: RuntimeSession) {
+        adding = true
+        failure = null
+        scope.launch {
+            try {
+                model.terminals.act("session.attachProject", session, fields("projectId" to projectId))
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Refused) {
+            } catch (error: Exception) {
+                failure = error.localizedMessage ?: model.words.didNotWork
+            } finally {
+                adding = false
+            }
+        }
+    }
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        item { KodosiTextButton(onClick = { start(projectId) }) { Text(stringResource(R.string.new_terminal)) } }
+        item(key = "actions") {
+            Column {
+                FlowRow(itemVerticalAlignment = Alignment.CenterVertically) {
+                    KodosiTextButton(onClick = { start(projectId) }) { Text(stringResource(R.string.new_terminal)) }
+                    if (mine.isNotEmpty()) {
+                        Box {
+                            KodosiTextButton(onClick = { choosing = true }, enabled = account.online && !adding) {
+                                Text(stringResource(R.string.add_my_terminal))
+                            }
+                            KodosiMenu(choosing, { choosing = false }) {
+                                mine.forEach { session ->
+                                    KodosiMenuItem(text = { MyTerminal(session) }, onClick = {
+                                        choosing = false
+                                        add(session)
+                                    })
+                                }
+                            }
+                        }
+                    }
+                }
+                Unfolding(failure) {
+                    ErrorNote(it, Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite })
+                }
+                Unfolding(!account.online && mine.isNotEmpty()) {
+                    OfflineNote(model.account::retryConnection, Modifier.fillMaxWidth())
+                }
+            }
+        }
         items(sessions, key = { it.id }) { session ->
             TerminalCard(
                 session,
@@ -553,9 +611,31 @@ private fun ProjectTerminals(model: AppModel, projectId: String, terminal: (Stri
             )
         }
         if (sessions.isEmpty()) {
-            item {
-                EmptyState(stringResource(R.string.terminals_empty_title), symbol = AppSymbol.TERMINAL)
+            item(key = "empty") {
+                EmptyState(
+                    stringResource(R.string.no_terminals_yet),
+                    stringResource(R.string.project_terminals_caption),
+                    AppSymbol.TERMINAL
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun MyTerminal(session: RuntimeSession) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        AgentMark(session.agent, 24.dp, account = session.programAccount)
+        Column {
+            Text(session.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                session.projectName?.let { stringResource(R.string.in_project, it) }
+                    ?: session.hostName ?: stringResource(R.string.remote_computer),
+                style = KodosiType.footnote,
+                color = KodosiTheme.colors.inkMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

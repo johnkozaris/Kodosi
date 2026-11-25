@@ -23,10 +23,15 @@ proyecto compartido. Eliminar a un amigo revoca de inmediato su acceso a tus ter
 ambos de los proyectos que pertenezcan al otro. Bloquear a un usuario hace lo mismo e impide
 futuras solicitudes de amistad.
 
-Cada uno de tus dispositivos aprobados puede controlar todos tus terminales, iniciar otros nuevos
-en tus demás ordenadores que ejecuten Kodosi y escribir a Dosi en esos ordenadores (donde Dosi
-actúa con el mismo acceso local que cuando lo usas directamente). Quitar un dispositivo revoca su
-acceso a los terminales y a Dosi.
+Antes de que alguien nuevo entre en tus terminales o proyectos, Kodosi te pregunta en la app del
+dispositivo donde empieza el cambio, también cuando lo pide el comando `kodosi`, por ejemplo para un
+agente. Esto protege frente a errores y agentes; quien escribe en un terminal que compartiste actúa
+como tú y puede saltarse esta pregunta.
+
+Cada uno de tus dispositivos aprobados puede controlar todos tus terminales, elegir con quién los
+compartes, iniciar otros nuevos en tus demás ordenadores que ejecuten Kodosi y escribir a Dosi en
+esos ordenadores (donde Dosi actúa con el mismo acceso local que cuando lo usas directamente).
+Quitar un dispositivo revoca su acceso a los terminales y a Dosi.
 
 ### Lienzo y navegador compartido
 

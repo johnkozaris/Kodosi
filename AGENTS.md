@@ -26,7 +26,8 @@ changing any client's UI, also read that client's `PRODUCT.md` and `DESIGN.md`.
 - Keep full terminal control. Don't add permission tiers, sandboxing, or agent workflow machinery.
   Programs in a terminal get standard Ghostty behavior.
 - Sharing means trust. Don't restrict what participants or their agents can do in a shared
-  terminal or project. Protect against the network, the backend, and unauthorized users.
+  terminal or project, except that every change letting someone new in asks the owner in the app
+  first. Protect against the network, the backend, and unauthorized users.
 - Leave provider execution, permissions, settings, and conversation storage with the provider.
 - Preserve end-to-end encryption, explicit sharing, identity continuity, bounded resource use, and
   ordered terminal state.

@@ -156,7 +156,13 @@ async fn serve_connection(
         return Ok(());
     }
     let Some(session) = hello.session_id else {
-        return serve_commands(stream, runtime.command_client(), cancel, host).await;
+        return serve_commands(
+            stream,
+            runtime.command_client(hello.client.into()),
+            cancel,
+            host,
+        )
+        .await;
     };
     let subscription = tokio::select! {
         biased;

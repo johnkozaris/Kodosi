@@ -37,6 +37,10 @@ pub(super) struct Saved {
     pub folder: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sharing: Option<Sharing>,
+    /// The account whose terminal it was, so that a sign-in after a restart knows whom it takes
+    /// the terminal from.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub line: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -101,6 +105,12 @@ impl Restore {
 
     pub(super) fn take(&mut self) -> Vec<Saved> {
         std::mem::take(&mut self.pending)
+    }
+
+    pub(super) fn owner(&self) -> Option<String> {
+        self.pending
+            .iter()
+            .find_map(|terminal| terminal.owner.clone())
     }
 
     pub(super) fn returning(&self) -> HashSet<Uuid> {

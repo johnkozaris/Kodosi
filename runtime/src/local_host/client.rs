@@ -9,8 +9,8 @@ pub struct Events(FrameReader<kodosi_os::ipc::ReadHalf>);
 pub struct Commands(kodosi_os::ipc::WriteHalf);
 
 impl Client {
-    pub async fn connect(root: &Path) -> Result<Self> {
-        let (stream, mut welcome) = connect(root, None).await?;
+    pub async fn connect(root: &Path, client: ClientKind) -> Result<Self> {
+        let (stream, mut welcome) = connect(root, None, client).await?;
         let language = crate::text::language();
         for event in &mut welcome.events {
             crate::text::render(event, language);
@@ -51,7 +51,7 @@ impl Commands {
 }
 
 pub async fn stop_other_host(root: &Path, force: bool) -> Result<()> {
-    let (mut stream, welcome) = handshake(root, None).await?;
+    let (mut stream, welcome) = handshake(root, None, ClientKind::Command).await?;
     if welcome.version == VERSION
         && let Some(error) = welcome.error
     {
@@ -98,8 +98,8 @@ pub struct TerminalClient {
     pub incarnation_id: Uuid,
 }
 impl TerminalClient {
-    pub async fn connect(root: &Path, session: Uuid) -> Result<Self> {
-        let (stream, welcome) = connect(root, Some(session)).await?;
+    pub async fn connect(root: &Path, session: Uuid, client: ClientKind) -> Result<Self> {
+        let (stream, welcome) = connect(root, Some(session), client).await?;
         let terminal = welcome
             .terminal
             .ok_or_else(|| Error::Invalid("the host did not name the terminal".into()))?;
@@ -117,8 +117,9 @@ impl TerminalClient {
 async fn connect(
     root: &Path,
     session_id: Option<Uuid>,
+    client: ClientKind,
 ) -> Result<(kodosi_os::ipc::Stream, Welcome)> {
-    let (stream, welcome) = handshake(root, session_id).await?;
+    let (stream, welcome) = handshake(root, session_id, client).await?;
     if welcome.version < VERSION {
         let host = welcome
             .host
@@ -146,6 +147,7 @@ async fn connect(
 async fn handshake(
     root: &Path,
     session_id: Option<Uuid>,
+    client: ClientKind,
 ) -> Result<(kodosi_os::ipc::Stream, Welcome)> {
     let root = kodosi_os::fs::canonicalize(root)?;
     let mut stream =
@@ -165,6 +167,7 @@ async fn handshake(
             version: VERSION,
             root: root_identity(&root),
             session_id,
+            client,
         },
     )
     .await?;
@@ -175,8 +178,8 @@ async fn handshake(
     Ok((stream, welcome))
 }
 
-pub async fn connect_or_start(root: &Path) -> Result<Client> {
-    let mut client = connect_or_spawn(root).await?;
+pub async fn connect_or_start(root: &Path, kind: ClientKind) -> Result<Client> {
+    let mut client = connect_or_spawn(root, kind).await?;
     let deadline = tokio::time::Instant::now() + ACCOUNT_TIMEOUT;
     while finalizing(&client.initial_events) {
         let Ok(frame) = tokio::time::timeout_at(deadline, client.next()).await else {
@@ -186,7 +189,7 @@ pub async fn connect_or_start(root: &Path) -> Result<Client> {
             client.initial_events.push(event.clone());
         }
         if account_changed(&client.initial_events) {
-            client = Client::connect(root).await?;
+            client = Client::connect(root, kind).await?;
         }
     }
     Ok(client)
@@ -211,10 +214,10 @@ fn finalizing(events: &[Value]) -> bool {
 
 /// A host that stops can take a connection and close it before its endpoint goes, so a connection
 /// that closes in the handshake tries again for a moment.
-async fn connect_past_stopping_host(root: &Path) -> Result<Client> {
+async fn connect_past_stopping_host(root: &Path, kind: ClientKind) -> Result<Client> {
     let deadline = tokio::time::Instant::now() + STOPPING_HOST_WAIT;
     loop {
-        match Client::connect(root).await {
+        match Client::connect(root, kind).await {
             Err(Error::Io(error)) if closed(&error) && tokio::time::Instant::now() < deadline => {
                 tokio::time::sleep(STOPPING_HOST_RETRY).await;
             }
@@ -234,8 +237,8 @@ fn closed(error: &io::Error) -> bool {
     )
 }
 
-async fn connect_or_spawn(root: &Path) -> Result<Client> {
-    match connect_past_stopping_host(root).await {
+async fn connect_or_spawn(root: &Path, kind: ClientKind) -> Result<Client> {
+    match connect_past_stopping_host(root, kind).await {
         Ok(client) => return Ok(client),
         Err(Error::Io(error))
             if matches!(
@@ -260,7 +263,7 @@ async fn connect_or_spawn(root: &Path) -> Result<Client> {
     let mut exited = None;
     for _ in 0..500 {
         tokio::time::sleep(Duration::from_millis(10)).await;
-        match Client::connect(root).await {
+        match Client::connect(root, kind).await {
             Ok(client) => {
                 collect_exit(child);
                 return Ok(client);

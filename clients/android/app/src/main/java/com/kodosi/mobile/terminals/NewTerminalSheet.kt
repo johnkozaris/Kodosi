@@ -75,6 +75,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kodosi.mobile.AppModel
 import com.kodosi.mobile.R
+import com.kodosi.mobile.runtime.Refused
 import com.kodosi.mobile.runtime.number
 import com.kodosi.mobile.runtime.objects
 import com.kodosi.mobile.runtime.string
@@ -320,6 +321,7 @@ fun NewTerminalSheet(model: AppModel, request: NewTerminalRequest, dismiss: () -
                                         }
                                     } catch (cancelled: CancellationException) {
                                         throw cancelled
+                                    } catch (_: Refused) {
                                     } catch (error: Exception) {
                                         failure = error.localizedMessage
                                     } finally {

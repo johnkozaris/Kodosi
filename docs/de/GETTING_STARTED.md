@@ -303,7 +303,9 @@ vor dem Absenden der Anfrage bestätigt.
 
 Öffne das Aktionen-Menü in der Kopfzeile eines Terminals, klicke auf **Teilen** und wähle Freunde
 oder Projekte aus. Alle Personen, mit denen du teilst, erhalten die volle Kontrolle mit deinen
-Betriebssystemrechten auf diesem Computer. Deine übrigen Terminals bleiben privat.
+Betriebssystemrechten auf diesem Computer. Deine übrigen Terminals bleiben privat. Du kannst von
+jedem deiner Geräte aus teilen, auch vom Handy, solange der Computer, auf dem das Terminal läuft,
+online ist. Kodosi fragt dich jedes Mal, bevor jemand Neues Zugang bekommt.
 
 ### Projekte
 

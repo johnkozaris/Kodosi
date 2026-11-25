@@ -1,10 +1,8 @@
 use serde::Deserialize;
 
-#[cfg(feature = "host")]
-use super::BTreeSet;
 use super::{
-    BackendClient, Credentials, Error, IdentityBundle, Method, Result, Value, VerifiedIdentity,
-    invalid, json, path_segment, untrusted, wire,
+    BTreeSet, BackendClient, Credentials, Error, IdentityBundle, Method, Result, Value,
+    VerifiedIdentity, invalid, json, path_segment, untrusted, wire,
 };
 use crate::hex::hex;
 use crate::identity::{
@@ -15,6 +13,11 @@ use crate::identity::{
     qr_code,
     recovery::is_recovery_device,
 };
+
+#[cfg(feature = "host")]
+const MISS_WAIT: std::time::Duration = std::time::Duration::from_secs(30);
+#[cfg(feature = "host")]
+const MOST_MISSES: usize = 64;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -422,32 +425,86 @@ impl BackendClient {
         if users.is_empty() {
             return Ok(());
         }
-        let mut list = self.kept_friends(credentials).await?;
-        if !list
-            .as_ref()
-            .is_some_and(|list| users.iter().all(|user| list.friends.contains_key(user)))
-        {
-            list = Some(self.sync_friends(credentials).await?.0);
-        }
+        let list = match self.kept_friends(credentials).await? {
+            Some(list) if users.iter().all(|user| list.friends.contains_key(user)) => list,
+            _ => self.sync_friends(credentials).await?.0,
+        };
         let changed = self.inner.state.lock().await.changed_friends.clone();
-        let record = |user: &String| list.as_ref().and_then(|list| list.friends.get(user));
-        if users
-            .iter()
-            .all(|user| !changed.contains(user) && record(user).is_some())
+        shareable(&list, &changed, users)
+    }
+
+    /// Whether this account's devices signed a person as a friend. A list that cannot be read has
+    /// nobody in it. A change of friends that the server reports syncs the kept list, so a person
+    /// whom it does not have fetches the list only once in a while: anybody in a project of the
+    /// owner can try to enter its terminals again and again.
+    #[cfg(feature = "host")]
+    pub(crate) async fn signed_friend(&self, credentials: &Credentials, user: &str) -> bool {
+        if self
+            .kept_friends(credentials)
+            .await
+            .ok()
+            .flatten()
+            .is_some_and(|list| list.friends.contains_key(user))
         {
-            Ok(())
-        } else if users
-            .iter()
-            .any(|user| record(user).is_none_or(|friend| friend.verified && changed.contains(user)))
-        {
-            Err(Error::Trust(text!(
-                "Ask this friend for a new invite, and verify their identity with it."
-            )))
-        } else {
-            Err(Error::Trust(text!(
-                "Trust the new identity of this friend in Friends before you share."
-            )))
+            return true;
         }
+        if !self.fetches_for(user).await {
+            return false;
+        }
+        self.sync_friends(credentials)
+            .await
+            .is_ok_and(|(list, _)| list.friends.contains_key(user))
+    }
+
+    #[cfg(feature = "host")]
+    async fn fetches_for(&self, user: &str) -> bool {
+        let now = tokio::time::Instant::now();
+        let misses = &mut self.inner.state.lock().await.friend_misses;
+        misses.retain(|_, fetched| now.duration_since(*fetched) < MISS_WAIT);
+        if misses.contains_key(user) || misses.len() >= MOST_MISSES {
+            return false;
+        }
+        misses.insert(user.to_owned(), now);
+        true
+    }
+
+    #[cfg(all(test, feature = "host"))]
+    pub(crate) async fn sign_friends(&self, friends: &[&str]) {
+        let credentials = self.credentials().unwrap();
+        let mut list = FriendList::new(&credentials.user_id);
+        for user in friends {
+            list.friends.insert(
+                (*user).to_owned(),
+                Friend {
+                    handle: (*user).to_owned(),
+                    root: None,
+                    verified: false,
+                },
+            );
+        }
+        let (signed, _) = list
+            .sign(
+                &Head::default(),
+                &credentials.keys.device_id,
+                credentials.keys.signing_key(),
+            )
+            .unwrap();
+        self.inner
+            .state
+            .lock()
+            .await
+            .friend_lists
+            .put(&credentials.user_id, signed)
+            .unwrap();
+    }
+
+    /// The friend list that this account's devices signed, and the friends whose identity
+    /// changed since.
+    pub(crate) async fn signed_friends(&self) -> Result<(FriendList, BTreeSet<String>)> {
+        let credentials = self.credentials()?;
+        let (list, _) = self.sync_friends(&credentials).await?;
+        let changed = self.inner.state.lock().await.changed_friends.clone();
+        Ok((list, changed))
     }
 
     pub(super) async fn friend_event(&self) -> Result<Value> {
@@ -821,6 +878,32 @@ impl BackendClient {
             self.review_access().await?;
         }
         Ok(vec![event])
+    }
+}
+
+/// A terminal is shared only with friends of the signed list whose identity did not change.
+pub(crate) fn shareable(
+    list: &FriendList,
+    changed: &BTreeSet<String>,
+    users: &BTreeSet<String>,
+) -> Result<()> {
+    let record = |user: &String| list.friends.get(user);
+    if users
+        .iter()
+        .all(|user| !changed.contains(user) && record(user).is_some())
+    {
+        Ok(())
+    } else if users
+        .iter()
+        .any(|user| record(user).is_none_or(|friend| friend.verified && changed.contains(user)))
+    {
+        Err(Error::Trust(text!(
+            "Ask this friend for a new invite, and verify their identity with it."
+        )))
+    } else {
+        Err(Error::Trust(text!(
+            "Trust the new identity of this friend in Friends before you share."
+        )))
     }
 }
 

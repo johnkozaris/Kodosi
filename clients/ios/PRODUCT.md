@@ -5,8 +5,8 @@ the visual system.
 
 The iOS app lets you watch, answer, and control terminals running on your computers or shared by
 friends, launch new terminals on your computers, and participate in projects. It never hosts
-terminals locally. Starting an agent inside an existing idle terminal, sharing terminals with
-friends, and browsing provider conversation history stay desktop-only.
+terminals locally. Starting an agent inside an existing idle terminal and browsing provider
+conversation history stay desktop-only.
 
 ## Priorities and behavior
 
@@ -35,7 +35,8 @@ handles the turn.
 
 ### In-person invites and QR device linking
 Your friend invite can be shown as a QR code that a friend scans with the Camera app or inside
-Kodosi; scanning still prompts them to confirm trust before sending the request.
+Kodosi. Kodosi asks before someone becomes a friend, so the scan sends the request only after they
+confirm.
 
 A new iPhone or iPad links in a single scan of a QR code shown on an approved computer, and an
 approved phone can scan a new device's code to approve it. Scanning with the system Camera app can

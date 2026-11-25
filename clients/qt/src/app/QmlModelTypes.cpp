@@ -15,6 +15,7 @@ void provideModels(QQmlEngine& engine, Workspace& workspace, ConversationHistory
     provide<ProjectsModelForeign>(engine, workspace.projects());
     provide<DosiModelForeign>(engine, workspace.dosi());
     provide<SessionActionsModelForeign>(engine, workspace.sessionActions());
+    provide<SharingModelForeign>(engine, workspace.sharing());
     provide<ConversationHistoryModelForeign>(engine, history);
     provide<ProviderFilesModelForeign>(engine, providerFiles);
     provide<AgentLauncherModelForeign>(engine, launcher);

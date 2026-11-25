@@ -49,10 +49,8 @@ final class WorkbenchState {
     var historyProvider: Provider = .claude
     var showsPalette = false
     var showsNewProject = false
-    var trusting: FriendTrust?
     var blocking: BlockTarget?
     var reporting: ReportTarget?
-    var projectShare: ProjectShare?
     var friendDraft = ""
     private(set) var pinnedSessionIds: [String] = []
     var launcher: LauncherRequest?
@@ -301,10 +299,8 @@ final class WorkbenchState {
         showsHistory = false
         showsPalette = false
         showsNewProject = false
-        trusting = nil
         reporting = nil
         blocking = nil
-        projectShare = nil
         friendDraft = ""
         launcher = nil
         launcherDraft = LauncherDraft()
