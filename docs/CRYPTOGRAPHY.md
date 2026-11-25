@@ -37,7 +37,7 @@ fields are length-prefixed.
 Each device generates an ML-DSA-65 signing key pair and a static ML-KEM-768 + X25519 project key
 pair. Private keys are stored in the platform secret store: Apple Keychain, Linux Secret Service
 (falling back to user-only `0600` files if no Secret Service is running), Windows DPAPI-sealed
-files, or the app's private files on Android.
+files, or app storage sealed with AES-GCM under an Android Keystore key.
 
 ### Identity root and device list
 The first device's self-signed certificate establishes the account's identity root. Existing
