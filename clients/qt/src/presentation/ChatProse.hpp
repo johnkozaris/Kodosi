@@ -7,24 +7,20 @@
 
 namespace kodosi {
 
-// The Markdown of an agent becomes the rich text of Qt, and the agent's own words never become
-// markup.
+// Converts agent Markdown into Qt rich text while HTML-escaping all raw text.
 class ChatProse final : public QObject {
     Q_OBJECT
 
 public:
     using QObject::QObject;
 
-    // Each block is a map with its `key`, its place, and its `kind`: `lines` and `heading` with
-    // `html`, `code` with `text`, and `table` with `header` and `rows` of cells as `html`, `sides`
-    // and `columns`. A fence that is still open while the agent writes holds the rest. In `lines`
-    // a path of a file is a link to it from `folder`, or `~/` and the path from the home folder.
+    // Splits Markdown into QML block maps (`lines`, `heading`, `code`, `table`). An unclosed code
+    // fence consumes the rest of the text so streaming output renders cleanly. File paths in
+    // `lines` blocks link to files resolved against `folder`, or to `~/` paths in the home folder.
     Q_INVOKABLE [[nodiscard]] static QVariantList blocks(const QString& text, const QString& folder = {});
-    // A link goes only to a secure web address.
+    // Only https:// URLs are rendered as clickable links.
     [[nodiscard]] static QString html(QStringView text);
     Q_INVOKABLE [[nodiscard]] static QString text(const QString& text);
-    // The cells of a row of a table. A bar after a backslash belongs to the words of its cell, and
-    // the bars at the two ends of a row hold no cell.
     [[nodiscard]] static QStringList cells(QStringView line);
 };
 

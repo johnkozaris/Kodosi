@@ -25,7 +25,7 @@ const IMAGE_KIND: &str =
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
 const FIRST_CHANGE_ID: u32 = 90_000;
 const EMU_PER_PIXEL: f64 = 9525.0;
-/// The width of the text on an A4 page with margins of an inch, in twentieths of a point.
+/// Default text width for an A4 page with 1-inch margins, in twips (1/20 pt).
 const TEXT_WIDTH: u64 = 9026;
 const NEW_TABLE: &str = concat!(
     r#"<w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders>"#,
@@ -38,7 +38,7 @@ const NEW_TABLE: &str = concat!(
     r#"</w:tblBorders></w:tblPr>"#,
 );
 
-/// The children of `w:rPr` in their order in the schema, which readers hold a file to.
+/// Required OOXML schema child order for `w:rPr`, which readers enforce.
 const RUN_ORDER: &[&str] = &[
     "rStyle",
     "rFonts",
@@ -157,7 +157,7 @@ struct Out<'m> {
     relations: HashMap<String, Relation>,
     links: Vec<(String, String)>,
     images: Vec<(String, Hash, String)>,
-    /// In twentieths of a point.
+    /// In twips (1/20 pt).
     text_width: u64,
     next_relation: u32,
     next_change: u32,
@@ -513,7 +513,7 @@ impl Out<'_> {
         attributes
     }
 
-    /// A link keeps the relation that it came with while that relation still goes to its address.
+    /// Reuses an existing relationship ID only if it still points to the same external href.
     fn link_open(&mut self, link: &Mark) -> String {
         let href = link.text_attr("href").unwrap_or_default().to_owned();
         let id = match link.text_attr("relation") {
@@ -1050,7 +1050,7 @@ fn wrapped(name: &str, mut children: Vec<(usize, String)>) -> String {
     format!("<w:{name}>{inner}</w:{name}>")
 }
 
-/// `width` is in twentieths of a point.
+/// `width` is in twips (1/20 pt).
 fn grid_of(columns: u64, width: u64) -> String {
     let columns = columns.max(1);
     let mut xml = "<w:tblGrid>".to_owned();
@@ -1065,7 +1065,6 @@ fn media_of(hash: &Hash, extension: &str) -> String {
     format!("media/{}.{extension}", hex(&hash[..8]))
 }
 
-/// The kinds that a new picture of the file takes, by how their bytes start.
 pub(crate) const PICTURES: [(&[u8], &str); 3] = [
     (&[0x89, b'P', b'N', b'G'], "png"),
     (&[0xff, 0xd8, 0xff], "jpeg"),
@@ -1098,7 +1097,6 @@ fn picture_run(relation: &str, picture: u32, width: f64, height: f64) -> String 
     )
 }
 
-/// The hash of a picture that can go in as a new part of the file, and the extension of that part.
 pub(crate) fn new_picture(assets: &Assets, asset: &str) -> Option<(Hash, &'static str)> {
     let hash = hash_from_hex(asset)?;
     let extension = picture_extension(assets.get(&hash)?)?;

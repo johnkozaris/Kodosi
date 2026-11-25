@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-"""Installs the notices of the Mac app or of the iOS app in the resources folder of the
-app. Builds other than Debug also get the licenses of the Rust crates in the runtime, which
-the iOS app gets as one file for each crate."""
+"""Install third-party license notices into the macOS or iOS app resources directory.
+Non-Debug builds also bundle Rust runtime crate licenses (one file per crate on iOS)."""
 
 # Xcode runs this with its own Python 3.9.
 from __future__ import annotations
@@ -87,7 +86,7 @@ def rust_notices(platform: str, output: Path) -> dict[str, Path]:
         "--output-dir",
         str(output),
     ]
-    # Xcode gives its build phases a PATH without the Rust tools.
+    # Xcode build phases run with a minimal PATH that excludes ~/.cargo/bin.
     path = f"{Path.home() / '.cargo/bin'}{os.pathsep}{os.environ.get('PATH', '')}"
     if subprocess.run(inventory, stdout=subprocess.DEVNULL, env={**os.environ, "PATH": path}).returncode != 0:
         raise SystemExit("[!] notices: the licenses of the Rust crates could not be collected")

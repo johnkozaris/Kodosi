@@ -8,11 +8,9 @@ import SwiftUI
 enum Privacy {
     enum Pane {
         case fullDiskAccess
-        /// What a program needs to change another app, as a browser that a terminal starts does.
+        /// Required to modify other apps, as a browser launched from a terminal does.
         case appManagement
-        /// What a program needs to see and control other apps.
         case accessibility
-        /// What a program needs to see the screen.
         case screenRecording
 
         fileprivate var anchor: String {
@@ -25,9 +23,9 @@ enum Privacy {
         }
     }
 
-    /// macOS answers without asking the person, and a change counts once Kodosi opens again. The
-    /// question is about the first of the folders that only apps with Full Disk Access read and
-    /// that this Mac has.
+    /// macOS has no API to check Full Disk Access, so probe readability of the first existing
+    /// TCC-protected user directory with `access()` (which does not trigger a prompt). Changes
+    /// take effect after the app restarts.
     static var fullDiskAccess: Bool {
         let home = URL(filePath: NSHomeDirectory())
         let protected = ["Library/Safari", "Library/Containers/com.apple.Safari", "Library/Mail", "Library/Messages"]
@@ -44,7 +42,7 @@ enum Privacy {
         CGPreflightScreenCaptureAccess()
     }
 
-    /// macOS then lists Kodosi in the pane, switched off, and shows its own question.
+    /// Triggers the system permission prompt so macOS registers Kodosi in the Settings list.
     static func ask(for pane: Pane) {
         switch pane {
         case .accessibility:
@@ -71,8 +69,8 @@ enum Privacy {
     }
 }
 
-/// macOS puts no app in Full Disk Access by itself, and Kodosi in App Management only once it
-/// stopped a program of a terminal, so the person drags Kodosi's icon into the list.
+/// Floating helper offering a draggable app icon because macOS does not pre-populate Full Disk
+/// Access (and only adds App Management after blocking an attempt).
 final class PrivacyGuide {
     static let shared = PrivacyGuide()
 
@@ -116,7 +114,6 @@ final class PrivacyGuide {
     }
 }
 
-/// A card that floats over other apps without taking their place in front.
 private final class GuidePanel: NSPanel {
     init() {
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
@@ -177,7 +174,6 @@ private struct PrivacyCard: View {
     }
 }
 
-/// Kodosi's icon, which drags the app itself, as Finder does.
 private struct AppIconDrag: NSViewRepresentable {
     func makeNSView(context _: Context) -> AppIconSource {
         AppIconSource()

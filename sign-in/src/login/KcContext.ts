@@ -25,7 +25,7 @@ type KcContextExtensionPerPage = {
   };
 };
 
-// A reset page shows no address: it would tell that the name has an account.
+// kodosiEmail is omitted in the "reset" flow to avoid confirming whether an account exists.
 type CodeFlow = "sign-up" | "reset" | "account";
 
 export type KcContext = ExtendKcContext<KcContextExtension, KcContextExtensionPerPage>;

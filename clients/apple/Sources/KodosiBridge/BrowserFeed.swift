@@ -5,25 +5,23 @@ import ImageIO
 import Observation
 import Synchronization
 
-/// Each frame is acknowledged, so the host keeps the picture as sharp as the link allows and no
-/// queue forms. A frame comes on the task of the browser pipes, where it is acknowledged and
-/// shown, so a busy main thread never looks like a slow link; what a view reads goes to the main
-/// actor in the order of the pipe.
+/// Frames arrive, get acknowledged, and render on the `BrowserPipes` task so a busy main thread
+/// never triggers host backpressure. Per-frame acks prevent queueing and let the host match quality
+/// to the link, while view state updates hop to the main actor in pipe order.
 @MainActor
 @Observable
 public final class BrowserFeed {
     public enum Picture: Sendable {
         case waiting
         case live
-        /// The surface keeps the last picture while the feed joins again, until a new frame
-        /// replaces it.
+        /// Retains the last rendered frame while reconnecting until a fresh frame arrives.
         case kept
     }
 
     private enum Heard: Sendable {
         case news(DocumentLink.News)
         case state(BrowserWindow)
-        /// The surface with this number shows a picture.
+        /// The surface generation that rendered a frame.
         case shown(Int)
     }
 
@@ -54,12 +52,12 @@ public final class BrowserFeed {
     public private(set) var icons: [String: CGImage] = [:]
     public private(set) var picture = Picture.waiting
     public private(set) var failure: String?
-    /// Counts each press, key and scroll of a person on this device.
+    /// Incremented for each local user input event (excluding plain pointer moves).
     public private(set) var touches = 0
     @ObservationIgnored public var copied: (String) -> Void = { _ in }
-    /// The page takes the shape of the view of the person who acted last, so a new size goes to
-    /// the host once the view settles, never while a button is held, and one that waits goes
-    /// right after the person's act: the act then reaches the page that the person saw.
+    /// The host resizes the page to match whichever viewer interacted last. Size updates are
+    /// debounced, deferred while a mouse button is held, and flushed after local input so the
+    /// interaction lands on the layout the user saw.
     @ObservationIgnored public var viewSize = CGSize.zero {
         didSet {
             if viewSize != oldValue {
@@ -85,9 +83,9 @@ public final class BrowserFeed {
     @ObservationIgnored private var settling: Task<Void, Never>?
     @ObservationIgnored private var holding = false
     @ObservationIgnored private var joined = false
-    /// A person opened the browser on this device, and the page did not take the shape of this
-    /// view since: a view that only comes back on the screen, or joins again, leaves the page to
-    /// the device in use.
+    /// Set when the user explicitly opens the browser here; cleared once sent in `watch`.
+    /// Returning to screen or reconnecting leaves `opened` false so another active device keeps
+    /// control of the page size.
     @ObservationIgnored private var opened = false
 
     init(store: CanvasStore, session: String) {
@@ -95,7 +93,6 @@ public final class BrowserFeed {
         self.session = session
     }
 
-    /// Only one view at a time watches, until it ends.
     public func watch() async {
         guard video.withLock({ $0.link == nil }) else { return }
         let link = store.browser(of: session)
@@ -119,7 +116,7 @@ public final class BrowserFeed {
         do {
             try await link.open()
         } catch {
-            // The view ends on each trip off the screen, which is no problem of the browser.
+            // Leaving the screen cancels the view's task, which is not a browser failure.
             if !Task.isCancelled {
                 failure = error.localizedDescription
             }
@@ -137,8 +134,6 @@ public final class BrowserFeed {
         }
     }
 
-    /// A person opened the browser on this device, so the page takes the shape of this view: at
-    /// once while it watches, or else when it joins.
     public func open() {
         opened = true
         if joined {
@@ -146,9 +141,9 @@ public final class BrowserFeed {
         }
     }
 
-    /// A surface that is new to the feed has no picture, so the host sends a key frame at once.
-    /// The display returns false when it lost the stream and waits for a key frame. The page's
-    /// layer is no picture of the surface.
+    /// Attaches a video surface. A new surface triggers an immediate keyframe request (leaving
+    /// `picture` intact when `window.layer` renders locally). `display` returns `false` if the
+    /// renderer failed and needs a fresh keyframe.
     public func show(on surface: AnyObject, _ display: @escaping @Sendable (CMSampleBuffer) -> Bool) {
         let fresh = surface !== self.surface
         if fresh {
@@ -199,8 +194,7 @@ public final class BrowserFeed {
         sendSize()
     }
 
-    /// The files go into the folder of the terminal first, because the browser runs on the
-    /// computer of the terminal.
+    /// Uploads selected files to the terminal's host first because the browser runs there.
     public func give(_ files: [URL]) async {
         var paths: [String] = []
         do {
@@ -215,8 +209,8 @@ public final class BrowserFeed {
         send(.files(paths))
     }
 
-    /// While a button is held, a point beyond the page goes to its nearest edge, so that the page
-    /// also gets the rest of the drag and its release.
+    /// Clamps out-of-bounds coordinates to the page edge while a button is held so drags and
+    /// releases outside the viewport still reach the page.
     public func browserPoint(_ point: CGPoint, in size: CGSize) -> BrowserInput.Point? {
         Self.point(point, in: size, browser: window.size, clamped: holding)
     }
@@ -352,8 +346,9 @@ public final class BrowserFeed {
         }
     }
 
-    /// The host skips frames for a view that falls behind and goes on at an anchor, so only a
-    /// delta frame after a gap shows a frame lost on the way, and the decoder needs a key frame.
+    /// The host intentionally skips frames for slow viewers and resumes on an anchor frame, so a
+    /// sequence gap only requires a keyframe request if the next frame is neither a keyframe nor
+    /// an anchor.
     private nonisolated func frame(_ message: Data) {
         guard message.count > Self.frameHeader else { return }
         let header = [UInt8](message.prefix(Self.frameHeader))
@@ -389,13 +384,12 @@ public final class BrowserFeed {
     }
 }
 
-/// What the decoder of a feed holds.
 private enum Holds {
-    /// Nothing that a frame after a key frame needs, as a new decoder.
+    /// Decoder has no reference state yet and must wait for a keyframe.
     case nothing
-    /// Each frame since its key frame.
+    /// Decoder is receiving contiguous frames since the last keyframe or anchor.
     case stream
-    /// Every frame up to one that the host skipped.
+    /// A sequence gap occurred; the next frame must be a keyframe or anchor.
     case gap
 }
 

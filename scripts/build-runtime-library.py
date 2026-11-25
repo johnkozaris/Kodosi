@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Builds the kodosi-ffi-c static library and copies it, with its C header, to
-<output-dir>/<target>/<profile>. With --program, the same build also makes the kodosi program
-and copies it there. Prints that folder."""
+"""Build the kodosi-ffi-c static library and copy it with its C header to
+<output-dir>/<target>/<profile>. With --program, also build and copy the kodosi binary there.
+Prints the output directory."""
 
 # Xcode runs this with its own Python 3.9.
 from __future__ import annotations
@@ -25,8 +25,8 @@ def program_name(target: str) -> str:
 
 def build(manifest: Path, output: Path, profile: str, target: str, default_features: bool, program: bool) -> Path:
     bundle = output.resolve() / target / profile
-    # cl.exe cannot write a path longer than 259 characters, and Cargo repeats the target
-    # and the profile below its own folder. Windows builds share one Cargo folder.
+    # cl.exe hits the 259-character path limit if Cargo nests target/profile under bundle, so
+    # Windows builds share a shallower Cargo target directory.
     cargo = output.resolve() / "cargo" if target.endswith("-windows-msvc") else bundle / "cargo"
     command = ["cargo", "build", "--locked", "--manifest-path", str(manifest),
         "--target-dir", str(cargo), "--target", target, "--profile", profile,

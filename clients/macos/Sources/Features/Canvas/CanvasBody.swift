@@ -2,12 +2,13 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-/// The body is the terminal's, and its shadow falls on the ground around it.
+/// The body takes the terminal's look, while its shadow falls on the ground around it and takes
+/// the surrounding theme.
 struct CanvasBody: View, Animatable {
     static let band: CGFloat = 38
     nonisolated static let waist: CGFloat = 14
     static let split: CGFloat = 10
-    /// The room that a header leaves free at the waist.
+    /// Horizontal padding headers leave so content stays clear of the pinched seam.
     static let clearance: CGFloat = 10
 
     @Environment(\.theme) private var theme
@@ -16,7 +17,6 @@ struct CanvasBody: View, Animatable {
     var depth: CGFloat
     var radius: CGFloat
     var tab: CGRect?
-    /// Where the part of a terminal that shows its chat ends.
     var chatEnd: CGFloat?
     var outline = true
     var shadow = true
@@ -125,7 +125,6 @@ nonisolated struct Lobes: Shape {
         return path
     }
 
-    /// A soft dip of the edge at `y` around `x`, from `x - reach` to `x + reach`.
     private static func valley(_ path: inout Path, at x: CGFloat, y: CGFloat, depth: CGFloat, reach: CGFloat) {
         path.addLine(to: CGPoint(x: x - reach, y: y))
         path.addCurve(to: CGPoint(x: x, y: y + depth),
@@ -134,7 +133,6 @@ nonisolated struct Lobes: Shape {
                       control1: CGPoint(x: x + reach / 2, y: y + depth), control2: CGPoint(x: x + reach / 2, y: y))
     }
 
-    /// A soft corner from the path's current point to `end` around the corner point `at`.
     private static func corner(_ path: inout Path, to end: CGPoint, at corner: CGPoint) {
         guard let start = path.currentPoint else { return }
         let pull = 0.45
@@ -144,8 +142,7 @@ nonisolated struct Lobes: Shape {
     }
 }
 
-/// The neck meets the body only where the body's edge is straight, between the rounded corners of
-/// `radius`.
+/// Clamps the tab neck to the straight top segment between corner radii so it joins seamlessly.
 nonisolated struct Neck: Shape {
     var tab: CGRect
     var radius: CGFloat

@@ -2,7 +2,6 @@ use serde_json::{Value, json};
 
 use crate::{Node, Schema, Step};
 
-/// The `{from, to}` positions that a view sends for what a person selected.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Selection {
     pub from: usize,
@@ -43,7 +42,7 @@ impl Selection {
         )
     }
 
-    /// A step that is not valid leaves the selection where it is.
+    /// Maps `place` through `steps`, leaving `place` unchanged if any step fails to parse.
     pub fn map(place: &mut Value, schema: &Schema, steps: &[Value]) {
         let Some(Self { mut from, mut to }) = Self::read(place) else {
             return;

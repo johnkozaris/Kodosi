@@ -10,7 +10,8 @@ use crate::{
     writable::{Held, writable_change},
 };
 
-/// Blocks in the middle of two files that a full compare still handles.
+/// Maximum DP table size (`rows * columns`) for LCS block diffing before falling back to a full
+/// middle replacement.
 const MOST_COMPARED: usize = 2_000_000;
 
 fn invalid(error: impl std::fmt::Display) -> Refused {
@@ -35,7 +36,6 @@ fn touched_blocks(doc: &Node, from: usize, to: usize) -> Vec<String> {
         .collect()
 }
 
-/// Runs steps on a copy, so a failed step changes nothing.
 pub(crate) fn run_steps(doc: &Node, steps: &[Value]) -> Result<(Node, Vec<String>), text::Failed> {
     let mut doc = doc.clone();
     let mut touched = HashSet::new();
@@ -168,7 +168,7 @@ fn add_sources(model: &mut Model, sources: &BTreeMap<String, String>) {
     model.sources.extend(added);
 }
 
-/// The JSON of a block without its id, because the same block can have two ids.
+/// Serializes a block without its `id` so identical blocks with different IDs still match.
 fn content_key(node: &Node) -> String {
     let mut json = node.to_json(schema());
     if let Some(attrs) = json.get_mut("attrs").and_then(Value::as_object_mut) {

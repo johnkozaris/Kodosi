@@ -1,14 +1,17 @@
 # Kodosi for Linux and Windows
 
-[PRODUCT.md](../../PRODUCT.md) has the shared intent and [DESIGN.md](DESIGN.md) the
-visual system.
+See [PRODUCT.md](../../PRODUCT.md) for shared product decisions and [DESIGN.md](DESIGN.md) for
+the visual system.
 
-The app looks and behaves like the [Mac app](../macos/PRODUCT.md). Every control works
-with the keyboard and screen readers and shows its focus.
+The Qt desktop app mirrors the [macOS app](../macos/PRODUCT.md) in layout and behavior. Every
+control is keyboard-accessible, works with screen readers, and shows visible focus indicators.
 
-- **Keys.** A program in a terminal gets every plain Ctrl key, so the app's own keys are
-  Ctrl+Shift with the Mac's key.
-- **Updates.** The package manager on Linux and App Installer on Windows update the app.
-- **Pages.** Pages and live documents show only in Chromium's sandbox. Where the system
-  does not allow that sandbox, as for root, a file is a card that opens it in its own app
-  or saves a copy.
+## Platform differences
+
+- Plain `Ctrl` keystrokes always pass through to programs inside the terminal, so app shortcuts
+  use `Ctrl+Shift` paired with the corresponding macOS shortcut key.
+- Updates are handled natively by the system package manager on Linux and App Installer on
+  Windows.
+- HTML pages and live document editors only load when Chromium's sandbox is available. In
+  environments that block the sandbox (such as running as root on Linux), canvas files fall back
+  to cards that let you open the file externally or save a copy.

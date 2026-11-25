@@ -48,7 +48,7 @@ impl Endpoint {
     pub(super) fn socket_file(namespace: &str, role: &str) -> io::Result<Self> {
         let directory = private_dir(namespace)?;
         let path = directory.join(format!("{role}.sock"));
-        // A path longer than a socket address holds cannot serve.
+        // Reject paths that exceed the AF_UNIX socket address length limit up front.
         SockAddr::unix(&path)?;
         Ok(Self::File { directory, path })
     }
@@ -61,7 +61,7 @@ impl Endpoint {
     }
 }
 
-/// The user's own folder of temporary files is out of other users' reach.
+// Windows `temp_dir` is per-user and inaccessible to other non-admin users.
 #[expect(
     clippy::unnecessary_wraps,
     reason = "the Unix form reads the system's folder of temporary files, and both forms share one signature"
@@ -166,7 +166,7 @@ async fn bind_file(directory: &Path, path: &Path) -> io::Result<Listener> {
                 "another process owns this local endpoint",
             ));
         }
-        // The socket file of a listener stays after the listener ends.
+        // Remove stale socket files left behind by crashed listeners.
         fs::remove_file(path)?;
     }
     let socket = Socket::new(Domain::UNIX, Type::STREAM, None)?;
@@ -179,8 +179,8 @@ async fn bind_file(directory: &Path, path: &Path) -> io::Result<Listener> {
     })
 }
 
-/// Tokio has no Unix sockets on Windows. A Windows Unix socket takes the readiness, the reads and
-/// the writes of a TCP socket, which tokio has.
+// Tokio lacks AF_UNIX support on Windows, but Windows AF_UNIX sockets support
+// the same readiness and I/O operations as `TcpStream`.
 fn ready(socket: Socket) -> io::Result<TcpStream> {
     socket.set_nonblocking(true)?;
     TcpStream::from_std(socket.into())

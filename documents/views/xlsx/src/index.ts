@@ -68,13 +68,12 @@ import "./xlsx.css";
 interface UniverCell {
   v?: number | string | boolean | null;
   f?: string | null;
-  /** The mark of a shared formula, whose first cell alone holds its text. */
+  /** Shared-formula ID; only the anchor cell carries `f`, while followers carry `si`. */
   si?: string | null;
   s?: string | UniverStyle | null;
   t?: number | null;
 }
 
-/** What a sheet holds for a cell once Univer has changed it. */
 interface CellReader {
   look(row: number, column: number): CellChange;
   formula(row: number, column: number): string | null;
@@ -123,7 +122,7 @@ interface Marked {
   rev: number;
 }
 
-// Univer has no Greek words.
+// Univer does not ship a Greek locale, so Greek falls back to en-US.
 const UNIVER_LOCALES: Readonly<Record<string, [LocaleType, () => Promise<{ default: object }>]>> = {
   de: [LocaleType.DE_DE, () => import("@univerjs/preset-sheets-core/locales/de-DE")],
   es: [LocaleType.ES_ES, () => import("@univerjs/preset-sheets-core/locales/es-ES")],
@@ -148,7 +147,7 @@ const MIN_COLUMNS = 26;
 const PIXELS_PER_CHARACTER = 7;
 const WIDTH_PADDING = 5;
 const PIXELS_PER_POINT = 4 / 3;
-/** Univer draws a sheet a moment after it becomes the active one. */
+// Univer renders asynchronously after a sheet becomes active.
 const PAUSE_MS = 150;
 const MOST_PAUSES = 60;
 const DIRECTION_UP = 0;
@@ -179,7 +178,7 @@ const SET_SELECTIONS = "sheet.operation.set-selections";
 const SET_SCROLL = "sheet.operation.set-scroll";
 const SET_ACTIVE_SHEET = "sheet.operation.set-worksheet-active";
 
-/** Everyone in a shared file may edit all of it, so Univer's protection of ranges is not offered. */
+// Hide Univer's range protection menu; shared files have no per-range permissions.
 const MENU = { "sheet.contextMenu.permission": { hidden: true } };
 const HIDDEN = 1;
 const CUSTOM_HEIGHT = 0;
@@ -235,7 +234,7 @@ function characterWidth(pixels: number): number {
   return (pixels - WIDTH_PADDING) / PIXELS_PER_CHARACTER;
 }
 
-/** Univer counts the frozen lines back from the first line that scrolls, which is -1 for none. */
+// Univer encodes freeze panes by first scrollable index (-1 when unfrozen) plus split count.
 function frozenOf({ startRow, startColumn, ySplit, xSplit }: UniverFreeze): Frozen {
   return {
     top: ySplit > 0 ? Math.max(startRow - ySplit, 0) : 0,
@@ -258,7 +257,6 @@ function isFrozen({ rows, columns }: Frozen): boolean {
   return rows > 0 || columns > 0;
 }
 
-/** Univer keeps the size of a line and whether it is hidden together. */
 function lineData(
   sizes: Record<string, number>,
   size: (value: number) => object,
@@ -271,7 +269,7 @@ function lineData(
   return data;
 }
 
-/** The document has no change that moves rows or columns, so dragging them is not offered. */
+// Disable row/column drag-reordering because the document protocol has no move-line operation.
 function keepLinesInPlace(renders: IRenderManagerService): void {
   const moves = renders.getRenderUnitById(WORKBOOK)?.with(HeaderMoveRenderController);
   moves?.interceptor.intercept(
@@ -345,7 +343,7 @@ function valueOf(cell: UniverCell | null | undefined): CellChange["value"] {
   return cell?.t === BOOLEAN_TYPE ? Boolean(value) : value;
 }
 
-/** A cell that moves takes the place of what was there as a whole. */
+// Range moves replace destination cells completely, clearing omitted value, formula, or style.
 function wholeCell(
   row: number,
   column: number,
@@ -359,7 +357,7 @@ function wholeCell(
   };
 }
 
-/** Univer changes only part of a style, so the look is the cell's whole look. */
+// Univer emits partial style patches in `s`, so read the cell's full resolved style instead.
 function cellChange(
   row: number,
   column: number,
@@ -401,7 +399,6 @@ function perLine<V>(
   return out;
 }
 
-/** Univer gives one size for each line or one for all of them. */
 function sized(
   size: number | Record<string, number | null | undefined>,
   convert: (pixels: number) => number,
@@ -421,7 +418,7 @@ class XlsxEditor implements Editor, Pictures {
   private readonly bar: XlsxBar;
   private readonly outbox = new Outbox<Change>();
   private univer: ReturnType<typeof createUniver> | undefined;
-  /** Univer stops only a worker that it starts itself. */
+  // Univer does not terminate a Worker passed in externally, so track it for explicit cleanup.
   private worker: Worker | undefined;
   private commands: ICommandService | undefined;
   private interceptor: SheetInterceptorService | undefined;
@@ -437,7 +434,7 @@ class XlsxEditor implements Editor, Pictures {
   private held: Ordered[] = [];
   private links: SheetLink[] = [];
   private canEdit = false;
-  /** The keys that the person held at the last press, which Univer's click does not carry. */
+  // Modifier keys from the last pointerdown, since Univer's CellClicked event omits them.
   private pressed: Pick<MouseEvent, "metaKey" | "ctrlKey"> = { metaKey: false, ctrlKey: false };
 
   constructor(root: HTMLElement, client: Client) {
@@ -473,7 +470,7 @@ class XlsxEditor implements Editor, Pictures {
   load(raw: unknown, person: Person, sent: Sent): void {
     const snapshot = raw as Snapshot;
     const dropped = this.outbox.loaded(sent);
-    // The changes after a batch that went name rows and columns as that batch left them.
+    // Queued edits may use row/column indices shifted by the dropped batch, so drop them too.
     if (dropped) this.outbox.clear();
     const fitting = new SheetFitting(snapshot.sheets.map(({ id }) => id));
     this.outbox.move((change) => fitting.fit(change));
@@ -541,7 +538,7 @@ class XlsxEditor implements Editor, Pictures {
       this.editing = { sheet: worksheet.getSheetId(), row, column };
       this.sendPlace();
     });
-    // Univer writes the cell before it ends the edit, so the edit is in the outbox here.
+    // Univer commits the cell mutation before SheetEditEnded, so it is already in the outbox.
     made.univerAPI.addEvent(made.univerAPI.Event.SheetEditEnded, () => {
       this.editing = null;
       for (const ordered of this.held.splice(0)) this.showOrdered(ordered);
@@ -559,8 +556,8 @@ class XlsxEditor implements Editor, Pictures {
   }
 
   /**
-   * A look of the file keeps its index, so that what the file has and a look does not, such as
-   * borders, stays.
+   * Preserves the original style index for unchanged file styles so properties not modeled by Look
+   * (such as borders) survive round-tripping.
    */
   private lookOf(sheet: string, row: number, column: number): CellChange {
     const range = this.univer?.univerAPI
@@ -579,7 +576,7 @@ class XlsxEditor implements Editor, Pictures {
     const worksheet = () => this.univer?.univerAPI.getActiveWorkbook()?.getSheetBySheetId(sheet);
     return {
       look: (row, column) => this.lookOf(sheet, row, column),
-      // A cell of a shared formula has no text of its own, so Univer works it out.
+      // Shared-formula follower cells have no raw `f`; ask Univer for the expanded formula.
       formula: (row, column) =>
         worksheet()?.getRange(row, column).getFormula().replace(/^=/, "") || null,
     };
@@ -611,10 +608,8 @@ class XlsxEditor implements Editor, Pictures {
     }
   }
 
-  /**
-   * The place goes as the document is at the client's rev. While changes wait, or while this
-   * side's lines wait for their answer, this copy differs from that rev, so the place waits too.
-   */
+  // Selection coordinates must match the client's confirmed rev, so defer reporting while remote
+  // changes are held or local row/column shifts await acknowledgement.
   private sendPlace(): void {
     if (!this.here) return;
     this.placeWaits = this.held.length > 0 || this.outbox.unanswered().some(movesLines);
@@ -757,8 +752,8 @@ class XlsxEditor implements Editor, Pictures {
   }
 
   /**
-   * Univer gives new lines the size of the line beside them. The document keeps a copied height as
-   * the row's own, so this copy does too, and no longer fits the row to what it holds.
+   * Univer copies the adjacent row/column size onto newly inserted lines. Because the server
+   * stores a copied row height as explicit (non-auto), mirror that locally via showSizes.
    */
   private inserted(
     kind: "rows" | "columns",
@@ -788,7 +783,8 @@ class XlsxEditor implements Editor, Pictures {
     return { kind, sheet, at, count };
   }
 
-  /** Nothing goes while changes wait, because the document is past them and the outbox is not. */
+  // Pause outgoing batches while remote changes are held so edits are not sent against a stale
+  // grid state.
   batch(): unknown | null {
     return this.held.length > 0 ? null : batchOf(this.outbox.next());
   }
@@ -829,9 +825,8 @@ class XlsxEditor implements Editor, Pictures {
   }
 
   /**
-   * A row or a column changes through the mutations that Univer's own command makes, on whole
-   * lines as that command names them, so this side rewrites its formulas and merges, and the
-   * person's undo steps go.
+   * Runs row/column inserts and removals through Univer's command interceptor with full-line
+   * ranges so Univer rewrites formulas and merges, then clears local undo history.
    */
   private showLines(
     kind: "rows" | "columns",
@@ -875,7 +870,8 @@ class XlsxEditor implements Editor, Pictures {
       id: inserts ? names.insertCommand : names.removeCommand,
       params,
     });
-    // Univer moves the panes of the sheet in view, whichever sheet the lines are on.
+    // Univer's interceptor shifts freeze panes on the active sheet even when editing a different
+    // sheet, so drop its SET_FROZEN mutations and update panes explicitly below.
     const withoutPanes = (mutations: Mutation[] = []) =>
       mutations.filter(({ id }) => id !== SET_FROZEN);
     this.run([
@@ -900,7 +896,6 @@ class XlsxEditor implements Editor, Pictures {
     return freeze ? frozenOf(freeze) : NOTHING_FROZEN;
   }
 
-  /** Panes that another person sets leave this person's sheet where it is scrolled. */
   private freeze(sheet: string, frozen: Frozen): void {
     this.run([
       {
@@ -910,7 +905,6 @@ class XlsxEditor implements Editor, Pictures {
     ]);
   }
 
-  /** A line that an unanswered change of this person's hides or shows stays as that has it. */
   private showHidden(change: Extract<Change, { kind: "hidden" }>, own: boolean): void {
     const unanswered = own ? [] : this.outbox.unanswered();
     const mutations: Mutation[] = [];
@@ -945,12 +939,13 @@ class XlsxEditor implements Editor, Pictures {
     }
   }
 
-  /** A change of the person's own that waits shows again on a snapshot, over what it covers. */
+  // When own is true, replays local unacknowledged edits onto a reloaded snapshot without
+  // filtering them against the outbox.
   private show(change: Change, own = false): void {
     if (change.kind === "removeSheet" && !own) {
       this.outbox.move((waiting) => withoutSheet(waiting, change.sheet));
     }
-    // Only a removal of this person's that waits takes a sheet away before the document does.
+    // Skip changes for a sheet already removed locally by an unacknowledged removeSheet.
     if ("sheet" in change && !this.holds(change.sheet)) return;
     const unit = { unitId: WORKBOOK };
     switch (change.kind) {
@@ -1070,7 +1065,7 @@ class XlsxEditor implements Editor, Pictures {
         this.run([
           { id: SET_AUTO_HEIGHT, params: { ...unit, ranges, autoHeightInfo: AUTO_HEIGHT } },
         ]);
-        // The document has no height for a row that fits, so each copy measures the row.
+        // Auto-fit rows carry no explicit height from the server, so re-measure locally.
         this.run(this.interceptor?.generateMutationsOfAutoHeight({ ...unit, ranges }).redos ?? []);
       } else {
         this.run([
@@ -1090,9 +1085,10 @@ class XlsxEditor implements Editor, Pictures {
   }
 
   /**
-   * While the person's cell editor is open, a change that writes that cell or moves its line
-   * waits with each change after it, so the editor keeps what the person typed, its value wins,
-   * and it moves with its line when the editor closes.
+   * Buffers incoming changes in order while the inline cell editor is open and a change touches
+   * the edited cell (or shifts its row/column), so in-progress typing is not clobbered: once
+   * editing ends, the held changes apply in sequence, the typed value wins, and the edit moves
+   * with its line.
    */
   private receive(ordered: Ordered): void {
     const editing = this.editing;
@@ -1150,8 +1146,8 @@ class XlsxEditor implements Editor, Pictures {
   }
 
   /**
-   * A place that is new comes at the client's rev, so it moves across this side's unanswered
-   * lines. Each other place stays as this copy moved it.
+   * Updates peer selections. New peer entries arrive at the client's confirmed rev and are shifted
+   * across unacknowledged local edits; existing entries retain their locally tracked positions.
    */
   peers(peers: readonly Peer[]): void {
     this.marked = peers.map(
@@ -1171,8 +1167,8 @@ class XlsxEditor implements Editor, Pictures {
   }
 
   /**
-   * Univer has no layer for people's places, so the marks lie over its canvas. Univer measures
-   * the grid only once it has rendered it.
+   * Renders peer selection overlays above Univer's canvas, since Univer has no built-in
+   * collaborator overlay layer and only exposes cell rects once rendered.
    */
   private drawMarks(): void {
     this.marks.replaceChildren();
@@ -1221,7 +1217,7 @@ class XlsxEditor implements Editor, Pictures {
     this.status.closed(reason);
   }
 
-  /** Waits until Univer is steady: only then does it have all its services. */
+  // Wait for Univer's Steady lifecycle stage so all sheet services are initialized.
   async pictures(): Promise<number> {
     for (let pause = 0; pause < MOST_PAUSES; pause++) {
       const stage = this.univer?.univerAPI.getCurrentLifecycleStage();

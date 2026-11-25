@@ -30,7 +30,7 @@ import json
 
 print(" ".join(json.load(open("dependencies.lock.json", encoding="utf-8"))["frameworks"]["qt"]["modules"]))
 ')"
-# The aqtinstall release cannot read the Windows repository of the pinned Qt.
+# The released version of aqtinstall cannot read the Windows repository for the pinned Qt version.
 AQTINSTALL_COMMIT=$(lock_value tools aqtinstall commit)
 
 case "$(uname -s)-$(uname -m)" in
@@ -205,7 +205,7 @@ if ! qt_ready "$QT_ROOT"; then
     rm -rf "$stage"
     "$aqt" install-qt "$QT_HOST" desktop "$QT_VERSION" "$QT_ARCH" -m "${QT_MODULES[@]}" --outputdir "$stage"
     staged_qt="$stage/$QT_VERSION/$QT_DIR"
-    # aqtinstall would take an older Qt WebEngine build that Qt 6.12.0 cannot load on Windows.
+    # aqtinstall would pull an older Qt WebEngine build that Qt 6.12.0 cannot load on Windows.
     archive=$(download "qtwebengine-${WEBENGINE_VERSION}-${TOOL_HOST}.7z" "$WEBENGINE_URL" "$WEBENGINE_SHA256")
     "$environment/python$EXE" -c 'import sys, py7zr; py7zr.SevenZipFile(sys.argv[1]).extractall(sys.argv[2])' \
         "$archive" "$staged_qt"

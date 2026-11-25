@@ -1,5 +1,5 @@
-// A page shows only a code that this tab sent to Keycloak itself: a link from a stranger could
-// show one code and connect a different one.
+// Only display a device code stored by this tab in sessionStorage; reading a code from a URL could
+// let an attacker display one code while linking a different device.
 const KEY = "kodosi.code";
 const FRESH_MS = 15 * 60 * 1000;
 const SHAPE = /^[A-Za-z0-9]{4}-?[A-Za-z0-9]{4}$/;

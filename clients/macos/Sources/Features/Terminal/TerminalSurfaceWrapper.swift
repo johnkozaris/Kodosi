@@ -8,9 +8,9 @@ extension EnvironmentValues {
     @Entry var terminalInteractionEnabled: Bool = true
     @Entry var terminalStageVisible: Bool = true
     @Entry var terminalTileVisible: Bool = true
-    /// The stage shows this terminal alone, so it needs no mark of the selection.
+    /// True when only one terminal is visible on stage, suppressing the selection highlight.
     @Entry var terminalAlone: Bool = false
-    /// The terminal's canvas is joined to its right edge: one tile with two panes.
+    /// True when the terminal shares a unified `CanvasBody` shell with an adjacent canvas pane.
     @Entry var terminalJoined: Bool = false
     @Entry var tileRadius: CGFloat = Radius.tile
 }

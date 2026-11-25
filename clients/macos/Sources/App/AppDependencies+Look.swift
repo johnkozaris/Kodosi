@@ -5,13 +5,14 @@ import SwiftUI
 
 extension AppDependencies {
     /// The look of this Mac's terminals for everyone who sees them: the app's appearance, unless
-    /// the person keeps them dark.
+    /// terminals are kept dark.
     var terminalLook: TerminalLook {
         let appearance = themePreference.resolve(systemColorScheme: systemDark ? .dark : .light)
         return settings.keepsTerminalsDark || appearance.isDark ? .dark : .light
     }
 
-    /// The terminals run on while no window shows, so the look follows the app and not a window.
+    /// Observe `NSApp.effectiveAppearance` rather than a window's color scheme so terminals keep
+    /// tracking appearance changes while no window is open.
     func watchAppearance() {
         appearanceWatch = NSApp.observe(\.effectiveAppearance, options: [.initial, .new]) { [weak self] _, change in
             let dark = change.newValue?.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua

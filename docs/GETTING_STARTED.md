@@ -2,294 +2,343 @@
 
 **English** · [Deutsch](de/GETTING_STARTED.md) · [Ελληνικά](el/GETTING_STARTED.md) · [Español](es/GETTING_STARTED.md) · [Français](fr/GETTING_STARTED.md) · [Italiano](it/GETTING_STARTED.md) · [日本語](ja/GETTING_STARTED.md) · [한국어](ko/GETTING_STARTED.md) · [简体中文](zh-Hans/GETTING_STARTED.md)
 
-[Get Kodosi](../README.md#get-kodosi) for your computer. This guide uses the Mac keys; on
-Linux and Windows, use Ctrl+Shift with the same letter.
+[Download Kodosi](../README.md#get-kodosi) for your computer. Shortcuts below use macOS keys; on
+Linux and Windows, replace ⌘ with Ctrl+Shift unless noted otherwise.
 
 ## 1. Sign in
 
-Open Kodosi and select Sign in at the bottom of the sidebar. Kodosi opens your browser,
-where you sign in. In a terminal, `kodosi auth login` shows a code to enter in any
+Open Kodosi and click **Sign in** at the bottom of the sidebar. Kodosi opens your browser to sign
+in. From a terminal, you can run `kodosi auth login` to get a device code you can enter in any
 browser.
 
-Without an account, Kodosi runs terminals on this computer. Sign in to use your other
-computers, friends and projects.
+You can run local terminals without signing in. Sign in to connect your other computers, add
+friends, and use projects.
 
 ## 2. Start an agent
 
-Select New terminal (⌘N). Choose an agent and a folder, and if you want, an account, a
-model and an effort. Type a first prompt and press Return. Kodosi types the command into
-the shell of the new terminal.
+Press ⌘N (or click **New terminal**) to open the launcher. Pick an agent and a folder, optionally
+choose an account, model, and effort level, enter an initial prompt, and press Return. Kodosi
+types the launch command into a new shell.
 
-<p align="center"><img src="media/launcher.webp" width="580" alt="Claude Code chosen in the launcher, with a folder and a first prompt."></p>
+<p align="center"><img src="media/launcher.webp" width="580" alt="The launcher configured with Claude Code, a folder, and an initial prompt."></p>
 
-- For a plain terminal, press ⌘D (Ctrl+Shift+O on Linux and Windows). It opens at once in
-  the folder of the selected terminal. ⌘T (Ctrl+Shift+T) opens it with the agent of the
-  selected terminal, with the same account and choices.
-- The + button of a folder in the sidebar opens one more terminal with the agent that runs
-  in that folder, with the same account and choices, or a plain terminal when no agent
-  runs there.
-- The keys follow Ghostty. ⌘1 to ⌘9 select a terminal (Alt+1 to Alt+9 on Linux and
-  Windows), ⌥⌘ with an arrow selects the one beside it (Ctrl+Alt with an arrow), and ⌘W
-  closes the selected terminal. Settings › Shortcuts lists every key and changes it.
-- If an agent is missing, the launcher shows its install command.
-- Agents start unrestricted: they change files and run commands without asking you.
-  Antigravity CLI starts in its own auto mode, which asks before what it cannot undo. For an
-  agent that asks first, choose Ask under More, after the model. There you also choose the
-  verbosity, how much of their work Claude Code, Codex, Copilot CLI and Antigravity CLI
-  show; they start at Quiet. Copilot CLI takes its verbosity only from its own settings, so
-  Kodosi changes them while Copilot CLI runs at Quiet and puts them back after.
-- Claude Code and Codex have a fast mode, which answers faster and costs more. Turn it on
-  with the model and effort. It holds for that start only, so an agent starts without it
-  unless you turn it on.
-- A new account gets its own sign-in folder, such as `~/.claude-work`. Kodosi also finds
-  the accounts that your shell sets up, such as
-  `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
-- In a terminal at its prompt, the actions key (two sliders) in its header lists the
-  installed agents. Select one to start it with your last choice.
-- While an agent runs, the same actions key changes its model, effort and fast mode, and
-  for some agents its permissions, with the agent's own commands, so it doesn't start
-  again. A change waits for the end of the agent's turn, and Claude Code also keeps a
-  model, effort and fast mode for its next sessions.
-- In zsh and bash (not the bash 3.2 of macOS), ⌘↑ and ⌘↓ jump between prompts.
-- ⌘-click a link to open it (Ctrl-click on Linux and Windows). In a program that uses the
-  mouse, also hold Shift. On the iPhone, tap the link; a tap does not open a link in a
-  program that uses the mouse. The link opens in your own browser on the device that you
-  use. Kodosi asks before it opens a link in another app. It does not open a file that
-  can run a program, or a file or a `localhost` address of a terminal on another computer.
-- To give an agent a picture, such as a screenshot, paste it with ⌘V (Ctrl+Shift+V on
-  Linux and Windows, Paste on the iPhone). Kodosi saves it on the computer of the terminal
-  and pastes the path of its file, and the agent attaches it. A terminal on another
-  computer shows how much of the picture arrived. The agent's own key for pictures, such
-  as Ctrl+V in Claude Code, reads the clipboard of the computer where the agent runs.
-- To give an agent its own copy of a repository, hover the repository folder in the
-  sidebar, select the branch button and name a branch. Kodosi starts the terminal in a new
-  Git worktree. When the terminal ends, Kodosi removes the worktree if nothing changed.
-  Settings › Terminal sets where these folders go.
-- A terminal is light or dark like Kodosi on the computer that runs it, on every device
-  that shows it. Its programs learn the look, and some follow it, such as Claude Code with
-  its theme at Auto (`/theme`). To keep terminals dark while Kodosi is light, turn on Keep
-  terminals dark in Settings › Terminal.
+If an agent isn't installed yet, the launcher shows its install command.
 
-A terminal is a real shell on the computer that runs it. Minimize hides a terminal and
-keeps it running; Close ends it and its programs. When you close the window, Kodosi and
-your terminals keep running, and Kodosi's icon stays in the menu bar or the system tray;
-on a desktop without a system tray, closing the window quits Kodosi. When you quit
-Kodosi, your terminals stop. Kodosi saves what they show on your computer and nowhere
-else. When you open Kodosi again, they start again in their folders, projects and places on
-the stage, with their earlier screen and history above a new prompt (on Windows, scroll
-up to see it). Claude Code, Codex and Copilot CLI continue their conversations, and on a
-Mac or on Linux they keep the model, effort, fast mode, permissions and output that you
-chose.
-When Kodosi cannot tell which conversation an agent showed, the agent lists its
-conversations so that you can continue one. In Settings, you can choose what closing
-the window does.
+### Quick ways to open terminals
 
-On a Mac, the programs in your terminals have the permissions that you give Kodosi, as in
-any terminal app. When macOS says that Kodosi was prevented from modifying apps, a program
-in a terminal tried to change another app. To let it, turn on Kodosi in App Management;
-Settings › General opens it. There you also allow Device Control and Data Access
-(Accessibility before macOS 27) and Screen & System Audio Recording, for programs that
-control apps or see the screen.
+- Press ⌘D (Ctrl+Shift+O on Linux and Windows) for a plain shell in the selected terminal's folder.
+- Press ⌘T (Ctrl+Shift+T) to open a new terminal using the selected terminal's agent, account, and
+  settings.
+- Click the `+` button next to a folder in the sidebar to start another terminal with the agent
+  already running in that folder, using the same account and settings (or a plain shell if none
+  is running there).
+- In an idle terminal at a shell prompt, click the actions button (two sliders) in the header to
+  launch any installed agent with your last-used settings.
+
+### Keyboard shortcuts
+
+Shortcuts match Ghostty defaults and can be customized in **Settings › Shortcuts**:
+
+- ⌘1 through ⌘9 (Alt+1 through Alt+9 on Linux and Windows): switch to a terminal by position.
+- ⌥⌘ + arrow keys (Ctrl+Alt + arrow keys): move to an adjacent terminal.
+- ⌘W: close the selected terminal.
+- ⌘↑ and ⌘↓: jump between shell prompts in zsh and modern bash (not macOS's built-in bash 3.2).
+
+### Permissions, verbosity, and fast mode
+
+- Agents start unrestricted by default, so they can edit files and run commands without prompting.
+  Antigravity CLI is the exception: it starts in its own auto mode, which still asks before
+  irreversible actions. To make an agent ask for permission first, select **Ask** under **More**
+  (after the model picker).
+- Under **More**, you can also set the output verbosity for Claude Code, Codex, Copilot CLI, and
+  Antigravity CLI (they default to **Quiet**). Because Copilot CLI only reads verbosity from its
+  saved settings, Kodosi temporarily updates Copilot's config while Copilot CLI runs in Quiet mode
+  and restores it afterward.
+- Claude Code and Codex support a fast mode (faster responses at higher cost), toggled alongside
+  the model and effort pickers. Fast mode applies only to that launch and resets to off next time.
+
+### Accounts and live switching
+
+- Adding a new account gives it an isolated config folder, such as `~/.claude-work`. Kodosi also
+  detects accounts defined via shell aliases, like `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
+- While an agent is running, use the header's actions button (two sliders) to switch its model,
+  effort, fast mode, and (for supported agents) permissions without restarting. Kodosi sends the
+  agent's own slash command once the current turn finishes. Note that Claude Code remembers model,
+  effort, and fast mode changes for future sessions too.
+
+### Links, images, worktrees, and themes
+
+Hold ⌘ and click a link (Ctrl-click on Linux and Windows) to open it in your default browser on the
+device you're using; hold Shift as well if the running program captures the mouse. On iPhone, tap a
+link (disabled while a program captures the mouse). Kodosi asks before handing a link to another
+app, and blocks opening executable files as well as local file paths or `localhost` URLs from
+remote computers.
+
+To share a screenshot or image with an agent, paste it with ⌘V (Ctrl+Shift+V on Linux and Windows,
+or Paste on iPhone). Kodosi saves it on the terminal's host machine and pastes its file path so the
+agent can attach it, showing upload progress for remote terminals. An agent's own paste shortcut
+(such as Ctrl+V in Claude Code) still reads the clipboard of the machine where the agent runs.
+
+To give an agent an isolated copy of a Git repository, hover the repository folder in the sidebar,
+click the branch button, and enter a branch name. Kodosi opens the terminal in a new Git worktree,
+and removes it automatically when the terminal closes if nothing changed. You can configure where
+worktrees are stored in **Settings › Terminal**.
+
+Each terminal is light or dark like Kodosi on its host computer, on every device viewing it.
+Programs inside the terminal receive theme notifications, so tools like Claude Code (with `/theme`
+set to Auto) adapt automatically. If you prefer dark terminals while Kodosi itself is in light
+mode, turn on **Keep terminals dark** in **Settings › Terminal**.
+
+### Closing, quitting, and macOS permissions
+
+Every terminal is a real shell running on its host computer. **Minimize** hides a terminal while
+keeping it alive; **Close** terminates the shell and its child processes. Closing the app window
+leaves Kodosi and your terminals running in the menu bar or system tray (except on Linux desktops
+without a system tray, where closing the window quits Kodosi). You can change window-close
+behavior in **Settings**.
+
+When you quit Kodosi, your terminals stop, and Kodosi saves their screen state locally on your
+machine (never on the server). The next time you open Kodosi, your terminals reopen in the same
+folders, projects, and stage positions with their prior screen and scrollback above a fresh prompt
+(scroll up on Windows to see it). Claude Code, Codex, and Copilot CLI automatically resume their
+conversations, and on macOS and Linux they also keep your chosen model, effort, fast mode,
+permissions, and verbosity. If Kodosi can't identify which conversation an agent was running, the
+agent lists its conversations so you can pick one.
+
+On macOS, programs inside Kodosi inherit the macOS permissions granted to Kodosi, just like in any
+other terminal app. If macOS blocks a program from modifying another app, enable Kodosi under
+**App Management** (accessible from **Settings › General**). You can also grant **Device Control
+and Data Access** (called **Accessibility** before macOS 27) and **Screen & System Audio
+Recording** there for tools that automate apps or capture the screen.
 
 ## 3. See which agent needs you
 
-The mark of each terminal shows what its program does.
+Each terminal's icon shows its current status:
 
-| You see | It means |
+| Indicator | Meaning |
 | --- | --- |
-| A warm light that goes around the mark | Working. The edge fills to show a percent. |
-| A hand, a question mark or a key | Waiting for your approval, answer or sign-in. |
-| A green check | Done. |
-| A yellow warning sign | Failed. |
+| Warm light orbiting the icon | Working (a filling ring shows percentage progress when reported). |
+| Hand, question mark, or key | Waiting for your approval, answer, or sign-in. |
+| Green check | Done. |
+| Yellow warning triangle | Failed. |
 
-The check and the warning go away when you open the terminal on any of your devices.
-When one of your terminals starts to wait, finishes or fails, Kodosi tells you once, on the
-device that you use. In Kodosi, you get the sign. At your computer in another app, you get
-a notification there. When you use none of your computers, you get it on your phone. A
-terminal that still waits for you and that you did not open tells your phone when you leave
-your computer. Only a terminal that waits makes a sound. To turn the notifications of a
-device off, open Settings in Kodosi on that device. Programs report their state with the
-[Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) or a
-progress bar. A program that reports nothing shows no state.
+The check and warning clear as soon as you open that terminal on any device.
 
-A terminal with Claude Code also shows as a chat, and so does one with Codex or Copilot
-CLI that Kodosi starts. Select Chat in the terminal's header. The chat shows what you
-wrote, what the agent answered and did, and the questions that it asks, with their answers
-as keys. Write to the agent there, or stop it. While it asks, the words that you write
-tell it what to do instead. What you do in the chat also happens in the terminal.
+When a terminal starts waiting, finishes, or fails, Kodosi notifies you once on the device you're
+actually using:
 
-## 4. See what an agent shows
+- If Kodosi is in focus, you just see the status indicator.
+- If you're using another app on a computer, Kodosi shows a desktop notification there.
+- If you're away from all your computers, Kodosi sends a push notification to your phone. If a
+  waiting terminal is still unseen when you step away from your computer, it forwards to your
+  phone then.
 
-An agent can show you a page, Markdown, a picture, a PDF, a document, a sheet, a
-presentation or the app that it runs on the canvas of its terminal, and use a browser that
-you share with it. The canvas opens with what the agent shows while you look at its
-terminal, and when a file on it or the browser changes, unless you closed it. To open it
-only yourself, turn off Open the canvas by itself in Settings › General. Claude Code,
-Copilot CLI and Antigravity CLI know how, also when you start them yourself, and so do
-Codex, Cursor and OpenCode when Kodosi starts them (OpenCode on a Mac or Linux); tell
-another agent to read
-`kodosi skill canvas`. When the canvas has something,
-the terminal's header shows a key for its files and one for its browser, with a copper dot
-for news. Select one to open the canvas beside the terminal; More room gives the canvas
-the stage and keeps the terminal small in its corner. Close a part with the × on its key,
-and open it again with +. Open Browser in the actions key opens the browser before the
-agent uses it, and Add a File puts a file on the canvas and into the terminal's folder;
-you can also drop a file on the canvas. On the iPhone, the canvas key is in the terminal's
-bar, and a banner names what the agent shows or changes, with Open.
+Only waiting terminals play a notification sound. You can mute notifications per device in
+**Settings**. Programs report status using the
+[Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) or standard
+terminal progress sequences; programs that don't report status simply show no indicator.
 
-- A document, sheet, presentation, PDF or text file is live: you, the people in the
-  terminal and the agent edit it at the same time, and it stays a normal file in its
-  folder. When a document has tracked changes, its bar has a key that accepts or rejects
-  them. Settings › Documents turns each viewer off or on, shows documents as pages or as
-  text that fits the canvas, and makes pages dark when Kodosi is dark.
+### Chat view
 
-- A page has no network. Links in pages, documents, sheets, presentations and PDFs open in
-  your own browser by the same rules as terminal links. Where you can edit, ⌘-click a link
-  (Ctrl-click on Linux and Windows); elsewhere a click opens it, and on the iPhone a tap. A
-  link to a slide or a cell of the same file goes there.
-- Select words on a page or in a document, then Ask about this. Kodosi types the file and
-  the words into the terminal, and you write the question.
-- Right-click a file's tab, or touch and hold it on a phone, to save a copy, take the file
-  or all files off the canvas, or move the file to the Trash of the terminal's computer.
-- Click and type in the shared browser as in your own. The agent sees the same pages and
-  sign-ins, and its next command tells it that you used the browser. After 10 minutes with
-  no use the browser sleeps, and it opens its last page again when you look at it or the
-  agent uses it. The first browser on a computer gets Kodosi Browser, so it takes a moment.
-- To use your sign-ins in your private terminals, select Copy beside a browser in
-  Settings › Browser. Remove takes away what you copied, and Remove All removes every
-  sign-in and all site data of your private terminals. On a Mac, when macOS keeps a
-  browser's sign-ins from Kodosi, as it does Safari's, select Allow… beside the browser to
-  give Kodosi Full Disk Access.
-- Everyone who can open the terminal sees its canvas and uses its browser. When the
-  terminal closes, its canvas and the browser's sign-ins go.
+Terminals running Claude Code, or Codex and Copilot CLI launched through Kodosi, also offer a
+**Chat** view in the terminal header. Chat displays your messages, the agent's replies and tool
+activity, and any pending questions with clickable buttons. You can reply or stop the agent right
+from chat; if you type custom text while it's asking a question, it tells the agent what to do
+instead. Everything you do in chat happens in the underlying terminal as well.
+
+## 4. See what an agent shows on the canvas
+
+Agents can display HTML pages, Markdown, images, PDFs, Office documents, spreadsheets,
+presentations, or running web apps on a **canvas** beside the terminal, and drive a shared
+browser. By default, the canvas opens automatically when the agent shows or updates something
+while you're viewing that terminal (unless you closed it). To open it only yourself, turn off
+**Open the canvas by itself** in **Settings › General**.
+
+Claude Code, Copilot CLI, and Antigravity CLI know how to use the canvas even when launched
+manually, and Codex, Cursor, and OpenCode know when launched by Kodosi (OpenCode on macOS and
+Linux). For any other agent, tell it to run `kodosi skill canvas`.
+
+Once the canvas has content, the terminal header adds buttons for **Files** and **Browser**, with a
+copper dot whenever something is new:
+
+- Click either button to open the canvas beside the terminal.
+- Click **More room** to let the canvas take over the stage while shrinking the terminal into a
+  corner.
+- Close a panel with the `×` on its button, and reopen it with `+`.
+- Open the browser manually via **Open Browser** in the actions menu, or add files via **Add a
+  File** (or drag and drop onto the canvas), which also copies the file into the terminal's folder.
+- On iPhone, the canvas button lives in the terminal bar, and a banner announces new or updated
+  items with an **Open** button.
+
+### Live documents and pages
+
+- Documents (`.docx`), spreadsheets (`.xlsx`), presentations (`.pptx`), PDFs, and text files are
+  live: you, anyone sharing the terminal, and the agent can edit them simultaneously while they
+  stay regular files on disk. When a document contains tracked changes, the toolbar includes a
+  control to accept or reject them. Under **Settings › Documents**, you can toggle individual
+  viewers, switch between paginated and flowing text views, and enable dark pages in dark mode.
+- HTML pages on the canvas run completely offline with no network access. Links in pages,
+  documents, sheets, slides, and PDFs open in your own browser under the same safety rules as
+  terminal links (⌘-click or Ctrl-click inside editable views; regular click elsewhere; tap on
+  iPhone). Internal links to slides or cells jump straight there.
+- Highlight text on a page or in a document and click **Ask about this** to send the file name and
+  selected text straight into the terminal so you can type your question.
+- Right-click a file tab (or long-press on mobile) to save a copy, remove that file or all files
+  from the canvas, or move the file to the host computer's Trash.
+
+### Shared browser
+
+- Click and type inside the shared browser just like a normal browser. The agent sees the same
+  pages and logins, and the output of its next browser command tells it that you used the browser.
+- After 10 minutes of inactivity, the browser sleeps and reopens its last page when you or the
+  agent use it again. The very first time you open a shared browser on a computer, Kodosi
+  downloads Kodosi Browser automatically, so it takes a moment.
+- To reuse your existing browser logins in private terminals, click **Copy** next to a browser in
+  **Settings › Browser**. Click **Remove** to clear what you copied, or **Remove All** to wipe all
+  logins and site data across private terminals. On macOS, if the OS restricts access to a
+  browser's data (such as Safari), click **Allow…** next to that browser to grant Full Disk
+  Access.
+- Anyone with access to a terminal sees its canvas and shares its browser. Closing the terminal
+  clears its canvas and discards shared-terminal browser logins.
 
 ## 5. Ask Dosi
 
-Dosi is your agent for your other agents. Select Dosi's face at the bottom of the sidebar
-(⌘J). Dosi runs on Claude Code or Codex; Settings › Dosi chooses which, with its account,
-model and effort.
+Dosi is your agent for coordinating your other agents. Click Dosi's face at the bottom of the
+sidebar (or press ⌘J). Dosi runs on Claude Code or Codex, configured along with its account,
+model, and effort in **Settings › Dosi**.
 
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="media/dosi-still.webp">
-    <img src="media/dosi.webp" width="900" alt="Asked what needs you, Dosi reads the terminals, says that checkout waits for an approval and asks whether to allow it.">
+    <img src="media/dosi.webp" width="900" alt="When asked what needs attention, Dosi checks the terminals, reports that checkout is waiting for approval, and asks whether to allow it.">
   </picture>
 </p>
 
-Ask Dosi what needs you, or ask it to do something. Dosi reads your terminals and projects,
-answers, and types, starts and closes things for you. When it needs a choice, it asks with
-buttons, and you can also answer in your own words. Your conversation with Dosi is the
-same on all your devices. On an iPhone or iPad, the Dosi tab writes to Dosi on the computer
-that you choose above the message, at first the one that answered last. A message for a
-computer that is offline waits until it runs Kodosi again, and Do not send takes it back.
+Ask Dosi what needs your attention, or tell it to handle something. It can inspect your terminals
+and projects, answer prompts, start or close terminals, and relay messages. When a decision is
+needed, Dosi presents buttons for choices alongside a box to reply in your own words.
 
-The line beside Dosi's face tells you when Dosi works, when it answered and when it has a
-question. On a computer with no agent, it reads Set up Dosi and opens Settings › Dosi. To
-remove Dosi from a computer, turn off Use Dosi in Settings › Dosi.
+Your conversation with Dosi stays in sync across all your devices. On iPhone and iPad, pick which
+computer's Dosi to message right above the input box (defaulting to the one that replied last).
+Messages sent to an offline computer queue up until it comes back online, and you can cancel a
+queued message with **Do not send**.
 
-## 6. Add your other computers
+The status line next to Dosi's face shows when it's working, replied, or waiting on a question. If
+no agent is installed on that computer yet, it displays **Set up Dosi** and opens **Settings ›
+Dosi**. To disable Dosi on a computer, turn off **Use Dosi** in **Settings › Dosi**.
 
-Sign in on the new computer with the same account. It shows a code, and the computers
-that you already use ask you to approve it. Choose Approve on one of them and enter the
-code, or scan the code with Kodosi on a phone that you already use.
+## 6. Add your other computers and phones
 
-A new phone or tablet joins with one scan. On a computer that you already use, open
-Settings, choose Show a code under Add a device, and scan the code with the new phone.
-Then each computer shows the terminals of all your computers.
+Sign in on a new computer with the same account. It displays a verification code, and your existing
+devices prompt you to approve it. Click **Approve** on an approved computer and enter the code, or
+scan it from an approved phone.
 
-To start a terminal on another of your computers, choose that computer at the right end
-of the launcher's band. The folder key then lists its recent folders, and Choose a
-folder… opens the folders in its home. On an iPhone or iPad, select + in Terminals, or
-the + beside one of your computers. That computer needs Kodosi open, or `kodosi host`
-running in a terminal.
+Adding a phone or tablet takes one scan: on an approved computer, open **Settings**, click **Show
+a code** under **Add a device**, and scan it with the new device. Once approved, all your
+computers' terminals show up everywhere.
 
-When two of your devices can reach each other, their terminals and browsers go straight
-between them and answer faster. On one network, macOS, iOS and Android ask once for local
-network access; without it, they go through the service.
+### Starting terminals remotely
 
-Make a recovery key there too, and keep it safe. If you lose all your devices, sign in
-on a new one and choose "Use my recovery key" to keep your friends and projects. Remove a
-lost device from another device. If a device was stolen, also make a new recovery key.
+To launch a terminal on another computer, pick that computer on the right side of the launcher bar.
+The folder menu then lists recent folders on that machine, and **Choose a folder…** browses its
+home directory. On iPhone and iPad, tap `+` in **Terminals** or next to a specific computer. The
+target computer needs Kodosi open (or `kodosi host` running in a terminal).
+
+When two of your devices can reach each other directly, terminal and browser traffic flows peer to
+peer for lower latency. On a local network, macOS, iOS, and Android prompt once for local network
+permission; if declined, traffic falls back to the relay server.
+
+### Recovery keys
+
+Create a recovery key in **Settings** and store it somewhere safe. If you ever lose all your
+devices, sign in on a new one and select **"Use my recovery key"** to keep your friends and
+projects. Remove lost devices from any remaining device; if a device was stolen, generate a fresh
+recovery key afterward too.
 
 ## 7. Work with friends
 
-Open Friends from the menu beside your account. Send your invite, or paste the invite or
-username of a friend. An invite lets Kodosi verify your friend. On a phone, show your
-invite as a code: your friend scans it with their camera or in Kodosi, and confirms that
-they trust you before the request goes out.
+Open **Friends** from the menu beside your account. Send your invite, or paste a friend's invite
+or username. Using an invite lets Kodosi verify your friend's identity automatically. On
+mobile, you can display your invite as a QR code for a friend to scan with their camera or inside
+Kodosi; they still confirm trust before the request is sent.
 
-<p align="center"><img src="media/friends.webp" width="900" alt="The Friends page with two verified friends."></p>
+<p align="center"><img src="media/friends.webp" width="900" alt="The Friends page showing two verified friends."></p>
 
-To share a terminal, select Share in the actions key of its header and choose friends or
-projects. The people you share with get full control, with your privileges on that
-computer. Your other terminals stay private.
+### Sharing a terminal
 
-A project gathers terminals from any folder and computer, with a conversation and tasks.
-Select + beside Projects, then start a terminal in the project or share one into it, and
-invite friends when you want.
+Open the actions menu in a terminal's header, click **Share**, and select friends or projects.
+Anyone you share with gets full control with your OS permissions on that machine. Your other
+terminals stay private.
 
-<p align="center"><img src="media/project.webp" width="900" alt="A project with a shared terminal and a conversation of people and agents."></p>
+### Projects
 
-- All members can use the shared terminals and share their own. People who join later
-  get the terminals and the full conversation. Files stay on the computer of each
-  terminal.
-- Put tasks up for grabs, claim them, give them back, close them with a result or open
-  them again.
-- Link GitHub or Gitea repositories to turn issues into tasks; when you change such a
-  task, Kodosi changes its issue. GitHub uses your `gh` sign-in or Git credential helper,
-  and Gitea the credential helper or `KODOSI_GITEA_TOKEN` for the server in
-  `KODOSI_GITEA_URL`. Your credentials stay on your computer.
-- Write `@` and the name of a terminal in the chat, and Kodosi gives the agent in that
-  terminal your message with your name and the project; the agent decides what to do with it.
-  Claude Code, Copilot CLI and Antigravity CLI in a Kodosi terminal, and Codex, Cursor and
-  OpenCode when Kodosi starts them (OpenCode on a Mac or Linux), know that they run in
-  Kodosi, and
-  `kodosi skill` prints the [skill](../runtime/skills/kodosi/SKILL.md) that lets an agent
-  take part. In a Kodosi
-  terminal, the command finds the project; elsewhere, add `--project <name>`.
-- Delete a message that you or your agent wrote, and everyone sees that a message was
-  deleted there. Clear chat clears the conversation up to now on all your devices; the
-  others keep it.
+A project pulls together terminals from any folder or computer alongside a shared chat and task
+list. Click `+` next to **Projects**, then start terminals inside the project (or share existing
+ones into it) and invite friends when ready.
+
+<p align="center"><img src="media/project.webp" width="900" alt="A project with a shared terminal and a conversation between people and agents."></p>
+
+- Every member can use shared terminals and share their own. People who join later immediately see
+  the project's terminals and full chat history. Files remain on each terminal's host computer.
+- Create tasks up for grabs, claim them, release them, close them with a summary note, or reopen
+  them.
+- Link GitHub or Gitea repositories to sync issues with tasks: updating a linked task updates the
+  underlying issue. GitHub uses your `gh` login or Git credential helper; Gitea uses the Git
+  credential helper or `KODOSI_GITEA_TOKEN` with `KODOSI_GITEA_URL`. Credentials never leave your
+  machine.
+- Mention a terminal in chat with `@<terminal-name>` to deliver your message (tagged with your
+  name and project) straight to the agent running there; the agent decides how to respond. Claude
+  Code, Copilot CLI, and Antigravity CLI inside Kodosi (plus Codex, Cursor, and OpenCode when
+  launched by Kodosi, with OpenCode on macOS and Linux) automatically know they're in Kodosi. Run
+  `kodosi skill` to print the [skill](../runtime/skills/kodosi/SKILL.md) for any other agent.
+  Inside a Kodosi terminal, project commands detect the current project automatically; outside,
+  pass `--project <name>`.
+- Deleting a message you or your agent posted replaces it with a deleted placeholder for everyone.
+  **Clear chat** hides history up to that point across all your devices while leaving it intact
+  for other members.
 
 ## 8. Use the command line
 
-The `kodosi` command works on the same terminals as the app, and the app shows what it
-does.
+The `kodosi` CLI controls the exact same terminals as the desktop app, and changes show up in the
+app immediately.
 
 | Command | What it does |
 | --- | --- |
-| `kodosi terminal start --agent claude --prompt "fix the failing test"` | Starts an agent with your last choice. `--account`, `--model`, `--effort`, `--fast`, `--permissions` and `--output` change it. |
-| `kodosi terminal start --directory <repository> --branch <name>` | Starts a terminal on a new branch, in its own worktree. |
-| `kodosi terminal start --computer <computer> --directory <folder>` | Starts a terminal on another of your computers. A relative folder, or one that starts with `~`, is in your home there. `kodosi devices list` shows which computers are online. |
-| `kodosi agent list` | Shows the agents, their accounts and your last choice. |
-| `kodosi agent usage` | Shows how much of the plan limits each signed-in Claude Code, Codex and Copilot CLI account has used, and when each limit resets. |
-| `kodosi terminal list` | Shows your terminals with their names and IDs. Give either one as `<terminal>`. |
-| `kodosi terminal read <terminal>` | Prints the screen. `--history` adds the lines that scrolled away. |
-| `kodosi terminal message <terminal> "Can you review my branch?"` | Gives the agent in a terminal a message, with who sends it and from where. |
-| `kodosi terminal agent <terminal> --model sonnet` | Changes the model, effort, fast mode or permissions of the agent in a terminal while it runs. |
-| `kodosi terminal input <terminal> --enter "make test"` | Types a line. |
-| `kodosi terminal keys <terminal> ctrl-c` | Presses keys. |
-| `kodosi terminal wait <terminal> --until done,failed` | Waits for a state. |
-| `kodosi terminal show <terminal>` | Shows the terminal in the app. |
-| `kodosi dosi say "What needs me?"` | Asks Dosi. `kodosi dosi show` prints the conversation, and `kodosi dosi stop` stops Dosi. |
-| `kodosi show <file>` | Shows a file on the canvas of this terminal, which opens for the people who look at it; `kodosi show <address>` shows a web address in its browser, and `kodosi show browser` shows that browser as it is. `kodosi canvas` lists what it shows, and `kodosi canvas remove <file>` takes a file off. |
-| `kodosi browser open <address>` | Opens a page in the shared browser of this terminal. The other agent-browser commands work too. |
-| `kodosi skill` | Prints the skill that lets an agent work with the people and agents in Kodosi. `kodosi skill canvas` prints the skill for the canvas. |
+| `kodosi terminal start --agent claude --prompt "fix the failing test"` | Launches an agent with your last-used settings. Override with `--account`, `--model`, `--effort`, `--fast`, `--permissions`, and `--output`. |
+| `kodosi terminal start --directory <repository> --branch <name>` | Starts a terminal on a new branch inside its own Git worktree. |
+| `kodosi terminal start --computer <computer> --directory <folder>` | Starts a terminal on another of your computers. Relative paths and `~` resolve against your home directory there. Use `kodosi devices list` to see which computers are online. |
+| `kodosi agent list` | Lists installed agents, their accounts, and your last-used settings. |
+| `kodosi agent usage` | Shows current plan usage and reset times for signed-in Claude Code, Codex, and Copilot CLI accounts. |
+| `kodosi terminal list` | Lists terminals with their names and IDs (pass either as `<terminal>`). |
+| `kodosi terminal read <terminal>` | Prints the current screen contents. Add `--history` to include scrollback. |
+| `kodosi terminal message <terminal> "Can you review my branch?"` | Sends a message to the agent in a terminal, tagged with sender and origin. |
+| `kodosi terminal agent <terminal> --model sonnet` | Changes a running agent's model, effort, fast mode, or permissions. |
+| `kodosi terminal input <terminal> --enter "make test"` | Types text into a terminal. |
+| `kodosi terminal keys <terminal> ctrl-c` | Sends keystrokes to a terminal. |
+| `kodosi terminal wait <terminal> --until done,failed` | Blocks until the terminal enters one of the given states. |
+| `kodosi terminal show <terminal>` | Focuses the terminal in the app. |
+| `kodosi dosi say "What needs me?"` | Sends a message to Dosi. Use `kodosi dosi show` to print the conversation and `kodosi dosi stop` to cancel a turn. |
+| `kodosi show <file>` | Opens a file on this terminal's canvas, which opens for the people viewing the terminal. Use `kodosi show <address>` to open a URL in its shared browser, `kodosi show browser` to bring up the browser as is, `kodosi canvas` to list canvas items, and `kodosi canvas remove <file>` to remove one. |
+| `kodosi browser open <address>` | Opens a URL in this terminal's shared browser (all other agent-browser commands work too). |
+| `kodosi skill` | Prints the agent skill for collaborating in Kodosi; `kodosi skill canvas` prints the canvas skill. |
 | `kodosi dosi skill` | Prints the skill that lets another agent act as Dosi. |
-| `kodosi host` | Keeps your terminals running after you quit the app. `kodosi host stop` stops a host that runs in the background. |
+| `kodosi host` | Runs the host independently so terminals keep running after you quit the app. Use `kodosi host stop` to stop a background host. |
 
-`message`, `input` and `keys` stop with a message while you type in that terminal.
-`message` also stops while the agent waits for a person's answer.
+`message`, `input`, and `keys` refuse to run while you're actively typing in that terminal.
+`message` also refuses while the agent is waiting on a human response.
 
-## If something does not connect
+## If something doesn't connect
 
-Make sure that the computer of the terminal is online, with Kodosi open, and that the
-terminal is still shared. A new device can need approval, and a friend with a changed
-identity can need verification in Friends. After a lost connection, Kodosi shows the
-current state again. When a terminal of another computer says Offline, this device cannot
-reach the server: check its network. Kodosi connects again by itself, and Try again
-connects at once. When Kodosi says that a computer is offline, its terminals open again
-when it is back, unless they ended there. To take such a terminal out of your list,
-select its X. Hide until it's back shows it again when the computer is back, and Close
-forever closes it then. If Kodosi says that it is not sure your input arrived, look at
-the terminal before you type the command again.
+- Check that the terminal's host computer is online with Kodosi running, and that the terminal is
+  still shared.
+- A newly added device may still be waiting for approval, or a friend whose identity changed may
+  need re-verification in **Friends**.
+- After a lost connection, Kodosi shows the current state again. If a remote terminal shows
+  **Offline**, this device can't reach the server; check your network connection. Kodosi
+  reconnects automatically, or click **Try again** to retry immediately.
+- When a host computer goes offline, its terminals reconnect automatically once it returns (unless
+  they closed in the meantime). To remove an offline terminal from your list, click its `×`:
+  **Hide until it's back** hides it temporarily, and **Close forever** closes it permanently once
+  the computer reconnects.
+- If Kodosi warns that delivery of your input was uncertain, check the terminal screen before
+  re-running the command.

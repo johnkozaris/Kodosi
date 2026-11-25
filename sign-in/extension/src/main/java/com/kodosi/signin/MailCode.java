@@ -11,12 +11,9 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * The mail codes of one sign-in. The codes live in the notes of the sign-in that asked for them, each
- * under the address that it went to. A store that all sign-ins share limits the mails to an address and
- * the codes that one sign-in compares, also when its posts come at the same time. A sign-in compares
- * only the codes that went to it, so the wrong codes of other sign-ins never stop the person's own.
- */
+// Manages email verification codes for a single auth session. Codes live in session notes keyed by
+// address so failed attempts in other sessions cannot invalidate this user's codes; the shared
+// Store atomically caps per-address sends and per-session checks even across concurrent requests.
 final class MailCode {
     static final int DIGITS = 8;
     static final int RESEND_SECONDS = 60;
@@ -43,7 +40,7 @@ final class MailCode {
         void remove(String name);
     }
 
-    /** Keys that one caller at a time can hold, each for a time. */
+    // Atomic TTL-backed key store (hold succeeds only if the key is absent).
     interface Store {
         boolean hold(String key, int seconds);
 
@@ -70,10 +67,8 @@ final class MailCode {
         this.life = life;
     }
 
-    /**
-     * Asks for a mail to {@code address}, or to nobody when it is null. When {@code codeWorks} is false, as
-     * for an address that has an account, the mail says so in place of a code.
-     */
+    // address may be null (e.g. reset for an unknown account) to apply the same pacing without
+    // sending mail; when codeWorks is false, sends an existing-account notice instead of a code.
     Send send(String address, boolean codeWorks) {
         if (waitSeconds() > 0) return new Send(Shown.WAIT, Mail.NONE, null);
         List<Long> sent = sent();
@@ -93,10 +88,6 @@ final class MailCode {
         return new Send(Shown.SENT, Mail.CODE, code);
     }
 
-    /**
-     * Checks a typed code against the codes sent to {@code address}, or to nobody when it is null. A code
-     * that is not right counts, and from the fifth of a sign-in on, each one ends the codes sent.
-     */
     Check check(String typed, String address) {
         String digits = typed == null ? "" : typed.replaceAll("[\\s-]", "");
         if (!digits.matches("[0-9]{" + DIGITS + "}")) return Check.WRONG;

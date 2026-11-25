@@ -37,7 +37,7 @@ function widthOf(text: string, font: string, spacing: string): number {
   return ruler.measureText(text).width;
 }
 
-// Each browser draws its own password dot, so measure ten of them in a field one pixel wide.
+// Browsers render password bullets at different widths, so measure 10 of them in a 1px probe input.
 function dotWidth(font: string, spacing: string): number {
   const probe = document.createElement("input");
   probe.type = "password";
@@ -90,7 +90,7 @@ export function liveCursor(): Cursor {
   let node = document.getElementById("cursor");
   const from = carried();
   let at: Box = node && from ? { x: from.cx, y: from.cy, w: from.cw, h: from.ch } : homeBox();
-  // StrictMode mounts the page twice in development: go on from the cursor of the first mount.
+  // Resume from the existing cursor position when React StrictMode double-mounts in development.
   if (node?.dataset.x) {
     at = {
       x: Number(node.dataset.x),

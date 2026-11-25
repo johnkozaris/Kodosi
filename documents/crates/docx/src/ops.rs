@@ -66,12 +66,12 @@ pub enum Op {
         #[serde(default)]
         block: Option<String>,
     },
-    /// Only for merges of outside writes.
+    /// Host-only op used when merging external writes.
     ReplaceBlock {
         block: String,
         node: Value,
     },
-    /// Only for merges of outside writes.
+    /// Host-only op used when merging external writes.
     InsertBlock {
         #[serde(default)]
         after: Option<String>,
@@ -205,7 +205,7 @@ fn mark_of(name: &str, attrs: Option<&Value>) -> Result<Mark, String> {
     Mark::named(schema(), name, attrs).map_err(|failed| failed.0)
 }
 
-/// A change of an agent has no date.
+/// Formats have no clock, so tracked changes from ops omit the timestamp.
 fn by(author: &str) -> Value {
     json!({ "author": author, "date": "" })
 }
@@ -316,7 +316,7 @@ fn insert_step(position: usize, node: Node) -> Step {
     }
 }
 
-/// A stretch of text in one textblock, with the position of each UTF-16 unit.
+/// Contiguous text run inside a textblock paired with each UTF-16 code unit's document offset.
 struct Stretch {
     units: Vec<u16>,
     positions: Vec<usize>,
@@ -361,7 +361,7 @@ fn stretches_in(node: &Node, start: usize, out: &mut Vec<Stretch>) {
     }
 }
 
-/// Each place of the text, as ranges of positions, from last to first.
+/// Returns match ranges in reverse document order so edits do not invalidate earlier positions.
 fn find_places(doc: &Node, block: Option<&str>, find: &str) -> Result<Vec<(usize, usize)>, String> {
     let needle: Vec<u16> = find.encode_utf16().collect();
     if needle.is_empty() {
@@ -552,8 +552,8 @@ fn cell_position(
     Ok((position, cell.clone()))
 }
 
-/// With `by`, text and paragraphs change as tracked changes, and what cannot be one, such as a
-/// look or a table, changes directly.
+/// When `by` is set, text and paragraph edits become tracked changes; unsupported edits
+/// (formatting, tables) still apply directly.
 #[expect(clippy::too_many_lines, reason = "one arm for each op")]
 fn op_steps(doc: &Node, op: &Op, by: Option<&Value>, taken: usize) -> Result<Vec<Step>, String> {
     match op {
@@ -688,7 +688,7 @@ fn op_steps(doc: &Node, op: &Op, by: Option<&Value>, taken: usize) -> Result<Vec
     }
 }
 
-/// The attributes of a paragraph that say whether the mark that ends it is a tracked change.
+/// Paragraph attributes tracking insertion or deletion of the paragraph mark itself.
 const ENDS: [&str; 2] = ["inserted", "deleted"];
 
 #[derive(Default)]
@@ -731,8 +731,8 @@ fn is_change(mark: &Mark) -> bool {
     matches!(schema().mark_name(mark.kind()), "insertion" | "deletion")
 }
 
-/// An accepted insertion and a rejected deletion lose their mark. The text of the others goes,
-/// from the end, and then the marks that end paragraphs.
+/// Strips marks from kept changes, deletes discarded text in reverse order, then resolves
+/// discarded paragraph-end changes using mapped positions.
 fn decide_steps(doc: &Node, block: Option<&str>, accept: bool) -> Result<Vec<Step>, String> {
     let mut changes = Changes::default();
     match block {
@@ -801,10 +801,11 @@ fn decide_steps(doc: &Node, block: Option<&str>, accept: bool) -> Result<Vec<Ste
     Ok(steps)
 }
 
-/// Takes away the mark that ends the paragraph at `at`. The paragraph goes when nothing but XML of
-/// its own is left of it, as a deleted block does, and else its content goes to the start of the
-/// paragraph after it, whose mark stays and keeps its look. The last block of the body or of a
-/// cell, and a paragraph before a table, keep their mark and lose only its change.
+/// Removes the tracked paragraph-end mark at `at`. Drops the paragraph if only opaque inline XML
+/// remains, unless it is the only block; otherwise merges its content into the start of the
+/// following paragraph (preserving that paragraph's style). With no paragraph to merge into, as
+/// for the last block of the body or a cell or one before a table, only clears the tracked-change
+/// attribute.
 fn end_removal(doc: &Node, at: usize, name: &str) -> Result<Vec<Step>, String> {
     let failed = |failed: text::Failed| failed.0;
     let node = doc
@@ -871,8 +872,8 @@ pub(crate) fn to_steps(
     Ok(all)
 }
 
-/// In a merge, a block that a person removed meanwhile stays removed, and an insertion after it
-/// goes to the end.
+/// Translates merge ops leniently: edits to blocks deleted concurrently are skipped, and
+/// insertions anchored after a deleted block append to the end.
 pub(crate) fn merge_steps(doc: &Node, ops: &[Op]) -> Result<Vec<Value>, String> {
     let mut doc = doc.clone();
     let mut all = Vec::new();

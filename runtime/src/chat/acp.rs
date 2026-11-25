@@ -1,12 +1,10 @@
-//! The terminal's side of an agent that has no add-on interface but a server for programs, the
-//! Agent Client Protocol (ACP), such as Antigravity CLI.
+//! Terminal-side bridge for Agent Client Protocol (ACP) servers such as Antigravity CLI.
 //!
-//! `kodosi acp -- <command>` runs the agent's own server in the terminal, with the terminal's
-//! folder and environment, as a person would run it there. It makes Kodosi known to the server
-//! and carries each message of the server to the terminal's chat as it is, and the calls and the
-//! decisions of the chat's adapter back. What the messages mean in the chat is all in the adapter;
-//! this side shows only what a program shows in its terminal: the agent's state and the title of
-//! its session. Kodosi never talks to the agent's provider: the agent's own program does.
+//! `kodosi acp -- <command>` runs the agent's ACP server in the terminal's working directory and
+//! environment, forwarding raw protocol messages to the chat adapter and relaying adapter commands
+//! and permission decisions back. Message interpretation lives in the adapter; this process only
+//! reports agent state and session title to the terminal. Kodosi never talks to the agent's
+//! provider; the agent's own program does.
 
 use std::{
     collections::{HashMap, HashSet},
@@ -31,19 +29,15 @@ use uuid::Uuid;
 use super::antigravity::{ASKING, Antigravity, SIGN_IN, ask_name};
 use crate::{identity::now_ms, text::Text};
 
-/// The time that a server has to answer its first message.
 const START: Duration = Duration::from_secs(60);
-/// The time that a server has to end by itself after its input closed.
 const END: Duration = Duration::from_secs(5);
 const MOST_MESSAGE: usize = 8 * 1024 * 1024;
 const MOST_HEAD: usize = 16 * 1024;
 const MOST_BATCH: usize = 64;
 const MOST_WAITING: usize = 256;
 const MOST_TITLE: usize = 120;
-/// The JSON-RPC code of a method that the other side does not have.
 const NO_METHOD: i64 = -32601;
 
-/// The choices of the session that the line of the terminal gives. The chat's adapter makes them.
 pub(crate) struct Choices {
     pub(crate) model: Option<String>,
     pub(crate) effort: Option<String>,
@@ -51,7 +45,6 @@ pub(crate) struct Choices {
     pub(crate) resume: Option<String>,
 }
 
-/// Runs the agent's server until it ends, and gives the code to end with.
 pub(crate) async fn run(command: Vec<String>, choices: Choices) -> Result<u8, Text> {
     let (Some(socket), Some(terminal)) = (
         std::env::var_os(super::LINK_VARIABLE).map(PathBuf::from),
@@ -102,7 +95,6 @@ pub(crate) async fn run(command: Vec<String>, choices: Choices) -> Result<u8, Te
     }
 }
 
-/// The agent of the chat's adapter for a server's program, and the agent's name for people.
 fn agent_of(program: &str) -> Option<(&'static str, &'static str)> {
     let name = Path::new(program).file_name()?.to_str()?;
     (name == "agy").then_some((Antigravity::NAME, "Antigravity CLI"))
@@ -112,7 +104,6 @@ fn say(text: &Text) {
     write_out(&format!("{text}\n"));
 }
 
-/// The agent's own sign-in in this terminal, which asks the person for a code.
 async fn sign_in(program: &str) -> bool {
     tokio::process::Command::new(program)
         .args(["acp", "--login"])
@@ -126,7 +117,6 @@ async fn sign_in(program: &str) -> bool {
 
 enum Ended {
     Code(u8),
-    /// The agent asks for a sign-in before its session can start.
     SignIn,
 }
 
@@ -134,7 +124,6 @@ struct Server {
     child: Child,
     input: ChildStdin,
     output: Messages,
-    /// The server's answer to Kodosi's first message: what it is and what it offers.
     started: Option<Value>,
 }
 
@@ -147,8 +136,8 @@ impl Server {
                 error = error.to_string()
             )
         };
-        // The terminal's interrupt is for this side, which stops the turn, and not for the
-        // server, which would end.
+        // Put the server in its own process group so terminal Ctrl-C interrupts this bridge
+        // (to cancel the active turn) instead of killing the server.
         let mut child = tokio::process::Command::new(&command[0])
             .args(&command[1..])
             .stdin(Stdio::piped())
@@ -220,7 +209,7 @@ impl Server {
         self.input.flush().await
     }
 
-    /// The server ends by itself when its input closes, so that it keeps what it saved.
+    /// Closes stdin first so the server can exit cleanly and flush state before killing it.
     async fn end(mut self) -> u8 {
         drop(self.input);
         let status = if let Ok(status) = tokio::time::timeout(END, self.child.wait()).await {
@@ -236,7 +225,6 @@ impl Server {
     }
 }
 
-/// The messages of a server, one JSON value on each line.
 struct Messages {
     reader: BufReader<ChildStdout>,
     line: Vec<u8>,
@@ -250,8 +238,6 @@ impl Messages {
         }
     }
 
-    /// The next message, or none when the server ended. A line that is no JSON object, or that
-    /// is too long, is passed over.
     async fn next(&mut self) -> Option<Value> {
         loop {
             self.line.clear();
@@ -287,7 +273,6 @@ impl Messages {
     }
 }
 
-/// The terminal's chat, at the local endpoint where the agents of this computer report.
 struct Link {
     socket: PathBuf,
     terminal: String,
@@ -316,7 +301,6 @@ fn invalid(reason: &'static str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, reason)
 }
 
-/// The status and the JSON body of the chat's answer.
 async fn answer(stream: &mut UnixStream) -> io::Result<(u16, Value)> {
     let mut kept = Vec::new();
     let (head, status, length) = loop {
@@ -358,9 +342,10 @@ async fn answer(stream: &mut UnixStream) -> io::Result<(u16, Value)> {
     Ok((status, body))
 }
 
-/// The lines that people and Kodosi type into the terminal, as messages for the agent. The
-/// terminal is read only once the session began, so that the agent's own sign-in before it
-/// gets what the person types there.
+/// Reads terminal stdin lines as chat messages.
+///
+/// Deferred until the session starts so an interactive login flow (`--login`) can inherit stdin
+/// without a background reader thread competing for input.
 #[derive(Default)]
 struct Typed {
     lines: Option<mpsc::Receiver<String>>,
@@ -408,18 +393,12 @@ impl Typed {
     }
 }
 
-/// The open calls and requests of the link, which give the state that the terminal shows.
 #[derive(Default)]
 struct Open {
-    /// The tag of each call of the adapter that the server did not answer yet.
     calls: HashMap<u64, String>,
-    /// The calls that send a person's message, which end with their turn.
     prompts: Vec<u64>,
-    /// The requests of the server that wait for a person.
     requests: HashSet<String>,
-    /// The agent asked the person a question and waits for the next message.
     asking: bool,
-    /// How the last turn ended: done, or with an error.
     ended: Option<&'static str>,
     made: u64,
     shown: Option<&'static str>,
@@ -430,7 +409,6 @@ impl Open {
         !self.prompts.is_empty() || !self.requests.is_empty()
     }
 
-    /// Tells the terminal what the agent does, as an agent in a terminal reports it itself.
     fn show(&mut self) {
         let state = if !self.requests.is_empty() {
             "state=blocked:kind=permission"
@@ -459,8 +437,6 @@ fn write_out(text: &str) {
     drop(out.flush());
 }
 
-/// Carries the messages between the server and the chat until the server ends, the chat leaves,
-/// or the agent asks for a sign-in.
 async fn relay(
     mut server: Server,
     link: Link,
@@ -559,7 +535,6 @@ struct Relay {
 }
 
 impl Relay {
-    /// Gives the chat an event. Nothing more can go when the chat does not take it.
     async fn tell(&self, event: Value) -> Option<Ended> {
         self.events
             .send(event)
@@ -605,8 +580,8 @@ impl Relay {
 
     async fn command(&mut self, command: &Value, typed: &Typed) -> Option<Ended> {
         if command["m"] == SIGN_IN {
-            // The terminal's lines go to the chat once the session began, so the agent's own
-            // sign-in cannot read them then.
+            // Once the stdin reader thread is running, it cannot be stopped to hand stdin to
+            // interactive `--login`.
             return Some(if typed.listens() {
                 Ended::Code(1)
             } else {
@@ -630,17 +605,12 @@ impl Relay {
     }
 }
 
-/// What a message of the server is for the link.
 #[derive(Default)]
 struct Heard {
     event: Option<Value>,
-    /// A request for a person's decision.
     ask: Option<Value>,
-    /// A request for something that Kodosi does not offer.
     refuse: Option<Value>,
-    /// The session began, so the terminal can take messages.
     began: bool,
-    /// The title that the agent gave the session, which the terminal takes as its program's title.
     title: Option<String>,
 }
 
@@ -697,7 +667,6 @@ fn hear(open: &mut Open, message: &Value) -> Heard {
     }
 }
 
-/// The title that the agent gave its session, as a terminal shows it.
 fn session_title(params: &Value) -> Option<String> {
     let update = params
         .get("update")
@@ -712,7 +681,6 @@ fn session_title(params: &Value) -> Option<String> {
     )
 }
 
-/// The state that a turn leaves: done, none after a person's stop, or an error.
 fn turn_end(result: Option<&Value>) -> Option<&'static str> {
     match result.and_then(|result| result["stopReason"].as_str()) {
         Some("end_turn") => Some("state=done"),
@@ -721,7 +689,6 @@ fn turn_end(result: Option<&Value>) -> Option<&'static str> {
     }
 }
 
-/// A call or a notification of the adapter as the server takes it.
 fn call(open: &mut Open, command: &Value) -> Value {
     let mut message = json!({"jsonrpc": "2.0", "method": command["m"]});
     if !command["p"].is_null() {
@@ -742,8 +709,6 @@ fn call(open: &mut Open, command: &Value) -> Value {
     message
 }
 
-/// Gives the chat what the server says, in order. A chat that no longer follows this link ends it.
-/// The chat has a request of the server before the link waits for a person's decision of it.
 async fn post(
     link: Arc<Link>,
     mut waiting: mpsc::Receiver<Value>,
@@ -772,6 +737,7 @@ async fn post(
             lost.cancel();
             return;
         }
+        // Wait for decisions only after `/v1/events` registers the requests in the chat room.
         for (id, ask) in requests {
             tokio::spawn(wait_for_decision(
                 Arc::clone(&link),
@@ -783,7 +749,6 @@ async fn post(
     }
 }
 
-/// Asks the chat again and again for what the adapter wants done.
 async fn poll(link: Arc<Link>, commands: mpsc::Sender<Value>, lost: CancellationToken) {
     loop {
         match link.call("/v1/next", json!({})).await {
@@ -803,8 +768,6 @@ async fn poll(link: Arc<Link>, commands: mpsc::Sender<Value>, lost: Cancellation
     }
 }
 
-/// The decision of a person in the chat for a request of the server. A question that closed
-/// with no decision, as when its turn ended, is cancelled.
 async fn wait_for_decision(
     link: Arc<Link>,
     id: Value,
@@ -814,6 +777,7 @@ async fn wait_for_decision(
     loop {
         match link.call("/v1/ask", json!({"ask": ask})).await {
             Ok((200, answer)) => {
+                // A 200 without a decision means the ask closed unanswered (e.g., the turn ended).
                 let decision = answer
                     .get("decision")
                     .cloned()

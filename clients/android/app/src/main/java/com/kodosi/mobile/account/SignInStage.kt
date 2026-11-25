@@ -39,7 +39,6 @@ sealed interface SignInStage {
         get() = this is Starting || this is AwaitingBrowser || this is Finalizing || this is TrustingDevice
 }
 
-/** The system browser opens a sign-in page only over HTTPS, or over HTTP on this device. */
 object ExternalAuthUrl {
     private val loopback = setOf("127.0.0.1", "localhost", "::1", "[::1]")
 

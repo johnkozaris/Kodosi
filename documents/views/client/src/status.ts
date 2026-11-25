@@ -1,12 +1,12 @@
 import type { ClosedReason, Peer } from "@documents/contract";
 import { say } from "@documents/words";
 
-/** The colors of people in the apps, which pick one by the same hash of the person's id. */
+// Shared user color palette; must stay in sync with the native clients.
 const PEOPLE_COLORS = ["#3c8db5", "#8573d1", "#2f92a3", "#c2659a", "#b58428", "#b362b6", "#607fcc"];
 const HASH_START = 0xcbf29ce484222325n;
 const HASH_PRIME = 0x100000001b3n;
 
-/** A person's color: FNV-1a of the UTF-8 bytes of their id, as the apps hash it. */
+/** Maps a user ID to a color via 64-bit FNV-1a over UTF-8, matching the native clients. */
 export function colorOf(person: string): string {
   let hash = HASH_START;
   for (const byte of new TextEncoder().encode(person)) {

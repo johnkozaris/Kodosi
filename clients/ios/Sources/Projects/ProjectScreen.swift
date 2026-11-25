@@ -56,8 +56,8 @@ struct ProjectScreen: View {
         case leaving, departed, failed(String), loading, sections
     }
 
-    /// The sections that draw from the project's snapshot wait for it here, so that a project opens
-    /// in one change rather than one skeleton after another.
+    /// Keeps snapshot-backed sections in `.loading` until the snapshot arrives so the screen
+    /// transitions once instead of flashing nested skeletons.
     private func contentKind(_ screen: ProjectScreenState) -> ContentKind {
         if leaving {
             return .leaving

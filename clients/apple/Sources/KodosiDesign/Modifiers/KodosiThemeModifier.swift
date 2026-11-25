@@ -19,7 +19,8 @@ private struct KodosiThemeModifier: ViewModifier {
         #if os(macOS)
             windowVisible
         #else
-            // iOS makes a scene inactive for a moment, as for Notification Center.
+            // Treat `.inactive` as on-screen so transient overlays (like Notification Center)
+            // do not pause animations.
             scenePhase != .background
         #endif
     }

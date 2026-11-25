@@ -1,5 +1,3 @@
-//! The local endpoints where the agents in this computer's terminals report to their chats.
-
 use std::{
     collections::HashMap,
     path::Path,
@@ -21,7 +19,7 @@ use super::{
 };
 
 const ROLE: &str = "agents";
-/// The module of a link gives each of its requests 30 seconds.
+/// Long-poll timeout; kept below the agent link client's 30-second request timeout.
 const HOLD: Duration = Duration::from_secs(20);
 const MOST_CONNECTIONS: usize = 256;
 const MOST_EVENTS: usize = 4096;
@@ -31,10 +29,9 @@ const MOST_KEPT: usize = 9 * 1024 * 1024;
 type Rooms = Arc<Mutex<HashMap<Uuid, mpsc::WeakSender<Job>>>>;
 type Variables = Vec<(&'static str, String)>;
 
-/// What a new terminal gets for its chat.
 pub(crate) struct TerminalChat {
     pub(crate) handle: ChatHandle,
-    /// The variables that tell the terminal's agents where they report.
+    /// Environment variables passed to the terminal so agents know where to report.
     pub(crate) variables: Variables,
 }
 
@@ -48,7 +45,6 @@ impl TerminalChat {
     }
 }
 
-/// The chats of this computer's terminals, and the addresses where their agents reach them.
 #[derive(Clone)]
 pub(crate) struct Links {
     rooms: Rooms,
@@ -57,10 +53,8 @@ pub(crate) struct Links {
     _served: Arc<tokio_util::sync::DropGuard>,
 }
 
-/// What gives each terminal its own address for Codex's server.
 #[derive(Clone)]
 struct CodexAddresses {
-    /// The name of this host's private folder of local addresses.
     namespace: Arc<str>,
     stop: CancellationToken,
 }
@@ -113,7 +107,7 @@ impl Links {
         }
     }
 
-    /// How the address of each terminal's Codex server starts.
+    /// Returns the common address prefix shared by all per-terminal Codex servers.
     pub(crate) fn codex_servers(&self) -> Option<String> {
         let folder = kodosi_os::ipc::private_dir(&self.codex.as_ref()?.namespace).ok()?;
         super::codex_link::address(&folder.join(super::codex_link::NAME))
@@ -121,8 +115,8 @@ impl Links {
 }
 
 impl CodexAddresses {
-    /// Each terminal's addresses have the same length, so the addresses of one terminal show
-    /// whether this host's folder of local addresses has room for them.
+    /// Probes once with a dummy UUID to verify socket paths fit within OS path-length limits,
+    /// since every terminal produces endpoints of the same length.
     fn new(namespace: Arc<str>, stop: &CancellationToken) -> Option<Self> {
         Self::endpoints(&namespace, Uuid::max())?;
         Some(Self {
@@ -131,7 +125,6 @@ impl CodexAddresses {
         })
     }
 
-    /// Serves the address of one terminal, and gives it as Codex takes it.
     fn serve(&self, terminal: Uuid, chat: &ChatHandle) -> Option<String> {
         let (endpoint, server) = Self::endpoints(&self.namespace, terminal)?;
         let address = super::codex_link::address(endpoint.address())?;
@@ -145,9 +138,9 @@ impl CodexAddresses {
         Some(address)
     }
 
-    /// Where the terminal's Codex connects, and where its server listens. The end of a
-    /// terminal's name is what tells it from the others of its time, and an address has room for
-    /// few characters.
+    /// Returns the proxy and server socket endpoints for a terminal's Codex session.
+    /// Uses the trailing 16 hex chars of the UUID v7 (the random suffix) to stay within
+    /// Unix socket path length limits.
     fn endpoints(
         namespace: &str,
         terminal: Uuid,
@@ -162,8 +155,6 @@ impl CodexAddresses {
     }
 }
 
-/// Serves the addresses where the agents report, and gives them as variables of a terminal, with
-/// the name of the host's folder of local addresses.
 async fn listen(
     root: &Path,
     rooms: Rooms,
@@ -188,7 +179,8 @@ async fn listen(
         ));
         addresses.push((variable, address));
     }
-    // The addresses are this host's now, so no other host has servers in the folder.
+    // Binding succeeded, so this host owns the namespace and any remaining Codex servers are
+    // orphans from a previous host.
     #[cfg(unix)]
     if let Ok(folder) = kodosi_os::ipc::private_dir(&namespace) {
         super::codex_link::end_left_servers(&folder).await;
@@ -196,8 +188,8 @@ async fn listen(
     Ok((addresses, namespace.into()))
 }
 
-/// Claude Code's module reaches a socket file, and a program of Node reaches a local endpoint on
-/// Windows only at a named pipe.
+/// Claude Code's link uses a Unix socket file, while Node-based links on Windows require
+/// a named pipe for local IPC.
 fn endpoints(namespace: &str) -> std::io::Result<Vec<(&'static str, kodosi_os::ipc::Endpoint)>> {
     let mut endpoints = vec![(
         super::LINK_VARIABLE,
@@ -261,7 +253,7 @@ async fn connection(mut stream: kodosi_os::ipc::Stream, rooms: Rooms) {
     }
 }
 
-/// The answer to one request, or nothing when the other side left while the request waited.
+/// Handles one HTTP request, returning `None` if the peer disconnected while waiting.
 async fn respond(
     stream: &mut kodosi_os::ipc::Stream,
     kept: &mut Vec<u8>,
@@ -361,8 +353,8 @@ const fn session_of(_pid: u32) -> Option<u32> {
     None
 }
 
-/// The agent's greeting carries the command line that its program started with. Some choices of
-/// a session, such as Claude Code's permission modes, are given there and reported nowhere else.
+/// Attaches the peer process's launch arguments to its `hello` event. Some session settings,
+/// such as Claude Code's permission flags, appear only on the command line and nowhere else.
 fn started_with(events: &mut [Value], peer: Option<u32>) {
     let Some(hello) = events
         .iter_mut()
@@ -375,8 +367,9 @@ fn started_with(events: &mut [Value], peer: Option<u32>) {
     }
 }
 
-/// The chat's answer to a request that waits: the answer, nothing when the time of the request
-/// ended, and no value at all when the other side left.
+/// Waits up to `HOLD` for `answer` while monitoring `stream` for peer disconnect.
+/// Returns `Some(Some(val))` on reply, `Some(None)` on timeout or dropped channel,
+/// and `None` if the peer closed the connection or exceeded `MOST_KEPT`.
 async fn wait<T>(
     stream: &mut kodosi_os::ipc::Stream,
     kept: &mut Vec<u8>,

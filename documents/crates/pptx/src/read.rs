@@ -23,8 +23,8 @@ pub(crate) fn local<'a, 'input>(node: Xml<'a, 'input>, name: &str) -> Option<Xml
         .find(|child| child.is_element() && child.tag_name().name() == name)
 }
 
-/// The id of a slide in the slide list. roxmltree matches a plain name in any namespace, so
-/// `attribute("id")` can give the `r:id` of the slide's part.
+/// Reads the unnamespaced `id` attribute of `<p:sldId>`. `roxmltree::Node::attribute("id")`
+/// matches any namespace and can return `r:id` instead.
 pub(crate) fn slide_id<'a>(entry: Xml<'a, '_>) -> Option<&'a str> {
     entry
         .attributes()
@@ -72,8 +72,8 @@ fn given_frame(element: Xml<'_, '_>) -> Option<Frame> {
         .or_else(|| frame_of(Some(element)))
 }
 
-/// A group without a frame of its own leaves its shapes in the space of its parent, so it spans
-/// them there.
+/// Computes the bounding frame of a `<p:grpSp>` that has no `<a:xfrm>` of its own by taking the
+/// union of its children's frames in parent coordinates.
 pub(crate) fn span_of(group: Xml<'_, '_>) -> Option<Frame> {
     if group.tag_name().name() != "grpSp" {
         return None;
@@ -195,7 +195,7 @@ fn look_marks(look: &RunLook) -> Result<Vec<Mark>, text::Failed> {
     Ok(marks)
 }
 
-/// One look for each of the nine text levels. What a list does not set stays as it was.
+/// Inherited text properties for each of the 9 OOXML outline levels.
 type Levels = Vec<Map<String, Value>>;
 
 fn merge_levels(levels: &mut Levels, list: Xml<'_, '_>) {
@@ -262,7 +262,8 @@ impl Inherited {
         frame(&self.layout).or_else(|| frame(&self.master))
     }
 
-    /// A placeholder matches by its type in the master, where its index often differs.
+    /// Falls back to matching by placeholder type alone because master placeholder indices often
+    /// differ from slide/layout indices.
     fn in_master(&self, key: &str) -> Option<&Placeholder> {
         let kind = key.split(':').next().unwrap_or(key);
         self.master.get(key).or_else(|| {
@@ -475,8 +476,8 @@ impl<'input> Reader<'_, '_, 'input> {
         }))
     }
 
-    /// The piece of a shape, which also declares the namespaces that it takes from its slide, so
-    /// that it reads alone and goes back into any slide.
+    /// Stores a self-contained copy of the shape XML with inherited namespace declarations hoisted
+    /// onto its root tag so it can be parsed standalone and reinserted.
     fn whole(&mut self, element: Xml<'_, 'input>) -> Option<String> {
         let piece = self.xml_of(element);
         let own = own_namespaces(piece);
@@ -496,7 +497,7 @@ impl<'input> Reader<'_, '_, 'input> {
         Document::parse(&whole).is_ok().then(|| self.keep(&whole))
     }
 
-    /// The run or shape keeps its click in its own XML, so a save keeps it.
+    /// Parses click actions for view snapshots; writes preserve the original `<a:hlinkClick>` XML.
     fn link_of(&self, click: Xml<'_, '_>) -> Option<Value> {
         let action = click.attribute("action").unwrap_or_default();
         if let Some(jump) = action.strip_prefix("ppaction://hlinkshowjump?jump=") {
@@ -549,7 +550,6 @@ pub(crate) fn name_end(piece: &str) -> Option<usize> {
     })
 }
 
-/// The namespaces that the start tag of a piece declares itself, as `xmlns` or `xmlns:a`.
 fn own_namespaces(piece: &str) -> Vec<&str> {
     let mut names = Vec::new();
     let Some(mut rest) = name_end(piece).map(|end| &piece[end..]) else {

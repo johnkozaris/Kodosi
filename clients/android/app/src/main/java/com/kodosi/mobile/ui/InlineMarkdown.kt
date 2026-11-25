@@ -1,7 +1,6 @@
 package com.kodosi.mobile.ui
 
-/** The inline Markdown that agents write in a message: strong, emphasis, code, struck text and
- *  named links. Spaces and line breaks stay as they are, as on the iPhone. */
+// Minimal inline Markdown parser that preserves literal spaces and line breaks.
 object InlineMarkdown {
     data class Run(
         val text: String,
@@ -124,7 +123,7 @@ object InlineMarkdown {
         return !next.isWhitespace() && (text[at] != '_' || at == 0 || !text[at - 1].isLetterOrDigit())
     }
 
-    /** A single mark closes at a single mark, so that the two marks of strong text inside stay whole. */
+    // Require an odd run length for single-mark closing so nested **strong** spans stay intact.
     private fun closing(text: String, from: Int, mark: Char, size: Int): Int {
         var at = from
         while (at < text.length) {

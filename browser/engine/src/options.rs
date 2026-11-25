@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use shared_browser::link::Address;
 
-/// The token is in a file of the profile, since other people on the computer can read a command
-/// line.
+/// The host auth token is passed via the `link` file rather than a CLI flag because process
+/// arguments are readable by other local users.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct Options {
     pub profile: PathBuf,
@@ -32,8 +32,8 @@ impl Options {
         })
     }
 
-    /// Reads the host's address and removes the file, so the token is on disk only until the
-    /// engine starts.
+    /// Reads the host address and immediately unlinks the file to limit how long the token
+    /// stays on disk.
     pub(crate) fn take_address(&self) -> Result<Address, String> {
         let text = std::fs::read_to_string(&self.link)
             .map_err(|problem| format!("no link file: {problem}"))?;

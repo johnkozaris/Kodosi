@@ -16,9 +16,8 @@ namespace kodosi {
 class CanvasDocuments;
 class SessionCatalogModel;
 
-// The chat of one terminal, as the terminal's computer keeps it: a second view of the terminal,
-// built from the reports of its agent. The pipe is open only while a view watches, and the chat
-// stays with what a person writes there while the terminal does.
+// Models a session's agent chat stream. The document pipe stays open only while watched, while
+// the instance persists with its draft for the lifetime of the session.
 class TerminalChat final : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString sessionId READ sessionId CONSTANT FINAL)
@@ -55,7 +54,7 @@ public:
     [[nodiscard]] bool canWrite() const;
     [[nodiscard]] QString failure() const { return m_failure; }
     [[nodiscard]] QVariantMap ask() const { return m_ask; }
-    // A question of the agent that no person on this device answered yet.
+    // True when the agent has an ask not yet answered locally.
     [[nodiscard]] bool asking() const;
     [[nodiscard]] QVariantMap answers() const;
     [[nodiscard]] QVariantList queued() const { return m_queued; }
@@ -69,18 +68,17 @@ public:
     void setDraft(const QString& draft);
     [[nodiscard]] QStringList opened() const { return m_opened; }
 
-    // Each view that shows the chat watches until it goes, and they share one pipe.
+    // Reference-counted subscription; multiple views share a single pipe.
     Q_INVOKABLE void watch();
     Q_INVOKABLE void unwatch();
-    // A typed message while a question waits answers it: the agent reads the words in place of
-    // what it asked to do. True when the words went.
+    // Sends the draft; if an ask is pending, submits the draft as a text denial instead. Returns
+    // true if sent.
     Q_INVOKABLE bool submit();
-    // `answer` has its `kind`: allow, always, deny with an optional `text`, answers with
-    // `answers` (for each question the labels that the person chose), or plan with `choice`.
+    // Expects `kind`: "allow", "always", "deny" (optional `text`), "answers" (`answers` label
+    // lists), or "plan" (`choice`).
     Q_INVOKABLE void answer(const QString& ask, const QVariantMap& answer);
     Q_INVOKABLE void unqueue(const QString& id);
     Q_INVOKABLE void stop();
-    // The steps that a person opened stay open while the chat shows.
     Q_INVOKABLE void toggle(const QString& id);
     // The control of the chat that a draft of only a command's name opens in place of sending it.
     Q_INVOKABLE [[nodiscard]] QString control(const QString& draft) const;
@@ -136,7 +134,6 @@ private:
     [[nodiscard]] QVariantMap shapedFacts() const;
     [[nodiscard]] QVariantMap step(const QJsonObject& item);
     [[nodiscard]] QString nowWords() const;
-    // The first question that no person on this device answered yet.
     [[nodiscard]] QString question() const;
 
     QPointer<CanvasDocuments> m_documents;
@@ -144,13 +141,11 @@ private:
     QString m_pipe;
     int m_watchers = 0;
     std::optional<Snapshot> m_chat;
-    // After each opening of the pipe the host sends the whole chat first, and the changes count
-    // from it.
+    // Ignore incremental updates after a pipe opens until the host sends the initial snapshot.
     bool m_awaitsSnapshot = true;
     bool m_linked = false;
     QString m_failure;
-    // The answers that a person gave on this device, until their questions are gone or the chat
-    // comes again.
+    // Locally submitted answers kept until the host clears the ask or sends a fresh snapshot.
     QHash<QString, QJsonObject> m_answers;
     QString m_draft;
     QStringList m_opened;
@@ -165,7 +160,6 @@ private:
     QVariantList m_commands;
 };
 
-// The chats of the terminals that this app shows. Each pipe of a chat goes to its chat.
 class TerminalChats final : public QObject {
     Q_OBJECT
 

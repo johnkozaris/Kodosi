@@ -4,8 +4,7 @@ use text::{Failed, Fragment, Node, Slice, Step};
 
 use crate::schema;
 
-/// More edits join into this many steps, so that a large change stays quick on the server and in
-/// each view.
+/// Coalesce large edit lists down to at most this many steps to keep apply and broadcast fast.
 const MOST_STEPS: usize = 100;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -95,7 +94,7 @@ impl Text {
         Some(Edit { from, to, text })
     }
 
-    /// The edits must be in order and must not overlap.
+    /// Requires `edits` to be sorted and non-overlapping.
     pub(crate) fn steps(&self, doc: &Node, edits: Vec<Edit>) -> Result<Vec<Step>, Failed> {
         let edits = if edits.len() > MOST_STEPS {
             self.joined_edits(&edits)

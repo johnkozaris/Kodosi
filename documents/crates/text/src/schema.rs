@@ -11,7 +11,8 @@ type MatchId = usize;
 
 const EMPTY_MATCH: MatchId = 0;
 
-/// A schema as data, with nodes and marks in their order, as `Schema.spec` holds them.
+/// Schema definition as data, preserving node and mark order as in `ProseMirror`'s
+/// `Schema.spec`.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SchemaSpec {
@@ -227,7 +228,6 @@ impl Schema {
         &self.marks[id as usize].name
     }
 
-    /// The mark of the type of this name in a set, as `ProseMirror`'s `MarkType.isInSet`.
     pub fn mark_in<'m>(&self, name: &str, marks: &'m [Mark]) -> Option<&'m Mark> {
         let kind = self.mark_id(name)?;
         marks.iter().find(|mark| mark.kind() == kind)

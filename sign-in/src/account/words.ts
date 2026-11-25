@@ -164,7 +164,7 @@ export function wordsOf(kcContext: Pick<KcContext, "locale" | "msgJSON">): Words
       const mine = PROBLEMS[key];
       if (mine) return words[mine];
       const theirs = keycloak[key];
-      // Keycloak sends some refusals as a sentence in place of a key.
+      // Keycloak sometimes returns a literal sentence instead of a message key.
       if (!theirs) return /\s/.test(key) ? key : words.failed;
       return theirs.replace(/\{\{param_(\d)\}\}/g, (_, i) => named(params[Number(i)] ?? ""));
     },

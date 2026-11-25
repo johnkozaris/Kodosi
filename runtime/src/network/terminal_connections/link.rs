@@ -294,8 +294,7 @@ impl Link {
         }
     }
 
-    /// A sleep of the computer ends the wait, because the time asleep does not count for the
-    /// delay.
+    /// Wakes early if the machine sleeps, since monotonic timers pause while suspended.
     pub(crate) async fn wait_to_reconnect(&self, delay: Duration, hurry: bool) -> Wait {
         let started = Moment::now();
         let mut check = tokio::time::interval(WAKE_CHECK);
@@ -371,7 +370,7 @@ impl Link {
         }
     }
 
-    /// The server holds the presence of a device only for a while after its last report.
+    /// Re-sends non-away presence before the server's presence TTL expires.
     fn refresh_presence(&self) {
         if let Ok(shared) = self.shared.lock()
             && shared.presence != Presence::Away
@@ -670,9 +669,8 @@ fn refusal(value: &Value) -> Error {
     }
 }
 
-/// The server may drop the link while the computer sleeps, and a network may drop it without a
-/// word. So after a sleep, or when the server has not answered what the link sent for a while, the
-/// link asks the server at once and must hear back soon.
+/// Tracks link liveness. Because sleep or the network can silently drop a connection,
+/// triggers an immediate probe after wake or unanswered sends and enforces a short reply timeout.
 struct Hearing {
     heard: tokio::time::Instant,
     sent: Option<tokio::time::Instant>,

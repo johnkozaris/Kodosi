@@ -7,7 +7,7 @@ import type { KcContext } from "./KcContext";
 
 const { getI18n, ofTypeI18n } = i18nBuilder
   .withThemeName<ThemeName>()
-  // Keycloakify reads these words from this call when it builds the theme: keep them inline.
+  // Keycloakify statically parses these calls at build time, so keep the definitions inline.
   .withExtraLanguages({
     ko: { label: "한국어", getMessages: () => import("./ko") },
   })
@@ -211,7 +211,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsReplaceKeep: "Keep {0}",
       kdsReplaceKeepPlain: "Keep my current account",
 
-      // The words never say whether an account exists.
+      // Keep auth failure messages identical so they never reveal whether an account exists.
       invalidUserMessage: "That name or password is not right.",
       invalidPasswordMessage: "That name or password is not right.",
       accountTemporarilyDisabledMessage: "That name or password is not right.",

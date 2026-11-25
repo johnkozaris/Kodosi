@@ -1,4 +1,4 @@
-/** In CSS pixels from the top left of the document. */
+/** Bounding box in CSS pixels relative to the document top-left. */
 export interface Area {
   x: number;
   y: number;
@@ -6,7 +6,7 @@ export interface Area {
   height: number;
 }
 
-/** A view may show only the page that it gave last, as a presentation shows one slide. */
+/** Calling picture(index) may switch the active page (e.g. a slide or sheet) to capture it. */
 export interface Pictures {
   pictures(): Promise<number>;
   picture(index: number): Promise<Area>;
@@ -22,7 +22,6 @@ export function areaOf(element: Element): Area {
   };
 }
 
-/** Waits until the page drew what it has: its fonts, a pause, then two frames. */
 export async function settled(pause = 0): Promise<void> {
   await document.fonts.ready;
   if (pause > 0) await new Promise((done) => setTimeout(done, pause));

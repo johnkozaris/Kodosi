@@ -23,7 +23,6 @@ class BrowserAddress(address: String) {
     }
 }
 
-/** The blank page of a new tab leaves the field empty, ready for an address. */
 private fun shownAddress(address: String) = if (address == BLANK_PAGE) "" else address
 
 private const val BLANK_PAGE = "about:blank"

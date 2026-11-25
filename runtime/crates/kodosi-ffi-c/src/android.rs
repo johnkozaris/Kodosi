@@ -6,9 +6,9 @@ use super::{
     KODOSI_FFI_NULL_HANDLE, KODOSI_FFI_OK, KODOSI_FFI_PANIC, KODOSI_FFI_PLATFORM_FAILED, caught,
 };
 
-/// Gives the runtime the Java VM and the application context, which the system's certificate
-/// verifier needs for HTTPS. The app calls it once, with its `JNIEnv *` and its application
-/// `Context`, before it starts the runtime. A failure leaves no Java exception pending.
+/// Initializes Android JVM bindings (secrets store and platform TLS verifier).
+/// Must be called once with a `JNIEnv *` and application `Context` before
+/// starting the runtime. Clears any pending Java exception on failure.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn kodosi_android_init(env: *mut c_void, context: *mut c_void) -> i32 {
     caught(|| {

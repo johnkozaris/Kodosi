@@ -43,7 +43,7 @@ std::expected<bool, QString> stage()
     try {
         const auto id = model::Package::Current().Id();
         deployment::PackageManager manager;
-        // CheckUpdateAvailabilityAsync refuses the Package that Package::Current returns.
+        // CheckUpdateAvailabilityAsync fails on the Package returned by Package::Current().
         const auto package = manager.FindPackageForUser({}, id.FullName());
         const auto installer = package.GetAppInstallerInfo();
         if (!installer)
@@ -86,7 +86,7 @@ std::optional<std::wstring> newerBundle(const XmlDocument& installer, const std:
     return std::wstring(uri);
 }
 
-// Results arrive on a worker thread and may outlive the update.
+// Worker threads deliver results asynchronously and may outlive PackageUpdate.
 struct PackageUpdate::Relay {
     std::mutex mutex;
     PackageUpdate* update = nullptr;
@@ -152,8 +152,8 @@ bool PackageUpdate::openAgainAfterExit()
         return false;
     const std::wstring system(folder.data(), size);
     const auto program = system + LR"(\WindowsPowerShell\v1.0\powershell.exe)";
-    // Windows installs the staged package when Kodosi starts while no program of the package
-    // runs, so a program from outside the package waits for this one to end.
+    // MSIX only applies a staged update when no process in the package is running, so launch an
+    // external PowerShell process to wait for exit before restarting the app.
     auto line = std::format(LR"("{}" -NoProfile -NonInteractive -Command "Wait-Process -Id {} -ErrorAction Ignore; )"
                             LR"(Start-Process 'shell:AppsFolder\{}'")",
         program, GetCurrentProcessId(), app);

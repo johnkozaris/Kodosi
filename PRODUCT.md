@@ -1,120 +1,141 @@
 # Kodosi
 
-Kodosi is a native place where people and their coding agents work together through
-shared terminals and a project conversation. Keep it lean: make useful actions
-available, and let people and agents decide how to use them.
+Kodosi is a native app where people and their coding agents work together in shared terminals and
+project chats. The goal is to stay lean: expose useful capabilities and let people and agents
+decide how to use them.
 
-## Who it is for
+## Who it's for
 
-People who run coding agents in terminals, often on more than one computer, away from
-the desk and with friends. They want to see which agent needs them, answer it from any
-device, and let a friend or another agent step into the same work.
+Developers running coding agents in terminals, often across multiple machines, away from their
+desk, or alongside friends. They want to see at a glance which agent needs attention, answer it
+from any device, and let a friend or another agent jump into the same work.
 
-## What it is
+## Core capabilities
 
-- **Every terminal in one place.** The terminals of a person's computers, and the ones
-  that friends share, are side by side on each of the person's devices. Each is a real
-  process on the computer that hosts it.
-- **Attention.** A terminal shows what its program reports: working, waiting for a
-  person, done or failed, and the helpers that its agent started while they work. Kodosi
-  tells the person when a terminal needs them.
-- **Chat.** A terminal with an agent also shows as a chat, a second view of the same
-  terminal: what the person wrote, what the agent answered and did, the helpers that
-  work for it, and its questions with their answers as keys. The person goes between the
-  screen and the chat, and what happens in one shows in the other.
-- **Sharing.** A person shares a terminal with friends or with a project, and everyone
-  it is shared with gets full control.
-- **Projects.** A project holds a conversation, tasks, repositories and terminals from
-  many computers. A person can work in it alone and invite friends when they want.
-- **Canvas.** Each terminal has a canvas beside it, where its agent shows what it makes
-  and uses a browser that the people share. Documents on the canvas are live: people and
-  agents edit the same file at the same time.
-- **Dosi.** The person's agent for their other agents. It sees every terminal, agent and
-  project of the person, acts on them with the `kodosi` command and asks with choices.
-- **Away from the desk.** The phone and tablet apps follow, answer and control the
-  terminals of the person's computers and take part in projects.
+### Every terminal in one place
+Terminals from all your computers, plus terminals friends share with you, appear side by side on
+every device. Each terminal is a real process running on the computer that hosts it.
 
-## Decisions
+### Attention and status
+Each terminal surfaces what its running program reports: working, waiting for input, done, or
+failed, and shows the helpers its agent started for as long as they work. Kodosi notifies you when
+a terminal needs attention.
 
-**The terminal stays a terminal.** Full control means typing, resizing, interrupting and
-closing, with the operating-system privileges of the user who hosts it. Kodosi puts no
-permission tiers, sandbox or workflow between a person and a terminal, and programs get
-what Ghostty gives them.
+### Chat view
+Any terminal running a supported agent can also be viewed as a chat: your messages, the agent's
+replies and actions, the helpers working for it, and its prompts with clickable answer buttons.
+You can switch freely between the terminal screen and chat view, and anything you do in one shows
+up in the other.
 
-**Sharing is trust.** A shared terminal runs as its owner, and everyone in it can do what
-the owner can do there. Kodosi protects against the network, the backend and people
-without access, not against the people that someone chose. Removing or blocking a friend
-ends what the two share.
+### Sharing
+Share any terminal with friends or with a project. Everyone with access gets full control.
 
-**Agents stay with their providers.** Agents run through their own CLIs. Execution,
-prompts, permissions, settings, memory and conversations stay with the provider. Kodosi
-starts an agent by typing its command into a shell, tells it in a short note that it runs
-in Kodosi, and gives it the `kodosi` command and skills. The agent decides when to use
-them. Kodosi reads no provider credentials. Copilot CLI is the one exception to settings.
-A quiet Copilot takes its display only from its saved settings, so Kodosi changes those
-while it runs and puts them back after. Copilot loads Kodosi's extension for the chat
-only with its experimental features, which Copilot then keeps on, and only after a person
-allowed the extension, which Kodosi does for each folder where it starts Copilot.
-Antigravity CLI loads plugins only from its own configuration folder, so Kodosi links its
-plugin there while Kodosi runs and removes it when Kodosi stops.
+### Projects
+A project groups a chat, tasks, linked repositories, and terminals from multiple computers. You
+can use a project solo and invite friends whenever you want.
 
-**The chat is a view of the terminal.** The agent runs in its terminal as before, and the
-chat shows that session. The agent reports its work through the interface that its
-provider has for add-ons, and a person's message, answer or stop goes back the same way.
-Kodosi does not read the screen for the chat and presses no key there, so a new look of
-the agent does not break it. An answer in the chat is the person's answer to the agent's
-own question, and the agent's permissions stay as the provider keeps them. An agent that
-does not report has no chat, and its terminal works as before. A terminal opens on the view
-where its agent works, on each device.
+### Canvas
+Every terminal has a canvas beside it where the agent can display files and use a shared browser.
+Documents on the canvas are live, so people and agents can edit the same file simultaneously.
 
-**People and agents are equals in a project.** They read and write the same conversation
-and tasks, and they decide what to do next; nobody assigns work. Only a message that
-names a terminal goes into that terminal, as one line that says who wrote it and from
-where, and never while its agent waits for a person's answer or a person types there.
+### Dosi
+Dosi is your meta-agent for managing other agents. It sees all your terminals, agents, and
+projects, acts on them via the `kodosi` CLI, and asks you to pick from clear choices when a
+decision is needed.
 
-**One host on each computer.** The host owns the computer's terminals. The apps and the
-`kodosi` command are equal clients of it: what one does, the others show, and an agent
-can do from a shell what a person does in an app. A person's typing comes first.
+### Mobile access
+The iOS and Android apps let you watch, answer, and control terminals running on your computers,
+as well as participate in projects while away from your desk.
 
-**The work stays where it is.** A terminal's files stay on its computer. A file on the
-canvas is a normal file there, a linked repository's provider stays authoritative for its
-issues, and Git credentials stay on the participant's computer.
+## Design decisions
 
-**End-to-end encryption.** The participants' devices encrypt terminal traffic and project
-content, and private keys stay on devices. The backend connects participants and relays
-ciphertext; two devices of one person that reach each other go straight. It runs no
-commands and sees only each terminal's agent and reported state. A new device shares
-nothing until an approved device approves it, and a recovery key keeps friends and
-projects for a person who lost all devices.
+### The terminal stays a terminal
+Full control means typing, resizing, interrupting, and closing, running with the host user's
+normal OS privileges. Kodosi doesn't insert permission tiers, sandboxes, or workflow machinery
+between you and a terminal. Programs get standard Ghostty terminal behavior.
 
-**Terminals outlive their connections.** Reconnecting restores the current state without
-disturbing other viewers and without repeating input whose delivery is uncertain. A stale
-connection never controls a replacement terminal, and a lost connection does not change
-sharing. Terminals come back with their screens when the app opens again after Quit.
+### Sharing means trust
+A shared terminal runs under its owner's account, so anyone in it can do whatever the owner can do
+there. Kodosi defends against the network, the backend, and unauthorized users, not against people
+you explicitly chose to share with. Removing or blocking a friend revokes everything shared
+between you.
 
-**Calm.** Kodosi handles what it can by itself. It shows a failure only where the person
-can act on it, in plain words and with one way to recover, and keeps the details in the
-log.
+### Agents stay with their providers
+Agents run through their own CLIs. Execution, prompts, permissions, settings, memory, and
+conversation history remain with the provider. Kodosi launches an agent by typing its command into
+a shell, passes a short note explaining that it's inside Kodosi, and makes the `kodosi` CLI and
+skills available. The agent decides when to use them. Kodosi never reads provider credentials.
 
-## Experience
+Copilot CLI is the one exception for settings. It only reads quiet output mode from its saved
+config file, so Kodosi temporarily updates that setting while Copilot runs and restores it
+afterward. Copilot also requires experimental features enabled to load Kodosi's chat extension
+(which Copilot leaves enabled) and per-folder extension approval (which Kodosi grants for each
+folder where it launches Copilot). Antigravity CLI loads plugins only from its own configuration
+folder, so Kodosi links its plugin there while Kodosi runs and removes it when Kodosi stops.
 
-Keep terminals and the project conversation easy to reach. Starting work, inviting
-someone, sharing a terminal and writing in the conversation take few steps. Use plain
-language and native interaction, show progress where work happens, and add a control only
-when it helps someone do the work.
+### Chat is a view of the terminal
+The agent still runs inside its terminal as usual; the chat is simply a structured view of that
+session. Supported agents report activity through their native extension or server interface, and
+messages, answers, and stops travel back the same way. Kodosi never scrapes the terminal screen or
+simulates keypresses for chat, so UI updates to an agent don't break it. Answering in chat answers
+the agent's real prompt, and permissions stay with the provider. Agents that don't report chat
+events simply use the normal terminal view. Each terminal opens in whichever view its agent works
+in, across all devices.
 
-Visible text uses one word for one thing: terminal, project, friend, agent, device.
-Session, host and runtime are internal words.
+### People and agents are equals in a project
+Both humans and agents read and write the same project chat and tasks, and decide what to pick up
+next; nobody assigns work. A chat message is delivered into a terminal only when it mentions that
+terminal by name, formatted as a single line stating who wrote it and where it came from. Delivery
+waits if the agent is prompting a human or if someone is actively typing in that terminal.
 
-Kodosi speaks English, German, Greek, Spanish, French, Italian, Japanese, Korean and
-Simplified Chinese. The `kodosi` command, the logs and the details of an internal fault
-stay English.
+### One host per computer
+A single local host process owns all terminals on a computer. Desktop apps and the `kodosi` CLI
+are equal clients of that host: actions from one immediately appear in the others, and an agent in
+a shell can drive Kodosi just like a human in the UI. Interactive typing from a human always takes
+priority.
 
-## The apps
+### Data stays where it lives
+A terminal's files stay on its host computer. Canvas files are ordinary files on disk, the
+providers of linked repositories remain the source of truth for their issues, and Git credentials
+never leave the user's machine.
 
-- The Mac app and the Linux and Windows app run terminals on the computer's host and
-  take part in projects. Each contains the `kodosi` command.
-- The iPhone and iPad app and the Android app host nothing. They follow, answer and
-  control terminals that run on computers.
-- Apps update themselves in the background and never restart without asking, because a
-  restart stops the host's terminals.
+### End-to-end encryption
+Client devices encrypt terminal traffic and project data, and private keys never leave devices.
+The backend connects peers and relays ciphertext; two devices belonging to the same user connect
+directly whenever they can reach each other. The server runs no commands and only sees each
+terminal's agent type and reported state. New devices can't access anything until an existing
+approved device approves them, and a recovery key lets you keep your friends and projects if you
+lose all your devices.
+
+### Terminals outlive connections
+Reconnecting restores current state without disrupting other viewers and without replaying input
+whose delivery is uncertain. A stale connection can never control a replacement terminal, and
+dropping offline doesn't alter sharing permissions. After you quit and reopen the app, your
+terminals come back with their previous screen contents.
+
+### Calm error handling
+Kodosi recovers automatically wherever possible. When something does need user action, it reports
+the failure in plain language right where you can act on it, with a single recovery step, and
+keeps technical details in the log.
+
+## UX and language conventions
+
+Keep terminals and project chats immediately accessible. Starting work, inviting someone, sharing
+a terminal, and posting in a project should take minimal steps. Use plain language and native
+platform interactions, show progress where the work happens, and add a control only when it helps
+someone do the work.
+
+User-facing text uses one consistent term per concept: **terminal**, **project**, **friend**,
+**agent**, and **device**. Terms like *session*, *host*, and *runtime* stay internal.
+
+Kodosi is localized into English, German, Greek, Spanish, French, Italian, Japanese, Korean, and
+Simplified Chinese. The `kodosi` CLI, logs, and internal error details stay in English.
+
+## Apps
+
+- The macOS, Linux, and Windows desktop apps run terminals on the computer's local host, join
+  projects, and bundle the `kodosi` CLI.
+- The iOS (iPhone and iPad) and Android apps don't host terminals; they watch, answer, and control
+  terminals running on your computers.
+- Desktop apps download updates in the background and never restart automatically, since
+  restarting would stop the host's running terminals.

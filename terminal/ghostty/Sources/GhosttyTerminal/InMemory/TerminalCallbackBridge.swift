@@ -27,7 +27,7 @@ final class TerminalCallbackBridge {
     var onAppWakeup: (() -> Void)?
     var canProcessAppWakeup: (() -> Bool)?
     var surfaceConfig: ghostty_config_t?
-    /// The link under the pointer, as Ghostty last named it on the main thread.
+    /// URL under the pointer, updated synchronously on the main thread by Ghostty's callback.
     var hoverLink: String?
     var managedConfigURL: URL?
 
@@ -53,7 +53,7 @@ final class TerminalCallbackBridge {
     func askToShareClipboard() {
         guard let delegate = delegate as? any TerminalSurfaceClipboardReadDelegate else { return }
         delegate.terminalDidRequestClipboardRead { [weak self] allowed in
-            // A refused program gets an empty answer, so it does not wait for one.
+            // Send an empty OSC 52 reply when denied so the querying program does not block.
             self?.session?.sendInput(
                 terminalClipboardReport(allowed ? TerminalPasteboardContent.plainText() ?? "" : "")
             )

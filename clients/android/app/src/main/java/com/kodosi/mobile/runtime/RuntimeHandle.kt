@@ -32,10 +32,7 @@ interface TerminalRuntime {
     fun input(sessionId: String, incarnationId: String, link: TerminalLink, bytes: ByteArray): Int
 }
 
-/**
- * An event that names one of the app's open browser pipes goes to [browserEvents], for the browser's
- * own thread, and every other event to [events]. The runtime's threads ask [namesBrowserPipe].
- */
+// Routes browser pipe events to browserEvents; namesBrowserPipe runs on runtime callback threads.
 class RuntimeHandle(private val namesBrowserPipe: (ByteArray) -> Boolean = { false }) :
     RuntimeCallbacks,
     TerminalRuntime {
@@ -54,7 +51,7 @@ class RuntimeHandle(private val namesBrowserPipe: (ByteArray) -> Boolean = { fal
     private var handle = 0L
     private val links = ConcurrentHashMap<String, TerminalLink>()
 
-    /** Blocks, so call it away from the main thread. */
+    // Blocks during native startup; call off the main thread.
     fun start(context: Context, language: String): Start {
         if (NativeRuntime.abiVersion() != Ffi.ABI_VERSION || NativeRuntime.protocolVersion() != Ffi.PROTOCOL_VERSION) {
             return Start.Incompatible
@@ -68,7 +65,7 @@ class RuntimeHandle(private val namesBrowserPipe: (ByteArray) -> Boolean = { fal
         return Start.Started
     }
 
-    /** Waits for the runtime's callbacks to end. */
+    // Blocks until the runtime's callbacks have ended.
     fun stop() {
         val current = handle
         handle = 0

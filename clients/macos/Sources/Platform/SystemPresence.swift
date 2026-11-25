@@ -24,9 +24,9 @@ private func secondsSinceSystemInput() -> TimeInterval {
     CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0) ?? .null)
 }
 
-/// Without the Accessibility permission macOS gives a global monitor no keys. The mouse, the keys
-/// in Kodosi and a change of the app in front tell at once that the person is back, and the time
-/// since the last input, read again and again, tells it for a person who only types in another app.
+/// Detects user return via event monitors, app activation, and periodic idle-time polling.
+/// Without Accessibility permission, macOS omits keystrokes in other apps from global monitors,
+/// so polling `secondsSinceSystemInput()` catches keyboard-only activity elsewhere.
 private final class InputWatch {
     private static let input: NSEvent.EventTypeMask = [
         .mouseMoved, .leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel, .keyDown, .flagsChanged,
@@ -53,7 +53,7 @@ private final class InputWatch {
         activation = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main,
         ) { _ in MainActor.assumeIsolated(fire) }
-        // macOS holds back the timers of an app that nobody sees; a strict timer keeps its time.
+        // Use `.strict` so macOS App Nap timer coalescing does not delay idle-time checks.
         let reading = DispatchSource.makeTimerSource(flags: .strict, queue: .main)
         reading.schedule(deadline: .now() + Self.readAgain, repeating: Self.readAgain, leeway: .seconds(1))
         reading.setEventHandler {
@@ -79,9 +79,8 @@ private final class InputWatch {
     }
 }
 
-/// macOS has no API for the lock of the screen, so Kodosi takes each sign of it: the loss of
-/// protected data, and the notifications and the session value that the login window gives for a
-/// locked screen, which other apps also use for want of an API.
+/// macOS has no public screen-lock API, so combine protected-data notifications with the
+/// loginwindow distributed notifications and `CGSSessionScreenIsLocked` session key.
 enum SystemPresenceSignals {
     static func observe(_ reporter: PresenceReporter) {
         let session = CGSessionCopyCurrentDictionary() as? [String: Any]
@@ -102,8 +101,8 @@ enum SystemPresenceSignals {
         observe(workspace, NSWorkspace.sessionDidBecomeActiveNotification, reporter) { $0.returned(.switchedOut) }
     }
 
-    /// The reporter hears each change while it is posted, so that away reaches the runtime before
-    /// the Mac sleeps.
+    /// Delivers notifications synchronously on the main queue rather than through an async task
+    /// so `away` reaches the runtime before the Mac completes sleep.
     private static func observe(
         _ center: NotificationCenter, _ name: Notification.Name, _ reporter: PresenceReporter,
         _ change: @escaping @MainActor (PresenceReporter) -> Void,

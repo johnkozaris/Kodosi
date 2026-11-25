@@ -12,210 +12,220 @@ flowchart LR
     Host --> OIDC["OIDC sign-in"]
 ```
 
-Each computer runs one Kodosi host, a process of the Rust runtime. The host runs shells
-on a PTY and owns the computer's terminals, identity, encryption and projects. The
-desktop apps and the `kodosi` command are its clients over a local connection, and the
-first client that needs the host starts it. Every client gets the state of terminals and
-projects, so what one client does, the others show. A client that falls behind the
-runtime's events drops what waits and gets the whole state again, so a slow moment never
-stops its window. The host keeps terminal state with
-Ghostty's terminal library, and the apps draw it with Ghostty.
+## Runtime and host model
 
-The iPhone, iPad and Android apps embed the viewer build of the runtime, which hosts no
-terminals. A phone app tells its runtime when it leaves the screen, when it comes back and
-when the phone moves to another network. A moment after the app leaves the screen, the
-runtime closes its connections, and it opens them again when the app comes back, so a
-phone in the background keeps no connection and no timer, and gets push notifications.
+Each computer runs one Kodosi host process built from the Rust runtime. The host manages PTY
+shells and owns that machine's terminals, device identity, encryption, and project state. Both the
+desktop app and the `kodosi` CLI connect to it locally, and whichever client runs first spawns the
+host if it isn't running yet.
 
-The host saves its terminals while they change. After Quit, a new host starts them again
-when an app asks, each with its earlier screen and the command that continues its
-agent's conversation. A restored terminal has a new ID and names the one that it
-replaces, so views on other devices follow it.
+Every connected client receives live terminal and project state, so actions taken in one client
+appear immediately in the others. If a client falls behind the event stream, it drops queued
+events and fetches a fresh full snapshot instead of stalling the UI. The host tracks terminal
+emulation state using Ghostty's VT library, and the apps render it with Ghostty.
+
+Mobile apps (iOS and Android) embed the viewer build of the Rust runtime, which doesn't host
+terminals. They notify the runtime on foreground, background, and network transitions. Shortly
+after going to the background, the runtime closes all sockets and timers so the app uses no
+background connections and relies on push notifications instead; returning to the foreground
+re-establishes connections.
+
+The host persists terminal snapshots as they change. After Quit, the next host instance restores
+them on request with their previous screen contents and the command needed to resume each agent's
+conversation. Restored terminals get a new ID that references the replaced terminal ID so remote
+views follow automatically.
 
 ## Terminals
 
-The computer that starts a terminal hosts it: it owns the process, the terminal state
-and the order of its output. Each view gets a checkpoint and then ordered updates, with
-bounded buffering. A view on another device gets them over its own end-to-end encrypted
-channel, which the backend relays. When the view and the host are devices of one person
-that reach each other, on one network or through their routers, the channel goes on a
-direct QUIC connection of the two devices instead, and back to the relay when that
-connection fails, without a new checkpoint and without losing or repeating a frame. Its
-relay pipe stays open, so the backend still ends the channel when access ends. When a
-view's typing or another of its requests waits and its channel has not answered for a
-moment, the viewing device reports the terminal as stalled, and its apps say that it
-reconnects while the typing goes on. The host does not replay input whose delivery is
-uncertain, and a stale view cannot control a replacement terminal. Work that a short drop
-of the channel holds back goes out once on the next channel. The terminal comes first on its
-channel: its output goes before the frames of a document or the browser, and while a person
-types, those frames fill only a moment of the link.
+### Streaming and connections
 
-Each app tells its host which terminals are on its screen. The channel to a terminal of
-another computer is open only while a client shows the terminal or has work for it. A
-hidden terminal keeps its last screen, and its state and alerts come from the backend.
+The computer that starts a terminal owns its process, state, and output ordering. Each attached
+view receives an initial checkpoint followed by ordered updates with bounded buffering. Remote
+views receive updates over per-view end-to-end encrypted channels relayed through the backend.
 
-A terminal has the size of the view where a person acted last: the view that they focused
-or typed in. A view that only changes its size, or whose focus only comes back with the app
-or its connection, leaves the size where it is. Input from a view is a person's, and input
-from the `kodosi` command gives way while a person types.
+When a viewer and host belong to the same user and can reach each other (on the same LAN or
+through NAT traversal), encrypted frames move onto a direct QUIC connection between the two
+devices and fall back to the relay if the direct path drops, without requiring a new checkpoint
+and without dropping or duplicating frames. The relay pipe stays open so the backend can still
+tear down the channel immediately if access is revoked.
 
-A terminal has the look of the computer that hosts it, dark or light, on every device that
-shows it. The app on that computer gives its host the look, and a host without an app keeps
-the last look that it got. Programs learn the look from the host: it answers their questions
-for the colors and the color scheme with the look, and tells a program that asked for it each
-change of the color scheme.
+If typing or another request goes unacknowledged for too long on a remote view, the viewer flags
+the terminal as stalled and displays a reconnecting state while letting the user keep typing. The
+host never replays input whose delivery is uncertain, and a stale view can never control a
+replacement terminal. Queued work held back during a brief drop flushes once on the next channel.
+Terminal traffic has priority over canvas traffic: terminal output is scheduled ahead of live
+document and browser frames, and while someone is actively typing, canvas frames are throttled to
+a small slice of the link.
 
-The runtime decides what a terminal shows of its program: whether it works, what it
-waits for and what it does. The program's own report decides, and each client presents
-the result.
+Apps tell their host which terminals are currently visible on screen. Remote channels stay open
+only while a client is viewing the terminal or sending work to it; hidden terminals keep their
+last frame while receiving status and alerts through the backend.
 
-The host sends each terminal's agent and state to the backend, without its text, and the
-backend shows them to everyone who can open the terminal.
+### Sizing, input, and appearance
 
-A terminal that starts to wait, finishes or fails tells its owner once, on the device that
-the owner uses. Each app tells its runtime whether the person uses Kodosi, uses another
-app on that computer, or does not use the device, and each runtime tells the backend. The
-host of a terminal holds the mark that the owner did not see the new state yet and sends
-it with the state. A person who uses Kodosi gets the status sign only. For a person who
-uses another app on a computer, the runtime of that computer shows a notification. For a
-person who uses none of the devices, the backend sends a push notification to the phones,
-with a sound only for a terminal that waits. It waits a short time first, and a computer
-whose screen is still on shows its notification before, so that a person who only gave no
-input for a while can answer there. A wait that still has its mark when its owner stops
-using every device goes to the phones then, and a computer that did not show it yet shows
-it. Each device shows a mark once. When the owner looks at the terminal on one device, its
-host removes the mark, the notification leaves every device, and that state does not tell
-the owner again.
+A terminal adopts the dimensions of whichever view last had user interaction (focus or input).
+Passive resizes, or focus changes triggered merely by window activation or reconnection, don't
+resize the terminal. Interactive input from UI views always takes precedence over input from the
+`kodosi` CLI.
 
-A device can call another computer of the same person. The call is an end-to-end
-encrypted channel like a view, but to the host itself, which answers the launcher's
-requests as one more client. The host takes calls only from the person's own approved
-devices.
+Every terminal uses its host computer's light or dark appearance across all viewing devices. The
+local desktop app reports its appearance to the host (headless hosts retain their last known
+appearance). The host answers terminal color and theme queries accordingly and notifies programs
+subscribed to color-scheme change events.
+
+### Status and notifications
+
+The runtime determines each terminal's status (working, waiting, done, failed) from the running
+program's own reports, and clients render that state. The host forwards only the agent type and
+status to the backend, never terminal text, and the backend distributes it to everyone with access.
+
+When a terminal enters a waiting, finished, or failed state, Kodosi notifies the owner once on the
+device they're actively using:
+
+1. Each app reports user presence (active in Kodosi, active in another app on that computer, or
+   idle) to its runtime, which relays it to the backend.
+2. The host sets an unseen flag on the terminal state and sends it with the status update.
+3. If the owner is actively in Kodosi, only the in-app status indicator updates. If they're in
+   another desktop app, that computer's runtime displays a desktop notification. If all devices
+   are idle, the backend sends a mobile push notification after a short grace delay (playing a
+   sound only for waiting terminals). During that delay, any computer whose display is still awake
+   shows its local notification first so someone who simply paused typing can answer right there.
+4. If an unseen waiting terminal still hasn't been viewed when the user steps away from all
+   computers, it delivers to their phones then (and to any other computer that hasn't shown it
+   yet). Each device displays a given unseen event at most once.
+5. Opening the terminal on any device clears the flag on the host, dismisses the notification
+   everywhere, and prevents re-notifying for that state.
+
+### Remote host calls
+
+A device can open an end-to-end encrypted channel to the host of another computer belonging to the
+same user. It works like a view's channel but reaches the host itself, which serves launcher
+queries on it (listing available agents and folders, and starting new terminals). The host treats
+it like another client and accepts calls only from the user's own approved devices.
 
 ## Backend and projects
 
-One ASP.NET Core process serves the API and the WebSockets and stores its records in
-PostgreSQL. It relays terminal traffic without storing it.
+A single ASP.NET Core service handles the HTTP API and WebSocket relays, storing metadata and
+ciphertext in PostgreSQL. Terminal streams are relayed in memory and never stored.
 
-Devices encrypt and sign project messages, tasks and repository links. The backend
-stores the ciphertext, numbers the items and tells members' devices that a project
-changed; each device fetches the newer items. A deleted message is its author's next
-version of it and keeps its place. A person who clears the conversation leaves the
-backend a position, so that each of their devices hides the same messages. Issue actions
-run on the participant's computer with its own credentials. See [Security](SECURITY.md)
-and the [encryption design](CRYPTOGRAPHY.md).
+Client devices encrypt and sign project messages, tasks, and repository links. The backend stores
+the ciphertext, assigns sequence numbers, and notifies project members when something changes so
+each device fetches new items. Deleting a message publishes a new empty version from the original
+author in the same slot. Clearing a chat saves a per-user watermark on the backend so all of that
+user's devices hide the same messages. Repository issue actions run locally on the user's machine
+using their own Git or CLI credentials. See [Security](SECURITY.md) and the
+[encryption design](CRYPTOGRAPHY.md).
 
 ## Agents
 
-Kodosi reaches an agent only through what the agent's own CLI offers. Each terminal
-carries Kodosi's note for agents and the place of Kodosi's skills in its environment, and
-the host writes them into a folder of its own. Kodosi leaves nothing behind in an agent's
-own folders. What it changes there while it runs, such as the link to its plugin that
-Antigravity CLI loads only from its own folder, it takes back when it stops, and a host
-that starts after a crash takes over what the one before left.
+Kodosi integrates with agents solely through their public CLI interfaces. Each terminal sets
+environment variables pointing to Kodosi's context note and skills stored inside Kodosi's own data
+directory. Kodosi leaves nothing behind in an agent's own folders: whatever it changes there while
+it runs, such as the Copilot CLI settings that [PRODUCT.md](../PRODUCT.md) describes or the link to
+its plugin that Antigravity CLI loads only from its own folder, it restores when it stops, and a
+host that starts after a crash takes over whatever the previous one left.
 
-The host types a project message that names one of its terminals into the agent in that
-terminal, and the `kodosi` command sends such a line to an agent on any computer. A change
-of a running agent's model, effort, fast mode or permissions is also typed, as the agent's
-own command. The host types only while the agent can take it: not while it waits for a
-person, and not while a person types there.
+When a project chat message mentions a terminal by name, the host types it into the agent running
+there; `kodosi` CLI commands can similarly message agents on any computer. Live changes to a
+running agent's model, effort, fast mode, or permissions are typed using the agent's own slash
+commands. The host only injects input when the agent can safely accept it, never while the agent
+is waiting on a human prompt or while a person is typing.
 
 ## Chat
 
-The chat is a second view of a terminal, beside its screen. An agent can report what it
-does to the host through the agent's own interface for add-ons. For Claude Code that is a
-module in Kodosi's plugin, which reaches a socket of the host that the terminal names in
-its environment. For Codex it is Codex's app server: a Codex that connects to the address
-that the terminal names gets a server that the host starts with Codex's own program, and
-the host follows that server as a second client. For Copilot CLI it is an extension in a
-plugin of Kodosi's, which Kodosi's start line of Copilot names. The extension runs in Node,
-which reaches no socket file on Windows, so there it reaches the host at a named pipe that
-the terminal also names. Antigravity CLI's terminal
-app has no such interface. For its chat, `kodosi acp -- agy acp` runs the person's own
-server of Antigravity CLI in the terminal, with the terminal's folder and environment,
-speaks the Agent Client Protocol to it as an editor does, and carries its messages to the
-same socket of the host. Kodosi does not start this chat, because Google does not support
-agy inside another application on personal plans. The host turns the reports into the chat
-of the terminal: the messages, the agent's answers, its tool calls, the questions that wait
-for a person, the list that the agent keeps of its work, and the facts of the session. A
-person's message, answer or stop goes back the same way.
+Chat is an alternate view of a terminal alongside its raw screen. Agents feed structured events to
+the host through their native extension or server protocol:
 
-The host also tells each client where the agent of a chat works: in its terminal, or in the
-chat for the conversation of Antigravity CLI, except while that agent waits for its sign-in
-in the terminal. Each app shows that view first. A view that a person picks holds until
-the agent reports another view, so a terminal whose agent waits for its sign-in shows the
-terminal again.
+- Claude Code uses a module inside Kodosi's plugin that talks to a host socket passed via the
+  terminal environment.
+- Codex connects to an app server started by the host via the environment address, and the host
+  attaches to that server as a second client.
+- Copilot CLI loads a Node extension from Kodosi's plugin (passed on Copilot's launch command)
+  that connects to the host socket, or to a named pipe on Windows because Node doesn't support
+  Unix domain sockets there.
+- Antigravity CLI's terminal app has no extension interface, so `kodosi acp -- agy acp` launches
+  the user's own Antigravity ACP server in the terminal's folder and environment, speaks the
+  Agent Client Protocol to it like an editor, and relays events to the host socket. Kodosi does
+  not start this chat itself because Google does not support embedding `agy` inside
+  another application on personal plans.
 
-The chat reads nothing from the terminal's screen and presses no key there, so a new
-look of the agent does not change it. Each part of a report is optional, and an agent
-that does not report has no chat while its terminal works as before. The chat is content
-of the terminal: it travels on a pipe of the terminal's encrypted channel, as the canvas
-does, and each client gets the chat as it is and then each change.
+The host turns these reports into structured chat state: user messages, agent replies, tool calls,
+pending questions, the agent's task list, and session metadata. Replies, answers, and stops flow
+back over the same channel.
+
+The host also reports which view an agent primarily runs in (terminal vs. chat, such as
+Antigravity ACP chat, switching back to terminal while waiting for sign-in). Clients open on that
+default view, and a user's manual toggle sticks unless the agent explicitly signals a view change
+(for example, switching back to the terminal for sign-in).
+
+Chat never reads the terminal screen or synthesizes keystrokes, so terminal UI changes in an agent
+don't break it. Every event field is optional, and agents without chat hooks still work normally in
+the terminal view. Chat state is treated as terminal content and rides a sub-stream of the
+terminal's encrypted channel, syncing an initial snapshot followed by incremental updates.
 
 ## Canvas
 
-The host keeps the canvas of each terminal: the files that its agent showed, and its
-shared browser. The list travels with the terminal's state to each client, and to other
-devices on the terminal's encrypted channel. An app reads a file's content, and adds a
-file, over that same channel.
+The host manages each terminal's canvas: files shown by the agent plus its shared browser. The
+canvas manifest syncs with terminal state to local clients and over the encrypted terminal channel
+to remote devices. Reading and adding files travel over the same encrypted channel.
 
 ### Live documents
 
-[documents/](../documents/) is a separate system: its crates and views import nothing of
-Kodosi. One task on the host owns each open file. Each change goes through it in order,
-and what it takes goes on to every view, so there is no CRDT: a change that names a
-position is valid only on the latest state, and otherwise the view moves its edit and
-sends it again. A change that the file could not save goes back to its sender alone. The
-host takes each client's batch at most once and remembers that when the document closes
-and opens again, so a view drops a batch that was refused, or that the host may have taken
-already, and says so, rather than send it again. The host keeps a journal, saves the file
-in place and merges what another program writes.
+[documents/](../documents/) is an independent library with zero Kodosi imports. On the host, a
+single async task owns each open document and serializes edits in order, broadcasting accepted
+operations to every viewer. There is no CRDT: position-dependent edits only apply against the
+latest revision, and otherwise the client rebases and retries. Failed saves return an error only
+to the sender.
 
-The views are one static page in each app, in a closed web page with no way to the
-network. Their frames go through the app to the host, over the terminal's encrypted
-channel from another device. Agents use the same server with `kodosi doc`. The Tauri app
-in `documents/app/` is a second host of the same crates and a separate build.
+The host applies each client edit batch at most once and persists that record across close/reopen
+cycles. If a batch is rejected or its delivery is uncertain, the viewer drops it and notifies the
+user rather than risking double-application. The host maintains a journal, saves files in place,
+and merges external modifications made by other programs.
+
+Document UIs load as a single static page inside a locked-down webview with no network access.
+Messages route through the app to the host (over the encrypted terminal channel for remote devices).
+Agents edit live documents through the same server via `kodosi doc`. The Tauri app in
+`documents/app/` is an independent desktop wrapper around the same crates.
 
 ### Shared browser
 
-[browser/](../browser/) is a separate system too. The host runs one window of Kodosi
-Browser for each terminal: Chromium on a ready-built CEF that draws off screen and shows
-nothing on the computer. The host gets it from a signed feed and keeps it up to date. The
-host and the browser speak over a link with a version, and a host takes only a browser of
-its own version of that link.
+[browser/](../browser/) is also a standalone library. The host spawns one offscreen Kodosi Browser
+window (Chromium via prebuilt CEF) per terminal, with no visible native window on the host
+machine. The host downloads and updates the browser binary from a signed update feed. Host and
+browser communicate over a versioned local protocol, and a host only connects to an engine
+matching its exact protocol version.
 
-A device looks at the browser only while it is on its screen. The Mac app on the browser's
-own computer gets the page as the browser draws it: the browser puts each picture in a Core
-Animation layer, and the window server draws that layer into the app's window. For the
-other devices, the engine encodes the page as video while one looks, and one picture serves
-every device that looks. The host decides for each view which of the two it gets. The page
-takes the size of the device in use: the one that acted last, or another device of the same
-person once they open the browser there. It takes the pixels of the sharpest view, as far
-as the host's encoder takes them, and a page that stays still is coded again until it is
-sharp. While the page takes a new size, each device keeps its last picture until the page
-has drawn at that size, as Chromium first shows stand-ins for it. A device that falls
-behind misses frames rather than see an ever older page, and goes on at a key frame, or on
-a Mac host at a small frame that refers only to pictures that every device said it has. The
-frames, and the clicks and keys that come back, travel on the terminal's encrypted channel.
-The agent drives its window with agent-browser through a port that the host serves, where
-it sees only the tabs of its own terminal.
+Devices only subscribe to browser frames while the canvas browser is actually on screen. On macOS
+viewing a local terminal, the browser renders directly into a Core Animation layer composited into
+the app window by the window server. For remote devices and other platforms, the engine encodes a
+single shared video stream whenever at least one viewer is watching. The host selects direct
+compositing or video per viewer.
 
-A person's private terminals share one kept browser profile. A shared terminal has a
-profile of its own, which goes with the terminal.
+The viewport tracks the dimensions of the active viewing device (the one that last interacted, or
+another of the same user's devices once they open the browser there). Encoding targets the
+highest-DPI viewer's pixel density within encoder limits, and static pages progressively refine
+until sharp. During resizes, clients hold their previous frame until Chromium finishes painting at
+the new size, hiding Chromium's placeholder flashes. Slow clients drop stale frames and recover on
+the next keyframe (or on macOS hosts, a small delta frame referencing only frames acknowledged by
+all viewers).
 
-## Languages
+Encoded frames and pointer/keyboard input travel over the terminal's encrypted channel. The agent
+controls its window via `agent-browser` over a host-managed local port scoped strictly to that
+terminal's tabs. Private terminals share one persistent browser profile; shared terminals each get
+an isolated, ephemeral profile tied to the terminal's lifetime.
 
-Each part takes the words of the language that it shows. The apps keep their own words,
-and the runtime marks each sentence for people and gives it to an app as an English
-template with values, which the app's runtime fills in the app's language. The `kodosi`
-command, the host and the logs use English. The backend answers in English, and the
-runtime turns its known answers into such sentences. The sign-in pages, the account page
-and the e-mails are the Keycloak theme in [sign-in/](../sign-in/).
+## Localization
 
-## Contracts
+Each component localizes its own strings. Client apps bundle their own UI translations, while the
+runtime marks user-facing strings as English templates with named parameters that each client's
+local runtime fills in using the app's language. The `kodosi` CLI, local host internals, and logs
+stay in English. Backend error messages stay in English and are matched by the runtime against a
+known table of localized templates. Sign-in pages, the account page, and transactional emails live
+in the Keycloak theme under [sign-in/](../sign-in/).
 
-The runtime, the apps and the backend meet at the contracts in [protocol/](../protocol/)
-and the [C header](../clients/apple/Sources/KodosiKit/kodosi_runtime.h); change them
-together. The backend names the range of API and terminal protocol versions that it
-serves. An older app asks the person to update, and a newer one says that the server is
-behind.
+## Protocol contracts
+
+The runtime, client apps, and backend share schemas in [protocol/](../protocol/) and the generated
+[C header](../clients/apple/Sources/KodosiKit/kodosi_runtime.h); update them together. The backend
+advertises its supported API and terminal protocol version ranges. Outdated clients prompt the
+user to update, while clients newer than the server report that the server needs an upgrade.

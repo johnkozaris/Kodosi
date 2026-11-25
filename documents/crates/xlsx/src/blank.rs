@@ -39,7 +39,6 @@ const STYLES: &str = concat!(
     r#"</styleSheet>"#,
 );
 
-/// Quotes are as in RFC 4180.
 fn csv_line(line: &str) -> Vec<String> {
     let mut cells = vec![String::new()];
     let mut quoted = false;

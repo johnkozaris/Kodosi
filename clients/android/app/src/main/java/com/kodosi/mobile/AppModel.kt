@@ -265,10 +265,6 @@ class AppModel(
             }
     }
 
-    /**
-     * The answers and the parts of documents that the app dropped are lost, so the requests that
-     * wait for them end, each pipe starts again, and the runtime sends the whole state.
-     */
     private fun catchUp() {
         commands.abandonPending()
         canvas.renewPipes()
@@ -367,7 +363,6 @@ class AppModel(
         phase.value = Phase.Failed(message)
     }
 
-    /** Runs away from the main thread; the next start waits for it. */
     private fun stop() {
         commands.cancelPending()
         commands.transport = null

@@ -1,36 +1,33 @@
 # Kodosi for Android: design
 
-The app uses the visual system of the [Mac app](../macos/DESIGN.md), with native Android
-navigation:
+The Android app adapts the [macOS design system](../macos/DESIGN.md) to native Android navigation
+and ergonomics:
 
-- The colors are the Mac palette, light or dark as the system or the app's setting
-  chooses, from edge to edge under the system bars. Do not use wallpaper colors.
-  Material surfaces take every Kodosi color and text role, with no tonal tint.
-  System-bar icons follow the app's appearance,
-  even when it differs from the system. Keep Android's navigation contrast treatment.
-- Text is the system font at the sizes of the [iPhone app](../ios/DESIGN.md), in scaled
-  pixels, so it follows the font size that the person picks. Touch targets are at least
-  48 dp.
-- Use the shared Kodosi controls on every screen. Cards have the Mac's raised surface,
-  buttons its solid bezel and pressed face, and fields sink into wells with a copper
-  focus ring. Regular keys and fields use the iPhone's 13-point radius in dp, not a
-  Material capsule. People are circles; project marks and agent marks keep their
-  colors and shapes across clients.
-- The terminal is in a rounded tile in the light or dark look of its computer, whatever
-  the app's appearance, in JetBrains Mono at 12 dp on phones and 14 dp on tablets,
-  adjusted by its own text-size setting rather than the system font size. The keys above
-  the keyboard are small raised caps in the same look. The chat of a terminal keeps the
-  app's appearance.
-- Four tabs (Terminals, Projects, Dosi and Settings) keep their own stacks. Friends opens
-  from Settings, and its requests count there. The navigation rests on ground, with
-  copper symbols and words for selection, without a filled Material pill.
-  Projects hide the bottom navigation on compact windows. It becomes a rail on wide windows;
-  projects put the conversation beside the selected work on wide screens. Navigation3
-  supplies the back stack and predictive back. Motion follows the system animation
-  setting. A sign that loops stands still in art and while Android saves power. Section
-  docks have a well and a raised thumb, with only the chosen section's name. Composers
-  lift while focused and keep their send key within the field.
-- Sign-in, file picking and saving, notification settings and device authentication
-  use Android's own surfaces. Error states keep their explanation and recovery action
-  on the screen that needs them.
-- Show no controls for actions that only a computer can do.
+- Colors match the macOS light and dark palettes edge to edge behind system bars (dynamic
+  wallpaper colors are not used). Material surfaces adopt Kodosi color and text roles without
+  tonal elevation tinting. System-bar icon contrast follows the app's active theme even when it
+  differs from the OS theme, while preserving Android's navigation bar contrast handling.
+- UI text uses the system font at the [iOS type scale](../ios/DESIGN.md) in `sp` so it honors
+  user font scaling. Touch targets are at least 48 dp.
+- Screens use shared Kodosi components throughout: raised cards, solid-bezel buttons with pressed
+  states, and recessed fields with copper focus rings. Standard buttons and fields use a 13 dp
+  corner radius (matching iOS) instead of Material capsules. User avatars are circles, and project
+  and agent icons match across all platforms.
+- Terminals sit inside a rounded tile matching their host computer's light or dark theme
+  regardless of the app's theme, using JetBrains Mono at 12 dp on phones and 14 dp on tablets
+  (scaled by the terminal font setting rather than system font scale). Accessory keys above the
+  keyboard render as small raised caps in the terminal's theme. Terminal chat follows the app's
+  theme.
+- Four top-level tabs (**Terminals**, **Projects**, **Dosi**, and **Settings**) maintain
+  independent back stacks via Navigation3 with predictive back. **Friends** lives under Settings
+  with a pending-request count. Navigation sits on the base ground with copper active icons and
+  labels (no Material pill indicator). Compact layouts hide bottom navigation inside project
+  detail; wide layouts switch to a navigation rail and place project chat alongside tasks,
+  repositories, or terminals.
+- Animations follow the system animator scale, and looping indicators stay still inside decorative
+  illustrations and in battery-saver mode. Section selectors use a recessed track with a sliding
+  raised thumb showing only the active label. Message composers lift on focus and keep their send
+  button inside the field.
+- Sign-in, file picking/saving, notification preferences, and biometric prompts delegate to native
+  Android system UI. Error states show their explanation and recovery action inline.
+- Desktop-only controls are omitted.

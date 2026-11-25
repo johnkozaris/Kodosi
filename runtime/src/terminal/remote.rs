@@ -86,8 +86,7 @@ struct QueuedControl {
     control: TerminalControl,
     reply: Option<oneshot::Sender<Result<Value>>>,
     budget: Option<OwnedSemaphorePermit>,
-    /// A focus that its view gives back after the view's connection came back, which claims no
-    /// size.
+    /// True when restoring prior focus after a reconnect; does not claim resize ownership.
     returning: bool,
 }
 
@@ -549,8 +548,8 @@ struct RemoteActor {
     resize_owner: Option<(Uuid, CancellationToken)>,
     requested: HashMap<Uuid, RequestedResize>,
     claiming: Option<Uuid>,
-    /// An app gives up a view's focus while the terminal reconnects and gives it again after, with
-    /// no act of a person.
+    /// Views that blurred on disconnect and will re-focus automatically on reconnect without user
+    /// action.
     returning: HashSet<Uuid>,
     typed_at: Option<tokio::time::Instant>,
     lost_at: Option<tokio::time::Instant>,
@@ -1021,8 +1020,8 @@ impl RemoteActor {
         self.tell_route();
     }
 
-    /// A change that does not fit the queue goes once the runtime has room for it, so the runtime
-    /// never keeps a stall that ended or a path that changed.
+    /// Only advances `told_route` if `try_send` succeeds; otherwise `unsent()` retries once the
+    /// runtime channel has capacity so stall/path changes are never lost.
     fn tell_route(&mut self) {
         let route = self.route();
         if route != self.told_route && self.changes.try_send(self.route_change()).is_ok() {
@@ -1343,9 +1342,8 @@ impl RemoteActor {
         });
     }
 
-    /// A command ends when it has its answer, and its connection closes with it. So a command
-    /// hears about its input once the terminal has it, while the input of a view, which stays
-    /// open, goes on at once.
+    /// Waits for host delivery confirmation before replying to one-shot commands (whose connection
+    /// closes as soon as they get a reply); interactive views stay open and continue immediately.
     fn deliver(&self, replies: Vec<oneshot::Sender<Result<Value>>>) {
         let delivered = self.controls.delivered();
         self.carrying.push(tokio::spawn(async move {
@@ -1456,8 +1454,8 @@ impl RemoteActor {
         {
             self.capture_requested = false;
         }
-        // A busy terminal answers with a screen that is already old, so it is not asked again at
-        // once.
+        // Rate-limit capture retries so a heavily producing terminal does not loop on stale
+        // snapshots.
         if now < self.capture_asked + LOOK_AGAIN {
             return Ok(());
         }
@@ -1543,7 +1541,7 @@ impl RemoteActor {
         }
     }
 
-    /// A progress that does not fit the queue waits for the next one.
+    /// Best-effort progress update; drops if the channel is full since newer progress will follow.
     fn picture_progress(&self, sent: u64, total: u64) {
         if self
             .sending
@@ -1637,8 +1635,8 @@ impl RemoteActor {
             self.next_control();
             self.next_picture().await;
         }
-        // A view reads its queue on another thread. One that reads up after this look gets a
-        // deadline from `due` or ends `read_up` at once.
+        // Subscribers drain their queues concurrently; if one catches up after `awaits_reading()`,
+        // either `due()` wakes us or `subscribers.read_up()` resolves immediately.
         let (reading, unsent) = (self.awaits_reading(), self.unsent());
         let due = self.due();
         if let Some(at) = due

@@ -1,11 +1,10 @@
-//! Antigravity CLI's link: the messages of its server for programs (ACP) as changes of the chat.
+//! Chat adapter for Antigravity CLI over the Agent Client Protocol (ACP).
 //!
-//! Antigravity CLI has no add-on interface that its terminal app reports through, so its chat
-//! has a session of its own: `kodosi acp` runs the person's own `agy acp` in the terminal, and the
-//! link carries each message of that server as it is. This adapter makes the calls of the
-//! session, and a person's answer goes back as the decision that the agent takes. A field can be
-//! absent or of another type after an update of the agent, so a message gives what it has and
-//! never stops the chat.
+//! Antigravity CLI has no extension interface for its terminal app to report through, so its chat
+//! runs a session of its own: `kodosi acp` runs `agy acp` in the terminal and forwards raw ACP
+//! messages here; this adapter drives the session lifecycle and translates updates and permission
+//! responses. Field parsing is lenient so schema changes across agent updates degrade gracefully
+//! instead of breaking chat.
 
 use std::collections::{HashMap, VecDeque};
 
@@ -24,13 +23,12 @@ use super::{
 };
 use crate::terminal::TerminalFace;
 
-/// The JSON-RPC code of the agent's "Authentication required".
+/// ACP JSON-RPC error code for "Authentication required".
 const SIGNED_OUT: i64 = -32000;
-/// The agent's tool that asks the person. The agent writes the question and ends its turn, and
-/// the person's next message is the answer.
+/// Tool name for agent questions, which end the turn and expect the user's next message as the
+/// answer rather than a JSON-RPC reply.
 const ASK_QUESTION: &str = "ask_question";
-/// What Kodosi's chat calls on the terminal's side itself: the agent's own sign-in, and the
-/// state of an agent that asked the person a question in its answer and waits for the next message.
+/// Synthetic commands handled by `acp.rs` rather than forwarded to the ACP server.
 pub(super) const SIGN_IN: &str = "kodosi/signIn";
 pub(super) const ASKING: &str = "kodosi/asking";
 
@@ -39,53 +37,40 @@ pub(super) struct Antigravity {
     linked: bool,
     offers: Offers,
     folder: String,
-    /// The choices of the terminal's line, for the session that starts.
     start: Value,
     session: Option<String>,
-    /// The session is starting, and it may give its history first.
     starting: bool,
     turn: Option<Turn>,
-    /// The chat's item of each tool call of the agent.
     items: HashMap<String, String>,
-    /// The chat's item of the answer that the agent writes now.
     writing: Option<String>,
-    /// The chat's item of a message of the person that the agent gives back with its history.
     told: Option<String>,
     asked: HashMap<String, Asked>,
     calls: VecDeque<Value>,
     sent: u64,
-    /// What a person wrote to refuse a question. The agent gets it as the next message.
+    /// Follow-up text from a question answer or denial reason, sent as the next prompt.
     said: Option<(String, Option<ChatPerson>)>,
-    /// The session's options, such as its model and thinking level, as the agent gave them last.
     options: Vec<Value>,
-    /// The modes and the models that the session offers.
     modes: Vec<String>,
     models: Vec<String>,
-    /// The first question of the agent's own question that is open, which the agent also writes
-    /// as its answer.
+    /// First prompt of an open `ask_question` call, used to suppress the duplicate text the agent
+    /// echoes in `agent_message_chunk`.
     questioned: Option<String>,
     now: Option<ChatNow>,
 }
 
-/// What the agent's server does, as it said when it started and as the terminal's line chose.
 #[derive(Default, Clone, Copy)]
 struct Offers {
-    /// The server gives the history of a session that it loads.
     loads: bool,
-    /// The agent asks for no permission, as the line chose.
     unrestricted: bool,
 }
 
 struct Turn {
-    /// When the person's message went to the agent.
     at: u64,
     stopped: bool,
-    /// The message that starts the turn, until the chat shows it.
     handed: Option<Handed>,
 }
 
 struct Handed {
-    /// The message of the queue, or nothing for the words of a refusal.
     queued: Option<String>,
     text: String,
     by: Option<ChatPerson>,
@@ -93,9 +78,7 @@ struct Handed {
 
 struct Asked {
     item: String,
-    /// The answers that the agent offers before a call, each with its name and kind.
     options: Vec<Value>,
-    /// The questions of the agent's own question, which the person's next message answers.
     questions: Vec<String>,
 }
 
@@ -112,8 +95,6 @@ impl Antigravity {
         self.calls.push_back(call);
     }
 
-    /// The parameters that each start of a session carries: the folder, and no servers of tools
-    /// of Kodosi. The session gets no note of Kodosi, as in the agent's terminal app.
     fn session_params(&self, mut params: Value) -> Value {
         params["cwd"] = json!(self.folder);
         params["mcpServers"] = json!([]);
@@ -184,7 +165,8 @@ impl Antigravity {
             ("prompt", result) => self.end_turn(chat, result, event, at),
             ("mode" | "option", Some(result)) => {
                 self.took(chat, result);
-                // The thinking levels that the session offers follow its model.
+                // Available effort levels depend on the selected model, so apply effort only after
+                // the model change returns updated config options.
                 if name == "model" {
                     self.choose_effort();
                 }
@@ -194,8 +176,6 @@ impl Antigravity {
         }
     }
 
-    /// The session did not start. A session that is gone starts new; an agent that is signed out
-    /// asks the terminal for its sign-in, and the server starts again after it.
     fn not_started(&mut self, chat: &mut Chat, name: &str, event: &Value, at: u64) {
         self.starting = false;
         if event.pointer("/e/code").and_then(Value::as_i64) == Some(SIGNED_OUT) {
@@ -221,10 +201,9 @@ impl Antigravity {
         self.session = None;
     }
 
-    /// The mode, the model and the thinking level that the terminal's line chose, where the
-    /// session has another and offers them. A mode that the agent does not offer to this account,
-    /// such as its auto mode, leaves the session in its own mode, as the agent's terminal app does.
-    /// The thinking level waits for the session's answer to the model.
+    /// Applies CLI startup choices (`mode`, `model`, `effort`) that differ from the session's
+    /// current values and are offered by this account. Unavailable modes (such as `auto`) are
+    /// ignored rather than failing startup.
     fn choose(&mut self, result: &Value) {
         let Some(session) = self.session.clone() else {
             return;
@@ -285,7 +264,6 @@ impl Antigravity {
             .cloned()
     }
 
-    /// What an answer of the session tells of its modes, its models and its options.
     fn took(&mut self, chat: &mut Chat, result: &Value) {
         if let Some(modes) = result.pointer("/modes/availableModes") {
             self.modes = list_of(modes, "id");
@@ -332,7 +310,7 @@ impl Antigravity {
         chat.change_facts(|facts| facts.mode = mode.or(facts.mode));
     }
 
-    /// The agent took the message that the chat sent, so the chat shows it.
+    /// Commits a prompt sent in `commands()` to the chat once the server responds.
     fn begin(&mut self, chat: &mut Chat, at: u64) {
         let Some(handed) = self.turn.as_mut().and_then(|turn| turn.handed.take()) else {
             return;
@@ -345,7 +323,6 @@ impl Antigravity {
         chat.push(at, person(&handed.text, handed.by));
     }
 
-    /// Stops the turn that runs: the agent ends its open calls and its requests.
     fn cancel(&mut self) -> Option<Value> {
         let session = self.session.clone()?;
         self.turn.as_mut()?.stopped = true;
@@ -402,8 +379,8 @@ impl Antigravity {
         Vec::new()
     }
 
-    /// A message of the person that the agent gives back, as it does with the history of a
-    /// session that it loads. The chat has its own record of what it sent.
+    /// Appends `user_message_chunk` history during session load. Ignored during an active turn
+    /// because `begin()` already recorded the outgoing user message.
     fn told(&mut self, chat: &mut Chat, update: &Value, at: u64) {
         if self.turn.is_some() {
             return;
@@ -443,7 +420,6 @@ impl Antigravity {
         }
     }
 
-    /// The answer that the agent wrote is whole once a step or the end of its turn follows it.
     fn finish_writing(&mut self, chat: &mut Chat) {
         if let Some(item) = self.writing.take()
             && let Some(ChatBody::Text { text, .. }) = chat.body(&item).cloned()
@@ -452,7 +428,6 @@ impl Antigravity {
         }
     }
 
-    /// A tool call of the agent, new or with news. The agent sends each field only when it is new.
     fn tool(&mut self, chat: &mut Chat, update: &Value, at: u64) -> Option<()> {
         let id = words(update, "toolCallId")?;
         self.told = None;
@@ -469,7 +444,7 @@ impl Antigravity {
                 tool.state = ToolState::Asking;
             }
         });
-        // The agent gives news of its question again when it takes the answer.
+        // Skip re-opening the ask when the agent sends a follow-up update after it was answered.
         if text(update, "name") == ASK_QUESTION
             && self.turn.is_some()
             && chat
@@ -484,7 +459,6 @@ impl Antigravity {
         Some(())
     }
 
-    /// The chat's item of a tool call, which the agent's first news of the call makes.
     fn item_of(&mut self, chat: &mut Chat, id: &str, update: &Value, at: u64) -> String {
         if let Some(item) = self.items.get(id) {
             return item.clone();
@@ -499,7 +473,6 @@ impl Antigravity {
         item
     }
 
-    /// The agent asks before a call.
     fn request(&mut self, chat: &mut Chat, event: &Value) {
         let params = event.get("p").unwrap_or(&Value::Null);
         let Some(ask) = event.get("id").and_then(ask_name) else {
@@ -551,8 +524,6 @@ impl Antigravity {
         );
     }
 
-    /// The agent's own question, with the answers that it offers. The chat sends the chosen
-    /// answers as the next message, and the terminal shows that the agent waits for a person.
     fn question(&mut self, chat: &mut Chat, id: &str, item: &str, update: &Value) {
         let ask = question_of(id);
         if self.asked.contains_key(&ask) {
@@ -612,7 +583,6 @@ impl Antigravity {
         );
     }
 
-    /// The person's message answers the agent's own questions that are open.
     fn answer_questions(&mut self, chat: &mut Chat, words: &str) {
         let open = self
             .asked
@@ -662,7 +632,7 @@ impl Antigravity {
             .filter(|item| !asking.contains(item))
         {
             chat.change_tool(&item, |tool| {
-                // The agent lets a command that runs go on after its turn, and wakes when it ends.
+                // Commands still running when a turn finishes normally continue in the background.
                 if let (ToolState::Running, Some(ToolDetail::Command { background, .. })) =
                     (tool.state, &mut tool.detail)
                     && end != TurnEnd::Stopped
@@ -685,8 +655,6 @@ impl Antigravity {
         chat.close_asks(|ask| !open.contains(&ask.id));
     }
 
-    /// A line typed into the terminal. The agent's own commands that change the session go to
-    /// the session, and the rest is a message for the agent.
     fn typed(&mut self, chat: &mut Chat, event: &Value) {
         let line = text(event, "text").trim();
         if line.is_empty() {
@@ -785,8 +753,6 @@ impl Agent for Antigravity {
             .is_some_and(|handed| handed.queued.as_deref() == Some(queued))
     }
 
-    /// The agent offers its own answers: allow once, allow always and deny. A refusal with words
-    /// denies, and the words are the next message, as the agent asks the person in its own terminal.
     fn decision(
         &mut self,
         ask: &str,
@@ -814,6 +780,7 @@ impl Agent for Antigravity {
             ChatAnswer::Allow => chosen("allow_once")?,
             ChatAnswer::Always => chosen("allow_always")?,
             ChatAnswer::Deny { text } => {
+                // ACP rejection carries no reason field, so send refusal text as the next prompt.
                 self.said = text
                     .as_deref()
                     .map(str::trim)
@@ -868,11 +835,10 @@ impl Agent for Antigravity {
         true
     }
 
-    /// The calls of the adapter, then the next message when the agent can start it: the session
-    /// began, no turn runs and no request of the agent waits. The agent's own question waits for
-    /// that message.
     fn commands(&mut self, chat: &Chat) -> Vec<Value> {
         let mut commands = self.calls.drain(..).collect::<Vec<_>>();
+        // Permission requests block the next prompt, whereas open `ask_question` asks are
+        // answered by sending the next prompt.
         let waits = chat.asks().iter().any(|ask| {
             self.asked
                 .get(&ask.id)
@@ -911,8 +877,8 @@ impl Agent for Antigravity {
         commands
     }
 
-    /// A stop cancels the turn, and each open request of the turn gets "cancelled", as the
-    /// protocol asks of a program that cancels.
+    /// Cancels the turn and replies `"cancelled"` to any open permission requests, as required by
+    /// ACP.
     fn stop(&mut self, chat: &Chat) -> Stop {
         let Some(command) = self.cancel() else {
             return Stop::Nothing;
@@ -930,7 +896,6 @@ impl Agent for Antigravity {
     }
 }
 
-/// The agent could not do what the chat asked, in the agent's words.
 fn failed(chat: &mut Chat, event: &Value, at: u64) {
     let error = event
         .pointer("/e/message")
@@ -955,12 +920,10 @@ fn has_answers(tool: &ChatTool) -> bool {
     matches!(&tool.detail, Some(ToolDetail::Question { answers, .. }) if !answers.is_empty())
 }
 
-/// The name of the chat's question for the agent's own question in a call.
 fn question_of(call: &str) -> String {
     format!("q{call}")
 }
 
-/// The texts of a list: the field `key` of each entry, or each entry itself for no key.
 fn list_of(entries: &Value, key: &str) -> Vec<String> {
     entries
         .as_array()
@@ -979,7 +942,6 @@ fn list_of(entries: &Value, key: &str) -> Vec<String> {
         .collect()
 }
 
-/// The option of the session offers this value, also in a group of its values.
 fn offers(option: &Value, value: &str) -> bool {
     list(option, "options")
         .flat_map(|entry| {
@@ -992,8 +954,6 @@ fn offers(option: &Value, value: &str) -> bool {
         .any(|entry| text(entry, "value") == value)
 }
 
-/// The message that answers the agent's own question: the chosen answers of one question, or a
-/// line for each question that has answers.
 fn answers_words(questions: &[String], answers: &[Vec<String>]) -> Option<String> {
     if let ([_], [chosen]) = (questions, answers) {
         return Some(chosen.join(", ")).filter(|words| !words.is_empty());
@@ -1007,7 +967,7 @@ fn answers_words(questions: &[String], answers: &[Vec<String>]) -> Option<String
     (!lines.is_empty()).then(|| lines.join("\n"))
 }
 
-/// What a command printed, without the times and the exit code that the agent writes above it.
+/// Strips the metadata header (timing and exit code) Antigravity prepends to command output.
 fn command_output(printed: &str) -> String {
     let printed = printed
         .split_once("\nCommand output:\n")
@@ -1015,13 +975,11 @@ fn command_output(printed: &str) -> String {
     printed.replace("\r\n", "\n").trim_end().to_owned()
 }
 
-/// The text of a message's content, which can come in pieces.
 fn content_text(update: &Value) -> Option<&str> {
     let content = update.get("content")?;
     (text(content, "type") == "text").then(|| text(content, "text"))
 }
 
-/// A new tool call as the chat shows it, before its news.
 fn described(update: &Value) -> ChatTool {
     let kind = match text(update, "kind") {
         "read" => ToolKind::Read,
@@ -1045,9 +1003,9 @@ fn described(update: &Value) -> ChatTool {
     }
 }
 
-/// The fields that a tool call's news gives: its state, its subject and what it did. A refused
-/// call stays refused when the agent then calls it failed, and a command that exits with an error
-/// failed although the agent completed the call.
+/// Applies incremental `tool_call_update` fields (ACP only sends changed fields). Preserves
+/// `Denied` when the agent follows up with `"failed"`, and marks non-zero exit codes as `Failed`
+/// even when the tool call status is `"completed"`.
 fn news(tool: &mut ChatTool, update: &Value, places: &Places) {
     let input = update.get("rawInput").unwrap_or(&Value::Null);
     let output = update.get("rawOutput").unwrap_or(&Value::Null);
@@ -1124,8 +1082,6 @@ fn news(tool: &mut ChatTool, update: &Value, places: &Places) {
     }
 }
 
-/// The name of the question that a request of the server makes, which the terminal's side
-/// gives too.
 pub(super) fn ask_name(request: &Value) -> Option<String> {
     match request {
         Value::Number(number) => Some(format!("r{number}")),

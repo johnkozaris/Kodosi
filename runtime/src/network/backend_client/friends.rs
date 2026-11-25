@@ -238,8 +238,8 @@ impl BackendClient {
         }
     }
 
-    /// A relist counts only while this device is the only device of the account, as no other
-    /// device can have verified a friend since.
+    /// A pending relist is only valid while this is the sole non-recovery device on the account,
+    /// guaranteeing no other device has verified friends in the meantime.
     async fn relist_pending(&self, credentials: &Credentials) -> Result<bool> {
         if std::fs::read(self.relist_marker()).ok() != Some(relist_mark(credentials)) {
             return Ok(false);

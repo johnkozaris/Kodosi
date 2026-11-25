@@ -36,8 +36,8 @@ pub(super) struct Part<'a> {
     pub(super) page: bool,
 }
 
-/// A file grows beside its final place and takes a free name when it is whole, so an agent never
-/// sees a part of it.
+/// Writes incoming uploads to a hidden `.part` file and renames on completion so agents never see
+/// partially written files.
 #[derive(Default)]
 pub(super) struct Uploads {
     open: HashMap<Uuid, Upload>,
@@ -151,7 +151,8 @@ impl Uploads {
     }
 }
 
-/// A new empty file claims the name, so two people who add one name at once keep both files.
+/// Claims an unused filename with `create_new` before renaming so concurrent uploads with the same
+/// name do not overwrite each other.
 async fn place(part: &Path, folder: &Path, name: &str) -> std::io::Result<PathBuf> {
     for number in 1..=MOST_NUMBER {
         let path = folder.join(numbered(name, number));

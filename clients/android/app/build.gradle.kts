@@ -173,7 +173,6 @@ android {
     }
 }
 
-/** Puts the notices of the code, the font and the artwork in the app into its assets. */
 abstract class CollectNotices @Inject constructor(private val files: FileSystemOperations) : DefaultTask() {
     @get:InputDirectory
     @get:PathSensitive(PathSensitivity.RELATIVE)
@@ -462,7 +461,7 @@ dependencies {
     }
 }
 
-// Given globs, ktlint walks their common folder, build output included, while other tasks write there.
+// Globs make ktlint walk their common parent directory, including build output that other tasks write concurrently.
 val ktlintSources = files(
     fileTree("src") { include("**/*.kt") },
     "build.gradle.kts",

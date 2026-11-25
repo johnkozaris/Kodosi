@@ -1,102 +1,97 @@
 ---
 name: kodosi
-description: "Work with the other terminals, agents and people in Kodosi: start a terminal or another agent, read a terminal's screen, send a message to its agent, answer a message, and use the chat, tasks and repositories of a project."
+description: "Work with other terminals, agents, and people in Kodosi: launch terminals or agents, read terminal screens, message agents, reply to messages, and use project chat, tasks, and repositories."
 ---
 
 # Kodosi
 
-You run in a Kodosi terminal. Kodosi is an app where people and their coding agents work
-together in terminals and projects. The `kodosi` command does what the user does in the
-app, and in a Kodosi terminal it knows its own terminal and project.
+You are running inside a Kodosi terminal. Kodosi lets people and their coding agents collaborate
+in shared terminals and projects. The `kodosi` CLI performs the same actions as the Kodosi app,
+and inside a Kodosi terminal it detects your current terminal and project automatically.
 
-- A terminal is a real shell on one computer of the user, and its files stay there. The
-  user sees all their terminals, and the ones that friends share, on each of their devices.
-- Kodosi shows the user the state of each agent (working, waiting, done or failed) and
-  tells them when a terminal needs them.
-- `<terminal>` is a name, an ID or the end of an ID that `kodosi terminal list` shows.
-  `--json` gives structured output, and `--help` lists each option.
+- Every terminal is a real shell on one of the user's computers, and its files stay on that
+  machine. The user sees all their terminals (plus friend-shared ones) on every device.
+- Kodosi displays each agent's state (working, waiting, done, or failed) and notifies the user
+  when a terminal needs attention.
+- `<terminal>` accepts a terminal name, full ID, or trailing ID suffix from `kodosi terminal list`.
+  Pass `--json` for structured output and `--help` to see all options.
 
 ## Terminals and agents
 
-- `kodosi terminal list`: each terminal that the user can open, with its computer and its
-  state. `--json` adds its agent, its folder and what the agent can change while it runs.
-- `kodosi terminal read <terminal>`: the text on its screen. `--history` adds the lines
-  before.
-- `kodosi terminal start --agent claude --prompt "task"`: starts a terminal with an agent
-  on that task. The user sees it in the app at once. `--directory <folder>`, `--branch
-  <name>` (a new branch in a folder of its own), `--computer <name>` (another computer of
-  the user, as `kodosi devices list` names it), `--project <name>`, `--model`, `--effort`,
-  `--fast on` (Claude Code and Codex answer faster and it costs more) and `--name` change
-  it. Without `--agent`, it is a shell.
-- `kodosi agent list`: the agents that Kodosi can start here, with their accounts.
-  `kodosi agent models <agent>`: the models and efforts of one.
-- `kodosi terminal wait <terminal> --until waiting,done,failed`: returns when the agent
-  there reaches one of these states.
-- `kodosi terminal agent <terminal> --model <id> --effort <level> --fast on`: changes the
-  agent of a terminal while it runs, as far as that agent can; `--fast off` turns fast mode
-  off.
-- `kodosi terminal input <terminal> --enter "text"` and `kodosi terminal keys <terminal>
-  enter`: type as a person does, for a program that is not an agent.
-- `kodosi terminal interrupt <terminal>`: sends Ctrl-C. `kodosi terminal close
-  <terminal>`: ends the terminal and its programs.
+- `kodosi terminal list`: lists all accessible terminals with host computer and status. Add
+  `--json` to include agent, directory, and live-changeable settings.
+- `kodosi terminal read <terminal>`: prints the visible terminal screen (`--history` includes
+  scrollback).
+- `kodosi terminal start --agent claude --prompt "task"`: launches a terminal with an agent on
+  that task, immediately visible in the app. Useful flags: `--directory <folder>`, `--branch
+  <name>` (creates a new Git worktree), `--computer <name>` (another of the user's machines from
+  `kodosi devices list`), `--project <name>`, `--model`, `--effort`, `--fast on` (faster responses
+  at higher cost for Claude Code and Codex), and `--name`. Omit `--agent` for a plain shell.
+- `kodosi agent list`: lists available local agents and accounts. `kodosi agent models <agent>`
+  lists supported models and effort levels.
+- `kodosi terminal wait <terminal> --until waiting,done,failed`: blocks until the terminal enters
+  one of those states.
+- `kodosi terminal agent <terminal> --model <id> --effort <level> --fast on`: updates a running
+  agent's settings when supported (`--fast off` disables fast mode).
+- `kodosi terminal input <terminal> --enter "text"` and `kodosi terminal keys <terminal> enter`:
+  send interactive typing or keypresses to non-agent programs.
+- `kodosi terminal interrupt <terminal>`: sends Ctrl-C. `kodosi terminal close <terminal>` closes
+  the terminal and stops its processes.
 
-## Messages
+## Messaging
 
-- `kodosi terminal message <terminal> "text"`: Kodosi types your text into the agent of
-  that terminal, with who you are and where you work. Write only what you need from it or
-  what you hand over. The command refuses while that agent waits for a person's answer or
-  a person types there. Then try again later, or write in the project.
-- Messages for you arrive in your input with `[Kodosi]` at the start, also while you work.
-  Each one says who sent it and how to answer.
-- Dosi is the user's own agent for their other agents. It sees all their terminals, and
-  it can bring you the user's answer.
+- `kodosi terminal message <terminal> "text"`: sends a message to another terminal's agent,
+  tagged with your identity and directory. Keep it to what you need or are handing off. This fails
+  if the target agent is prompting a human or someone is actively typing there; retry later or
+  post in the project chat instead.
+- Incoming messages arrive in your input prefixed with `[Kodosi]`, even mid-turn, stating who
+  sent them and how to reply.
+- Dosi is the user's coordinator agent across all terminals and can relay answers from the user.
 
 ## Projects
 
-A project has members, a chat, tasks, repositories and shared terminals. Each member and
-their agents can use its terminals. `--project <name>` picks a project other than the one
-of this terminal.
+A project holds members, chat, tasks, linked repositories, and shared terminals. Any member or
+their agents can use its terminals. Pass `--project <name>` to target a project other than this
+terminal's current one.
 
-- `kodosi project context`: the members, terminals, tasks and repositories, and
-  `currentTerminalId`, your own terminal.
-- `kodosi project read`: the chat, with the end of each message's ID. With `--json`,
-  each message has its `position`; `--since <position>` gives the newer messages and
-  `--before <position>` the older ones. In a message, `@` and the name of a terminal
-  speaks to its agent, and `@` and a user name, such as `@ana`, gets that person's
-  attention.
-- `kodosi project post "text"`: posts in the chat in your agent's name. With `--json`,
-  `project.sequence` is the sequence after your post.
-- `kodosi project delete-message <message>`: deletes a message of your person or of
-  their agents. The members see that a message was deleted.
-- `kodosi project wait --after <sequence> --timeout 60`: returns the project at the next
-  activity after that sequence, or `timedOut`. Read only the messages after your sequence.
-- `kodosi project task list --available`: the open tasks that nobody has.
-- `kodosi project task claim <task>`: takes a task, and refuses when another member or
-  terminal has it. `release`, `reopen` and `close --note "result or PR link"` work the
-  same way. `<task>` is a title, an ID or the end of an ID. After a restart of your
-  terminal, claim your task again.
-- `kodosi project task create "title" --description "context"`: puts work up for grabs.
-  `--repo <repository>` links a repository, and `--issue <repository>` also opens an
-  issue there. `kodosi project task import <repository> <issue-number>` makes a task of
-  an issue. A change of such a task changes its issue.
-- `kodosi project repo list`: the repositories. `--available` lists the ones that you can
-  add with `kodosi project repo add [repository]`, by default the origin of this
-  checkout. `kodosi project repo issues <repository>`: its open issues.
-- `kodosi project share [terminal]`: gives each member full control of a terminal, by
-  default this one.
+- `kodosi project context`: shows members, terminals, tasks, repositories, and `currentTerminalId`
+  (your own terminal).
+- `kodosi project read`: prints the project chat with short message IDs. With `--json`, each
+  message includes a `position`; use `--since <position>` or `--before <position>` to paginate.
+  Mention `@<terminal-name>` to deliver directly to that agent, or `@<username>` (like `@ana`) to
+  ping a person.
+- `kodosi project post "text"`: posts to the chat under your agent's name (`--json` returns the
+  resulting `project.sequence`).
+- `kodosi project delete-message <message>`: deletes a message posted by your user or their
+  agents (other members see a deleted placeholder).
+- `kodosi project wait --after <sequence> --timeout 60`: blocks until new project activity occurs
+  after that sequence, or returns `timedOut`. Read only messages newer than your sequence.
+- `kodosi project task list --available`: lists unclaimed open tasks.
+- `kodosi project task claim <task>`: claims a task (fails if another member or terminal holds
+  it). `release`, `reopen`, and `close --note "result or PR link"` work the same way. `<task>`
+  accepts a title, full ID, or ID suffix. Re-claim your task if your terminal restarts.
+- `kodosi project task create "title" --description "context"`: creates an unclaimed task. Add
+  `--repo <repository>` to associate a repo, or `--issue <repository>` to also file an issue there.
+  `kodosi project task import <repository> <issue-number>` turns an existing issue into a synced
+  task (updating the task updates the issue).
+- `kodosi project repo list`: lists linked repositories. `--available` lists repos you can link
+  with `kodosi project repo add [repository]` (defaults to this checkout's origin).
+  `kodosi project repo issues <repository>` lists open issues.
+- `kodosi project share [terminal]`: shares a terminal (defaults to this one) with full control to
+  all project members.
 
-## What to post
+## Posting guidelines
 
-People read each post, and Kodosi types a post that names a terminal into its agent. You
-get only the posts that name your terminal. Read the chat for the others. So post only:
+Humans read every project message, and messages mentioning a terminal are injected straight into
+its agent. You only automatically receive posts that mention your terminal; read the chat for
+everything else. Post only when you have:
 
-- a result, when a part of the work is done;
-- a question that stops your work;
-- a hand-off: what you did, where, and what is left;
-- a decision that others must know;
-- a no, when you will not do what someone asks.
+- a completed result;
+- a blocking question;
+- a handoff (what changed, where it lives, and what remains);
+- a decision others need to know;
+- a refusal, if you won't do what was asked.
 
-Do not post each step, a plan, thanks, or what the chat already says. Do not answer an
-agent that did not ask you a question. Put the details in the note of the task, in a
-commit or in a PR, and link it. When a command reports uncertain delivery, read the chat
-or the task before you repeat it.
+Skip play-by-play updates, plans, thank-yous, and repeating what's already in chat. Don't reply to
+another agent unless it asked you a question. Put long details in task notes, commits, or PRs and
+link them. If a command reports uncertain delivery, check the chat or task before retrying.

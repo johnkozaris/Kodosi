@@ -51,13 +51,13 @@ export type Change =
   | { kind: "group"; changes: Change[] };
 
 /**
- * Fits the changes that wait, in their order, to the deck as the document holds it, as the
- * document would take them: an add of what the deck holds went in already, and a change of what
- * is gone would be refused, with every change in its batch.
+ * Reconciles queued edits in order against a reloaded deck snapshot: drops additions that already
+ * exist and drops edits to removed slides or shapes, which would otherwise cause the document to
+ * refuse the entire batch.
  */
 export class Fitting {
   private readonly held: Map<string, Set<string>>;
-  /** Whether an edit went because what it changes is gone. */
+  /** True if any edit was dropped because its target slide or shape no longer exists. */
   lost = false;
 
   constructor(slides: readonly Slide[]) {
@@ -100,7 +100,6 @@ export class Fitting {
   }
 }
 
-/** Whether a change touches a slide, or only a shape of it. */
 export function touches(change: Change, slide: string, shape?: string): boolean {
   if (change.kind === "group") return change.changes.some((inner) => touches(inner, slide, shape));
   if (change.slide !== slide) return false;

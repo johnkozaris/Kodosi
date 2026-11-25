@@ -3,8 +3,8 @@ import QtQuick
 import QtWebEngine
 import Kodosi.Models 1.0 as Models
 
-// A page runs its own scripts in a closed frame, but it reaches no network, no files and no
-// storage that stays.
+// Sandboxed WebEngine view for published pages, which run their own scripts but get no network,
+// file, or persistent storage access.
 WebEngineView {
     id: root
 

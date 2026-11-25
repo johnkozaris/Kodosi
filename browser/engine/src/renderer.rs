@@ -9,7 +9,6 @@ use serde::Deserialize;
 
 pub(crate) const FROM_PAGE: &str = "kodosi";
 const TO_PAGE: &str = "kodosi-pick";
-/// Marks a host page, where no page script runs.
 pub(crate) const HOST_PAGE: &str = "kodosiHostPage";
 const SCRIPT: &str = include_str!("page.js");
 const SCRIPT_ADDRESS: &str = "kodosi://page.js";

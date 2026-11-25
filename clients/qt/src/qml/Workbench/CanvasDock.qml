@@ -241,8 +241,8 @@ Row {
 
             property var choices: []
 
-            // Choosing a section takes it off the list, and a menu does not close for an item that
-            // leaves it during the click, so the list changes only when the menu opens.
+            // Snapshot closed sections when opening; removing a clicked menu item mid-trigger
+            // prevents QML Menu from closing cleanly.
             onAboutToShow: choices = root.closed
             Instantiator {
                 model: openMenu.choices

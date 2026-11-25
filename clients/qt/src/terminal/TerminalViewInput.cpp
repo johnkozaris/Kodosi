@@ -399,7 +399,7 @@ void TerminalView::keyPressEvent(QKeyEvent* event)
         return;
     }
     auto text = event->text();
-    // A bare WM_CHAR delivers a character beyond U+FFFF as one key event per UTF-16 half.
+    // Windows WM_CHAR delivers non-BMP characters (> U+FFFF) as separate UTF-16 surrogate events.
     if (text.size() == 1 && text.front().isHighSurrogate()) {
         m_highSurrogate = text.front();
         event->accept();
@@ -418,7 +418,7 @@ void TerminalView::keyPressEvent(QKeyEvent* event)
         event->accept();
         return;
     }
-    // Some displays, such as VNC, give a modifier key a NUL text.
+    // Some backends (such as VNC) send NUL text on modifier key events.
     const auto typed = std::ranges::none_of(text, [](const QChar character) {
         return character.category() == QChar::Other_Control;
     });
@@ -792,7 +792,7 @@ void TerminalView::pasteClipboard(const QClipboard::Mode mode)
 
 void TerminalView::pastePicture(const QMimeData& mime)
 {
-    // Agents read these formats as they are; another picture becomes PNG.
+    // Agents accept these image formats directly; convert any other clipboard image to PNG.
     QByteArray picture;
     for (const auto* type : { "image/png", "image/jpeg", "image/gif", "image/webp" }) {
         picture = mime.data(QString::fromLatin1(type));
@@ -1037,7 +1037,7 @@ std::optional<QString> TerminalView::linkAtCell(const QPoint& cell, const bool r
     return terminalTextLinkAt(*m_frame, column, row);
 }
 
-// As in Ghostty, Ctrl opens a link, and while a program tracks the mouse, Ctrl+Shift.
+// Match Ghostty link activation: Ctrl normally, or Ctrl+Shift while mouse tracking is active.
 bool TerminalView::opensLinks(Qt::KeyboardModifiers modifiers) const
 {
     if (!m_canSendInput) {
@@ -1116,7 +1116,7 @@ void TerminalView::showTerminalPointer()
     } else if (m_frame->programPointer) {
         setCursor(*m_frame->programPointer);
     } else {
-        // The clicks of a person who can type go to a program that tracks the mouse.
+        // Show an arrow cursor only when mouse events are forwarded (writable + mouse tracking).
         setCursor(m_frame->mouseTracking && m_canSendInput ? Qt::ArrowCursor : Qt::IBeamCursor);
     }
 }

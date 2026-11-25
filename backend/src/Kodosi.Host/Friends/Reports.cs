@@ -3,8 +3,8 @@ using Kodosi.Accounts;
 
 namespace Kodosi.Friends;
 
-/// A report reaches the operators only through the log: the server keeps no record of it and
-/// never looks up the person, so a report cannot tell whether a user name exists.
+// Reports are log-only and intentionally skip user lookup so they cannot be used to enumerate
+// usernames.
 internal static partial class Reports
 {
     public const int NoteBytes = 1000;

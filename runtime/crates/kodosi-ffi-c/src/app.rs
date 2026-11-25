@@ -484,7 +484,7 @@ mod tests {
         assert!(second.join().unwrap());
 
         assert!(start_config().is_ok_and(|config| config.data_root != root));
-        // A process that another test forks holds our open files until it execs.
+        // A process forked by a parallel test inherits our open files until it execs.
         assert!((0..100).any(|_| {
             let claimed = local_host::claim_app(&root).unwrap().is_some();
             if !claimed {

@@ -72,9 +72,9 @@ impl Pacer {
         false
     }
 
-    /// While the person types, the frames of a document fill only a moment of the link, so an
-    /// echo never waits behind more of them. The link is not full then, so its speed is not
-    /// measured.
+    /// Caps in-flight document frames to a small burst while typing so keystroke echo stays
+    /// responsive. Skips `blocked()` because an intentionally throttled link would skew rate
+    /// sampling.
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,

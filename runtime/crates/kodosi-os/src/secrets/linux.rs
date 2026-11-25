@@ -11,8 +11,8 @@ use zbus_secret_service_keyring_store::Store as SecretService;
 use zeroize::Zeroizing;
 
 const OPENING: Duration = Duration::from_secs(10);
-/// The Secret Service of KDE refuses about one opening in 256, whose key secret-service sends
-/// without its leading zero byte (secret-service-rs#127). Each opening draws a new key.
+// KDE's Secret Service rejects ~1 in 256 handshakes because `secret-service`
+// drops a leading zero byte from the key (secret-service-rs#127); retries draw a new key.
 const OPENINGS: usize = 3;
 const REFUSED_ARGUMENTS: &str = "org.freedesktop.DBus.Error.InvalidArgs";
 

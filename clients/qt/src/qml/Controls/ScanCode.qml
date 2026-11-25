@@ -3,8 +3,7 @@ pragma ComponentBehavior: Bound
 import Kodosi 1.0
 import QtQuick
 
-// The card stays light in both themes, as a printed code does, so that each camera reads its
-// dark modules.
+// Keep the QR card light in both themes so mobile cameras can reliably scan dark modules.
 Item {
     id: root
 

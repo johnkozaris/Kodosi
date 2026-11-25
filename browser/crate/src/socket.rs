@@ -43,7 +43,6 @@ impl Socket {
         })
     }
 
-    /// Writes where the engine finds this socket, readable only by this user.
     pub(crate) async fn write_address(&self, file: &Path) -> Result<(), Error> {
         let text = serde_json::to_vec(&self.address).map_err(io::Error::other)?;
         let mut options = tokio::fs::OpenOptions::new();
@@ -56,8 +55,8 @@ impl Socket {
         Ok(())
     }
 
-    /// Takes the one connection that shows the token, then stops listening, so the token opens
-    /// nothing a second time. The link lasts as long as the engine.
+    /// Accepts a single authenticated connection and drops the listener so the token cannot be
+    /// reused.
     pub(crate) async fn accept(
         self,
         mut commands: mpsc::Receiver<ToEngine>,
@@ -110,8 +109,8 @@ impl Socket {
     }
 }
 
-/// Admits only the path, with the authorization when there is one, that shows the token. A web
-/// page cannot connect, because a browser always names the page's origin.
+/// WebSocket upgrade filter requiring exact path, optional `Authorization` match, and no `Origin`
+/// header (preventing connections from web pages, since browsers always send `Origin`).
 pub(crate) struct Admission {
     pub(crate) path: String,
     pub(crate) authorization: Option<String>,

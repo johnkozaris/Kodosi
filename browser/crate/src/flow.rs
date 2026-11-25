@@ -5,53 +5,48 @@ use std::{
 
 use crate::link::FrameKind;
 
-/// Bytes on their way to one viewer before it counts as behind.
+/// Max unacked bytes in flight per viewer before dropping frames.
 const WAITING_MOST: usize = 2 * 1024 * 1024;
-/// A viewer that is behind can go on when this much still waits.
+/// In-flight byte watermark below which a behind viewer may resume.
 const WAITING_DRAINED: usize = 256 * 1024;
-/// A frame is late when it comes this much later than the link's own round trip and the
-/// stream's bitrate allow.
+/// Excess ack delay (beyond RTT and bitrate serialization) that counts as late.
 const LATE: Duration = Duration::from_millis(250);
-/// A viewer that stays late this long cannot take the stream. A link that stalls for a moment
-/// catches up sooner.
+/// Sustained lateness required before dropping frames, ignoring brief network hiccups.
 const LATE_FOR: Duration = Duration::from_millis(500);
-/// Frames for one viewer that its pipe has not taken.
+/// Max frames buffered in a viewer's outgoing channel before marking it behind.
 const QUEUED_MOST: usize = 3;
 const KEYFRAME_FLOOR: Duration = Duration::from_secs(1);
 const ANCHOR_FLOOR: Duration = Duration::from_millis(250);
-/// A viewer that falls behind again within this time after it went on waits longer for each next
-/// key frame while another viewer takes the stream: one, three, then seven seconds more than the
-/// floor.
+/// Minimum steady streaming duration before resetting a viewer's keyframe backoff.
 const STEADY: Duration = Duration::from_secs(10);
 const MOST_FALLS: u32 = 3;
-/// A viewer that takes no frame for this long is gone.
+/// Inactivity timeout before evicting a viewer that stops acking frames.
 pub(crate) const HOPELESS: Duration = Duration::from_secs(15);
-/// A frame that comes this much later than the link's own round trip and the stream's bitrate
-/// allow shows that the link is slower than the stream.
+/// Queuing delay threshold indicating the link is slower than the current bitrate.
 const QUEUE_LIMIT: Duration = Duration::from_millis(40);
 const STEER_EVERY: Duration = Duration::from_millis(250);
 const RISE_AFTER: Duration = Duration::from_secs(2);
 const ROUND_WINDOW: Duration = Duration::from_secs(10);
-/// What a link that is slower than the stream carried in this time is what it can take.
+/// Window over which saturated-link throughput samples are kept.
 const CARRIED_FOR: Duration = Duration::from_secs(1);
 const FIRST_BITRATE: u32 = 8_000_000;
 const LOWEST_BITRATE: u32 = 250_000;
 const HIGHEST_BITRATE: u32 = 40_000_000;
 
-/// What a viewer's decoder holds.
+/// Decoder reference state for a viewer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Holds {
-    /// Nothing that a frame after a key frame needs, as a new decoder or one that broke.
+    /// No valid reference frames (new or reset decoder); requires a keyframe.
     Nothing,
-    /// Each frame since its key frame.
+    /// Continuous stream since the last keyframe or anchor; can decode deltas.
     Stream,
-    /// The marks that every viewer held before it missed a frame, but not the frames since.
+    /// Missed recent frames, but still holds earlier reference marks for anchor recovery.
     Gap,
 }
 
 impl Holds {
-    /// A decoder other than `VideoToolbox`'s can lose its references some frames after an
-    /// anchor, so a viewer that takes no anchor holds nothing once it misses a frame.
+    /// Non-`VideoToolbox` decoders can lose long-term references after an anchor, so viewers
+    /// without anchor support drop back to `Nothing` and wait for a keyframe.
     const fn after_a_miss(anchors: bool) -> Self {
         if anchors { Self::Gap } else { Self::Nothing }
     }
@@ -62,9 +57,9 @@ struct Sent {
     bytes: usize,
     at: Instant,
     kind: FrameKind,
-    /// When a link at the stream's bitrate would have brought the frame, after those before it.
+    /// Expected delivery time at the stream bitrate, accounting for prior in-flight frames.
     due: Instant,
-    /// The bytes that the viewer had taken when the frame went, and its seat's `heard_at` then.
+    /// Cumulative acked bytes and `heard_at` snapshot when this frame was sent.
     taken: u64,
     heard_at: Instant,
 }
@@ -72,26 +67,24 @@ struct Sent {
 struct Seat {
     holds: Holds,
     anchors: bool,
-    /// A view on the browser's own computer is late only for its app's own work, which a lower
-    /// bitrate does not speed up, so its delays never cost the picture its sharpness.
+    /// Local viewers are only delayed by app work, not bandwidth, so they never lower bitrate.
     local: bool,
-    /// Since when the viewer takes each frame.
+    /// When the viewer last entered `Holds::Stream`.
     going_since: Option<Instant>,
-    /// The quick falls in a row, and the time before which the viewer gets no key frame.
+    /// Consecutive rapid drops and the earliest time to request another keyframe.
     falls: u32,
     key_after: Option<Instant>,
     sent: VecDeque<Sent>,
     waiting: usize,
-    /// When a link at the stream's bitrate would have brought the last frame that went.
+    /// Expected arrival time of the most recently sent frame at the stream bitrate.
     due_at: Instant,
     taken: u64,
-    /// What the link carried to the viewer while it was slower than the stream, in bits per
-    /// second.
+    /// Measured throughput samples (bps) collected while the link was saturated.
     carried: VecDeque<(Instant, u64)>,
     late_since: Option<Instant>,
-    /// When the viewer last took a frame, or when a frame went to it while none waited.
+    /// Last ack timestamp, or the send timestamp when the in-flight queue went non-empty.
     heard_at: Instant,
-    /// How late the newest frame came that went after the last cut, until the next steer.
+    /// Latest queuing delay sample from frames sent after the last bitrate cut.
     queue: Option<Duration>,
     least_round: Option<Duration>,
     window_least: Option<Duration>,
@@ -146,8 +139,8 @@ impl Seat {
         self.waiting <= WAITING_DRAINED && queued < QUEUED_MOST && !self.late(now)
     }
 
-    /// A viewer whose link cannot take the stream would otherwise ask for a key frame each
-    /// second, and each one goes to every viewer.
+    /// Exponentially backs off keyframe requests so a slow viewer cannot trigger a keyframe
+    /// every second for all other viewers.
     fn fall(&mut self, now: Instant) {
         self.holds = Holds::after_a_miss(self.anchors);
         self.key_after = Some(now + KEYFRAME_FLOOR * (2_u32.pow(self.falls) - 1));
@@ -185,8 +178,8 @@ impl Seat {
         });
     }
 
-    /// Frame ids wrap, so a frame is older than the ack when it lies less than half the range
-    /// before it. Returns the newest frame that the ack took.
+    /// Acknowledges all in-flight frames up to `frame` using wrap-safe serial comparison,
+    /// returning the newest acknowledged frame.
     fn take(&mut self, frame: u32, now: Instant) -> Option<Sent> {
         let mut newest = None;
         while let Some(sent) = self
@@ -202,7 +195,7 @@ impl Seat {
     }
 
     fn measure(&mut self, sent: &Sent, steers: bool, now: Instant) {
-        // A key frame or an anchor takes longer to cross than the link's round trip.
+        // Exclude keyframes and anchors from RTT tracking; their size inflates transit time.
         if sent.kind == FrameKind::Delta {
             let round = now.duration_since(sent.at);
             self.window_least = Some(self.window_least.map_or(round, |least| least.min(round)));
@@ -216,7 +209,7 @@ impl Seat {
         if steers {
             self.queue = Some(lateness);
         }
-        // A link that keeps up with the stream carries only what the stream gives it.
+        // Only sample link throughput when queuing indicates the link is saturated.
         if lateness > QUEUE_LIMIT {
             let micros = now.duration_since(sent.heard_at).as_micros();
             let bits = u128::from(self.taken - sent.taken) * 8;
@@ -238,20 +231,19 @@ impl Seat {
         }
     }
 
-    /// The most that the link carried while it was slower than the stream.
     fn carried(&mut self, now: Instant) -> Option<u64> {
         self.forget_carried(now);
         self.carried.iter().map(|(_, rate)| *rate).max()
     }
 }
 
-/// The time that a frame takes at the stream's bitrate.
+/// Serialization time for `bytes` at `bitrate` bits per second.
 fn crossing(bytes: usize, bitrate: u32) -> Duration {
     let bits = u64::try_from(bytes).unwrap_or(u64::MAX).saturating_mul(8);
     Duration::from_micros(bits.saturating_mul(1_000_000) / u64::from(bitrate.max(1)))
 }
 
-/// A frame's mark, until each viewer that took the frame said so.
+/// Tracks which viewers have not yet acknowledged a marked reference frame.
 struct MarkedFrame {
     id: u32,
     mark: u64,
@@ -271,15 +263,16 @@ pub(crate) struct Delivery {
     pub ask: Option<Ask>,
 }
 
-/// One encoder serves all viewers of a window. Viewers report each frame, and a viewer that
-/// falls behind misses frames until a key frame or an anchor, so it never sees an old page. The
-/// bitrate follows the link of the viewer in control, so one that only looks never lowers it for
-/// the others.
+/// Per-window congestion control and frame gating for a shared encoder.
+///
+/// Viewers ack received frames; a viewer that falls behind skips frames until the next keyframe
+/// or recovery anchor to avoid latency buildup. Bitrate tracks the viewer in control so passive
+/// viewers do not degrade quality for the active user.
 pub(crate) struct Flow {
     seats: HashMap<String, Seat>,
     marks: VecDeque<MarkedFrame>,
     held: Vec<u64>,
-    /// The encoder marks frames, so it can make anchors.
+    /// True once the encoder emits marked frames, indicating anchor recovery is supported.
     anchors: bool,
     bitrate: u32,
     steered_at: Option<Instant>,
@@ -330,8 +323,6 @@ impl Flow {
         self.forget(viewer);
     }
 
-    /// Takes how many frames wait in each viewer's pipe, and returns the viewers that take the
-    /// frame.
     pub(crate) fn frame(
         &mut self,
         id: u32,
@@ -382,8 +373,7 @@ impl Flow {
         delivery
     }
 
-    /// A frame that never reached a viewer: the frames after it need it, and the viewer does
-    /// not hold its mark.
+    /// Records a frame dropped before delivery, invalidating subsequent deltas and any mark on it.
     pub(crate) fn lost(&mut self, viewer: &str, id: u32, now: Instant) {
         let Some(seat) = self.seats.get_mut(viewer) else {
             return;
@@ -399,7 +389,6 @@ impl Flow {
             .retain(|marked| marked.id != id || !marked.waiting.contains(viewer));
     }
 
-    /// A viewer whose decoder starts again holds nothing, so it gets no frame before a key frame.
     pub(crate) fn reset(
         &mut self,
         viewer: &str,
@@ -411,14 +400,13 @@ impl Flow {
         self.ask(now, queued)
     }
 
-    /// The window asked for a key frame itself.
     pub(crate) fn keyframe_asked(&mut self, now: Instant) {
         self.keyframe_at = Some(now);
     }
 
-    /// A viewer that holds nothing gets a key frame once it takes frames again, and one that
-    /// missed frames an anchor, also while no frame comes, as on a still page. Each key frame
-    /// costs every viewer.
+    /// Decides whether to request a keyframe or recovery anchor for caught-up viewers.
+    ///
+    /// Also called on timer ticks so recovery proceeds on static pages with no incoming frames.
     pub(crate) fn ask(&mut self, now: Instant, queued: impl Fn(&str) -> usize) -> Option<Ask> {
         let anchors = self.anchors;
         let costs_others = self.seats.values().any(|seat| seat.holds == Holds::Stream);
@@ -465,12 +453,11 @@ impl Flow {
         self.settle();
     }
 
-    /// The marks that every viewer holds since the last call.
+    /// Drains reference marks acknowledged by all viewers since the last call.
     pub(crate) fn held(&mut self) -> Vec<u64> {
         std::mem::take(&mut self.held)
     }
 
-    /// The viewers that took no frame for too long, which leave.
     pub(crate) fn hopeless(&mut self, now: Instant) -> Vec<String> {
         let gone: Vec<String> = self
             .seats
@@ -506,9 +493,9 @@ impl Flow {
         });
     }
 
-    /// The bitrate follows the viewer in control, or every viewer while none is, and stays within
-    /// what its link carried while it was slower than the stream. A cut shows only in the frames
-    /// that go after it.
+    /// Adjusts bitrate toward the controlling viewer's link (or all remote viewers if none has
+    /// control), capping it below measured saturated throughput. Only frames sent after the last
+    /// cut count toward the queuing delay, since a cut shows only in those frames.
     pub(crate) fn steer(&mut self, control: Option<&str>, now: Instant) -> Option<u32> {
         if self
             .steered_at
@@ -589,16 +576,12 @@ mod tests {
         delivery
     }
 
-    /// A viewer's link, which brings each frame at its rate in bits per second, one after
-    /// another, and the ack after the round trip.
     struct Link {
         viewer: &'static str,
         rate: u64,
         round: Duration,
     }
 
-    /// Sends a frame of `bytes` every `every` from `start`, takes the acks that come meanwhile,
-    /// and returns those still on their way.
     fn stream(
         flow: &mut Flow,
         links: &[Link],
@@ -643,7 +626,6 @@ mod tests {
         last
     }
 
-    /// The slow viewer takes frames 1 to 4 and then stays late.
     fn slow_and_fast(mark: Option<u64>, anchors: bool) -> (Flow, Instant) {
         let now = Instant::now();
         let mut flow = Flow::new();

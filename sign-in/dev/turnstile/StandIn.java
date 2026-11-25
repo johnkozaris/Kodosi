@@ -29,8 +29,8 @@ import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.provider.ProviderConfigProperty;
 
-// Gives the pages what github.com/zymlabs/keycloak-cloudflare-turnstile-provider gives them, for the
-// Keycloak of keycloak.sh only. Use it with Cloudflare's test keys only.
+// Dev-only stub mirroring github.com/zymlabs/keycloak-cloudflare-turnstile-provider for local
+// keycloak.sh instances. Use only with Cloudflare test keys.
 public final class StandIn {
     private static final String FIELD = "cf-turnstile-response";
     private static final String VERIFY = "https://challenges.cloudflare.com/turnstile/v0/siteverify";

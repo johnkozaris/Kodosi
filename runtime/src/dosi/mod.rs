@@ -76,8 +76,7 @@ pub struct DosiSnapshot {
     pub earlier: bool,
     pub queued: Vec<DosiQueued>,
     pub asks: Vec<DosiAsk>,
-    /// The computer that answered last. It answers a message from a device that runs no Dosi,
-    /// unless the person picks another.
+    /// Last computer that replied; used as the default target for devices without a local Dosi.
     pub last: Option<DosiComputer>,
 }
 
@@ -324,12 +323,12 @@ pub enum DosiRecord {
         conversation: String,
         item: DosiItem,
     },
-    /// A message of the person for `computer`, which answers it in a turn with the turn of
-    /// `item`. Until that turn opens, a `Stop` of it takes the message back.
+    /// User prompt targeted at `computer`. The host replies using `item.turn`; a `Stop` with
+    /// that turn ID before the turn opens withdraws the prompt.
     Ask {
         conversation: String,
         computer: DosiComputer,
-        /// What the person had open on the device that asked, for Dosi.
+        /// What the person had open on the asking device, for Dosi.
         context: Option<String>,
         item: DosiItem,
     },
@@ -340,7 +339,7 @@ pub enum DosiRecord {
 pub struct DosiEntry {
     pub sequence: u64,
     pub mine: bool,
-    /// The device that wrote the record, as its signature proves.
+    /// Signer device ID verified from the record's signature.
     pub device: String,
     pub record: DosiRecord,
 }
@@ -356,7 +355,7 @@ pub struct DosiLog {
     pub sequence: u64,
     pub instructions: Option<SharedInstructions>,
     pub reset: bool,
-    /// The person's devices now, as the keys of the Dosi project prove.
+    /// Currently authorized device IDs, derived from the verified Dosi project key state.
     pub devices: std::collections::BTreeSet<String>,
 }
 

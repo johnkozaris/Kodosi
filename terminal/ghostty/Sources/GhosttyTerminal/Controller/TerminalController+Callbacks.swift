@@ -83,14 +83,14 @@ private enum TerminalCallbacks {
             .takeUnretainedValue()
         let snapshot = copyTerminalAction(action)
         if Thread.isMainThread, case let .mouseOverLink(url) = snapshot {
-            // A tap asks for the link under the finger and reads this answer at once.
+            // Set hoverLink synchronously; tap link lookup reads it right after sendMousePos.
             MainActor.assumeIsolated { bridge.hoverLink = url }
         }
         Task { @MainActor in
             bridge.handleAction(snapshot)
         }
 
-        // The app decides every link, so Ghostty must not open one itself.
+        // Claim openURL actions so Ghostty does not open links itself.
         if case .openURL = snapshot {
             return true
         }

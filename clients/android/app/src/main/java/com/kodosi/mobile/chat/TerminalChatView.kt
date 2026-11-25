@@ -39,9 +39,9 @@ import com.kodosi.mobile.ui.LocalLinkOpener
 import kotlinx.coroutines.launch
 
 /**
- * The chat of a terminal in the place of its screen, on the app's surface. The pipe of the chat is
- * open while the chat shows, and a link in it follows the rules of the terminal's computer. Its rows
- * keep the name of the agent that wrote them after the agent ends.
+ * A terminal's chat, shown in place of its screen on the app's surface. The chat's pipe stays open
+ * while the chat is visible, links in it follow the rules of the terminal's computer, and its rows
+ * keep the name of the agent that wrote them after that agent ends.
  */
 @Composable
 fun TerminalChatView(model: AppModel, session: RuntimeSession, modifier: Modifier = Modifier) {
@@ -66,7 +66,7 @@ fun TerminalChatView(model: AppModel, session: RuntimeSession, modifier: Modifie
     val ask = view.asks.firstOrNull()?.id
     var seen by remember { mutableStateOf(ask) }
     LaunchedEffect(ask) {
-        // The keyboard of a phone would leave a question that comes little room.
+        // Dismiss the keyboard on a new prompt so the ask card has enough vertical space.
         if (ask != null && ask != seen) {
             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
             if (draft.text.isBlank()) hideKeyboard()

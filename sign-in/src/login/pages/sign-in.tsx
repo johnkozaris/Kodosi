@@ -118,7 +118,8 @@ function Frame({
 }) {
   const { msgStr } = i18n;
   const client = kcContext.client as typeof kcContext.client | undefined;
-  // Only the sign-in of the app shows its code: the same tab can sign in to the account page later.
+  // Only show a stored device code for device-grant clients, not when the same tab later signs
+  // into the account console.
   const app = client?.attributes["oauth2.device.authorization.grant.enabled"] === "true";
   const code = app ? heldCode() : null;
   return (

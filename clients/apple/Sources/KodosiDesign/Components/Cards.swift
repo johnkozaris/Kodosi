@@ -2,7 +2,7 @@ import KodosiBridge
 import SwiftUI
 
 public extension EnvironmentValues {
-    /// The fill of the card under a view, for the rings of the badges on it.
+    /// Enclosing card background fill, used by overlaid badge and avatar rings to match it.
     @Entry var cardFill: Color?
 }
 

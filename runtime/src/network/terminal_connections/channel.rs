@@ -277,7 +277,8 @@ impl<T: Transport> Channel<T> {
     }
 }
 
-/// A message takes TLS data only up to its size, so a large frame goes in several messages.
+/// `Write` adapter that caps each buffer at `MESSAGE_BYTES`, splitting large TLS records across
+/// transport messages.
 struct Message<'a>(&'a mut Vec<u8>);
 
 impl std::io::Write for Message<'_> {
@@ -328,8 +329,8 @@ fn direct_protocol() -> Vec<u8> {
     format!("kodosi-direct/{}", crate::protocol::CHANNEL_VERSION).into_bytes()
 }
 
-/// The host takes the newest version that both sides have, so two versions of Kodosi still meet,
-/// and the newer one can say which side must update.
+/// Advertises all channel versions newest-first so mismatched peers can still complete TLS and
+/// the newer one can say which side must update.
 fn channel_protocols() -> Vec<Vec<u8>> {
     (1..=crate::protocol::CHANNEL_VERSION)
         .rev()

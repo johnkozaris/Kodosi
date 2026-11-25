@@ -1,8 +1,8 @@
 import Foundation
 import UserNotifications
 
-/// A notification stays only while its terminal has a mark. Each push names every terminal that
-/// has a push now, and a terminal that it leaves out was seen on another device.
+/// Each push lists every terminal that still has an active notification; any delivered
+/// notification omitted from the list was already seen on another device and should be withdrawn.
 nonisolated struct KeptTerminals {
     let terminals: Set<String>
 

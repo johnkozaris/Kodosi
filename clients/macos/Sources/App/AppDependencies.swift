@@ -251,8 +251,7 @@ final class AppDependencies {
         runtimeHandle.stop(completion: completion)
     }
 
-    /// The answers and the parts of documents that the app dropped are lost, so the requests
-    /// that wait for them end, each pipe starts again, and the runtime sends the whole state.
+    /// Inbox overflow may have dropped replies or document frames, so reset waiters and resync.
     private func catchUp() {
         commandSink.abandonPending()
         canvas.renewPipes()

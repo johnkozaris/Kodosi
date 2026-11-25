@@ -9,10 +9,10 @@ import kotlinx.serialization.json.buildJsonObject
 
 open class RuntimeFailure(message: String) : Exception(message)
 
-/** The answer went with the events that the app dropped when it fell behind. */
+// Thrown when event overflow drops a pending command's reply.
 class LostAnswer(message: String) : RuntimeFailure(message)
 
-/** The shared browser's own thread sends and asks too. */
+// Called from both the main thread and the dedicated browser executor thread.
 class CommandSink(private val words: Words) {
     enum class Delivery { CALLER, APP }
 
@@ -33,7 +33,7 @@ class CommandSink(private val words: Words) {
         private set
     private val pending = HashMap<String, Pending>()
 
-    /** The requests that the app gave up, so that their late answers reach nobody. */
+    // Tracks abandoned request IDs so late replies are swallowed instead of surfacing to the app.
     private val abandoned = ArrayDeque<Abandoned>()
 
     fun setAccount(userId: String?, epoch: Long) {
@@ -99,10 +99,6 @@ class CommandSink(private val words: Words) {
         for (request in waiting) request.answer.completeExceptionally(error)
     }
 
-    /**
-     * The answers that the app dropped when it fell behind are lost, so each caller that waits
-     * hears that Kodosi cannot tell whether its request worked, and a late answer reaches nobody.
-     */
     fun abandonPending() {
         val waiting = synchronized(pending) { pending.toList().also { pending.clear() } }
         for ((requestId, request) in waiting) {

@@ -6,7 +6,7 @@ import android.net.Network
 import android.os.Handler
 import android.os.Looper
 
-/** The runtime cannot see on Android that the phone moved to another network, so the app tells it. */
+// Android does not expose network transitions directly to the Rust runtime, so relay them here.
 class NetworkWatch(context: Context, private val onChange: () -> Unit) {
     private val connectivity = context.getSystemService(ConnectivityManager::class.java)
     private val main = Handler(Looper.getMainLooper())

@@ -26,7 +26,7 @@ const SHEET_KIND: &str =
 const SHEET_TYPE: &str =
     "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml";
 const SHEET_MAIN: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-/// What the file format puts after `mergeCells`, the first of which a new one stands before.
+/// OOXML `<worksheet>` elements valid after `<mergeCells>`, for inserting in schema order.
 const AFTER_MERGES: [&str; 22] = [
     "phoneticPr",
     "conditionalFormatting",
@@ -52,10 +52,10 @@ const AFTER_MERGES: [&str; 22] = [
     "extLst",
 ];
 
-/// What the file format puts after `sheetViews`, the first of which a new one stands before.
+/// OOXML `<worksheet>` elements valid after `<sheetViews>`, for inserting in schema order.
 const AFTER_VIEWS: [&str; 3] = ["sheetFormatPr", "cols", "sheetData"];
 
-/// What the file format puts after `calcPr`, the first of which a new one stands before.
+/// OOXML `<workbook>` elements valid after `<calcPr>`, for inserting in schema order.
 const AFTER_CALCULATION: [&str; 9] = [
     "oleSize",
     "customWorkbookViews",
@@ -121,8 +121,7 @@ fn cell_xml(row: u32, column: u32, cell: &Cell) -> String {
     xml
 }
 
-/// The cell keeps its formula element as the file has it, so that a shared or an array formula
-/// stays one.
+/// Preserves the original `<f>` element verbatim so shared and array formula metadata stay intact.
 fn kept_formula_cell(xml: &str, element: Xml<'_, '_>, formula: Xml<'_, '_>, cell: &Cell) -> String {
     let (kind, inner) = value_xml(cell.value.as_ref(), &xml[formula.range()]);
     let mut text = String::from("<c");
@@ -281,7 +280,7 @@ fn patch_sheet(xml: &str, sheet: &Sheet, strings: &[String]) -> Result<Option<St
     Ok(Some(spliced(xml, edits)))
 }
 
-/// A cell outside the size that a sheet states makes the file wrong, so the size grows with it.
+/// Expands `<dimension ref="...">` if edits wrote cells outside the declared sheet bounds.
 fn dimension_edit(
     xml: &str,
     root: Xml<'_, '_>,
@@ -509,7 +508,8 @@ fn pane_xml(frozen: Frozen, prefix: &str) -> String {
     text
 }
 
-/// A selection names the pane that it is in, so the selections go with the old panes.
+/// Drops existing `<selection>` elements when rewriting panes because selections reference
+/// specific pane names that may no longer exist.
 fn sheet_view_xml(xml: &str, view: Xml<'_, '_>, frozen: Frozen) -> String {
     let name = tag_name(xml, view);
     let prefix = name
@@ -877,7 +877,7 @@ fn names_edit(model: &Model, package: &mut Package<'_>, parts: &mut Parts) -> Re
     Ok(())
 }
 
-/// Whether the workbook asks the program that opens it to work out each formula.
+/// Controls the `<calcPr fullCalcOnLoad="1"/>` flag in `xl/workbook.xml`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Recalculation {
     Asked,
@@ -1035,7 +1035,7 @@ fn cell_format_xml(look: &Look, font: usize, fill: usize, format: u32) -> String
     xml
 }
 
-/// New looks go after the ones that the file holds, so that each look keeps its index.
+/// Appends new styles after existing `<cellXfs>` entries so existing style indices stay valid.
 fn add_looks(model: &Model, package: &mut Package<'_>, parts: &mut Parts) -> Result<(), String> {
     let Some(xml) = package.text(STYLES_PART) else {
         return model
@@ -1110,7 +1110,8 @@ fn add_looks(model: &Model, package: &mut Package<'_>, parts: &mut Parts) -> Res
     Ok(())
 }
 
-/// The `count` attributes of the style lists no longer fit, and they are optional.
+/// Removes optional `count` attributes on style lists after appending entries rather than
+/// recomputing them.
 fn strip_counts(xml: &str) -> Result<String, String> {
     let parsed = Document::parse(xml).map_err(|error| error.to_string())?;
     let mut edits = Vec::new();
@@ -1163,12 +1164,10 @@ fn write_parts(
         .map_err(|error| error.to_string())
 }
 
-/// A formula keeps the result that the file holds when the edits did not change what it works out
-/// to, so a save changes only the results that follow an edit. When the engine cannot work out the
-/// formulas, a result from before an edit would be wrong, so the save leaves each one out and the
-/// file asks the program that opens it to work them out. `LibreOffice` ignores that request, but it
-/// works out a formula that has no result. Once the engine works out every formula, each result is
-/// current, so the file stops asking.
+/// Preserves existing cached formula values when edits did not change their evaluated result,
+/// minimizing diffs. If evaluation times out, strips cached values (so `LibreOffice`, which
+/// ignores `fullCalcOnLoad`, still recalculates) and sets `fullCalcOnLoad="1"` for Excel. Clears
+/// `fullCalcOnLoad` once all formulas evaluate cleanly.
 pub(crate) fn write(model: &Model, file: &[u8], time: Duration) -> Result<Vec<u8>, Unwritable> {
     let started = Instant::now();
     let (current, recalculation) = match calculated(model, time) {

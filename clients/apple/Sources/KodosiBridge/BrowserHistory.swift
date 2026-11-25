@@ -1,6 +1,6 @@
 import Foundation
 
-/// The history stays on this device.
+/// Device-local browsing history; not synced across devices.
 public struct BrowserHistory: Equatable, Sendable {
     public static let storageKey = "browserHistory"
     private static let most = 300
@@ -87,8 +87,8 @@ extension BrowserHistory: Codable {
     }
 }
 
-/// `@AppStorage` keeps the history as JSON text. Two histories are the same by their pages, not
-/// by that text.
+/// `@AppStorage` persists history as JSON via `RawRepresentable`. Explicit `==` avoids comparing
+/// re-encoded JSON strings (which `RawRepresentable` would otherwise provide).
 extension BrowserHistory: RawRepresentable {
     // swiftformat:disable:next redundantEquatable
     public static func == (lhs: Self, rhs: Self) -> Bool {

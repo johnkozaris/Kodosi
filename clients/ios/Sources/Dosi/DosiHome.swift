@@ -83,8 +83,8 @@ private struct DosiScreen: View {
             .onChange(of: model.dosi.items.last?.id) { see() }
     }
 
-    /// The person's own message does not count as seen, so that the answer to it still counts on
-    /// the tab when it comes after the person left.
+    /// Do not mark the user's own message as seen, because Dosi's reply shares the same turn
+    /// and should still badge the tab if it arrives after leaving.
     private func see() {
         guard shown, let last = model.dosi.items.last else { return }
         if case .person = last.body {

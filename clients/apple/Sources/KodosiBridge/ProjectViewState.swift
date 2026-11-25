@@ -20,7 +20,6 @@ public final class ProjectViewState {
 
     public private(set) var messageRevision = 0
     public internal(set) var sending = false
-    /// The messages that the person posted here.
     public internal(set) var sent = 0
     public var failure: String?
     public internal(set) var loading = false
@@ -43,16 +42,16 @@ public final class ProjectViewState {
     }
 
     public var readingMessage: String?
-    /// The messages of others that arrived while the person did not read the latest.
     public internal(set) var unread = 0
-    /// The parts that changed while they were not on screen.
+    /// Sections that received updates while off-screen.
     public internal(set) var fresh: Set<ProjectPart> = []
     public var notes: [String: String] = [:]
     public var showsDone = false
     public var repositoryFilter: String?
 
     @ObservationIgnored var startedReading: () -> Void = {}
-    /// The views that show each part, as one view can come before another goes.
+    /// Reference counts per visible part, since an incoming view can appear before the outgoing
+    /// view disappears.
     @ObservationIgnored private var showing: [ProjectPart: Int] = [:]
 
     init() {}

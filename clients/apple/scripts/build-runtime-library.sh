@@ -28,10 +28,10 @@ fi
 viewer=
 if [[ $1 != macosx ]]; then
     viewer=--no-default-features
-    # Cargo also builds programs for the Mac, for example the build scripts. They must not use the iOS SDK.
+    # Clear Xcode's iOS SDKROOT so Cargo host build scripts compile against the macOS SDK.
     unset SDKROOT
 fi
-# Xcode gives its build phases a PATH without the Rust tools.
+# Xcode build phases run with a minimal PATH that excludes ~/.cargo/bin.
 export PATH="$HOME/.cargo/bin:$PATH"
 folder=$(python3 "$repository/scripts/build-runtime-library.py" \
     --manifest "$repository/runtime/Cargo.toml" \

@@ -14,13 +14,14 @@ extension View {
         navigationSubtitle(facts ?? "")
     }
 
-    /// On an iPad, the tab bar at the top names the first page of a tab, and the page's own title
-    /// would stand at the edge of the screen, out of line with the page's column.
+    /// On regular-width iPad, the top tab bar already titles root pages and a navigation title
+    /// would sit at the screen edge, misaligned with the centered content column.
     func tabPage(_ title: LocalizedStringKey, inline: Bool = false, facts: String? = nil) -> some View {
         modifier(TabPage(title: title, inline: inline, facts: facts))
     }
 
-    /// The field stays in view so that the bar keeps one height, for the reason in `TabPage`.
+    /// Keeps the search bar always visible so the navigation bar height never changes while
+    /// scrolling (see `TabPage`).
     func pageSearch(_ text: Binding<String>, prompt: Text) -> some View {
         searchable(text: text, placement: .navigationBarDrawer(displayMode: .always), prompt: prompt)
     }
@@ -39,9 +40,9 @@ private struct TabPage: ViewModifier {
     func body(content: Content) -> some View {
         content
             .navigationTitle(title)
-            // A title or search field that folds as the list scrolls makes the bar's height follow
-            // the list's offset. When going back changes the insets of a list scrolled to its end,
-            // the bar and the list then adjust each other without end, and the app hangs.
+            // Avoid collapsing navigation titles or search bars: when popping back to a list
+            // scrolled to the bottom, changing bar height and scroll insets can feedback-loop
+            // and hang the app.
             .toolbarTitleDisplayMode(inline || namedByTabBar ? .inline : .inlineLarge)
             .toolbar(removing: namedByTabBar ? .title : nil)
             .pageFacts(namedByTabBar ? nil : facts)

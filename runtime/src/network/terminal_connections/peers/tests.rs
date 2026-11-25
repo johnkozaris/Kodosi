@@ -129,8 +129,8 @@ async fn two_devices_of_one_person_go_straight_at_once_and_one_that_leaves_spare
     assert_eq!(phone_reached.reader.recv().await.unwrap(), b"echoed");
 }
 
-/// An Apple socket gives a refused datagram as a failed read, as it gives a socket that iOS
-/// closed in the background.
+/// On Apple platforms, sending to a closed local UDP port yields a read error on the
+/// connected socket, exercising the same recovery path as an iOS background-closed socket.
 #[cfg(all(target_vendor = "apple", feature = "host"))]
 #[tokio::test]
 async fn a_viewer_whose_socket_fails_goes_straight_again_with_a_new_socket() {

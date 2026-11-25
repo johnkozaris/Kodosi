@@ -1,8 +1,8 @@
 package com.kodosi.mobile.chat
 
 /**
- * The chat as a person reads it: what the agent writes during a turn shows as the agent's words,
- * and the steps between them fold into one row each.
+ * The chat as a person reads it: text the agent writes during a turn appears as its own message,
+ * and each run of steps between those messages folds into a single row.
  */
 data class ChatRow(val id: String, val at: Long, val kind: Kind) {
     sealed interface Kind {
@@ -10,10 +10,9 @@ data class ChatRow(val id: String, val at: Long, val kind: Kind) {
 
         data class Answer(val text: String, val live: Boolean) : Kind
 
-        /** A plan that the agent wrote at the end of its turn, which is what the turn gives. */
         data class Plan(val text: String, val live: Boolean) : Kind
 
-        /** The calls of a turn between two things that the agent wrote, as far as they came. */
+        /** A turn's calls between two of the agent's messages, as far as they have come. */
         data class Work(val items: List<ChatItem>) : Kind
 
         data class End(val end: TurnEnd, val ms: Long) : Kind
@@ -24,7 +23,6 @@ data class ChatRow(val id: String, val at: Long, val kind: Kind) {
     companion object {
         const val LONG_TURN_MS = 30_000L
 
-        /** [live]: the agent works on the last turn. */
         fun rows(items: List<ChatItem>, live: Boolean): List<ChatRow> = buildList {
             val turn = mutableListOf<ChatItem>()
             fun fold(ended: Boolean) {
@@ -101,7 +99,8 @@ data class ChatRow(val id: String, val at: Long, val kind: Kind) {
     }
 }
 
-/** A turn can end with what the agent wrote: its text, or a plan that no question holds. */
+// A plan awaiting approval is shown in ChatAskCard, so only treat it as the turn's answer once
+// it is no longer asking.
 private val ChatItem.answers: Boolean
     get() = when (val body = body) {
         is ChatBody.Text -> true

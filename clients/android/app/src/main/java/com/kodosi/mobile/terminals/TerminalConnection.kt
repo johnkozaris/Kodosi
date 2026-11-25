@@ -53,7 +53,7 @@ class TerminalConnection(
     val state: StateFlow<State>
         field = MutableStateFlow<State>(State.Connecting)
 
-    /** Called on any thread when the screen changes. */
+    // Invoked on runtime or main threads whenever terminal output changes.
     @Volatile
     var onChange: () -> Unit = {}
 
@@ -68,10 +68,8 @@ class TerminalConnection(
     private var focused = false
     private var focusRetried = false
 
-    /**
-     * A person opened or touched the terminal here, and the terminal has not taken that focus yet.
-     * A focus that only comes back with the app or the connection takes no size.
-     */
+    // True when the user explicitly opened or interacted with this terminal; passive focus
+    // restorations (foreground/reconnect) send returning=true so they do not resize the PTY.
     private var acted = true
     private var focusReturning = false
     private var viewport: Viewport? = null
@@ -114,7 +112,7 @@ class TerminalConnection(
         if (on) refresh() else blur()
     }
 
-    /** A person touched the terminal here, so its focus goes again as their act, which takes its size. */
+    // Re-send focus without returning=true on user interaction so this device claims PTY size.
     fun act() {
         acted = true
         if (focused && focus == null) requestFocus() else refresh()
@@ -313,7 +311,7 @@ class TerminalConnection(
                 if (type == "term.focusApplied") {
                     focused = true
                     focusRetried = false
-                    // A person touched the terminal while the focus that came back was on its way.
+                    // User interacted while a returning focus request was in flight; reclaim.
                     if (focusReturning && acted) requestFocus() else acted = false
                     scheduleResize()
                 } else if (!focusRetried) {

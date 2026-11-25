@@ -40,7 +40,6 @@ enum Refinement {
 #[derive(Default)]
 struct Slot {
     picture: Option<Picture>,
-    /// The buffer of the last encoded picture, for the next one.
     spare: Vec<u8>,
     key: bool,
     bitrate: Option<u32>,
@@ -50,8 +49,8 @@ struct Slot {
 
 type Shared = Arc<(Mutex<Slot>, Condvar)>;
 
-/// `OpenH264` on a thread of its own, so a slow picture never holds up the browser. The newest
-/// picture replaces one that still waits, and the two picture buffers go round.
+/// Runs `OpenH264` on a dedicated worker thread so encoding never blocks the browser. Incoming
+/// frames overwrite any unencoded pending frame, reusing two pixel buffers between threads.
 pub(crate) struct Encoder {
     shared: Shared,
     worker: Option<JoinHandle<()>>,
@@ -79,9 +78,8 @@ impl Encoder {
         self.change(|slot| slot.key = true);
     }
 
-    /// `OpenH264` takes acknowledged references only in its camera mode, which codes a scrolled
-    /// page at half the quality of its screen mode, so it marks no frame and a viewer that missed
-    /// frames gets a key frame.
+    /// `OpenH264` only supports acknowledged LTR frames in camera mode, which halves quality on
+    /// scrolled pages compared to screen mode, so recovery falls back to a full keyframe.
     pub(crate) fn recover(&mut self) {
         self.want_key();
     }
@@ -90,8 +88,6 @@ impl Encoder {
         self.change(|slot| slot.bitrate = Some(bitrate));
     }
 
-    /// Codes the last picture again, unless a newer one or a refinement waits. A clean picture
-    /// needs none.
     pub(crate) fn refine(&mut self) -> bool {
         self.change(|slot| match slot.refinement {
             Refinement::Clean => true,
@@ -103,8 +99,7 @@ impl Encoder {
         })
     }
 
-    /// Takes BGRA rows; an odd width or height loses its last column or row. The copy happens
-    /// outside the lock, so the worker never waits for it.
+    /// Copies outside the mutex so the worker thread is not blocked while cloning BGRA rows.
     pub(crate) fn encode_pixels(&mut self, pixels: &[u8], width: usize, height: usize) {
         let (even_width, even_height) = (width & !1, height & !1);
         if even_width < 2 || even_height < 2 || pixels.len() < width * height * 4 {
@@ -157,8 +152,8 @@ fn start(width: usize, height: usize, bitrate: u32) -> Option<Running> {
         )))
         .usage_type(UsageType::ScreenContentRealTime)
         .rate_control_mode(RateControlMode::Bitrate)
-        // A range that reaches 0 becomes 26 to 35 for screen content, so a still page never got
-        // sharper than 43 dB. A key frame is never coarser than 40 either.
+        // In screen-content mode, OpenH264 overrides min QP 0 to 26..35 (capping static text
+        // around 43 dB). 12..40 lets refinements sharpen further while bounding keyframe QP.
         .qp(QpRange::new(12, 40))
         .skip_frames(true);
     let encoder = H264::with_api_config(OpenH264API::from_source(), config).ok()?;
@@ -170,8 +165,8 @@ fn start(width: usize, height: usize, bitrate: u32) -> Option<Running> {
     })
 }
 
-/// `OpenH264` refuses a bitrate above the highest of its layer, which starts as the first bitrate,
-/// so a rise moves the highest first and a cut moves it last.
+/// `OpenH264` rejects a target bitrate above the layer's max bitrate (initialized to the starting
+/// bitrate), so raise the max before the target and lower the target before the max.
 fn set_bitrate(encoder: &mut H264, from: u32, to: u32) -> bool {
     let highest = (ENCODER_OPTION_MAX_BITRATE, SPATIAL_LAYER_0);
     let target = (ENCODER_OPTION_BITRATE, SPATIAL_LAYER_ALL);
@@ -230,17 +225,14 @@ struct Worker<'a> {
     shared: &'a Shared,
     bitrate: u32,
     running: Option<Running>,
-    /// The link lost a frame, so the next one is a key frame.
     lost: bool,
-    /// The viewers miss the last picture.
+    /// Set until the latest input frame has been emitted and accepted by the link.
     missing: bool,
     again: Option<Instant>,
     sharpening: Convergence,
 }
 
 impl Worker<'_> {
-    /// Waits for a picture, a refinement or a picture that goes again, and is `None` once the
-    /// encoder stops.
     fn next(&mut self) -> Option<Work> {
         let shared = self.shared;
         let mut slot = lock(shared);
@@ -276,7 +268,6 @@ impl Worker<'_> {
         })
     }
 
-    /// Codes a new picture or the last one again, and returns whether the worker goes on.
     fn code(&mut self, work: Work) -> bool {
         let previous = self.bitrate;
         if let Some(bitrate) = work.bitrate {
@@ -319,8 +310,6 @@ impl Worker<'_> {
         true
     }
 
-    /// Takes a new picture into the encoder, and returns whether a new encoder started for it, or
-    /// `None` when none can.
     fn take(&mut self, picture: Picture, previous: u32) -> Option<bool> {
         let bitrate = self.bitrate;
         let fits = self.running.as_mut().is_some_and(|running| {
@@ -354,7 +343,6 @@ impl Worker<'_> {
         Some(!fits)
     }
 
-    /// A refinement takes a new bitrate too, or leaves it for the next picture.
     fn keep_bitrate(&mut self, previous: u32) {
         let bitrate = self.bitrate;
         let Some(running) = self.running.as_mut().filter(|_| bitrate != previous) else {
@@ -366,8 +354,8 @@ impl Worker<'_> {
         }
     }
 
-    /// A picture that the viewers miss goes again from here, not from a page that draws again,
-    /// which would look changed and earn a clean-up.
+    /// Retries skipped or dropped frames locally via `self.again` rather than requesting a CEF
+    /// redraw, which would look like a page change and trigger unnecessary refinement passes.
     fn send(&mut self, data: Vec<u8>, key_frame: bool, key: bool, repeated: bool) {
         let retry = Instant::now() + Duration::from_millis(REDRAW_AFTER_MS.unsigned_abs());
         if data.is_empty() {

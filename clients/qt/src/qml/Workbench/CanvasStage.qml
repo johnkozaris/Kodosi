@@ -3,8 +3,7 @@ pragma ComponentBehavior: Bound
 import Kodosi 1.0
 import QtQuick
 
-// With `always`, the body is there without a canvas too, and `tab` is the tab that the terminal
-// flows out of.
+// When `always` is true, renders CanvasBody even with no canvas open, connected to `tab`.
 Item {
     id: root
 

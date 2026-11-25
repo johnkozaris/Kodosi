@@ -290,8 +290,8 @@ void CanvasModel::show(const QString& sessionId, const QString& section)
     display(sessionId, section);
 }
 
-// The view of a browser that a person chose can come much later than the act, when the browser
-// starts first or the canvas opens later, so the choice waits for the next watch of that browser.
+// The browser view may attach after the user selects it (e.g. while the browser is starting or
+// before the canvas opens), so record the selection until BrowserVideo sends its next watch.
 void CanvasModel::choose(const QString& sessionId)
 {
     m_chosen.insert(sessionId);
@@ -458,7 +458,7 @@ void CanvasModel::remove(const QString& sessionId, const QString& key)
         emit problem(error);
 }
 
-// To the canvas, no key names every file.
+// In the canvas protocol, an empty keys array removes all files.
 void CanvasModel::removeAll(const QString& sessionId)
 {
     if (const auto error = ask(Asked::Remove, sessionId,
@@ -695,8 +695,7 @@ bool CanvasModel::attach(const QString& sessionId, const QUrl& file)
     return upload(sessionId, file, false);
 }
 
-// The files of a page go into the folder of the terminal first, because the browser runs on the
-// computer of the terminal.
+// Upload page-picker files to the terminal's host first, since the shared browser runs there.
 void CanvasModel::giveFiles(const QString& sessionId, const QList<QUrl>& files)
 {
     auto& giving = m_giving[sessionId];

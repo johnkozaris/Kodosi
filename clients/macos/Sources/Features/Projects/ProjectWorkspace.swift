@@ -34,6 +34,6 @@ final class ProjectWorkspace {
     var expandedTask: String?
     var showsRepositoryPicker = false
     var showsIssuePicker = false
-    /// A task or issue action is on its way.
+    /// True while a task or issue request is in flight.
     var busy = false
 }

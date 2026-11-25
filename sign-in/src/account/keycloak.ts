@@ -94,7 +94,7 @@ function refusal(data: RawRefusal | undefined): Refused | null {
   );
 }
 
-// keycloak-js calls Promise.withResolvers, which Safari has only from 17.4.
+// Polyfill Promise.withResolvers for Safari < 17.4, required by keycloak-js.
 Promise.withResolvers ??= <T>() => {
   let resolve!: PromiseWithResolvers<T>["resolve"];
   let reject!: PromiseWithResolvers<T>["reject"];
@@ -138,9 +138,8 @@ async function open(kcContext: KcContext): Promise<AccountService> {
   keycloak.onActionUpdate = (status, action) => {
     came = { status, action: action ?? "" };
   };
-  // Keycloak accepts a DPoP proof only within seconds of its own clock, and keycloak-js dates the first
-  // proof of a page by the device's clock alone: without Keycloak's time, a device whose clock is off
-  // could not open the page.
+  // Measure server clock skew before init so DPoP proofs pass on devices with skewed clocks
+  // (keycloak-js otherwise timestamps the first proof using the local clock alone).
   const skew = await clockSkew(realmUrl);
   try {
     await keycloak.init({
@@ -204,7 +203,7 @@ async function open(kcContext: KcContext): Promise<AccountService> {
       throw error;
     });
 
-  // Keycloak replaces the whole record, so each save reads it first and waits for the one before.
+  // Serialize read-modify-write saves because Keycloak's account POST replaces the full record.
   let saved: Promise<unknown> = Promise.resolve();
   const save: AccountService["save"] = (values) => {
     const next = saved
@@ -258,7 +257,7 @@ async function open(kcContext: KcContext): Promise<AccountService> {
           try {
             codes = JSON.parse(credential.credentialData ?? "{}") ?? {};
           } catch {}
-          // Keycloak sends -1 for a credential from a different user store.
+          // Keycloak returns -1 for credentials from an external user store.
           const created = credential.createdDate ?? 0;
           return {
             id: credential.id,
@@ -273,7 +272,8 @@ async function open(kcContext: KcContext): Promise<AccountService> {
 
     async sessions(): Promise<Session[]> {
       const raw = await call<RawDevice[]>("/sessions/devices");
-      // Keycloak can list one sign-in twice: as a session and as its offline twin.
+      // Deduplicate by session ID: Keycloak can return both an online and an offline entry for the
+      // same session.
       const sessions = new Map<string, Session>();
       for (const device of raw) {
         for (const session of device.sessions ?? []) {

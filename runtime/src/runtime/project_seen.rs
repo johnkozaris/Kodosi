@@ -4,7 +4,8 @@ use super::saver::Saver;
 
 const MOST_BYTES: usize = 1024 * 1024;
 
-/// All marks stay in memory, so a save reads nothing.
+/// Keeps all accounts' seen watermarks in memory so saves write the full snapshot without
+/// reading disk.
 pub(super) struct ProjectSeen {
     accounts: BTreeMap<String, BTreeMap<String, u64>>,
     saver: Saver,

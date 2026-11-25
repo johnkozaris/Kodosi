@@ -100,7 +100,6 @@ pub(super) fn reset_signals() {
     let _ = unsafe { signal(Signal::SIGPIPE, SigHandler::SigIgn) };
 }
 
-/// The process group that a program without a terminal leads.
 pub(super) struct Group(u32);
 
 impl Group {

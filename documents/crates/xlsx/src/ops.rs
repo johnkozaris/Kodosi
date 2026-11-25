@@ -179,8 +179,8 @@ fn cells_of(op: &Op) -> Vec<(String, u32, u32)> {
     }
 }
 
-/// An agent is slow, so an op on a cell that someone changed since its read is refused, and the
-/// answer says who changed what.
+/// Agents are slow, so ops targeting cells modified since the caller's base revision are
+/// rejected, reporting the author of the conflicting edit.
 pub(crate) fn check_conflicts(
     ops: &[Op],
     model: &Model,
@@ -379,8 +379,8 @@ fn sheet_json(sheet: &Sheet, range: Option<&str>) -> Json {
     json!({ "name": sheet.name, "cells": rows })
 }
 
-/// The values that a model holds for its formulas may be from before an edit, so an answer leaves
-/// them out when the engine could not work them out.
+/// Recalculates formulas before answering; on timeout, clears cached formula results rather than
+/// returning potentially stale values.
 pub(crate) fn answer(model: &Model, query: &Query, time: Duration) -> Json {
     let calculation = calculated(model, time);
     match query {

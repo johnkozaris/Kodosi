@@ -1,17 +1,13 @@
-// Kodosi's link to Claude Code: a hooks module that tells the Kodosi host on this computer what this session
-// does, gives Claude Code the person's answer to a question, and runs what the person sends from Kodosi.
-// It changes nothing else in the session: each hook passes its event on as it came, and when the host is away
-// each hook does nothing.
+// Claude Code hooks bridge to the local Kodosi host. Hooks forward session
+// events, relay permission answers, and submit prompts/stops without injecting
+// keystrokes, passing all events through unchanged (no-op when disconnected).
 //
-// It has no hook on tool.call or tool.run: Claude Code turns off the move of a command to the background and
-// its live output for a tool that has one.
-//
-// It presses no key. A stop from Kodosi ends the turn with Claude Code's own call. Claude Code then lets a
-// command of the turn run on in the background, so the module also stops that command.
+// Do not hook `tool.call` or `tool.run`: Claude Code disables backgrounding
+// and live output streaming for any tool with those hooks registered.
 
 const VERSION = 1
-// The host holds a request open for many seconds. An empty answer that comes faster did not wait there, and
-// three of them in a row end the wait.
+// Long-poll requests normally block on the host for several seconds; three
+// consecutive empty responses returning faster than QUICK_MS indicate a dead connection.
 const QUICK_MS = 200
 const FAILURES = 3
 const HISTORY = 120
@@ -23,7 +19,8 @@ const COMMAND_WORDS = 160
 const SHOWN_MS = 1500
 // Claude Code ends the run of these commands while their picker stays open in the terminal.
 const PICKERS = new Set(['rewind'])
-// The host takes at most 8 MiB in a request, and a character of the JSON takes up to three bytes there.
+// Keep batches under the host's 8 MiB limit (each UTF-16 code unit in JS
+// string length can expand to up to 3 UTF-8 bytes).
 const MOST_BATCH = 2 * 1024 * 1024
 const pending = []
 const early = []
@@ -40,8 +37,8 @@ let greeting = false
 let failures = 0
 let batch = 0
 let asks = 0
-// The permission mode of the session. Claude Code offers to go on without permission checks after a plan
-// only in a session that started without them.
+// Track whether `bypassPermissions` was ever active: Claude Code only offers
+// to skip permission checks after plan mode in sessions that had bypass on.
 let mode = ''
 let bypass = false
 // The person's prompts in the conversation. A rewind takes the conversation back to an earlier prompt.
@@ -61,8 +58,8 @@ function post($, path, body) {
   })
 }
 
-// The end of a turn can break a request that is on its way, so a batch that got no answer goes again
-// under its number, and the host takes each number once.
+// Turn completion can abort an in-flight HTTP request, so failed batches retry
+// with the same sequence number; the host deduplicates by batch number.
 function flush($) {
   if (sending) return
   if (pending.length === 0 || !socket) {
@@ -120,7 +117,6 @@ function newMode($, to, from, fields) {
   tell($, 'mode', { mode: to, from: typeof from === 'string' ? from : undefined, ...fields })
 }
 
-// The settings that take permission modes out of the session.
 async function modesOff($) {
   try {
     const permissions = (await $.settings.read({ key: 'permissions' })) || {}
@@ -160,7 +156,8 @@ function reason(error) {
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
-// The host has each event that came before, so a request that follows finds what it names.
+// Wait until all queued events are flushed so subsequent requests (like /v1/ask)
+// refer to state the host has already received.
 function settled($) {
   if (!sending && pending.length === 0) return Promise.resolve()
   return new Promise(resolve => {
@@ -169,7 +166,7 @@ function settled($) {
   })
 }
 
-// A tool can take or return megabytes. The chat shows the start and the end.
+// Bound tool inputs/outputs, which can be megabytes.
 function brief(value, depth) {
   if (typeof value === 'string') return value.length > 8000 ? value.slice(0, 4000) + '\n…\n' + value.slice(-3600) : value
   if (value === null || typeof value !== 'object' || depth > 6) return value
@@ -179,7 +176,6 @@ function brief(value, depth) {
   return out
 }
 
-// The text and the tool calls of a row. Thinking and pictures go as their kind alone.
 function blocks(content) {
   if (typeof content === 'string') return [{ type: 'text', text: brief(content, 0) }]
   if (!Array.isArray(content)) return []
@@ -214,8 +210,8 @@ function earlier(rows) {
   return out
 }
 
-// The host follows the module from its hello, so what happens while the module reads the session waits
-// until the hello and the history are out. The host knows each row of the history by its id.
+// Buffer live events in `early` while gathering session state so `hello` and
+// `history` always arrive at the host first (host deduplicates rows by id).
 async function hello($, rewound) {
   greeting = true
   const facts = { agent: 'claude', rewound: rewound || undefined }
@@ -249,9 +245,9 @@ async function hello($, rewound) {
   flush($)
 }
 
-// Claude Code's own end of a turn lets a command of the turn run on in the background. Its record comes
-// with the end, and the module then stops the command with Claude Code's own tool. The next turn can start
-// in this time, and its commands are not of the stop.
+// Aborting a turn lets running commands continue in the background. Poll for
+// `backgroundedByTurnAbort` records from PostToolUse and stop each via TaskStop.
+// The next turn can start meanwhile, and its commands are not stopped.
 async function stop($) {
   if (!turn || stopping) return
   stopping = true
@@ -313,7 +309,6 @@ function run($, command) {
   }
 }
 
-// What the person sends from Kodosi. The loop ends with the session, or when the host is away.
 async function listen($) {
   let quick = 0
   while (socket && quick < FAILURES) {
@@ -355,7 +350,7 @@ export function register(on) {
     return started
   })
 
-  // After /clear and /resume the process goes on with another conversation, and Claude Code starts no session.
+  // /clear and /resume switch conversations in-place without firing session.start.
   on('session.end', async ($, e, next) => {
     tell($, 'end', { reason: e.reason })
     const ended = await next(e)
@@ -406,7 +401,7 @@ export function register(on) {
     return changed
   })
 
-  // The chat shows a helper's steps from its rows, so only the main conversation reports as it writes.
+  // Subagent activity is rendered from session.append rows; only stream the main thread.
   on('turn.step', async function* ($, e, next) {
     if (!socket || e.agentId) return yield* next(e)
     tell($, 'step', { model: e.model, effort: e.effort })
@@ -434,7 +429,7 @@ export function register(on) {
     return next(e)
   })
 
-  // The question of Claude Code does not name its tool call. The check just before it does.
+  // PermissionRequest omits tool_use_id, so cache it from the preceding tool.check.
   on('tool.check', async ($, e, next) => {
     const decided = await next(e)
     if (socket && decided && decided.decision === 'ask' && e.tool_use_id) {
@@ -444,8 +439,8 @@ export function register(on) {
     return decided
   })
 
-  // Claude Code shows its own question at the same time, so the person can answer in the terminal too.
-  // The host ends this wait when the question is gone.
+  // Claude Code shows the same prompt in the terminal concurrently; either side
+  // can answer first, and the host closes the /v1/ask wait once the question is gone.
   on('classic.PermissionRequest', async ($, e, next) => {
     if (!socket) return next(e)
     asks += 1
@@ -474,9 +469,9 @@ export function register(on) {
     return next(e)
   })
 
-  // Claude Code reports the moment and the source of each permission decision, and each change of the
-  // permission mode, only in these records. The hook reads the tool call, the decision and the modes from
-  // them, and nothing about the person or the account.
+  // `telemetry.log` is the only hook that reports permission decisions and mode
+  // changes; only the tool call, the decision and the modes are forwarded, nothing
+  // about the person or the account.
   on('telemetry.log', { to: 'collector' }, async ($, e, next) => {
     if (e.event === 'tool_decision' && e.attributes) {
       tell($, 'decided', {

@@ -62,8 +62,8 @@ public final class ResizeDeliveryState: Sendable {
             guard let pending = $0.pending[result.requestId],
                   pending.request == result
             else { return false }
-            // After a refusal the terminal can have the size of another view, so the size that
-            // this view had before is not the terminal's size, and it must go again.
+            // Another viewer may now own the terminal size, so clear `applied` to prevent
+            // deduplicating a future resize back to this view's previous dimensions.
             $0.applied = ""
             $0.pending.removeValue(forKey: result.requestId)
             return true

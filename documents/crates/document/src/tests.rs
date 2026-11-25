@@ -9,8 +9,6 @@ use crate::{
     ToDocument, Unreadable, Unwritable, Viewer, contract,
 };
 
-/// A small format with both kinds of change: cells that a key names, and lines that a position
-/// names. Only the server makes a merged cell.
 struct Sheet;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -493,7 +491,6 @@ impl View {
     }
 }
 
-/// A small random source, so each seed gives one exact run.
 struct Random(u64);
 
 impl Random {

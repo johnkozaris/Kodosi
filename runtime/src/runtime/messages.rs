@@ -132,8 +132,8 @@ impl Mentions {
     }
 }
 
-/// The apps mark a name after an at sign in any case, and end it where a word ends. A name that an
-/// app marks and the runtime does not find leaves its person waiting for an agent that got nothing.
+/// Matches case-insensitive `@name` mentions on word boundaries to stay in sync with client
+/// highlight parsing.
 pub(super) fn named<T: Copy>(text: &str, terminals: &[(T, &str)]) -> Vec<T> {
     let mut found = Vec::new();
     for (index, _) in text.match_indices('@') {

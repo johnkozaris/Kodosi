@@ -25,8 +25,8 @@ QString requestId()
     return QUuid::createUuidV7().toString(QUuid::WithoutBraces);
 }
 
-/// The failure of a refresh or a report that the app sends by itself is no news to the person: the
-/// runtime refreshes again when the connection is back, and the app reports the next change.
+// Suppress error banners for background refreshes and state reports; the runtime retries on
+// reconnect and the app re-sends on the next change.
 bool isRefresh(const QString& operation)
 {
     static const QStringList refreshes { QStringLiteral("session.list"), QStringLiteral("auth.refresh"),
@@ -147,7 +147,7 @@ void Workspace::reportLook()
 void Workspace::attachCanvas(CanvasModel& canvas)
 {
     m_canvas = &canvas;
-    // Queued, so that the canvas opens after a change that moves the front, not in the middle of it.
+    // Queue followCanvas so focus and stage changes settle before deciding whether to auto-open.
     connect(&m_sessions, &SessionCatalogModel::authoritativeSnapshotApplied, this, &Workspace::followCanvas,
         Qt::QueuedConnection);
     connect(&m_sessions, &SessionCatalogModel::visibleChanged, this, &Workspace::followCanvas, Qt::QueuedConnection);
@@ -257,8 +257,8 @@ void Workspace::clearAccountData(bool clearLinks, const QString& userId)
     notifyBusy();
 }
 
-// The list of projects that comes after the catch-up opens the chosen project again, so a project
-// that waited for its details stays chosen.
+// Drop pending project.open requests without clearing the selection; the post-resync project list
+// snapshot will reopen the selected project.
 void Workspace::abandonPending(const QString& message)
 {
     const auto epoch = m_account.m_epoch.value_or(0);

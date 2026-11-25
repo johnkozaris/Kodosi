@@ -330,8 +330,8 @@ public sealed class ConnectionDirectory
         lock (sync) accounts.GetValueOrDefault(userId)?.GetValueOrDefault(deviceId)?.Connection.ExtendUntil(expires);
     }
 
-    // A device connects again the moment its connection closes. A connection that came after this would
-    // stay open and hold the stop of the server until its time limit.
+    // Reject new connections before closing existing ones; devices reconnect immediately, which
+    // would otherwise hold server shutdown open until timeout.
     public void StopAll()
     {
         DeviceConnection[] all;

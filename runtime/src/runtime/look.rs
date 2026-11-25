@@ -5,7 +5,7 @@ use tokio::sync::watch;
 use super::saver::Saver;
 use crate::terminal::TerminalLook;
 
-/// A host without an app keeps the look that the app gave it last.
+/// Persists the last terminal color scheme set by the desktop app for headless host runs.
 pub(super) struct HostLook {
     look: watch::Sender<TerminalLook>,
     saver: Saver,

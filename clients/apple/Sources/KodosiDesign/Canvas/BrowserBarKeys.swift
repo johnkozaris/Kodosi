@@ -43,7 +43,8 @@ struct BrowserProblemKey: View {
     }
 }
 
-/// A touch screen shows no tips, so a press shows the words too.
+/// Shows explanation text in a popover on tap as well as a tooltip, since touch devices have no
+/// hover tooltips.
 private struct ExplainedKey<Face: View>: View {
     @Environment(\.theme) private var theme
     let words: String

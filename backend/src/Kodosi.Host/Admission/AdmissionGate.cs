@@ -18,7 +18,7 @@ public sealed class AccountGate
 
     public async ValueTask<IDisposable> EnterAsync(Guid account, CancellationToken cancellationToken) => await TakeAsync(account, cancellationToken);
 
-    // The writes of one account run one at a time, so a device check made in the turn holds until the handler returns.
+    // Serializes writes per account so device validity checks hold until the handler returns.
     internal async ValueTask<IDisposable?> AdmitAsync(HttpContext context)
     {
         if (HttpMethods.IsGet(context.Request.Method)) return null;

@@ -17,9 +17,9 @@ public extension View {
         #endif
     }
 
-    /// On iPhone and iPad, the square of a key at the end of a tab ends `reach` points after the key:
-    /// it takes the end of the key's own tab and leaves the next tab all of its own. VoiceOver
-    /// still outlines the key, because the square lies off its center.
+    /// On iOS, caps the trailing edge of the 44pt hit target at `reach` points past the view so
+    /// a trailing button (e.g. a tab close button) does not overlap the adjacent item. Keeps the
+    /// VoiceOver outline on `shape` instead of the off-center hit area.
     func touchTarget(_ shape: some Shape, reach: CGFloat) -> some View {
         #if os(iOS)
             contentShape(TouchArea(reach: reach)).contentShape(.accessibility, shape)
@@ -28,9 +28,9 @@ public extension View {
         #endif
     }
 
-    /// A scroll view takes no touch beyond its edges. On iPhone and iPad, a scroll view of keys
-    /// `height` points high reaches as far above and below as their touch targets do, in the same
-    /// place and showing no more than before.
+    /// A scroll view takes no touches beyond its edges. On iOS, this expands a scroll view's
+    /// vertical hit area to cover 44pt touch targets for controls of `height`, while masking
+    /// visuals and using negative padding to keep layout unchanged.
     func touchRoom(height: CGFloat) -> some View {
         #if os(iOS)
             let room = max(0, (TouchArea.side - height) / 2)

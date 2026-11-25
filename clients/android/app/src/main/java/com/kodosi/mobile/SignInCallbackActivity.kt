@@ -11,7 +11,8 @@ class SignInCallbackActivity : Activity() {
         super.onCreate(savedInstanceState)
         val answer = intent.data?.takeIf { it.scheme == SIGN_IN_SCHEME }
         if (answer != null) {
-            // Returning to MainActivity closes the browser and delivers its canceled result.
+            // Finish sign-in before returning to MainActivity, since CLEAR_TOP dismisses the
+            // browser tab and triggers a RESULT_CANCELED callback that would otherwise cancel it.
             (application as KodosiApplication).model.account.finishSignIn(answer.toString())
         }
         startActivity(

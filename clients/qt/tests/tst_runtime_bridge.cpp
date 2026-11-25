@@ -24,7 +24,6 @@ QByteArray pipeEvent(const QString& type, const QString& pipe)
                              { QStringLiteral("accountEpoch"), 0 }, { QStringLiteral("accountUserId"), QJsonValue::Null } })
         .toJson(QJsonDocument::Compact);
 }
-// A reader on a thread of its own that a test waits for without the event loop of the GUI thread.
 class Reader {
 public:
     Reader(kodosi::RuntimeBridge& bridge, const QString& pipe, bool start = true)

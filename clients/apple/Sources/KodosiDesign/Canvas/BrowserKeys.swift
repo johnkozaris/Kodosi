@@ -1,4 +1,5 @@
-/// A key that types a character has no DOM key here: the character is the key.
+/// Character-producing keys leave `named` nil so callers use the actual typed character as the DOM
+/// `key` value.
 enum BrowserKeys {
     struct Key {
         let code: String

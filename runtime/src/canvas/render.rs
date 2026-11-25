@@ -17,7 +17,7 @@ use crate::text::Text;
 const RENDER_LIMIT: Duration = Duration::from_mins(2);
 const MOST_PICTURES: usize = 300;
 
-/// A place in the page, in CSS pixels from the top left of the document.
+/// Bounding box in CSS pixels relative to the document's top-left corner.
 #[derive(Deserialize)]
 struct Area {
     x: f64,
@@ -175,8 +175,8 @@ enum Step {
 }
 
 impl<P: Page> Bridge<'_, P> {
-    /// A view may show one page at a time, as a presentation shows one slide, so each picture
-    /// follows the view's answer for its page.
+    /// Views like presentations render one slide at a time and switch to it when `area(index)` is
+    /// called, so re-query each page's area right before capturing instead of caching pass 1.
     async fn save(&mut self, file: &Path, out: &Path) -> Result<Vec<PathBuf>, Text> {
         let mut count = self.count().await?;
         let (mut width, mut height) = (0.0_f64, 0.0_f64);

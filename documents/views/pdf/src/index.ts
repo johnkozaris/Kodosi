@@ -26,8 +26,8 @@ import {
 } from "@documents/client";
 import type { Changed, ClosedReason, Peer } from "@documents/contract";
 import { ArrowDown, ArrowUp, Eraser, RotateCw, StickyNote, Trash2 } from "lucide";
-// The legacy build fills in what the hosts' engines lack, such as Map.getOrInsertComputed in
-// QtWebEngine 6.14.
+// Use the legacy build because older host webviews (e.g. QtWebEngine 6.14) lack newer APIs
+// such as Map.getOrInsertComputed.
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import workerUrl from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 import "./pdf.css";
@@ -89,7 +89,7 @@ interface Annotation {
   radioButton?: boolean;
   exportValue?: string;
   options?: { exportValue: string; displayValue: string }[];
-  /** A web or mail address that pdf.js found safe to open. */
+  /** Pre-sanitized web or mailto URL validated by pdf.js. */
   url?: string;
   dest?: string | unknown[] | null;
 }
@@ -111,11 +111,10 @@ interface Holder {
   near: boolean;
 }
 
-/** CSS pixels for each point of a page at its actual size. */
 const ACTUAL = pdfjs.PixelsPerInch.PDF_TO_CSS_UNITS;
-/** In CSS pixels, at the actual size of the pages. */
+// Page gap in CSS pixels at 100% zoom.
 const SPACE = 12;
-/** Beyond this many pixels, a zoom enlarges the picture. */
+// Max backing canvas pixel area; above this, zoom scales the rasterized canvas instead.
 const MOST_PIXELS = 4096 * 4096;
 const REDRAW_MS = 150;
 const NOTE_POINTS = 24;
@@ -127,7 +126,7 @@ function sizeOf(page: Page): [number, number] {
   return page.rotation % 180 === 0 ? [page.width, page.height] : [page.height, page.width];
 }
 
-/** The element lies in shares of the page, so that it keeps its place at each zoom. */
+/** Positions an overlay using percentage coordinates so it stays aligned across zoom levels. */
 function cover(element: HTMLElement, viewport: pdfjs.PageViewport, box: Rect): void {
   const [left, top, right, bottom] = box;
   element.style.left = `${(left / viewport.width) * 100}%`;

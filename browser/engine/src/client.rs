@@ -12,19 +12,18 @@ use crate::{
     filters, renderer,
 };
 
-/// The smallest screen that a page sees, like a laptop's, so that the screen is never just the
-/// size of the page.
+/// Minimum virtual screen size reported to pages so the screen is not shrunk to the viewport.
 const SCREEN_WIDTH: u32 = 1920;
 const SCREEN_HEIGHT: u32 = 1080;
 const MENU_BAR: c_int = 25;
-/// Tabs show icons at 16 points, so 32 pixels are sharp on a Retina screen.
+/// Favicons render at 16pt in tabs, so request 32px for 2x displays.
 const ICON_PIXELS: u32 = 32;
 
-/// The crate names the cursor handle on Linux and Windows only.
+/// `cef` only defines `CursorHandle` on Linux and Windows.
 #[cfg(target_os = "macos")]
 type CursorHandle = *mut u8;
 
-/// The host's own pages load only their files, so only tabs filter.
+/// Host pages only load their own files, so request filtering applies only to tabs.
 pub(crate) fn new(origin: Origin, shared: Shared) -> Client {
     let blocker = matches!(origin, Origin::Tab { .. }).then(filters::blocker);
     ClientBuilder::new(
@@ -46,8 +45,8 @@ fn id_of(browser: Option<&mut Browser>) -> Option<i64> {
     browser.map(|browser| i64::from(browser.identifier()))
 }
 
-/// The crate's iterator over a string list never frees the copy of each string that it reads
-/// (cef-rs#516), so the first address is read and freed here.
+/// Reads the first URL and frees its CEF string copy manually, working around `cef-rs#516`
+/// where `CefStringList`'s iterator leaks each copied string.
 fn first_address(urls: &mut CefStringList) -> Option<String> {
     let list: *mut cef_dll_sys::_cef_string_list_t = urls.into();
     if list.is_null() {
@@ -182,8 +181,8 @@ wrap_render_handler! {
             if type_ != PaintElementType::VIEW || buffer.is_null() {
                 return;
             }
-            // SAFETY: CEF gives a buffer of `width` times `height` BGRA pixels that stays valid
-            // until this call returns.
+            // SAFETY: CEF provides a `width * height` BGRA buffer that remains valid until
+            // this callback returns.
             let pixels = unsafe { std::slice::from_raw_parts(buffer, width * height * 4) };
             #[cfg(target_os = "macos")]
             if let Some(layer) = self.shared.layer.borrow_mut().as_mut().filter(|layer| layer.tab == Some(tab)) {
@@ -220,7 +219,7 @@ wrap_render_handler! {
                 if let Some(layer) = self.shared.layer.borrow_mut().as_mut().filter(|layer| layer.tab == Some(tab)) {
                     layer.draw_surface(surface, self.shared.size.get());
                 }
-                // SAFETY: CEF gives a live IOSurface for the length of the paint call.
+                // SAFETY: CEF provides a valid IOSurface for the duration of this paint callback.
                 let (width, height) = unsafe { (IOSurfaceGetWidth(surface), IOSurfaceGetHeight(surface)) };
                 let mut capture = self.shared.capture.borrow_mut();
                 if let Some(capture) = capture.as_mut().filter(|capture| capture.tab == tab)
@@ -236,7 +235,7 @@ wrap_render_handler! {
     }
 }
 
-/// CEF names the changed parts of the page in its pixels.
+/// CEF reports `dirty_rects` in physical pixels, so `size` is scaled to match.
 fn drawn(capture: &mut Capture, dirty_rects: Option<&[Rect]>, shared: &Shared) {
     let size = shared.size.get();
     let pixels = |points: u32| f64::from(points) * f64::from(size.scale);
@@ -352,7 +351,7 @@ wrap_download_image_callback! {
             let address = image_url.map_or_default(CefString::to_string);
             let png = image
                 .and_then(|image| {
-                    // CEF gives no PNG unless it can write the size of the picture.
+                    // CEF requires non-null width/height out pointers or `as_png` returns None.
                     let (mut width, mut height) = (0, 0);
                     image.as_png(1.0, 1, Some(&mut width), Some(&mut height))
                 })
@@ -417,7 +416,7 @@ wrap_request_handler! {
     }
 }
 
-/// Gives a page's dialog to the host, so that the engine never shows a window of its own.
+/// Forwards page JS dialogs to the host so the engine never opens native dialog windows.
 fn take_dialog(
     browser: Option<&mut Browser>,
     kind: DialogKind,

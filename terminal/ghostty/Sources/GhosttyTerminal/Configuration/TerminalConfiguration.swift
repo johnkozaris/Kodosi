@@ -184,7 +184,7 @@ public struct TerminalConfiguration: Sendable, Hashable {
         commands.map(\.renderedLine).joined(separator: "\n")
     }
 
-    /// The padding on each side of the terminal, in Ghostty's points.
+    /// Per-side window padding in Ghostty points (defaults to 2).
     var windowPadding: (x: Int, y: Int) {
         commands.reduce(into: (x: 2, y: 2)) { padding, command in
             switch command {
@@ -195,7 +195,6 @@ public struct TerminalConfiguration: Sendable, Hashable {
         }
     }
 
-    /// The grid that fits a view of this many pixels.
     public func grid(
         widthPixels: UInt32,
         heightPixels: UInt32,

@@ -34,7 +34,7 @@ data class ProjectMessage(
 ) {
     fun isOwn(userId: String?): Boolean = agent == null && authorId == userId
 
-    /** A person deletes their own messages and those of their agents. */
+    // Intentionally omits agent == null so users can also delete messages posted by their agents.
     fun deletable(userId: String?): Boolean = !deleted && authorId == userId
 }
 

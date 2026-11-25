@@ -148,7 +148,6 @@ QList<QKeySequence> ShortcutsModel::taken() const
     return taken;
 }
 
-/// Returns the title of the action that had the key.
 QString ShortcutsModel::bind(const QString& action, const QString& sequence, const QString& old)
 {
     if (find(action) == nullptr || sequence.isEmpty() || (action == numbered && !sequence.back().isDigit()))
@@ -194,7 +193,7 @@ QString ShortcutsModel::sequence(const QKeyEvent& event)
     return sequence(event.keyCombination(), QKeyMapper::possibleKeys(&event));
 }
 
-/// The text of a pressed key as the shortcuts match it, or nothing for a key that a program should get.
+// Returns a portable shortcut string, or empty for bare/modifier-only keys meant for programs.
 QString ShortcutsModel::sequence(const QKeyCombination pressed, const QList<QKeyCombination>& possible)
 {
     switch (pressed.key()) {

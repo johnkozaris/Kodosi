@@ -3,7 +3,7 @@ import KodosiDesign
 import SwiftUI
 import UserNotifications
 
-/// macOS tells no app whether it has App Management, so its row only opens the list.
+/// macOS has no API to query App Management permission, so its row only links to System Settings.
 struct PermissionsGroup: View {
     @Environment(\.theme) private var theme
     @State private var notifications: UNAuthorizationStatus?
@@ -50,7 +50,7 @@ struct PermissionsGroup: View {
         }
     }
 
-    /// macOS 27 renamed the list of Accessibility in System Settings.
+    /// System Settings renamed "Accessibility" in macOS 27.
     private static var deviceControl: String {
         if #available(macOS 27, *) {
             String(localized: "Device Control and Data Access")

@@ -83,7 +83,7 @@ let package = Package(
             dependencies: ["KodosiBridge", "KodosiKit"],
             swiftSettings: swiftSettings,
             linkerSettings: [
-                // The tests link the bridge without the runtime library. No test calls its functions.
+                // Bridge tests link without the runtime library; none call FFI functions.
                 .unsafeFlags(["-Xlinker", "-undefined", "-Xlinker", "dynamic_lookup"]),
             ],
         ),

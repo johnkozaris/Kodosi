@@ -79,7 +79,7 @@ pub struct Message {
     pub agent: Option<String>,
     pub terminal_id: Option<String>,
     pub text: String,
-    /// A deleted message keeps only its place, its author's ID, its agent and its time.
+    /// When true, only `id`, `position`, `author_id`, `agent`, and `created_at` are preserved.
     pub deleted: bool,
     pub created_at: String,
 }
@@ -175,10 +175,10 @@ pub struct Issue {
 pub struct Snapshot {
     pub project_id: String,
     pub messages: Vec<Message>,
-    /// Messages before `messages` that changed since the last snapshot. Each one replaces the
-    /// message with its ID that an app keeps, and an app that does not keep it leaves it out.
+    /// Updates to older messages before `messages` (deletions). Clients replace any cached
+    /// message with a matching ID and ignore IDs they do not hold.
     pub replacements: Vec<Message>,
-    /// The person cleared the messages up to this position for themselves.
+    /// Highest message position cleared by the current user (per-user watermark).
     pub cleared_position: u64,
     pub tasks: Vec<Task>,
     pub repositories: Vec<Repository>,

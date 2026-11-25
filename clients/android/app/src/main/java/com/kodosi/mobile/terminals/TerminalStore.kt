@@ -29,7 +29,6 @@ class TerminalStore(private val commands: CommandSink) {
     val openResults: StateFlow<Map<String, OpenResult>>
         field = MutableStateFlow(emptyMap())
 
-    /** The faces that the person picked for terminals. */
     val faces: StateFlow<Map<String, FacePick>>
         field = MutableStateFlow(emptyMap())
     private val opening = HashMap<String, Any>()
@@ -59,7 +58,7 @@ class TerminalStore(private val commands: CommandSink) {
         }
     }
 
-    /** Until the answer comes, the list is not known to be empty. */
+    // Track requestId so UI waits for session.result before treating an empty list as loaded.
     fun list() {
         val request = UuidV7.generate()
         listing = request
@@ -68,7 +67,6 @@ class TerminalStore(private val commands: CommandSink) {
 
     fun absorb(event: RuntimeEvent) = settleList(event)
 
-    /** The runtime streams only the terminal that this device shows. */
     fun watch(sessionId: String, shown: Boolean) {
         val next = if (shown) sessionId else watching.takeIf { it != sessionId }
         if (next == watching) return
@@ -83,10 +81,8 @@ class TerminalStore(private val commands: CommandSink) {
         )
     }
 
-    /**
-     * A request that stops waiting still ends the terminal's opening, so that its screen offers Connect instead of
-     * waiting for an answer that nobody reads.
-     */
+    // Record a result in finally even on cancellation so the screen does not stay stuck on
+    // "Connecting" waiting for a reply nobody is observing.
     suspend fun open(sessionId: String): OpenResult {
         val attempt = Any()
         opening[sessionId] = attempt
@@ -105,7 +101,6 @@ class TerminalStore(private val commands: CommandSink) {
         return result
     }
 
-    /** [own] is the terminal's own face, which the pick holds over. */
     fun pick(face: TerminalFace, sessionId: String, own: TerminalFace?) {
         faces.update { it + (sessionId to FacePick(face, own)) }
     }

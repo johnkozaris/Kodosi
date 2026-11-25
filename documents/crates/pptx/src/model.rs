@@ -21,11 +21,11 @@ pub(crate) fn schema() -> &'static Schema {
     &SCHEMA
 }
 
-/// The ids that a file can give a slide.
+/// Valid OOXML `ST_SlideId` range.
 pub(crate) const SLIDE_IDS: RangeInclusive<u64> = 256..=2_147_483_647;
-/// The ids that a file can give a shape.
+/// Valid OOXML `ST_DrawingElementId` range.
 pub(crate) const SHAPE_IDS: RangeInclusive<u64> = 0..=4_294_967_295;
-/// The id of the shape tree of a new slide, which holds all its shapes.
+/// Shape ID reserved for the root `p:spTree` group on newly created slides.
 pub(crate) const ROOT_SHAPE: u64 = 1;
 
 pub(crate) fn number_in(id: &str, range: &RangeInclusive<u64>) -> Option<u64> {
@@ -54,17 +54,17 @@ pub struct Shape {
     pub asset: Option<String>,
     pub link: Option<Value>,
     pub text: Option<Node>,
-    /// The look that its text takes from the master, the layout and the shape, by level.
+    /// Inherited per-level text styles resolved from master, layout, and shape.
     pub look: Value,
-    /// Where it stands among the shapes: higher is in front.
+    /// Stacking order on the slide (higher renders in front).
     pub order: u64,
-    /// The piece of the file that holds the shape, so that a shape that a save took away comes
-    /// back whole. A shape that the file never held has none.
+    /// Hash key of the original shape XML in `Model::raws` (allows undo to restore the full XML);
+    /// `None` for newly created shapes.
     pub source: Option<String>,
 }
 
-/// What the piece of a shape gave it where its slide read it, so that a shape that comes back from
-/// its piece changes in the file only in what changed since.
+/// Original frame and fill read from a shape's XML fragment, used to patch only subsequent edits
+/// if the shape is restored.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Sourced {
     pub(crate) frame: Frame,
@@ -97,19 +97,19 @@ impl Sourced {
 pub struct Slide {
     pub id: String,
     pub part: Option<String>,
-    /// Where it stands among the slides, so a move names one number.
+    /// Fractional sort key for slide ordering so moves update a single number.
     pub position: f64,
     pub shapes: Vec<Shape>,
-    /// What its layout and master draw behind it, which is not edited here.
+    /// Read-only background shapes inherited from the slide master and layout.
     pub behind: Vec<Shape>,
     pub background: Option<String>,
-    /// The look that the text of a new shape takes from the master.
+    /// Default text style from the slide master, applied to newly added text shapes.
     pub text_look: Value,
-    /// The highest id that a shape of the slide has held, in a group too, so that a new shape
-    /// takes another one.
+    /// Highest shape ID seen on this slide (including inside groups) to avoid collisions when
+    /// allocating new IDs.
     pub last_shape: u64,
-    /// The pieces of the shapes that the slide held, by key. A piece names the parts of the file
-    /// that its slide links to, so a shape comes back from it only there.
+    /// Original shape XML metadata scoped to this slide; shape XML references per-slide
+    /// relationships and cannot be restored onto a different slide.
     pub sources: HashMap<String, Sourced>,
 }
 
@@ -122,7 +122,7 @@ pub struct Model {
     pub(crate) theme: Value,
 }
 
-/// What a change does not name stays. A fill or a line that a change names as null goes.
+/// Partial shape update: omitted fields stay unchanged; explicit `null` clears `fill` or `line`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ShapeFields {
@@ -152,7 +152,8 @@ pub struct ShapeFields {
     pub order: Option<u64>,
 }
 
-/// A field that a change names, with null as a value of its own.
+/// Deserializes a present field as `Some(T)` so explicit `null` becomes `Some(None)` rather than
+/// `None` (absent).
 fn named<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -161,7 +162,8 @@ where
     T::deserialize(deserializer).map(Some)
 }
 
-/// Fields and orders name a key, so the last one wins. Text names positions in one shape's tree.
+/// Shape field and order edits are key-addressed (last write wins); `Text` steps are
+/// position-addressed within a single shape.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -178,7 +180,7 @@ pub enum Change {
         slide: String,
         shape: String,
         steps: Vec<Value>,
-        /// Pieces of XML that came with a merge, so a replay of the journal has them too.
+        /// Raw XML fragments from an external-write merge, carried so journal replay has them.
         #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
         keep: BTreeMap<String, String>,
     },
@@ -196,7 +198,7 @@ pub enum Change {
     AddShape {
         slide: String,
         shape: Value,
-        /// Pieces of XML that came with a merge, so a replay of the journal has them too.
+        /// Raw XML fragments from an external-write merge, carried so journal replay has them.
         #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
         keep: BTreeMap<String, String>,
     },

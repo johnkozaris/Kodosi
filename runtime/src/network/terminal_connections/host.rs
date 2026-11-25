@@ -473,7 +473,7 @@ async fn connect(
         host_device_id: credentials.keys.device_id.clone(),
     });
     if channel.version().is_err() {
-        // An older viewer reads this version and says that its own Kodosi must update.
+        // Send `Accept` anyway so an older viewer can read `protocol_version` and prompt an update.
         channel.send(&accept).await?;
         channel.close().await;
         return Ok(());
@@ -813,7 +813,7 @@ impl<'a, T: Transport> Stream<'a, T> {
         Ok(end)
     }
 
-    /// Terminal output goes first. Documents use the project that it leaves.
+    /// Prioritizes terminal output; pipe frames only send within the remaining pacing headroom.
     async fn send_pipe_parts(&mut self) -> Result<()> {
         let typing = self
             .typed_at
@@ -857,8 +857,8 @@ impl<'a, T: Transport> Stream<'a, T> {
         }
     }
 
-    /// A slow open does not hold the terminal, and frames that the viewer sends in that time wait
-    /// in the pipe.
+    /// Opens the pipe asynchronously so slow opens do not block terminal output; early viewer
+    /// frames wait in the pipe's queue until the pipe is ready.
     fn open_pipe(&mut self, pipe: Uuid, key: String, name: String) {
         if self.pipes.len() >= MOST_PIPES {
             self.pipe_parts.push_back(Frame::PipeClose { pipe });
@@ -1255,8 +1255,8 @@ impl<'a, T: Transport> Stream<'a, T> {
         Ok(())
     }
 
-    /// A view offers the next picture before an answer only when it stopped waiting for the last
-    /// one, so the next picture takes its place.
+    /// Replaces any in-flight picture transfer; a viewer only sends a new offer after abandoning
+    /// the previous one.
     async fn offered(&mut self, offer: PictureOffer) -> Result<()> {
         let digest = crate::hex::hash_from_hex(&offer.sha256)
             .filter(|_| offer.size > 0 && offer.size <= TERMINAL_PICTURE_MAX_BYTES as u64)

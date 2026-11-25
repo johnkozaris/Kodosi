@@ -28,8 +28,9 @@ mod link;
 mod links;
 mod subscriptions;
 mod terminal_bridge;
-// Only the Linux and Windows app decodes video here. Android's C headers define __linux__ too,
-// so the header needs the `not`.
+// Only the Linux and Windows desktop apps decode video here. Keep the explicit
+// `not(target_os = "android")` so cbindgen guards the C header against Android
+// defining `__linux__`.
 #[cfg(any(
     target_os = "windows",
     all(target_os = "linux", not(target_os = "android"))
@@ -209,8 +210,9 @@ pub extern "C" fn kodosi_protocol_version() -> u32 {
     kodosi_runtime::protocol::VERSION
 }
 
-/// Sets the language of the words that the runtime gives to this app, as a tag such as `de` or
-/// `zh-Hans`. The app calls it before it starts the runtime; the `kodosi` command never does.
+/// Sets the runtime's UI language using a language tag such as `de` or
+/// `zh-Hans`. Apps should call this before starting the runtime; the `kodosi`
+/// command never does.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn kodosi_set_language(tag: *const c_char) -> i32 {
     caught(|| {

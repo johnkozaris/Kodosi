@@ -50,7 +50,7 @@ function icon(node: IconNode): SVGElement {
   return createElement(node);
 }
 
-/** A press on the bar keeps the focus where it is, so the caret or the cell stays. */
+/** Preserves editor focus on toolbar clicks so the caret or cell selection stays active. */
 export class Bar {
   readonly element = document.createElement("div");
 

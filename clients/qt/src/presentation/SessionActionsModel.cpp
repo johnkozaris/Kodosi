@@ -126,7 +126,8 @@ void SessionActionsModel::openNotified(const QString& id, const QString& activat
     showNotified();
 }
 
-// After a crash or a forced end of Kodosi, its terminals come back a moment after the first list, under new IDs.
+// After a crash or forced exit, restored terminals appear shortly after the first snapshot under
+// new session IDs.
 void SessionActionsModel::showNotified()
 {
     if (!m_notified || !m_sessions.hasAuthoritativeSnapshot())

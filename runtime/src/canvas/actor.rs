@@ -150,8 +150,8 @@ impl CanvasHandle {
         }
     }
 
-    /// A shared terminal does not use a person's kept sign-ins, so its browser moves to a
-    /// profile of its own.
+    /// Shared terminals switch to an isolated browser profile so they do not expose the user's
+    /// saved sign-ins.
     pub(crate) fn set_shared(&self, shared: bool) {
         self.shared.send_if_modified(|current| {
             let changed = *current != shared;
@@ -479,8 +479,8 @@ impl Actor {
                     drop(reply.send(drawn));
                 });
             }
-            // A view opens its pipe again after each loss, also after the person closed the last
-            // tab, so a view only watches the browser that a person or an agent opened.
+            // Views reconnect their pipe after disconnects (including closing the last tab), so
+            // only attach to an already-open browser instead of starting a new one.
             Job::Watch { viewer, reply } => match self.existing() {
                 Some(browser) => {
                     tokio::spawn(async move { drop(reply.send(browser.watch(viewer).await)) });
@@ -687,7 +687,7 @@ impl Actor {
         }
     }
 
-    /// The file leaves the canvas first, so its views go before its document closes.
+    /// Remove the item and publish state before closing the document so client views detach first.
     async fn trash(&mut self, key: String) -> Result<CanvasAnswer, Text> {
         let (path, name) = self
             .files
@@ -842,8 +842,9 @@ fn shown(showing: &Showing, terminal: &str) -> Vec<String> {
     lines
 }
 
-/// Runs on a thread of its own, as a profile can hold thousands of files. It finds them before a
-/// terminal starts, and each new terminal has a new ID, so none of them is in use.
+/// Deletes orphaned browser profiles and render directories on a background thread (profiles can
+/// contain thousands of files). Safe to run concurrently with startup because callers invoke it
+/// before terminals start and new terminals use fresh UUIDs.
 pub(crate) fn keep_profiles(data_root: &Path, returning: &HashSet<Uuid>) {
     let mut left = browser::left_profiles(data_root, returning);
     left.extend(

@@ -37,24 +37,24 @@ pub enum Failed {
 
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
-    /// Makes a .docx, .xlsx or .pptx file.
+    /// Create a new .docx, .xlsx, or .pptx file.
     New(NewArguments),
-    /// Prints the content with its ids and cell names, and the rev.
+    /// Print document contents with IDs or cell references and the current revision.
     Read(ReadArguments),
-    /// Sends named ops as one change, all or none.
+    /// Apply a batch of named operations atomically.
     Apply(ApplyArguments),
-    /// Lists formula errors, shapes that leave the slide and other problems.
+    /// Report formula errors, out-of-bounds shapes, and other document issues.
     Check(FileArguments),
-    /// Says who is here, and what each person has selected.
+    /// Show connected viewers and their current selections.
     Selection(FileArguments),
-    /// Prints each op of a format with its fields.
+    /// Print available operations and their fields for a format.
     Guide(GuideArguments),
 }
 
 #[derive(Debug, Clone, Args)]
 pub struct NewArguments {
     pub file: PathBuf,
-    /// A Markdown, CSV or JSON file to start from.
+    /// Source Markdown, CSV, or JSON file to populate the new document.
     #[arg(long)]
     pub from: Option<PathBuf>,
 }
@@ -62,8 +62,8 @@ pub struct NewArguments {
 #[derive(Debug, Clone, Args)]
 pub struct ReadArguments {
     pub file: PathBuf,
-    /// A block id, a cell range such as Sheet1!A1:C9, a slide id, a page number, or lines of a
-    /// text file such as 10-20.
+    /// Target location: block ID, cell range (e.g. Sheet1!A1:C9), slide ID, page number, or text
+    /// line range (e.g. 10-20).
     #[arg(long = "where")]
     pub place: Option<String>,
 }
@@ -71,13 +71,13 @@ pub struct ReadArguments {
 #[derive(Debug, Clone, Args)]
 pub struct ApplyArguments {
     pub file: PathBuf,
-    /// The ops as JSON, or the path of a JSON file.
+    /// Operations as inline JSON or path to a JSON file.
     #[arg(long)]
     pub ops: String,
-    /// The rev that the last read printed.
+    /// Revision returned by the previous read.
     #[arg(long)]
     pub base: u64,
-    /// Makes your text changes in a .docx file suggestions; other changes apply directly.
+    /// Record text edits in .docx files as tracked changes; other edits apply directly.
     #[arg(long)]
     pub track: bool,
 }
@@ -89,9 +89,9 @@ pub struct FileArguments {
 
 #[derive(Debug, Clone, Args)]
 pub struct GuideArguments {
-    /// docx, xlsx, pptx, pdf or text.
+    /// Format name: docx, xlsx, pptx, pdf, or text.
     pub format: String,
-    /// One op of the format.
+    /// Specific operation name to inspect.
     pub op: Option<String>,
 }
 
@@ -306,7 +306,7 @@ fn new_file(file: &Path, from: Option<&Path>) -> Result<String, Failed> {
     Ok(format!("Made {}.\n", file.display()))
 }
 
-/// The host reads the file that an agent names, so it reads only a file of a bounded size.
+/// Bounded read for agent-supplied file paths to avoid unbounded memory use.
 fn read_text(path: &Path) -> Result<String, Failed> {
     if !std::fs::metadata(path)?.is_file() {
         return Err(Failed::Says(format!("{} is not a file.", path.display())));

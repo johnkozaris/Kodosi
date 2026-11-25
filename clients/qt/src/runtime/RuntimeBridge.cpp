@@ -16,7 +16,7 @@ static_assert(KODOSI_FFI_ABI_VERSION == 11, "KodosiQT requires FFI ABI 11");
 namespace kodosi {
 namespace {
     constexpr qsizetype maximumEventBytes = 8 * 1024 * 1024;
-    // The largest file of a canvas fits in the parts of one frame, with room for the events beside it.
+    // Sized to hold a max-size (32 MiB) base64-encoded canvas transfer plus concurrent events.
     constexpr qsizetype maximumQueuedEventBytes = 64 * 1024 * 1024;
     constexpr int maximumQueuedEvents = 4096;
     QByteArray copyBytes(const std::uint8_t* bytes, std::uintptr_t length, std::uintptr_t maximum)
@@ -55,8 +55,8 @@ namespace {
         return result;
     }
 
-    // The runtime writes compact JSON, only the events of a pipe have a "pipe" key, and a string
-    // holds no quote without an escape, so an event holds these bytes only as its own pipe.
+    // The runtime emits compact JSON and only pipe events carry a "pipe" key. Quotes inside JSON
+    // strings are escaped, so substring matching `"pipe":"<id>"` safely identifies routed events.
     QByteArray pipeField(const QString& pipe)
     {
         return QByteArrayLiteral("\"pipe\":\"") + pipe.toUtf8() + '"';
@@ -334,8 +334,8 @@ void RuntimeBridge::queueEvent(const std::uint8_t* json, std::uintptr_t length)
     QMetaObject::invokeMethod(
         this, [this, generation, event = std::move(event)] { receiveQueued(generation, event); }, Qt::QueuedConnection);
 }
-// A routed event stays in the queue's bound until its reader takes it, or goes with a reader
-// that ends, so the queue drops it with the others when the app falls behind.
+// Tracks a routed event against the queue budget until the reader consumes it or is destroyed,
+// allowing backpressure drops to discard queued routed events alongside GUI events.
 class RuntimeBridge::Waiting {
 public:
     Waiting(RuntimeBridge& bridge, std::uint64_t generation, QueuedEvent event)

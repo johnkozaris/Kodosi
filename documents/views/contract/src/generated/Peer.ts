@@ -2,7 +2,7 @@
 import type { JsonValue } from "./serde_json/JsonValue";
 
 /**
- * `person` is the viewer's id, the same in each view of them, and `place` is where they are as
- * the document is now.
+ * `person` is the `Viewer::id` shared across a user's views; `place` is mapped to the current
+ * revision.
  */
 export type Peer = { id: string, person: string, name: string, place: JsonValue, };

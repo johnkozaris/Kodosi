@@ -20,7 +20,6 @@ impl Transport for Relay {
 
 type Service = mpsc::UnboundedSender<Result<Vec<u8>>>;
 
-/// A viewer's and a host's route over one relay pipe, and the service's end of the viewer's pipe.
 fn routes() -> ((Route, Paths), (Route, Paths), Service) {
     let (to_host, from_viewer) = mpsc::unbounded_channel();
     let (to_viewer, from_host) = mpsc::unbounded_channel();
@@ -42,8 +41,6 @@ fn routes() -> ((Route, Paths), (Route, Paths), Service) {
     (viewer, host, service)
 }
 
-/// The wire under two lanes: it can go silent, so that what is sent there is lost, or be cut.
-/// Each lane tells when it ended its connection.
 struct Wire {
     cut: CancellationToken,
     silent: Arc<AtomicBool>,
@@ -100,8 +97,6 @@ async fn carry(
     }
 }
 
-/// Sends `count` numbered messages as far as `allowed` lets it, and takes what the other side
-/// sends, while `seen` tells how many arrived. The route comes back, still open.
 async fn exchange(
     mut route: Route,
     name: char,
@@ -354,8 +349,6 @@ async fn a_channel_keeps_its_session_while_its_route_moves() {
     ));
 }
 
-/// Each side takes the path frames out of its finder and sends them in its channel, and hands
-/// what the channel brings to its finder, until the viewer's route is straight.
 #[cfg(feature = "host")]
 #[tokio::test]
 async fn two_finders_take_a_view_straight_and_its_channel_goes_on_over_the_lane() {

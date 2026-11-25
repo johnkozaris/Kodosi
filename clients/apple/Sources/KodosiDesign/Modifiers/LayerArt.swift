@@ -53,7 +53,7 @@ extension CAAnimation {
 }
 
 extension CAFrameRateRange {
-    /// A loop moves calmly enough that more frames would only cost the battery.
+    /// Caps ambient looping animations at 30 fps to save battery on high-refresh displays.
     static let loop = CAFrameRateRange(minimum: 15, maximum: 30, preferred: 30)
 }
 

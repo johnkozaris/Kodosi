@@ -2,7 +2,6 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-/// The model in a chat's facts opens the actions of the terminal's agent, which change its model.
 struct ChatModelKey: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme

@@ -41,7 +41,7 @@ public struct SegmentedPill<Value: Hashable>: View {
     @Binding public var selection: Value
     public let options: [SegmentOption<Value>]
     public var compact = false
-    /// Each choice shows only its symbol, and names itself in a tip.
+    /// Shows only each option's symbol, moving its title to a tooltip and accessibility label.
     public var symbolic = false
     public var identifier = "segment"
 
@@ -55,7 +55,6 @@ public struct SegmentedPill<Value: Hashable>: View {
         self.identifier = identifier
     }
 
-    /// At the accessibility text sizes of iPhone and iPad, the choices stand under each other.
     private var stacked: Bool {
         #if os(iOS)
             typeSize.isAccessibilitySize

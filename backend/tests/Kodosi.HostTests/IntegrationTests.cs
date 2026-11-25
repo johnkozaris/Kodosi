@@ -192,7 +192,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         await SendAsync(socket, new { type = "presence", state = "away" });
         await SendAsync(socket, new { type = "presence", state = "kodosi" });
         Assert.True(await AwayAsync());
-        // The limit gives one report back each second. A wait of exactly that time can end a moment short.
+        // Refills 1 report/sec; wait 1.5s so timer jitter cannot wake before a token is available.
         await Task.Delay(TimeSpan.FromSeconds(1.5), ct);
         await SendAsync(socket, new { type = "presence", state = "kodosi" });
         Assert.False(await AwayAsync());

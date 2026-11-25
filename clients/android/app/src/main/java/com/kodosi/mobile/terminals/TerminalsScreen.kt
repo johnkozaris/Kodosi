@@ -236,7 +236,6 @@ private fun GroupHeader(group: TerminalGroup, start: (() -> Unit)?, modifier: Mo
     }
 }
 
-/** Without [showsFolder], for a list in folders, the second line names the agent rather than the folder. */
 @Composable
 fun TerminalCard(
     session: RuntimeSession,
@@ -303,7 +302,7 @@ internal fun RuntimeSession.captionState(online: Boolean): CaptionState? {
     }
 }
 
-/** While the second line says a state, the name stays the title, so that the card still names its terminal. */
+// Keep the terminal name as title when the subtitle shows a status, so the card stays identifiable.
 internal fun RuntimeSession.cardLines(online: Boolean, summaryFirst: Boolean): Pair<String, String?> {
     val summary = activity?.takeIf { summaryFirst && agent.isAgent && captionState(online) == null }
     return if (summary != null) summary to name else name to activity

@@ -84,7 +84,6 @@ private sealed interface ThreadEntry {
 
     data class Day(override val key: String, val at: Long) : ThreadEntry
 
-    /** [opens] a run of messages by the same person, which shows its time under its last one, where it [closes]. */
     data class Person(
         val row: ChatRow,
         val words: ChatRow.Kind.Person,
@@ -95,7 +94,6 @@ private sealed interface ThreadEntry {
         override val key: String get() = row.id
     }
 
-    /** The agent's mark, name and time over the rows of one turn. */
     data class Head(override val key: String, val at: Long, val working: Boolean) : ThreadEntry
 
     data class Agent(val row: ChatRow) : ThreadEntry {
@@ -111,7 +109,7 @@ private sealed interface ThreadEntry {
     }
 }
 
-/** The rows that the chat had when it came stay still; a row that comes later rises. */
+// Suppress entry animations for rows present in the initial snapshot; only animate later arrivals.
 private class Arrived {
     val keys = mutableSetOf<String>()
     private var settled = false
@@ -125,10 +123,6 @@ private class Arrived {
     fun fresh(key: String) = settled && key !in keys
 }
 
-/**
- * [me] is the account of this app: the messages of other people show their names and faces. A row
- * from before the agent reported to the chat has no time ([ChatItem.at] is 0) and starts no day.
- */
 private fun entries(rows: List<ChatRow>, me: String?, working: Boolean, now: Boolean): List<ThreadEntry> = buildList {
     var anchor = "start"
     var grouped = false
@@ -177,7 +171,6 @@ private fun entries(rows: List<ChatRow>, me: String?, working: Boolean, now: Boo
     }
 }
 
-/** What runs now shows while the agent works, asks nothing and writes no answer or plan, which its cursor shows. */
 private fun showsNow(view: ChatView, rows: List<ChatRow>): Boolean {
     val writes = when (val last = rows.lastOrNull()?.kind) {
         is ChatRow.Kind.Answer -> last.live
@@ -187,11 +180,6 @@ private fun showsNow(view: ChatView, rows: List<ChatRow>): Boolean {
     return view.state == ChatState.WORKING && view.asks.isEmpty() && !writes
 }
 
-/**
- * The newest message of a person starts a part as high as the view, so that after Send the
- * message moves to the top and the answer grows below it. The conversation follows its end until
- * the person scrolls back, and a drag down into the keyboard puts the keyboard away.
- */
 @Composable
 internal fun ChatThread(
     view: ChatView,
@@ -236,6 +224,8 @@ internal fun ChatThread(
         following = true
         list.animateScrollToItem(end)
     }
+    // Pad the bottom of the list so sending a message scrolls it to the top of the viewport,
+    // leaving space for the agent's response to grow below it.
     LaunchedEffect(list) {
         snapshotFlow {
             val info = list.layoutInfo
@@ -442,7 +432,6 @@ private fun AgentRow(row: ChatRow, hold: () -> Unit) {
     }
 }
 
-/** Android shows the agent's answer as its room shows another person's message. */
 @Composable
 private fun Answer(content: @Composable () -> Unit) {
     val colors = KodosiTheme.colors

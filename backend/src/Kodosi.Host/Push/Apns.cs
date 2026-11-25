@@ -35,8 +35,8 @@ internal sealed class Apns(ApnsSettings settings, IHttpClientFactory http, TimeP
         }
         else if (notice.Clears)
         {
-            // A badge of 0 takes every notification of the app off the phone at once, also while the
-            // app does not run, which a background push cannot promise.
+            // Sending badge=0 as an alert push clears all of the app's notifications immediately, even
+            // when the app is not running, which background pushes cannot guarantee.
             request.Headers.Add("apns-push-type", "alert");
             request.Headers.Add("apns-priority", "10");
             request.Headers.Add("apns-expiration", (clock.GetUtcNow() + Expiry).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture));
@@ -118,7 +118,7 @@ internal sealed class Apns(ApnsSettings settings, IHttpClientFactory http, TimeP
         json.WriteString("interruption-level", state == "blocked" ? "active" : "passive");
         json.WritePropertyName("relevance-score");
         json.WriteRawValue(state switch { "blocked" => "1.0", "error" => "0.6", _ => "0.3" });
-        // A badge of 0 takes every notification of the app off the phone, the new one too.
+        // Omit badge when zero; badge=0 makes iOS clear all of the app's notifications, including this one.
         if (alert.Waits > 0) json.WriteNumber("badge", alert.Waits);
     }
 

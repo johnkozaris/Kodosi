@@ -31,7 +31,7 @@ pub(crate) fn describe(doc: &Node, place: &Value) -> Value {
     Value::Object(described)
 }
 
-/// Both count from 1, with columns in characters.
+/// Returns 1-based `(line, column)` with `column` counted in Unicode scalar values.
 fn line_and_column(doc: &Node, position: usize) -> (usize, usize) {
     let Ok(at) = doc.resolve(position) else {
         return (1, 1);

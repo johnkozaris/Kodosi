@@ -2,76 +2,102 @@
 
 [English](../SECURITY.md) · [Deutsch](../de/SECURITY.md) · [Ελληνικά](../el/SECURITY.md) · [Español](../es/SECURITY.md) · [Français](../fr/SECURITY.md) · **Italiano** · [日本語](../ja/SECURITY.md) · [한국어](../ko/SECURITY.md) · [简体中文](../zh-Hans/SECURITY.md)
 
-I tuoi dispositivi crittografano end-to-end il traffico dei terminali e il contenuto dei
-progetti. Le chiavi private restano sui dispositivi. Il backend instrada le connessioni e
-conserva i dati crittografati dei progetti; non esegue mai comandi e non ne vede mai il testo
-in chiaro. Il [design della crittografia](../CRYPTOGRAPHY.md) (in inglese) descrive il modello
-delle minacce, i meccanismi e i limiti noti; nessuna parte indipendente lo ha ancora
-verificato.
+Il traffico dei terminali e i contenuti dei progetti sono crittografati end-to-end dai tuoi
+dispositivi, e le chiavi private non lasciano mai i dispositivi senza essere crittografate. Il
+backend instrada le connessioni e archivia i dati crittografati dei progetti; non esegue mai comandi
+e non ne vede mai il contenuto in chiaro. Per il modello completo delle minacce, i meccanismi
+crittografici e i limiti noti, consulta il [design della crittografia](../CRYPTOGRAPHY.md) (in
+inglese). Nessuna terza parte indipendente ha ancora sottoposto ad audit questo design o la sua
+implementazione.
 
 ## Cosa concede la condivisione
 
-Condividere un terminale concede il pieno controllo, con i privilegi di sistema operativo del suo proprietario su quel computer. Un terminale in un progetto va agli amici del suo proprietario in quel progetto,
-compresi gli amici che si uniscono dopo. Quando rimuovi un amico, perde i tuoi terminali, e ciascuno di voi lascia i progetti dell'altro. Bloccare una persona fa lo stesso, e non può inviarti richieste di
-amicizia. Un terminale condiviso viene eseguito come te: le persone che lo usano possono anche eseguire `kodosi` come te e leggere e modificare i tuoi file su quel computer, quindi condividilo solo con persone a
-cui affideresti quel computer. Kodosi si fida di tutti quelli che condividono un terminale o un progetto, e dei programmi e degli agenti nei loro terminali, e non limita ciò che fanno. Ognuno dei tuoi dispositivi
-approvati controlla tutti i tuoi terminali e può avviarne di nuovi sugli altri tuoi computer che eseguono Kodosi. Da qualsiasi tuo dispositivo puoi scrivere a Dosi sui tuoi computer, e Dosi agisce lì come quando
-gli scrivi direttamente sul computer. Un dispositivo che rimuovi non può più scrivere a Dosi.
+Condividere un terminale concede ai destinatari il pieno controllo con i tuoi privilegi di sistema
+operativo su quel computer. Condividere un terminale in un progetto lo rende accessibile a tutti i
+tuoi amici presenti in quel progetto, compresi quelli che si uniscono in seguito. Poiché un
+terminale condiviso gira con il tuo utente, chiunque vi acceda può anche eseguire `kodosi` come te e
+leggere o modificare i file su quella macchina. Condividi i terminali solo con persone a cui
+affideresti quel computer.
 
-Chi può aprire un terminale vede anche i file sul suo canvas e usa il suo browser condiviso, quindi
-accedi lì solo dove tutti possono agire. Il browser condiviso di un terminale condiviso non usa mai i
-tuoi accessi salvati. I file su un canvas sono file normali, e chi può aprire il terminale può
-modificarli. Una pagina sul canvas e un documento dal vivo girano in un frame chiuso, senza rete,
-senza file e senza memoria che resti. Finché un browser condiviso è attivo, la sua porta di debug e la
-porta del driver di ogni finestra ascoltano su `127.0.0.1` o `::1`, dove possono raggiungerle altri
-account di quel computer. Un sito nel browser condiviso salva un download nella cartella del terminale
-per ogni azione di una persona o di un agent, e arriva ai tuoi appunti solo quando copi. L'app per
-Linux mostra le pagine solo dove Chromium può isolarle in una sandbox; su Ubuntu il suo profilo
-AppArmor permette all'app, al suo processo delle pagine e a Kodosi Browser di creare gli user
-namespace che servono alla sandbox. Per lo stesso motivo, su Linux il browser condiviso non gira come
-root. Le app non contengono Kodosi Browser. Quando un computer apre il suo primo browser condiviso,
-Kodosi scarica il browser dal feed su `updates.kodosi.com` e lì cerca ogni giorno una nuova versione.
-Kodosi usa un download solo quando il feed ha la firma della chiave degli aggiornamenti di Kodosi e
-il download ha lo SHA-256 indicato dal feed.
+Kodosi non limita ciò che i partecipanti o i loro agenti possono fare dentro un terminale o un
+progetto condiviso. Rimuovere un amico revoca immediatamente l'accesso ai tuoi terminali e rimuove
+ciascuno di voi dai progetti di proprietà dell'altro. Bloccare un utente ha lo stesso effetto e
+impedisce future richieste di amicizia.
+
+Ciascuno dei tuoi dispositivi approvati può controllare tutti i tuoi terminali, avviarne di nuovi
+sugli altri tuoi computer con Kodosi in esecuzione e inviare messaggi a Dosi su quei computer (dove
+Dosi agisce con lo stesso accesso locale di quando lo usi direttamente). Rimuovere un dispositivo ne
+revoca l'accesso ai terminali e a Dosi.
+
+### Canvas e browser condiviso
+
+Chiunque abbia accesso a un terminale può visualizzare e modificare i file sul suo canvas e usare il
+suo browser condiviso: accedi nel browser condiviso solo ad account che tutti i partecipanti
+possono usare. I terminali condivisi non riutilizzano mai gli accessi salvati del browser dei
+terminali privati. I file del canvas sono normali file sul computer host.
+
+Le pagine HTML e le viste dei documenti dal vivo girano dentro un frame isolato senza accesso alla
+rete, senza accesso ai file e senza archiviazione persistente. Finché un browser condiviso è attivo,
+la sua porta di debug e la porta del driver di ogni finestra restano in ascolto su `127.0.0.1` o
+`::1`, quindi altri account utente locali sullo stesso computer possono raggiungerle. I siti nel
+browser condiviso possono salvare nella cartella del terminale al massimo un download per ogni
+azione dell'utente o dell'agente, e accedono agli appunti solo quando copi esplicitamente.
+
+Su Linux, Kodosi esegue il rendering delle pagine solo dove la sandbox di Chromium può funzionare.
+Su Ubuntu, Kodosi include un profilo AppArmor che autorizza l'app, il suo processo di rendering e
+Kodosi Browser a creare gli user namespace richiesti dalla sandbox di Chromium. Per lo stesso
+motivo, su Linux il browser condiviso non viene eseguito come root.
+
+Le app di Kodosi non includono Kodosi Browser. La prima volta che apri un browser condiviso su un
+computer, Kodosi lo scarica da `updates.kodosi.com` e verifica ogni giorno la disponibilità di
+aggiornamenti. Un download viene accettato solo se il feed degli aggiornamenti reca una firma valida
+della chiave di aggiornamento di Kodosi e se l'hash SHA-256 del file corrisponde a quello indicato
+nel feed.
 
 ## Connessioni dirette
 
-Quando due dei tuoi dispositivi possono raggiungersi, sulla stessa rete o attraverso i loro router,
-il traffico di un terminale passa direttamente tra loro invece di passare dal servizio, con la
-stessa crittografia. Ognuno dei due dispositivi vede allora gli indirizzi IP dell'altro. Per
-conoscere l'indirizzo pubblico di un dispositivo, Kodosi chiede a un server STUN di Cloudflare, che
-vede quell'indirizzo. Finché un dispositivo cerca una connessione del genere o ne ha una, e per un
-minuto dopo, tiene aperta una porta UDP, e lì accetta connessioni solo dai tuoi dispositivi. I
-terminali di altre persone passano sempre dal servizio, quindi quelle persone non vedono mai i tuoi
-indirizzi.
+Quando due dei tuoi dispositivi possono raggiungersi direttamente, sulla stessa LAN o tramite
+attraversamento NAT, il traffico del terminale viaggia direttamente tra loro con la stessa
+crittografia end-to-end anziché passare dal server relay. Entrambi i dispositivi vedono gli
+indirizzi IP dell'altro.
+
+Per rilevare il proprio indirizzo pubblico, Kodosi interroga un server STUN di Cloudflare, che
+osserva quell'IP. Mentre cerca o mantiene una connessione diretta (e per il minuto successivo), il
+dispositivo tiene aperta una sola porta UDP e accetta connessioni unicamente dai tuoi dispositivi
+approvati. I terminali condivisi con altre persone passano sempre dal server relay, quindi gli
+altri utenti non vedono mai i tuoi indirizzi IP.
 
 ## Cosa vede il servizio
 
-Il servizio vede i dati di account e dispositivi, i membri dei progetti, i metadati di progetti
-e terminali, l'agente e lo stato di ogni terminale (ad esempio al lavoro o in attesa di
-un'approvazione, mai il suo testo) e se hai già visto quello stato, i campi di instradamento, i
-tempi e le dimensioni del testo cifrato, tranne per il traffico che passa direttamente tra i
-tuoi dispositivi. Vede anche, per ognuno dei tuoi dispositivi, se usi Kodosi su di esso, se usi
-un'altra app su quel computer o se non lo usi, così che una notifica arrivi solo a un
-dispositivo che usi. Le notifiche push al tuo iPhone, iPad o dispositivo Android passano dal
-servizio push di Apple o di Google, che vede gli ID dei tuoi terminali che attendono, hanno
-finito o non sono riusciti, i loro agenti e i loro stati, mai nomi o testo. La crittografia non
-nasconde questi metadati e non evita un'interruzione del servizio. Un dispositivo che rimuovi
-perde l'accesso da quel momento. Dopo aver rimosso un dispositivo perso o rubato, crea una
-nuova chiave di recupero per tenerlo fuori. Quando qualcuno ricomincia da zero sul tuo account
-mentre hai dei dispositivi, si attende un giorno e i tuoi dispositivi lo mostrano, così puoi
-fermarlo. Le credenziali di GitHub e Gitea restano sul tuo computer.
+Il backend vede i record di account e dispositivi, l'appartenenza ai progetti, i metadati di progetti
+e terminali, il tipo di agente e lo stato segnalato di ciascun terminale (ad esempio al lavoro o in
+attesa di approvazione, mai il testo del terminale), se hai già visualizzato quello stato, gli
+header di instradamento, le tempistiche e le dimensioni del testo cifrato (tranne per il traffico
+che segue un percorso peer-to-peer diretto). Vede inoltre lo stato di attività di ciascun
+dispositivo (in Kodosi, in un'altra app desktop o inattivo), così da inviare le notifiche solo a un
+dispositivo attivo.
 
-Eliminare un account rimuove i suoi dispositivi, i dati di recupero, gli amici, le
-condivisioni e i progetti di sua proprietà; i messaggi nei progetti di altri restano, senza
-account. Per 30 giorni il servizio conserva l'emittente e il soggetto dell'accesso eliminato
-per rifiutare i token precedenti.
+Le notifiche push mobili transitano tramite APNs di Apple o FCM di Google. Questi provider vedono
+gli ID dei terminali in attesa, completati o non riusciti insieme al tipo di agente e allo stato,
+mai i nomi o il contenuto dei terminali.
+
+La crittografia non nasconde questi metadati né protegge da interruzioni del server. Rimuovere un
+dispositivo ne interrompe l'accesso da quel momento in poi; se un dispositivo viene smarrito o
+rubato, genera anche una nuova chiave di recupero per tenerlo fuori. Se qualcuno avvia una nuova
+identità sul tuo account mentre hai ancora dispositivi attivi, il backend la posticipa di 24 ore e
+avvisa i tuoi dispositivi esistenti così che tu possa annullarla. Le credenziali di GitHub e Gitea
+restano sul tuo computer.
+
+L'eliminazione del tuo account rimuove i suoi dispositivi, i dati di recupero, la lista amici, le
+condivisioni attive e i progetti di tua proprietà. I messaggi che hai inviato nei progetti di altri
+restano senza alcun account associato. Il backend conserva l'emittente e il soggetto dell'accesso
+eliminato per 30 giorni al fine di rifiutare i token emessi in precedenza.
 
 ## Verificare un download
 
-Ogni release ha `SHA256SUMS`, l'hash SHA-256 di ciascuno dei suoi file, e `SHA256SUMS.asc`,
-la firma di questa lista con la chiave di Kodosi che firma anche il repository apt. Metti i
-due file accanto al tuo download, poi esegui:
+Ogni release include `SHA256SUMS` (il digest SHA-256 di ciascun artefatto) e `SHA256SUMS.asc`,
+firmato con la stessa chiave di Kodosi che firma il repository apt. Posiziona entrambi i file
+accanto al file scaricato ed esegui:
 
 ```sh
 curl -fsSLO https://updates.kodosi.com/apt/kodosi-archive-keyring.pgp
@@ -79,11 +105,12 @@ gpgv --keyring ./kodosi-archive-keyring.pgp SHA256SUMS.asc SHA256SUMS
 shasum -a 256 --ignore-missing -c SHA256SUMS
 ```
 
-`gpgv`, di GnuPG, deve indicare una firma valida della chiave
-`E8007A36D199B6EE755B1EE9C612C00442E52299`, e `shasum` deve mostrare OK per il tuo download.
+`gpgv` (parte di GnuPG) deve confermare una firma valida della chiave
+`E8007A36D199B6EE755B1EE9C612C00442E52299`, e `shasum` deve restituire `OK` per il tuo file.
 
 ## Segnalare una vulnerabilità
 
-Usa la [segnalazione privata delle vulnerabilità](https://github.com/johnkozaris/Kodosi/security/advisories/new)
-o scrivi a [security@kodosi.com](mailto:security@kodosi.com) con la revisione, i passaggi,
-l'impatto e i log senza dati sensibili. Non mettere dettagli nelle issue pubbliche.
+Usa la [segnalazione privata delle vulnerabilità su GitHub](https://github.com/johnkozaris/Kodosi/security/advisories/new)
+oppure scrivi a [security@kodosi.com](mailto:security@kodosi.com) indicando commit o versione,
+passaggi per riprodurre il problema, impatto e log ripuliti da dati sensibili. Non pubblicare
+dettagli sulle vulnerabilità nelle issue pubbliche.

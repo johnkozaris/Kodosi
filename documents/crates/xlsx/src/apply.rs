@@ -20,7 +20,6 @@ fn not_there() -> Refused {
     Refused::Invalid("Those rows or columns are not there.".to_owned())
 }
 
-/// A file holds no row or column past the last that a sheet can have.
 fn within(lines: impl IntoIterator<Item = u32>, rows: bool) -> Result<(), Refused> {
     let most = if rows { MOST_ROWS } else { MOST_COLUMNS };
     if lines.into_iter().any(|line| line >= most) {
@@ -215,7 +214,8 @@ fn hide(
     Ok(())
 }
 
-/// The change keeps a new look too, so that views which do not have it yet can draw it.
+/// Interns `look` into `model.looks`. Callers keep `cell.look` on the broadcast change so views
+/// that have not seen the new style can render it.
 fn look_index(model: &mut Model, look: &Look) -> u32 {
     let found = model.looks.iter().position(|known| known == look);
     let index = found.unwrap_or_else(|| {

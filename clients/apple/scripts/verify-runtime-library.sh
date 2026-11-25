@@ -11,8 +11,8 @@ source "$scripts/apple-platform.sh"
 kodosi_apple_platform "$1"
 archive="$2/libkodosi_ffi_c.a"
 
-# The C code of a Rust crate takes the version of the SDK when the build does not give it the
-# deployment target, and then the app does not start on the older system that it names.
+# C code built by Rust crates defaults to the SDK version if the deployment target is not passed
+# through, breaking startup on older OS versions we claim to support.
 later=$(kodosi_later_deployment_targets "$archive")
 if [[ -n "$later" ]]; then
     echo "The $1 runtime library $archive needs $1 $(xargs <<<"$later"). The deployment target is $KODOSI_DEPLOYMENT_TARGET." >&2

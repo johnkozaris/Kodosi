@@ -6,7 +6,6 @@
 
 namespace kodosi {
 
-// The desktop's own signal for no input on this computer for a time, and for the next input after it.
 class IdleWatch {
 public:
     using Quiet = std::function<void(bool quiet)>;

@@ -3,9 +3,9 @@
     import QuartzCore
     import SwiftUI
 
-    /// The page as the browser on this Mac draws it, in a layer of its own context that the window
-    /// server shows here through the private `CALayerHost`, as Chromium shows the pages of its GPU
-    /// process. The page fits the view as the video does.
+    /// Displays the local macOS browser's Core Animation context directly via the private
+    /// `CALayerHost` API (matching how Chromium composites GPU-process layers), fitted like the
+    /// video view.
     struct BrowserLayerView: NSViewRepresentable {
         let context: UInt32
         let page: CGSize
@@ -67,8 +67,8 @@
             place()
         }
 
-        /// The feed gives the host the view's whole points, and the host gives the page the pixels
-        /// of that size, so each pixel of the page lands on a pixel of the screen.
+        /// Floors `bounds` to match the integer point size sent to the host and aligns the origin
+        /// to backing pixels for crisp 1:1 rendering.
         private func place() {
             guard let host, page.width > 0, page.height > 0 else { return }
             let fit = min(bounds.width.rounded(.down) / page.width, bounds.height.rounded(.down) / page.height)

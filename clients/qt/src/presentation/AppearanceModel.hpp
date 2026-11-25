@@ -71,8 +71,8 @@ public:
     Q_INVOKABLE [[nodiscard]] bool setTextSize(int size);
     Q_INVOKABLE [[nodiscard]] static int stableIndex(const QString& key, int count);
     Q_INVOKABLE [[nodiscard]] static int stableBits(const QString& key);
-    /// A list puts an agent's summary before the terminal's name only while the line below can
-    /// still name the terminal, rather than say its state.
+    // Only promote an agent's summary above the terminal name when the subtitle line is free to
+    // show the terminal name instead of a connection or status message.
     Q_INVOKABLE [[nodiscard]] static QString leadingSummary(const QVariantMap& session, bool summaryFirst);
 
     void followSystemColorScheme(Qt::ColorScheme scheme);

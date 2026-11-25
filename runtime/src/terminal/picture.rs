@@ -92,7 +92,7 @@ pub(crate) fn name(digest: &[u8; 32], format: PictureFormat) -> String {
     format!("picture-{}.{}", hex(&digest[..8]), format.extension())
 }
 
-/// A pasted path has no spaces, so on Unix the pictures are in the host's short private folder.
+/// Uses the short space-free IPC directory on Unix so pasted picture paths rarely need quoting.
 #[cfg(feature = "host")]
 pub(crate) fn pictures_root(data_root: &std::path::Path) -> std::path::PathBuf {
     #[cfg(unix)]

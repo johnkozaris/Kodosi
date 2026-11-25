@@ -124,7 +124,7 @@ function randomDoc(random: Random): Node {
   return schema.nodes.doc.create(null, randomBlocks(random, 0, 1 + random.below(6)));
 }
 
-/** Moves a position out of a surrogate pair, where no editor puts one. */
+/** Avoids landing inside a UTF-16 surrogate pair, which real editors never produce. */
 function whole(doc: Node, position: number): number {
   const $position = doc.resolve(position);
   const text = $position.parent.maybeChild($position.index())?.text;
@@ -154,7 +154,7 @@ function randomMark(random: Random) {
   ]);
 }
 
-/** A mark change and its undo, whose inverted steps can make a markSet step. */
+/** Applies and immediately inverts a mark edit to exercise ProseMirror's markSet step type. */
 function undoneMarkChange(random: Random, transform: Transform, from: number, to: number) {
   const first = transform.steps.length;
   if (random.below(2) === 0) transform.addMark(from, to, randomMark(random));
@@ -248,7 +248,7 @@ function randomMarkSet(random: Random, doc: Node): Step {
   return Step.fromJSON(schema, { stepType: "markSet", steps });
 }
 
-/** A step that nothing built with care, as a view that went wrong could send. */
+/** Builds an unvalidated raw step to test parity on malformed or out-of-bounds client input. */
 function randomRawStep(random: Random, doc: Node, other: Node): Step {
   const [from, to] = randomRange(random, doc, doc.content.size + 1);
   const kind = random.below(8);

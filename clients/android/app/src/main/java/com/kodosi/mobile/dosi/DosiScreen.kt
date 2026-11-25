@@ -244,7 +244,6 @@ fun DosiScreen(model: AppModel, target: (String, String) -> Unit) {
     }
 }
 
-/** Several steps in a row fold into one line, as on the iPhone; a tap shows each of them. */
 @Composable
 private fun DosiSteps(row: DosiRow, open: (String, String) -> Unit) {
     if (row.items.size == 1) {

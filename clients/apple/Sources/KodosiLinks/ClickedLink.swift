@@ -2,11 +2,11 @@ import Foundation
 import KodosiKit
 import UniformTypeIdentifiers
 
-/// The runtime decides what a click on a link does, by the rule of every app: web and mail links
-/// open in the browser of this device, a file or folder opens, a link to another app asks first,
-/// and a malformed or disguised link does not open. A file or a local address of a terminal on
-/// another computer is on that computer, so it does not open here. Whether opening a file runs a
-/// program is this app's part, because Launch Services decides that.
+/// The runtime decides what a click on a link does, with the same rules in every app: web and
+/// mail links open in this device's browser, files and folders open, links to other apps prompt
+/// first, and malformed or disguised links don't open. A file or local address from a terminal on
+/// another computer lives on that computer, so it does not open here. Whether opening a file runs
+/// a program is left to this app, because Launch Services decides that.
 public struct ClickedLink: Equatable, Sendable {
     public enum Decision: Equatable, Sendable {
         case open(URL)
@@ -40,7 +40,7 @@ public struct ClickedLink: Equatable, Sendable {
         }
     }
 
-    /// The target as it opens, on one line, with hidden characters written out.
+    /// Sanitized display string with resolved local paths and hidden/control characters escaped.
     public let shown: String
     public let decision: Decision
 
@@ -123,7 +123,7 @@ extension ClickedLink {
         return values.isDirectory != true && values.isExecutable == true
     }
 
-    /// Launch Services opens these with an app that runs them, whatever their type.
+    /// Launch Services hands these to an app that runs them, whatever their content type.
     static let programExtensions: Set<String> = [
         "action", "app", "applescript", "class", "command", "desktop", "inetloc", "jar",
         "mobileconfig", "mpkg", "pkg", "scpt", "terminal", "tool", "url", "webloc", "workflow",

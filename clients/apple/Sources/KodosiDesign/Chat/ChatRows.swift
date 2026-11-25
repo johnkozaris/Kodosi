@@ -1,14 +1,13 @@
 import KodosiBridge
 
-/// The chat as a person reads it: what the agent writes during a turn shows as the agent's words,
-/// and the steps between them fold into one row each.
+/// The chat as a person reads it: the agent's text during a turn shows as its own rows, and each
+/// run of steps between two texts folds into a single row.
 struct ChatRow: Identifiable, Equatable {
     enum Kind: Equatable {
         case person(text: String, by: ChatPerson?)
         case answer(text: String, live: Bool)
-        /// A plan that the agent wrote at the end of its turn, which is what the turn gives.
         case plan(text: String, live: Bool)
-        /// The calls of a turn between two things that the agent wrote, as far as they came.
+        /// The tool calls of a turn between two of the agent's texts, as far as they have arrived.
         case work([ChatItem])
         case end(TurnEnd, ms: UInt64)
         case note(ChatNote)
@@ -18,10 +17,9 @@ struct ChatRow: Identifiable, Equatable {
 
     let id: String
     let kind: Kind
-    /// When its first item came, in milliseconds since 1970 on the terminal's computer.
+    /// Host Unix timestamp in milliseconds for the row's first item.
     let at: UInt64
 
-    /// `live`: the agent works on the last turn.
     static func rows(_ items: [ChatItem], live: Bool) -> [ChatRow] {
         var rows: [ChatRow] = []
         var turn: [ChatItem] = []
@@ -95,7 +93,6 @@ struct ChatRow: Identifiable, Equatable {
 }
 
 extension ChatItem {
-    /// A turn can end with what the agent wrote: its text, or a plan that no question holds.
     var answers: Bool {
         switch body {
         case .text:

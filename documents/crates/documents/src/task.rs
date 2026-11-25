@@ -70,19 +70,19 @@ fn hash_of(bytes: &[u8]) -> Hash {
     Sha256::digest(bytes).into()
 }
 
-/// Small enough that the JavaScript of a view holds the epoch exactly.
+/// Generates a 48-bit epoch so JavaScript views can represent it without losing precision.
 fn new_epoch() -> io::Result<u64> {
     Ok(getrandom::u64()? >> 16)
 }
 
-/// Writes a file in one step: nobody sees half of it, and its rights stay.
+/// Atomically replaces `path` via a temp file while preserving file permissions.
 async fn write_whole(path: &Path, bytes: &[u8]) -> io::Result<std::fs::Metadata> {
     let name = path.file_name().unwrap_or_default().to_string_lossy();
     let temporary = path.with_file_name(format!(".{name}.saving"));
     let result = async {
         let current = tokio::fs::metadata(path).await?;
         tokio::fs::write(&temporary, bytes).await?;
-        // Windows flushes a file only through a handle that may write it.
+        // Windows requires write access on the handle to call `sync_data`.
         tokio::fs::OpenOptions::new()
             .write(true)
             .open(&temporary)
@@ -133,8 +133,8 @@ pub(crate) async fn start(
     Ok(commands)
 }
 
-/// When another program changed the file since the journal's last save, this also gives the file
-/// that the journal holds, so the task takes the file on disk as a write of that program.
+/// If the on-disk file changed externally since the journal's last save, also returns the
+/// journal's baseline bytes so the task treats the on-disk file as an external write.
 fn open_or_restore(
     path: &Path,
     folder: &Path,
@@ -192,7 +192,7 @@ struct Task {
     close_at: Option<Instant>,
     sealing: bool,
     memory: Arc<Memory>,
-    /// What the document took of each client when it opened.
+    /// Client sequence state recalled on open, used to update quiet-close counts on clean close.
     remembered: HashMap<String, Remembered>,
 }
 
@@ -297,7 +297,7 @@ impl Task {
         false
     }
 
-    /// Each change is safe in the journal before any view hears of it.
+    /// Appends and fsyncs all journal records before sending any frames to clients.
     async fn run_effects(&mut self, effects: Vec<Effect>) {
         let mut appended = false;
         let mut sends = Vec::new();
@@ -433,7 +433,7 @@ impl Task {
         }
     }
 
-    /// Returns true when the file is gone.
+    /// Polls for external edits or deletion; returns true if the file was removed.
     async fn look_at_file(&mut self) -> bool {
         let metadata = match tokio::fs::metadata(&self.path).await {
             Ok(metadata) => metadata,

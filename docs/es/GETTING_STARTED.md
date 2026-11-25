@@ -2,302 +2,375 @@
 
 [English](../GETTING_STARTED.md) · [Deutsch](../de/GETTING_STARTED.md) · [Ελληνικά](../el/GETTING_STARTED.md) · **Español** · [Français](../fr/GETTING_STARTED.md) · [Italiano](../it/GETTING_STARTED.md) · [日本語](../ja/GETTING_STARTED.md) · [한국어](../ko/GETTING_STARTED.md) · [简体中文](../zh-Hans/GETTING_STARTED.md)
 
-[Descarga Kodosi](README.md#descargar-kodosi) para tu ordenador. Esta guía usa las teclas del
-Mac; en Linux y Windows, usa Ctrl+Mayús con la misma letra.
+[Descarga Kodosi](README.md#descargar-kodosi) para tu ordenador. Los atajos de esta guía usan las
+teclas de macOS; en Linux y Windows, sustituye ⌘ por Ctrl+Mayús salvo que se indique lo contrario.
 
 ## 1. Inicia sesión
 
-Abre Kodosi y selecciona Iniciar sesión en la parte inferior de la barra lateral. Kodosi abre
-tu navegador, donde inicias sesión. En un terminal, `kodosi auth login` muestra un código para
-escribirlo en cualquier navegador.
+Abre Kodosi y haz clic en **Iniciar sesión**, en la parte inferior de la barra lateral. Kodosi
+abrirá tu navegador para que inicies sesión. Desde un terminal, también puedes ejecutar
+`kodosi auth login` para obtener un código de dispositivo que podrás introducir en cualquier
+navegador.
 
-Sin cuenta, Kodosi ejecuta terminales en este ordenador. Inicia sesión para usar tus otros
-ordenadores, tus amigos y tus proyectos.
+Puedes usar terminales locales sin iniciar sesión. Inicia sesión para conectar tus otros
+ordenadores, añadir amigos y usar proyectos.
 
 ## 2. Inicia un agente
 
-Selecciona Nuevo terminal (⌘N). Elige un agente y una carpeta y, si quieres, una cuenta, un
-modelo y un esfuerzo. Escribe un primer prompt y pulsa Retorno. Kodosi escribe el comando en
-la shell del terminal nuevo.
+Pulsa ⌘N (o haz clic en **Nuevo terminal**) para abrir el lanzador. Elige un agente y una carpeta;
+si quieres, selecciona también una cuenta, un modelo y un nivel de esfuerzo, escribe un prompt
+inicial y pulsa Retorno. Kodosi escribirá el comando de inicio en una shell nueva.
 
-<p align="center"><img src="../media/launcher.webp" width="580" alt="Claude Code elegido en el lanzador, con una carpeta y un primer prompt."></p>
+<p align="center"><img src="../media/launcher.webp" width="580" alt="El lanzador configurado con Claude Code, una carpeta y un prompt inicial."></p>
 
-- Para un terminal sin más, pulsa ⌘D (Ctrl+Mayús+O en Linux y Windows). Se abre al momento en
-  la carpeta del terminal seleccionado. ⌘T (Ctrl+Mayús+T) lo abre con el agente del terminal
-  seleccionado, con la misma cuenta y las mismas opciones.
-- El botón + de una carpeta en la barra lateral abre otro terminal con el agente que se
-  ejecuta en esa carpeta, con la misma cuenta y las mismas opciones, o un terminal sin más
-  cuando allí no se ejecuta ningún agente.
-- Las teclas siguen a Ghostty. ⌘1 a ⌘9 seleccionan un terminal (Alt+1 a Alt+9 en Linux y
-  Windows), ⌥⌘ con una flecha selecciona el de al lado (Ctrl+Alt con una flecha) y ⌘W cierra
-  el terminal seleccionado. Ajustes › Atajos muestra todas las teclas y las cambia.
-- Si falta un agente, el lanzador muestra su comando de instalación.
-- Los agentes empiezan con Acceso total: cambian archivos y ejecutan comandos sin
-  preguntarte. Antigravity CLI empieza en su propio modo automático, que pregunta antes de lo
-  que no se puede deshacer. Para que un agente pregunte antes, elige Preguntar en Más, el botón que sigue
-  al modelo. Ahí también eliges la verbosidad, cuánto de su trabajo muestran Claude Code,
-  Codex, Copilot CLI y Antigravity CLI; empiezan en Breve. Copilot CLI solo toma su verbosidad de sus propios
-  ajustes, así que Kodosi los cambia mientras Copilot CLI se ejecuta en Breve y después los
-  restablece.
-- Claude Code y Codex tienen un modo rápido, que responde más rápido y cuesta más. Actívalo
-  junto al modelo y el esfuerzo. Vale solo para ese inicio, así que un agente empieza sin él
-  salvo que lo actives.
-- Una cuenta nueva tiene su propia carpeta de inicio de sesión, como `~/.claude-work`. Kodosi
-  también encuentra las cuentas que configura tu shell, como
+Si un agente aún no está instalado, el lanzador muestra su comando de instalación.
+
+### Formas rápidas de abrir terminales
+
+- Pulsa ⌘D (Ctrl+Mayús+O en Linux y Windows) para abrir una shell normal en la carpeta del terminal
+  seleccionado.
+- Pulsa ⌘T (Ctrl+Mayús+T) para abrir un terminal nuevo con el mismo agente, cuenta y ajustes que el
+  terminal seleccionado.
+- Haz clic en el botón `+` junto a una carpeta de la barra lateral para iniciar otro terminal con
+  el agente que ya se ejecuta en esa carpeta, con la misma cuenta y los mismos ajustes (o una shell
+  normal si no hay ninguno en marcha ahí).
+- En un terminal inactivo situado en el prompt de la shell, haz clic en el botón de acciones (dos
+  controles deslizantes) de la cabecera para iniciar cualquier agente instalado con tus últimos
+  ajustes.
+
+### Atajos de teclado
+
+Los atajos siguen los predeterminados de Ghostty y se pueden personalizar en **Ajustes › Atajos**:
+
+- De ⌘1 a ⌘9 (de Alt+1 a Alt+9 en Linux y Windows): cambia a un terminal por su posición.
+- ⌥⌘ y teclas de flecha (Ctrl+Alt y teclas de flecha): muévete a un terminal contiguo.
+- ⌘W: cierra el terminal seleccionado.
+- ⌘↑ y ⌘↓: salta entre prompts de la shell en zsh y en versiones modernas de bash (no en el bash
+  3.2 incluido en macOS).
+
+### Permisos, verbosidad y modo rápido
+
+- Por defecto, los agentes se inician sin restricciones, de modo que pueden editar archivos y
+  ejecutar comandos sin pedir confirmación. Antigravity CLI es la excepción: se inicia en su propio
+  modo automático, que sigue preguntando antes de acciones irreversibles. Para que un agente pida
+  permiso antes, selecciona **Preguntar** dentro de **Más** (después del selector de modelo).
+- En **Más** también puedes elegir la verbosidad de salida para Claude Code, Codex, Copilot CLI y
+  Antigravity CLI (por defecto usan **Breve**). Como Copilot CLI solo lee la verbosidad desde sus
+  ajustes guardados, Kodosi actualiza temporalmente la configuración de Copilot mientras Copilot
+  CLI se ejecuta en modo Breve y la restablece al terminar.
+- Claude Code y Codex admiten un modo rápido (respuestas más rápidas a un coste mayor), que se
+  activa junto a los selectores de modelo y esfuerzo. El modo rápido solo se aplica a ese inicio y
+  vuelve a desactivarse la próxima vez.
+
+### Cuentas y cambios sobre la marcha
+
+- Al añadir una cuenta nueva se le asigna una carpeta de configuración aislada, como
+  `~/.claude-work`. Kodosi también detecta cuentas definidas mediante alias de la shell, como
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
-- En un terminal que está en su prompt, el botón de acciones (dos reguladores) de su cabecera
-  muestra los agentes instalados. Selecciona uno para iniciarlo con tu última elección.
-- Mientras un agente trabaja, el mismo botón de acciones cambia su modelo, su esfuerzo y su
-  modo rápido y, en algunos agentes, sus permisos, con los comandos del propio agente, sin
-  volver a iniciarlo. Un cambio espera a que el agente termine su turno, y Claude Code también
-  conserva el modelo, el esfuerzo y el modo rápido para sus próximas sesiones.
-- En zsh y bash (no en el bash 3.2 de macOS), ⌘↑ y ⌘↓ saltan entre prompts.
-- Haz ⌘-clic en un enlace para abrirlo (Ctrl-clic en Linux y Windows). En un programa que usa
-  el ratón, mantén pulsada también Mayús. En el iPhone, toca el enlace; un toque no abre un
-  enlace en un programa que usa el ratón. El enlace se abre en tu propio navegador, en el
-  dispositivo que estás usando. Kodosi pregunta antes de abrir un enlace en otra app. No abre
-  un archivo que pueda ejecutar un programa, ni un archivo o una dirección `localhost` de un
-  terminal en otro ordenador.
-- Para darle una imagen a un agente, como una captura de pantalla, pégala con ⌘V
-  (Ctrl+Mayús+V en Linux y Windows, Pegar en el iPhone). Kodosi la guarda en el ordenador del
-  terminal y pega la ruta de su archivo, y el agente la adjunta. Un terminal en otro
-  ordenador muestra cuánto de la imagen ha llegado. La tecla propia del agente para imágenes,
-  como Ctrl+V en Claude Code, lee el portapapeles del ordenador donde se ejecuta el agente.
-- Para darle a un agente su propia copia de un repositorio, pasa el puntero por la carpeta
-  del repositorio en la barra lateral, selecciona el botón de rama y ponle nombre a una rama.
-  Kodosi inicia el terminal en un worktree de Git nuevo. Cuando el terminal termina, Kodosi
-  quita el worktree si no ha cambiado nada. Ajustes › Terminal define dónde van esas
-  carpetas.
-- Un terminal es claro u oscuro como Kodosi en el ordenador que lo ejecuta, en cada
-  dispositivo que lo muestra. Sus programas conocen el aspecto, y algunos lo siguen, como
-  Claude Code con su tema en Auto (`/theme`). Para que los terminales sigan oscuros
-  mientras Kodosi está claro, activa Mantener los terminales oscuros en Ajustes ›
-  Terminal.
+- Mientras un agente está en marcha, usa el botón de acciones (dos controles deslizantes) de la
+  cabecera para cambiar su modelo, esfuerzo, modo rápido y, en los agentes compatibles, sus
+  permisos sin reiniciarlo. Kodosi envía el comando con barra del propio agente en cuanto termina
+  el turno actual. Ten en cuenta que Claude Code recuerda los cambios de modelo, esfuerzo y modo
+  rápido también para sesiones futuras.
 
-Un terminal es una shell real en el ordenador que lo ejecuta. Minimizar oculta un terminal y
-lo deja en marcha; Cerrar lo termina junto con sus programas. Cuando cierras la ventana, Kodosi
-y tus terminales siguen en marcha, y el icono de Kodosi se queda en la barra de menús o en la
-bandeja del sistema; en un escritorio sin bandeja del sistema, cerrar la ventana cierra
-Kodosi. Cuando sales de Kodosi, tus terminales se detienen. Kodosi guarda lo que muestran en
-tu ordenador y en ningún otro sitio. Cuando vuelves a abrir Kodosi, se inician de nuevo en sus
-carpetas, proyectos y posiciones en el escenario, con su pantalla y su historial anteriores sobre
-un prompt nuevo (en Windows, desplázate hacia arriba para verlos). Claude Code, Codex y Copilot
-CLI continúan sus conversaciones, y en un Mac o en Linux mantienen el modelo, el esfuerzo, el
-modo rápido, los permisos y la salida que elegiste. Cuando Kodosi no puede saber qué conversación mostraba un
-agente, el agente muestra sus conversaciones para que continúes una. En Ajustes eliges qué
-hace cerrar la ventana.
+### Enlaces, imágenes, worktrees y temas
 
-En un Mac, los programas de tus terminales tienen los permisos que le das a Kodosi, como en
-cualquier app de terminal. Cuando macOS dice que impidió que Kodosi modificara apps, un
-programa de un terminal intentó cambiar otra app. Para permitirlo, activa Kodosi en Gestión
-de apps; Ajustes › General la abre. Allí también permites el Control de dispositivos y
-acceso a datos (Accesibilidad antes de macOS 27) y la Grabación de pantalla y del audio del
-sistema, para los programas que controlan apps o ven la pantalla.
+Mantén pulsada ⌘ y haz clic en un enlace (Ctrl-clic en Linux y Windows) para abrirlo en el
+navegador predeterminado del dispositivo que estés usando; mantén pulsada también Mayús si el
+programa en ejecución captura el ratón. En el iPhone, toca el enlace (esta acción queda desactivada
+mientras un programa captura el ratón). Kodosi te pregunta antes de pasar un enlace a otra app y
+bloquea la apertura de archivos ejecutables, así como de rutas de archivos locales o direcciones
+`localhost` procedentes de ordenadores remotos.
+
+Para compartir una captura de pantalla o una imagen con un agente, pégala con ⌘V (Ctrl+Mayús+V en
+Linux y Windows, o Pegar en el iPhone). Kodosi la guarda en el ordenador anfitrión del terminal y
+pega su ruta de archivo para que el agente pueda adjuntarla, mostrando el progreso de la subida en
+terminales remotos. El atajo de pegado propio del agente (como Ctrl+V en Claude Code) sigue leyendo
+el portapapeles del ordenador donde se ejecuta el agente.
+
+Para darle a un agente una copia aislada de un repositorio de Git, pasa el cursor sobre la carpeta
+del repositorio en la barra lateral, haz clic en el botón de rama y escribe un nombre de rama.
+Kodosi abre el terminal en un worktree de Git nuevo y lo elimina automáticamente al cerrar el
+terminal si no ha habido cambios. Puedes configurar dónde se guardan los worktrees en **Ajustes ›
+Terminal**.
+
+Cada terminal es claro u oscuro como Kodosi en su ordenador anfitrión, en todos los dispositivos
+desde los que lo veas. Los programas dentro del terminal reciben notificaciones del tema, de modo
+que herramientas como Claude Code (con `/theme` en Auto) se adaptan automáticamente. Si prefieres
+terminales oscuros aunque Kodosi esté en modo claro, activa **Mantener los terminales oscuros** en
+**Ajustes › Terminal**.
+
+### Cerrar, salir y permisos de macOS
+
+Cada terminal es una shell real que se ejecuta en su ordenador anfitrión. **Minimizar** oculta un
+terminal manteniéndolo activo; **Cerrar** finaliza la shell y sus procesos hijos. Cerrar la ventana
+de la app deja Kodosi y tus terminales funcionando en la barra de menús o en la bandeja del sistema
+(salvo en escritorios de Linux sin bandeja del sistema, donde cerrar la ventana cierra Kodosi).
+Puedes cambiar el comportamiento al cerrar la ventana en **Ajustes**.
+
+Cuando sales de Kodosi, tus terminales se detienen y Kodosi guarda el estado de su pantalla de forma
+local en tu ordenador (nunca en el servidor). La próxima vez que abras Kodosi, tus terminales se
+vuelven a abrir en las mismas carpetas, proyectos y posiciones en el escenario, con su pantalla e
+historial anteriores sobre un prompt nuevo (en Windows, desplázate hacia arriba para verlos).
+Claude Code, Codex y Copilot CLI reanudan automáticamente sus conversaciones y, en macOS y Linux,
+mantienen también el modelo, el esfuerzo, el modo rápido, los permisos y la verbosidad que elegiste.
+Si Kodosi no puede identificar qué conversación estaba ejecutando un agente, el agente muestra la
+lista de sus conversaciones para que elijas una.
+
+En macOS, los programas dentro de Kodosi heredan los permisos de macOS concedidos a Kodosi, igual
+que en cualquier otra app de terminal. Si macOS impide que un programa modifique otra app, activa
+Kodosi en **Gestión de apps** (accesible desde **Ajustes › General**). Allí también puedes conceder
+**Control de dispositivos y acceso a datos** (llamado **Accesibilidad** antes de macOS 27) y
+**Grabación de pantalla y del audio del sistema** para herramientas que automatizan apps o capturan
+la pantalla.
 
 ## 3. Mira qué agente te necesita
 
-El icono de cada terminal muestra lo que hace su programa.
+El icono de cada terminal muestra su estado actual:
 
-| Ves | Significa |
+| Indicador | Significado |
 | --- | --- |
-| Una luz cálida que gira alrededor del icono | Trabajando. El borde se llena para mostrar un porcentaje. |
-| Una mano, un signo de interrogación o una llave | Espera tu aprobación, tu respuesta o tu inicio de sesión. |
-| Una marca de verificación verde | Terminado. |
-| Una señal de advertencia amarilla | Ha fallado. |
+| Luz cálida que orbita alrededor del icono | Trabajando (un anillo que se va llenando muestra el porcentaje de progreso cuando el programa lo indica). |
+| Mano, signo de interrogación o llave | Esperando tu aprobación, tu respuesta o un inicio de sesión. |
+| Marca de verificación verde | Terminado. |
+| Triángulo de advertencia amarillo | Ha fallado. |
 
-La marca de verificación y la advertencia desaparecen cuando abres el terminal en cualquiera
-de tus dispositivos. Cuando uno de tus terminales empieza a esperar, termina o falla, Kodosi
-te avisa una vez, en el dispositivo que usas. En Kodosi, ves la señal. En tu ordenador, en
-otra app, recibes allí una notificación. Cuando no usas ninguno de tus ordenadores, la
-recibes en tu teléfono. Un terminal que aún te espera y que no has abierto te avisa en tu
-teléfono cuando te alejas de tu ordenador. Solo un terminal que espera emite un sonido. Para
-desactivar las notificaciones de un dispositivo, abre Ajustes en Kodosi en ese dispositivo.
-Los programas indican su estado con el
-[Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) o con
-una barra de progreso. Un programa que no indica nada no muestra estado.
+La marca de verificación y la advertencia desaparecen en cuanto abres ese terminal en cualquier
+dispositivo.
 
-Un terminal con Claude Code también se muestra como chat, igual que uno con Codex o
-Copilot CLI cuando Kodosi los inicia. Selecciona Chat en la cabecera del terminal. El chat
-muestra lo que escribiste, lo que el agente respondió e hizo, y sus preguntas, con las
-respuestas como botones. Escríbele al agente ahí, o detenlo. Mientras pregunta, las
-palabras que escribes le dicen qué hacer en su lugar. Lo que haces en el chat también
-ocurre en el terminal.
+Cuando un terminal pasa a esperar, termina o falla, Kodosi te avisa una sola vez en el dispositivo
+que estés usando en ese momento:
 
-## 4. Mira lo que muestra un agente
+- Si Kodosi está en primer plano, simplemente ves el indicador de estado.
+- Si estás usando otra app en un ordenador, Kodosi muestra una notificación de escritorio ahí.
+- Si no estás delante de ninguno de tus ordenadores, Kodosi envía una notificación push a tu
+  teléfono. Si un terminal en espera sigue sin abrirse cuando te alejas del ordenador, el aviso se
+  reenvía entonces a tu teléfono.
 
-Un agente puede mostrarte una página, Markdown, una imagen, un PDF, un documento, una hoja,
-una presentación o la app que ejecuta en el lienzo de su terminal, y usar un navegador que
-compartes con él. El lienzo se abre con lo que muestra el agente mientras miras su terminal, y
-cuando cambia un archivo del lienzo o el navegador, salvo que lo hayas cerrado. Para abrirlo
-solo tú, desactiva Abrir el lienzo automáticamente en Ajustes › General. Claude Code, Copilot
-CLI y Antigravity CLI saben cómo, también cuando los inicias tú, y también Codex, Cursor y
-OpenCode cuando los inicia Kodosi (OpenCode en un Mac o en Linux); a otro
-agente, dile que lea `kodosi skill canvas`. Cuando el lienzo tiene algo, la cabecera del
-terminal muestra un botón para sus archivos y otro para su navegador, con un punto cobrizo
-cuando hay novedades. Selecciona uno para abrir el lienzo junto al terminal; Más espacio le da
-el escenario al lienzo y deja el terminal pequeño en su esquina. Cierra una parte con la × de
-su botón y vuelve a abrirla con +. Abrir navegador, en el botón de acciones, abre el navegador
-antes de que lo use el agente, y Añadir un archivo… pone un archivo en el lienzo y en la
-carpeta del terminal; también puedes soltar un archivo sobre el lienzo. En el iPhone, el botón
-del lienzo está en la barra del terminal, y un aviso indica lo que el agente muestra o cambia,
-con Abrir.
+Solo los terminales en espera reproducen sonido de notificación. Puedes silenciar las notificaciones
+en cada dispositivo desde **Ajustes**. Los programas comunican su estado mediante el
+[Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) o las
+secuencias estándar de progreso de terminal; los programas que no comunican su estado simplemente
+no muestran ningún indicador.
 
-- Un documento, una hoja, una presentación, un PDF o un archivo de texto está en directo:
-  tú, las personas del terminal y el agente lo editáis a la vez, y sigue siendo un archivo
-  normal en su carpeta. Cuando un documento tiene cambios registrados, su barra tiene un
-  botón que los acepta o los rechaza. Ajustes › Documentos activa o desactiva cada visor,
-  muestra los documentos como páginas o como texto que se ajusta al lienzo, y oscurece las
-  páginas cuando Kodosi está en modo oscuro.
-- Una página no tiene red. Los enlaces de páginas, documentos, hojas, presentaciones y PDF se
-  abren en tu propio navegador con las mismas reglas que los enlaces del terminal. Donde
-  puedes editar, haz ⌘-clic en un enlace (Ctrl-clic en Linux y Windows); en el resto, basta
-  un clic, y en el iPhone un toque. Un enlace a una diapositiva o a una celda del mismo
-  archivo te lleva allí.
-- Selecciona palabras en una página o en un documento y luego Preguntar sobre esto. Kodosi
-  escribe el archivo y las palabras en el terminal, y tú escribes la pregunta.
-- Haz clic derecho en la pestaña de un archivo, o mantenla pulsada en un teléfono, para
-  guardar una copia, quitar el archivo o todos los archivos del lienzo, o trasladar el
-  archivo a la papelera del ordenador donde se ejecuta el terminal.
-- Haz clic y escribe en el navegador compartido como en el tuyo. El agente ve las mismas
-  páginas y sesiones, y su siguiente comando le dice que has usado el navegador. Tras 10
-  minutos sin uso, el navegador se duerme, y vuelve a abrir su última página cuando lo miras o
-  cuando el agente lo usa. El primer navegador de un ordenador descarga Kodosi Browser, así
-  que tarda un momento.
-- Para usar tus sesiones en tus terminales privados, selecciona Copiar junto a un navegador
-  en Ajustes › Navegador. Quitar elimina lo que copiaste, y Quitar todo elimina todas las
-  sesiones y todos los datos de sitios de tus terminales privados. En un Mac, cuando macOS
-  protege de Kodosi los inicios de sesión de un navegador, como los de Safari, selecciona
-  Permitir… junto al navegador para dar a Kodosi Acceso total al disco.
-- Todas las personas que pueden abrir el terminal ven su lienzo y usan su navegador. Cuando
-  el terminal se cierra, su lienzo y las sesiones del navegador desaparecen.
+### Vista de chat
+
+Los terminales con Claude Code, así como los de Codex y Copilot CLI iniciados a través de Kodosi,
+también ofrecen una vista **Chat** en la cabecera del terminal. El chat muestra tus mensajes, las
+respuestas y la actividad de herramientas del agente, y cualquier pregunta pendiente con botones en
+los que puedes hacer clic. Puedes responder o detener al agente directamente desde el chat; si
+escribes un texto propio mientras hace una pregunta, le indica al agente qué hacer en su lugar.
+Todo lo que haces en el chat ocurre también en el terminal subyacente.
+
+## 4. Mira lo que muestra un agente en el lienzo
+
+Los agentes pueden mostrar páginas HTML, Markdown, imágenes, PDF, documentos de Office, hojas de
+cálculo, presentaciones o aplicaciones web en ejecución en un **lienzo** junto al terminal, y
+controlar un navegador compartido. Por defecto, el lienzo se abre automáticamente cuando el agente
+muestra o actualiza algo mientras estás viendo ese terminal (salvo que lo hayas cerrado). Para
+abrirlo solo tú, desactiva **Abrir el lienzo automáticamente** en **Ajustes › General**.
+
+Claude Code, Copilot CLI y Antigravity CLI saben usar el lienzo incluso cuando se inician
+manualmente, y Codex, Cursor y OpenCode lo saben cuando los inicia Kodosi (OpenCode en macOS y
+Linux). Con cualquier otro agente, dile que ejecute `kodosi skill canvas`.
+
+En cuanto el lienzo tiene contenido, la cabecera del terminal añade los botones **Archivos** y
+**Navegador**, con un punto cobrizo siempre que haya novedades:
+
+- Haz clic en cualquiera de los dos botones para abrir el lienzo junto al terminal.
+- Haz clic en **Más espacio** para que el lienzo ocupe el escenario mientras el terminal se reduce
+  a una esquina.
+- Cierra un panel con la `×` de su botón y vuelve a abrirlo con `+`.
+- Abre el navegador manualmente desde **Abrir navegador** en el menú de acciones, o añade archivos
+  mediante **Añadir un archivo…** (o arrastrándolos sobre el lienzo), lo que también copia el
+  archivo a la carpeta del terminal.
+- En el iPhone, el botón del lienzo está en la barra del terminal, y un aviso anuncia los elementos
+  nuevos o actualizados con un botón **Abrir**.
+
+### Documentos en directo y páginas
+
+- Los documentos (`.docx`), hojas de cálculo (`.xlsx`), presentaciones (`.pptx`), PDF y archivos de
+  texto funcionan en directo: tú, cualquier persona que comparta el terminal y el agente podéis
+  editarlos a la vez mientras siguen siendo archivos normales en el disco. Cuando un documento
+  contiene control de cambios, la barra de herramientas incluye un botón para aceptarlos o
+  rechazarlos. En **Ajustes › Documentos** puedes activar o desactivar cada visor, alternar entre
+  vista paginada y texto fluido, y activar páginas oscuras en modo oscuro.
+- Las páginas HTML del lienzo se ejecutan completamente sin conexión y sin acceso a la red. Los
+  enlaces en páginas, documentos, hojas de cálculo, presentaciones y PDF se abren en tu propio
+  navegador con las mismas reglas de seguridad que los enlaces del terminal (⌘-clic o Ctrl-clic en
+  vistas editables; clic normal en el resto; toque en el iPhone). Los enlaces internos a
+  diapositivas o celdas saltan directamente a ese punto.
+- Selecciona texto en una página o un documento y haz clic en **Preguntar sobre esto** para enviar
+  el nombre del archivo y el texto seleccionado directamente al terminal y escribir allí tu
+  pregunta.
+- Haz clic derecho en la pestaña de un archivo (o mantenla pulsada en el móvil) para guardar una
+  copia, quitar ese archivo o todos los archivos del lienzo, o mover el archivo a la papelera del
+  ordenador anfitrión.
+
+### Navegador compartido
+
+- Haz clic y escribe dentro del navegador compartido igual que en un navegador normal. El agente ve
+  las mismas páginas y sesiones abiertas, y la salida de su siguiente comando del navegador le
+  indica que has usado el navegador.
+- Tras 10 minutos de inactividad, el navegador pasa a reposo y vuelve a abrir su última página
+  cuando tú o el agente lo volvéis a usar. La primera vez que abres un navegador compartido en un
+  ordenador, Kodosi descarga Kodosi Browser automáticamente, por lo que tarda un momento.
+- Para reutilizar tus sesiones de navegador existentes en terminales privados, haz clic en
+  **Copiar** junto a un navegador en **Ajustes › Navegador**. Haz clic en **Quitar** para borrar lo
+  que copiaste, o en **Quitar todo** para eliminar todas las sesiones y datos de sitios de tus
+  terminales privados. En macOS, si el sistema restringe el acceso a los datos de un navegador
+  (como Safari), haz clic en **Permitir…** junto a ese navegador para conceder Acceso total al
+  disco.
+- Cualquier persona con acceso a un terminal ve su lienzo y comparte su navegador. Cerrar el
+  terminal limpia su lienzo y descarta las sesiones del navegador de los terminales compartidos.
 
 ## 5. Pregúntale a Dosi
 
-Dosi es tu agente para tus otros agentes. Selecciona la cara de Dosi en la parte inferior de
-la barra lateral (⌘J). Dosi funciona con Claude Code o Codex; Ajustes › Dosi elige cuál, con
-su cuenta, su modelo y su esfuerzo.
+Dosi es tu agente para coordinar a tus otros agentes. Haz clic en la cara de Dosi, en la parte
+inferior de la barra lateral (o pulsa ⌘J). Dosi funciona con Claude Code o Codex, que puedes
+configurar junto con su cuenta, modelo y esfuerzo en **Ajustes › Dosi**.
 
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="../media/dosi-still.webp">
-    <img src="../media/dosi.webp" width="900" alt="Cuando le preguntas qué te necesita, Dosi lee los terminales, dice que checkout espera una aprobación y pregunta si debe permitirla.">
+    <img src="../media/dosi.webp" width="900" alt="Cuando le preguntas qué necesita atención, Dosi revisa los terminales, informa de que checkout espera aprobación y pregunta si debe permitirla.">
   </picture>
 </p>
 
-Pregúntale a Dosi qué te necesita, o pídele que haga algo. Dosi lee tus terminales y proyectos,
-responde, y escribe, inicia y cierra cosas por ti. Cuando necesita que elijas, pregunta con
-botones, y también puedes responder con tus propias palabras. Tu conversación con Dosi es la
-misma en todos tus dispositivos. En un iPhone o iPad, la pestaña Dosi escribe a Dosi en el
-ordenador que eliges encima del mensaje, al principio el que respondió por última vez. Un
-mensaje para un ordenador sin conexión espera hasta que vuelva a ejecutar Kodosi, y No enviar
-lo retira.
+Pregúntale a Dosi qué necesita tu atención o pídele que se encargue de algo. Puede revisar tus
+terminales y proyectos, responder a solicitudes, iniciar o cerrar terminales y transmitir mensajes.
+Cuando hace falta tomar una decisión, Dosi presenta botones con opciones junto a un cuadro para
+responder con tus propias palabras.
 
-La línea junto a la cara de Dosi te dice cuándo trabaja, cuándo ha respondido y cuándo tiene
-una pregunta. En un ordenador sin agente, dice Configurar Dosi y abre Ajustes › Dosi. Para
-quitar Dosi de un ordenador, desactiva Usar Dosi en Ajustes › Dosi.
+Tu conversación con Dosi se mantiene sincronizada en todos tus dispositivos. En el iPhone y el iPad,
+elige justo encima del cuadro de texto al Dosi de qué ordenador quieres escribir (por defecto, el
+último que respondió). Los mensajes enviados a un ordenador sin conexión quedan en cola hasta que
+vuelva a conectarse, y puedes cancelar un mensaje en cola con **No enviar**.
 
-## 6. Añade tus otros ordenadores
+La línea de estado junto a la cara de Dosi muestra cuándo está trabajando, cuándo ha respondido o
+cuándo espera respuesta a una pregunta. Si todavía no hay ningún agente instalado en ese ordenador,
+muestra **Configurar Dosi** y abre **Ajustes › Dosi**. Para desactivar Dosi en un ordenador,
+desactiva **Usar Dosi** en **Ajustes › Dosi**.
 
-Inicia sesión en el ordenador nuevo con la misma cuenta. Muestra un código, y los ordenadores
-que ya usas te piden que lo apruebes. Elige Aprobar en uno de ellos y escribe el código, o
-escanea el código con Kodosi en un teléfono que ya uses.
+## 6. Añade tus otros ordenadores y teléfonos
 
-Un teléfono o una tableta nuevos se unen con un solo escaneo. En un ordenador que ya uses,
-abre Ajustes, elige «Mostrar un código» en «Añadir un dispositivo» y escanea el código con el
-teléfono nuevo. Después, cada ordenador muestra los terminales de todos tus ordenadores.
+Inicia sesión en un ordenador nuevo con la misma cuenta. Mostrará un código de verificación y tus
+dispositivos actuales te pedirán aprobarlo. Haz clic en **Aprobar** en un ordenador ya aprobado e
+introduce el código, o escanéalo desde un teléfono aprobado.
 
-Para iniciar un terminal en otro de tus ordenadores, elige ese ordenador en el extremo
-derecho de la banda del lanzador. El botón de carpeta muestra entonces sus carpetas
-recientes, y Elegir una carpeta… abre las carpetas de su directorio personal. En un iPhone o
-iPad, selecciona + en Terminales, o el + junto a uno de tus ordenadores. Ese ordenador
-necesita Kodosi abierto, o `kodosi host` ejecutándose en un terminal.
+Añadir un teléfono o una tableta solo lleva un escaneo: en un ordenador ya aprobado, abre
+**Ajustes**, haz clic en **Mostrar un código** en **Añadir un dispositivo** y escanéalo con el
+dispositivo nuevo. Una vez aprobado, los terminales de todos tus ordenadores aparecerán en todas
+partes.
 
-Cuando dos de tus dispositivos pueden alcanzarse entre sí, sus terminales y navegadores van
-directamente entre ellos y responden más rápido. En una misma red, macOS, iOS y Android
-piden una vez acceso a la red local; sin él, pasan por el servicio.
+### Iniciar terminales de forma remota
 
-Crea también allí una clave de recuperación y guárdala bien. Si pierdes todos tus
-dispositivos, inicia sesión en uno nuevo y elige «Usar mi clave de recuperación» para
-conservar tus amigos y proyectos. Quita un dispositivo perdido desde otro dispositivo. Si te
-robaron un dispositivo, crea también una clave de recuperación nueva.
+Para iniciar un terminal en otro ordenador, selecciónalo en el lado derecho de la barra del
+lanzador. El menú de carpetas mostrará entonces las carpetas recientes de esa máquina, y **Elegir
+una carpeta…** permite explorar su directorio personal. En el iPhone y el iPad, toca `+` en
+**Terminales** o junto a un ordenador concreto. El ordenador de destino necesita tener Kodosi
+abierto (o `kodosi host` ejecutándose en un terminal).
+
+Cuando dos de tus dispositivos pueden alcanzarse directamente entre sí, el tráfico de terminales y
+del navegador viaja de punto a punto para reducir la latencia. En una red local, macOS, iOS y
+Android piden una vez permiso de acceso a la red local; si lo rechazas, el tráfico pasa por el
+servidor de retransmisión.
+
+### Claves de recuperación
+
+Crea una clave de recuperación en **Ajustes** y guárdala en un lugar seguro. Si alguna vez pierdes
+todos tus dispositivos, inicia sesión en uno nuevo y selecciona **«Usar mi clave de recuperación»**
+para conservar tus amigos y proyectos. Quita los dispositivos perdidos desde cualquiera de los que
+conserves; si te han robado un dispositivo, genera después una clave de recuperación nueva.
 
 ## 7. Trabaja con amigos
 
-Abre Amigos desde el menú junto a tu cuenta. Envía tu invitación, o pega la invitación o el
-nombre de usuario de un amigo. Con una invitación, Kodosi puede verificar a tu amigo. En
-un teléfono, muestra tu invitación como un código: tu amigo lo escanea con su cámara o en
-Kodosi, y confirma que confía en ti antes de que se envíe la solicitud.
+Abre **Amigos** desde el menú situado junto a tu cuenta. Envía tu invitación, o pega la
+invitación o el nombre de usuario de un amigo. Usar una invitación permite a Kodosi verificar
+automáticamente la identidad de tu amigo. En el móvil puedes mostrar tu invitación como un código QR
+para que un amigo lo escanee con su cámara o desde Kodosi; aun así, tendrá que confirmar que confía
+en ti antes de enviar la solicitud.
 
-<p align="center"><img src="../media/friends.webp" width="900" alt="La página Amigos con dos amigos verificados."></p>
+<p align="center"><img src="../media/friends.webp" width="900" alt="La página Amigos mostrando dos amigos verificados."></p>
 
-Para compartir un terminal, selecciona Compartir en el botón de acciones de su cabecera y
-elige amigos o proyectos. Las personas con las que compartes tienen el control total, con tus
-privilegios en ese ordenador. Tus otros terminales siguen siendo privados.
+### Compartir un terminal
 
-Un proyecto reúne terminales de cualquier carpeta y ordenador, con una conversación y
-tareas. Selecciona + junto a Proyectos, luego inicia un terminal en el proyecto o comparte uno
-en él, e invita a amigos cuando quieras.
+Abre el menú de acciones en la cabecera de un terminal, haz clic en **Compartir** y selecciona
+amigos o proyectos. Cualquier persona con la que compartas el terminal obtiene control total con
+tus permisos del sistema operativo en esa máquina. Tus otros terminales siguen siendo privados.
 
-<p align="center"><img src="../media/project.webp" width="900" alt="Un proyecto con un terminal compartido y una conversación de personas y agentes."></p>
+### Proyectos
 
-- Todos los miembros pueden usar los terminales compartidos y compartir los suyos. Quien
-  entra más tarde recibe los terminales y toda la conversación. Los archivos se quedan en el
-  ordenador de cada terminal.
-- Deja tareas disponibles, encárgate de ellas, suéltalas, ciérralas con un resultado o
+Un proyecto reúne terminales de cualquier carpeta u ordenador junto con un chat compartido y una
+lista de tareas. Haz clic en `+` junto a **Proyectos**, inicia terminales dentro del proyecto (o
+comparte en él terminales que ya tengas abiertos) e invita a tus amigos cuando estés listo.
+
+<p align="center"><img src="../media/project.webp" width="900" alt="Un proyecto con un terminal compartido y una conversación entre personas y agentes."></p>
+
+- Todos los miembros pueden usar los terminales compartidos y compartir los suyos. Quienes se unan
+  más tarde ven de inmediato los terminales del proyecto y todo el historial del chat. Los archivos
+  permanecen en el ordenador anfitrión de cada terminal.
+- Crea tareas disponibles para cualquiera, reclámalas, libéralas, ciérralas con una nota resumen o
   vuelve a abrirlas.
-- Vincula repositorios de GitHub o Gitea para convertir las issues en tareas; cuando cambias
-  una de esas tareas, Kodosi cambia su issue. GitHub usa tu sesión de `gh` o el credential
-  helper de Git, y Gitea el credential helper o `KODOSI_GITEA_TOKEN` para el servidor de
-  `KODOSI_GITEA_URL`. Tus credenciales se quedan en tu ordenador.
-- Escribe `@` y el nombre de un terminal en el chat, y Kodosi le da al agente de ese terminal
-  tu mensaje con tu nombre y el proyecto; el agente decide qué hacer con él. Claude Code, Copilot
-  CLI y Antigravity CLI en un terminal de Kodosi, y Codex, Cursor y OpenCode cuando los inicia
-  Kodosi (OpenCode en un Mac o en Linux), saben que se ejecutan en Kodosi,
-  y `kodosi skill` imprime la [skill](../../runtime/skills/kodosi/SKILL.md) que permite a un
-  agente participar. En un terminal de Kodosi, el comando encuentra el proyecto; en otro sitio,
-  añade `--project <name>`.
-- Elimina un mensaje que escribiste tú o tu agente, y todos ven que allí se eliminó un
-  mensaje. Vaciar chat vacía la conversación hasta ahora en todos tus dispositivos; los
-  demás la conservan.
+- Vincula repositorios de GitHub o Gitea para sincronizar las issues con las tareas: al actualizar
+  una tarea vinculada se actualiza la issue correspondiente. GitHub usa tu sesión de `gh` o el
+  asistente de credenciales de Git; Gitea usa el asistente de credenciales de Git o
+  `KODOSI_GITEA_TOKEN` junto con `KODOSI_GITEA_URL`. Las credenciales nunca salen de tu ordenador.
+- Menciona un terminal en el chat con `@<terminal-name>` para entregar tu mensaje (etiquetado con
+  tu nombre y el proyecto) directamente al agente que se ejecuta ahí; el agente decide cómo
+  responder. Claude Code, Copilot CLI y Antigravity CLI dentro de Kodosi (además de Codex, Cursor y
+  OpenCode cuando los inicia Kodosi, con OpenCode en macOS y Linux) saben automáticamente que están
+  en Kodosi. Ejecuta `kodosi skill` para imprimir la [skill](../../runtime/skills/kodosi/SKILL.md)
+  para cualquier otro agente. Dentro de un terminal de Kodosi, los comandos de proyecto detectan el
+  proyecto actual automáticamente; fuera, pasa `--project <name>`.
+- Eliminar un mensaje publicado por ti o por tu agente lo sustituye por un marcador de mensaje
+  eliminado para todos. **Vaciar chat** oculta el historial hasta ese momento en todos tus
+  dispositivos, dejándolo intacto para el resto de los miembros.
 
 ## 8. Usa la línea de comandos
 
-El comando `kodosi` trabaja con los mismos terminales que la app, y la app muestra lo que hace.
+La CLI `kodosi` controla exactamente los mismos terminales que la app de escritorio, y los cambios
+aparecen en la app al instante.
 
 | Comando | Qué hace |
 | --- | --- |
-| `kodosi terminal start --agent claude --prompt "fix the failing test"` | Inicia un agente con tu última elección. `--account`, `--model`, `--effort`, `--fast`, `--permissions` y `--output` la cambian. |
-| `kodosi terminal start --directory <repository> --branch <name>` | Inicia un terminal en una rama nueva, en su propio worktree. |
-| `kodosi terminal start --computer <computer> --directory <folder>` | Inicia un terminal en otro de tus ordenadores. Una carpeta relativa, o una que empieza por `~`, está en tu directorio personal de allí. `kodosi devices list` muestra qué ordenadores están en línea. |
-| `kodosi agent list` | Muestra los agentes, sus cuentas y tu última elección. |
-| `kodosi agent usage` | Muestra cuánto de los límites del plan ha usado cada cuenta con sesión iniciada de Claude Code, Codex y Copilot CLI, y cuándo se restablece cada límite. |
-| `kodosi terminal list` | Muestra tus terminales con sus nombres e ID. Indica cualquiera de los dos como `<terminal>`. |
-| `kodosi terminal read <terminal>` | Imprime la pantalla. `--history` añade las líneas que se desplazaron fuera. |
-| `kodosi terminal message <terminal> "Can you review my branch?"` | Le da un mensaje al agente de un terminal, con quién lo envía y desde dónde. |
-| `kodosi terminal agent <terminal> --model sonnet` | Cambia el modelo, el esfuerzo, el modo rápido o los permisos del agente de un terminal mientras trabaja. |
-| `kodosi terminal input <terminal> --enter "make test"` | Escribe una línea. |
-| `kodosi terminal keys <terminal> ctrl-c` | Pulsa teclas. |
-| `kodosi terminal wait <terminal> --until done,failed` | Espera a un estado. |
-| `kodosi terminal show <terminal>` | Muestra el terminal en la app. |
-| `kodosi dosi say "What needs me?"` | Le pregunta a Dosi. `kodosi dosi show` imprime la conversación, y `kodosi dosi stop` detiene a Dosi. |
-| `kodosi show <file>` | Muestra un archivo en el lienzo de este terminal, que se abre para quienes lo miran; `kodosi show <address>` muestra una dirección web en su navegador, y `kodosi show browser` muestra ese navegador tal como está. `kodosi canvas` lista lo que muestra, y `kodosi canvas remove <file>` quita un archivo. |
-| `kodosi browser open <address>` | Abre una página en el navegador compartido de este terminal. Los demás comandos de agent-browser también funcionan. |
-| `kodosi skill` | Imprime la skill que permite a un agente trabajar con las personas y los agentes de Kodosi. `kodosi skill canvas` imprime la skill del lienzo. |
+| `kodosi terminal start --agent claude --prompt "fix the failing test"` | Inicia un agente con tus últimos ajustes. Puedes modificarlos con `--account`, `--model`, `--effort`, `--fast`, `--permissions` y `--output`. |
+| `kodosi terminal start --directory <repository> --branch <name>` | Inicia un terminal en una rama nueva dentro de su propio worktree de Git. |
+| `kodosi terminal start --computer <computer> --directory <folder>` | Inicia un terminal en otro de tus ordenadores. Las rutas relativas y `~` se resuelven respecto a tu directorio personal en esa máquina. Usa `kodosi devices list` para ver qué ordenadores están en línea. |
+| `kodosi agent list` | Lista los agentes instalados, sus cuentas y tus últimos ajustes. |
+| `kodosi agent usage` | Muestra el uso actual del plan y las horas de restablecimiento de las cuentas con sesión iniciada de Claude Code, Codex y Copilot CLI. |
+| `kodosi terminal list` | Lista los terminales con sus nombres e ID (puedes pasar cualquiera de los dos como `<terminal>`). |
+| `kodosi terminal read <terminal>` | Imprime el contenido actual de la pantalla. Añade `--history` para incluir el historial de desplazamiento. |
+| `kodosi terminal message <terminal> "Can you review my branch?"` | Envía un mensaje al agente de un terminal, etiquetado con el remitente y el origen. |
+| `kodosi terminal agent <terminal> --model sonnet` | Cambia el modelo, el esfuerzo, el modo rápido o los permisos de un agente en ejecución. |
+| `kodosi terminal input <terminal> --enter "make test"` | Escribe texto en un terminal. |
+| `kodosi terminal keys <terminal> ctrl-c` | Envía pulsaciones de teclas a un terminal. |
+| `kodosi terminal wait <terminal> --until done,failed` | Espera hasta que el terminal entre en uno de los estados indicados. |
+| `kodosi terminal show <terminal>` | Enfoca el terminal en la app. |
+| `kodosi dosi say "What needs me?"` | Envía un mensaje a Dosi. Usa `kodosi dosi show` para imprimir la conversación y `kodosi dosi stop` para cancelar un turno. |
+| `kodosi show <file>` | Abre un archivo en el lienzo de este terminal, que se abre para las personas que están viendo el terminal. Usa `kodosi show <address>` para abrir una URL en su navegador compartido, `kodosi show browser` para abrir el navegador tal cual, `kodosi canvas` para listar los elementos del lienzo y `kodosi canvas remove <file>` para quitar uno. |
+| `kodosi browser open <address>` | Abre una URL en el navegador compartido de este terminal (el resto de los comandos de agent-browser también funcionan). |
+| `kodosi skill` | Imprime la skill de agente para colaborar en Kodosi; `kodosi skill canvas` imprime la skill del lienzo. |
 | `kodosi dosi skill` | Imprime la skill que permite a otro agente actuar como Dosi. |
-| `kodosi host` | Mantiene tus terminales en marcha después de cerrar la app. `kodosi host stop` detiene un host que se ejecuta en segundo plano. |
+| `kodosi host` | Ejecuta el host de forma independiente para que los terminales sigan funcionando tras cerrar la app. Usa `kodosi host stop` para detener un host en segundo plano. |
 
-`message`, `input` y `keys` se detienen con un mensaje mientras escribes en ese terminal.
-`message` también se detiene mientras el agente espera la respuesta de una persona.
+`message`, `input` y `keys` no se ejecutan mientras estés escribiendo activamente en ese terminal.
+`message` tampoco se ejecuta mientras el agente espera la respuesta de una persona.
 
 ## Si algo no conecta
 
-Comprueba que el ordenador del terminal está en línea, con Kodosi abierto, y que el terminal
-sigue compartido. Un dispositivo nuevo puede necesitar aprobación, y un amigo con la identidad
-cambiada puede necesitar verificación en Amigos. Después de perder la conexión, Kodosi vuelve
-a mostrar el estado actual. Cuando un terminal de otro ordenador dice Sin conexión, este
-dispositivo no llega al servidor: comprueba su red. Kodosi se vuelve a conectar solo, y
-Reintentar conecta al momento. Cuando Kodosi dice que un ordenador está sin conexión, sus
-terminales se vuelven a abrir cuando vuelve, salvo que hayan terminado allí. Para quitar un
-terminal así de tu lista, selecciona su X. Ocultar hasta que vuelva lo muestra de nuevo cuando
-vuelve el ordenador, y Cerrar para siempre lo cierra entonces. Si Kodosi dice que no está
-seguro de que tu entrada haya llegado, mira el terminal antes de volver a escribir el comando.
+- Comprueba que el ordenador anfitrión del terminal está en línea con Kodosi en ejecución y que el
+  terminal sigue compartido.
+- Un dispositivo recién añadido puede estar aún pendiente de aprobación, o un amigo cuya identidad
+  haya cambiado puede necesitar una nueva verificación en **Amigos**.
+- Después de perder la conexión, Kodosi vuelve a mostrar el estado actual. Si un terminal remoto
+  muestra **Sin conexión**, este dispositivo no puede llegar al servidor; comprueba tu conexión de
+  red. Kodosi se reconecta automáticamente, o haz clic en **Reintentar** para intentarlo de
+  inmediato.
+- Cuando un ordenador anfitrión se desconecta, sus terminales se reconectan automáticamente en
+  cuanto vuelve a estar en línea (salvo que se hayan cerrado mientras tanto). Para quitar un
+  terminal sin conexión de tu lista, haz clic en su `×`: **Ocultar hasta que vuelva** lo oculta
+  temporalmente, y **Cerrar para siempre** lo cierra de forma definitiva cuando el ordenador vuelva
+  a conectarse.
+- Si Kodosi avisa de que la entrega de tu entrada ha sido incierta, revisa la pantalla del terminal
+  antes de volver a ejecutar el comando.

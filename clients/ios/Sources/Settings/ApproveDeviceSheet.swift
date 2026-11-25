@@ -129,8 +129,8 @@ struct ApproveDeviceSheet: View {
         }
     }
 
-    /// The scanner stays in this sheet: a sheet that closes at the moment of the scan can
-    /// stop the confirmation from coming up.
+    /// Rendered inline rather than in a nested sheet, because dismissing a child sheet right when
+    /// a scan finishes can suppress the approval confirmation dialog.
     private var scanner: some View {
         VStack(spacing: 16) {
             CodeScanView(scan: CodeScan(

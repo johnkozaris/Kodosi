@@ -12,19 +12,20 @@ const NO_TERMINAL: &str =
 
 #[derive(Subcommand)]
 pub(super) enum CanvasAction {
-    /// List what the canvas of this terminal shows.
+    /// List items shown on this terminal's canvas.
     List,
-    /// Take items off the canvas of this terminal: name them, or use --all.
+    /// Remove items from this terminal's canvas by name, or pass --all.
     Remove {
-        /// An item's file name or path, or browser for the shared browser.
+        /// File name or path of each item to remove, or "browser" for the shared browser.
         names: Vec<String>,
-        /// Take all files off.
+        /// Remove all files from the canvas.
         #[arg(long, conflicts_with = "names")]
         all: bool,
     },
 }
 
-/// A program that a terminal started can live on after it, with the terminal's variables.
+/// Verify the terminal still exists: a child process can outlive its terminal while keeping
+/// `KODOSI_SESSION_ID` in its environment.
 fn terminal(context: &Context) -> Result<Uuid> {
     super::this_terminal()
         .and_then(|id| Uuid::parse_str(&id).ok())

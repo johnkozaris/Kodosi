@@ -1,6 +1,5 @@
-//! Plain text files, such as .txt, .json and .yaml. The server keeps the text as a tree of lines,
-//! so a view edits it with the same steps as a document, and a save keeps the file's byte order
-//! mark, its line endings and whether it ends with one.
+//! Plain text formats (.txt, .json, .yaml, etc.). Stored as a line tree so views edit via text
+//! steps while saves preserve BOM, line endings (LF/CRLF), and trailing newline presence.
 
 mod diff;
 mod lines;
@@ -32,7 +31,7 @@ pub(crate) fn schema() -> &'static Schema {
 }
 
 const BOM: &[u8] = "\u{feff}".as_bytes();
-/// Each edit of a view takes longer with each line, so a longer file stays a page.
+/// Limits for live editing; larger files are rejected in `opens` to keep view edits responsive.
 const MOST_LINES: usize = 10_000;
 const MOST_BYTES: usize = 512 * 1024;
 
@@ -48,8 +47,8 @@ pub struct Model {
     doc: Node,
 }
 
-/// A view sends steps. The CLI sends named ops, and the server turns them into steps, so a view
-/// never sees an op.
+/// Views send `Steps`; the CLI sends `Ops`, which the host translates into `Steps` before
+/// broadcasting.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -63,7 +62,7 @@ pub enum Change {
     Ops {
         ops: Vec<Op>,
     },
-    /// A write of another program becomes steps, and never travels.
+    /// Host-only representation of an external write; converted to `Steps` on apply and never sent.
     #[serde(skip)]
     Written(Written),
 }
@@ -75,7 +74,7 @@ pub enum Change {
     rename_all_fields = "camelCase"
 )]
 pub enum Query {
-    /// The lines `from` to `to`, counted from 1.
+    /// 1-based inclusive line range.
     Read {
         #[serde(default)]
         from: Option<usize>,
@@ -242,7 +241,8 @@ fn is_crlf(file: &[u8]) -> bool {
     ended.peek().is_some() && ended.all(|line| line.ends_with(b"\r"))
 }
 
-/// A line ending at the end of a file ends the last line, and does not start another.
+/// Splits lines while treating a trailing newline as terminating the last line rather than
+/// starting an empty one.
 fn split(text: &str) -> impl Iterator<Item = &str> {
     let ending = if is_crlf(text.as_bytes()) {
         "\r\n"

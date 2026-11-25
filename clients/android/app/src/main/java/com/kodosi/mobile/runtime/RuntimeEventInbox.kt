@@ -2,18 +2,14 @@ package com.kodosi.mobile.runtime
 
 import kotlinx.coroutines.channels.Channel
 
-/**
- * A full inbox drops all that waits rather than grow without end, and says so before the next
- * event, so that the app can ask for its state again. Its bounds hold a file of the canvas at its
- * largest, in the parts of one frame, while the app reads them.
- */
+// Bounded event queue: on overflow, drops buffered events and yields Arrival.Behind before newer
+// events so the consumer resyncs. MAX_BYTES fits a full max-size canvas transfer/frame in flight.
 class RuntimeEventInbox(private val maxBytes: Long = MAX_BYTES, private val maxCount: Int = MAX_COUNT) {
     sealed interface Arrival {
         class Event(val event: RuntimeEvent) : Arrival
 
         data class Unreadable(val reason: String) : Arrival
 
-        /** The inbox dropped these, as the app did not keep up. */
         data class Behind(val events: Int, val bytes: Long) : Arrival
     }
 
@@ -23,7 +19,7 @@ class RuntimeEventInbox(private val maxBytes: Long = MAX_BYTES, private val maxC
     private var closed = false
     private val arrived = Channel<Unit>(Channel.CONFLATED)
 
-    /** The runtime calls it on its own threads, so it never waits for the app. */
+    // Called on runtime callback threads; never blocks on the consumer.
     fun push(json: ByteArray) {
         synchronized(queue) {
             if (closed) return
@@ -43,7 +39,6 @@ class RuntimeEventInbox(private val maxBytes: Long = MAX_BYTES, private val maxC
         arrived.trySend(Unit)
     }
 
-    /** Reads the next event on the caller's thread, or returns null once the inbox closes. */
     suspend fun next(): Arrival? {
         while (true) {
             val json = synchronized(queue) {

@@ -20,9 +20,7 @@
 namespace kodosi {
 namespace {
 const QString chatKey = QStringLiteral("chat");
-// A turn that took longer says how long it worked.
 constexpr qint64 longTurn = 30000;
-// A permission card shows a command whole below its line when it is longer.
 constexpr qsizetype longCommand = 96;
 constexpr qsizetype mostChangeLines = 40;
 constexpr qsizetype mostAskLines = 14;
@@ -63,7 +61,6 @@ QString detailKind(const QJsonObject& tool)
     return text(tool.value(QStringLiteral("detail")).toObject(), "kind");
 }
 
-// A turn can end with what the agent wrote: its text, or a plan that no question holds.
 bool answers(const QJsonObject& item)
 {
     const auto kind = kindOf(item);
@@ -186,7 +183,6 @@ QList<Row> rows(const QList<QJsonObject>& items, bool lastTurnRuns)
     return rows;
 }
 
-// The kind that most steps of the turn have, the first of them when two have as many.
 QString mainKind(const QList<QJsonObject>& tools)
 {
     QHash<QString, int> counts;
@@ -221,8 +217,6 @@ QVariantList changeLines(const QJsonArray& lines, qsizetype most)
     return shaped;
 }
 
-// The text that the agent's question offers to allow from now on: a rule and a folder in the
-// letters of code, and a mode in words.
 std::pair<QString, bool> offer(const QJsonObject& always)
 {
     const auto kind = text(always, "kind");
@@ -254,7 +248,6 @@ QString planLabel(const QString& choice)
     return {};
 }
 
-// What a person's answer is, to tell its key from the others.
 QString answerKey(const QJsonObject& answer)
 {
     const auto kind = text(answer, "kind");
@@ -446,8 +439,7 @@ void TerminalChat::setLinked(bool linked)
     emit stateChanged();
 }
 
-// A change that went missing leaves the chat wrong, so the pipe starts again and the host sends
-// the chat as it is.
+// Reopen the pipe to fetch a fresh snapshot from the host after a missed or unreadable update.
 void TerminalChat::renew()
 {
     if (!m_documents || m_pipe.isEmpty())
@@ -551,8 +543,8 @@ void TerminalChat::receive(const QByteArray& frame)
         }
         m_awaitsSnapshot = false;
         m_chat = std::move(chat);
-        // The host closes a question when it takes its answer, and the pipe loses what an app
-        // sends while it is broken. A question that is still there waits for its answer.
+        // The host removes an ask once it processes the answer, and sends during a broken pipe are
+        // lost, so any ask still present in a fresh snapshot has not been answered yet.
         m_answers.clear();
         m_failure.clear();
         m_linked = true;
@@ -831,8 +823,6 @@ void TerminalChat::shape()
         }
         lines.append(line);
     }
-    // While the agent works and asks nothing, the end of its turn says what it does, unless its
-    // answer already grows there.
     const auto last = folded.isEmpty() ? QString {} : folded.last().kind;
     const bool answering = (last == QStringLiteral("answer") || last == QStringLiteral("plan")) && folded.last().live;
     if (live && m_chat->asks.isEmpty() && !answering)
@@ -1005,7 +995,7 @@ TerminalChat* TerminalChats::byPipe(const QString& pipe) const
     return nullptr;
 }
 
-// The chat of a terminal stays while the terminal does, with what a person writes there.
+// Retain each session's chat (and unsent draft) until the session closes and no view watches it.
 void TerminalChats::forgetClosed()
 {
     for (auto entry = m_chats.begin(); entry != m_chats.end();) {

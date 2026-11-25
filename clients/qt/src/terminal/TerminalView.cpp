@@ -296,7 +296,7 @@ QSizeF TerminalView::terminalCellSize() const
     return TerminalRasterizer::cellSize(m_font, m_lineHeight, devicePixelRatio());
 }
 
-/// The grid that a view of this size will ask for, so that its program starts at its final width.
+// Computes the initial PTY grid for a view size so the child process starts at its final size.
 QJsonObject TerminalView::startSize(
     const QSizeF view,
     const QString& fontFamily,
@@ -845,7 +845,7 @@ void TerminalView::clearPendingInput()
 void TerminalView::synchronizeInteraction()
 {
     if (interactionAvailable()) {
-        // A size skipped while the view could not act goes out now.
+        // Send any resize that was skipped while the view was hidden or disabled.
         scheduleResize();
         if (auto* inputMethod = QGuiApplication::inputMethod())
             inputMethod->update(Qt::ImEnabled | Qt::ImCursorRectangle);
@@ -925,9 +925,9 @@ void TerminalView::drainGuiEvents(const std::uint64_t epoch)
             } else if constexpr (std::is_same_v<T, std::int32_t>) {
                 emit connectionCompleted(value == KODOSI_FFI_OK, value);
                 if (m_attachmentEpoch.load(std::memory_order_acquire) == epoch && value == KODOSI_FFI_OK) {
-                    // A window keeps its focus where nobody is. So a view that attaches again, as when
-                    // its terminal comes back, gives its focus back, and takes the size with it only for
-                    // a person who moved the focus here.
+                    // A view that already held focus when reconnecting sends returning=true, unless
+                    // the user moved focus here, so it restores focus without claiming resize
+                    // ownership from another active user.
                     if (hasActiveFocus() && interactionAvailable()) sendFocus(true, !m_focusMovedHere);
                     scheduleResize();
                 }

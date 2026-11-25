@@ -42,7 +42,8 @@ KDialog {
         }
     }
     Timer { id: receivedTimer; interval: 6000; onTriggered: root.received = false }
-    // Dialog closes when a button box that is its footer accepts, and Report waits for the answer.
+    // Wrap DialogButtonBox in an Item so accepting does not auto-close the dialog while the
+    // report request is in flight.
     footer: Item {
         implicitWidth: reportButtons.implicitWidth
         implicitHeight: reportButtons.implicitHeight

@@ -152,8 +152,8 @@ impl EndRequest {
 
 pub(super) fn detach(command: &mut std::process::Command) {
     command.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
-    // A child inherits every inheritable handle of its parent, so it would
-    // otherwise hold open the pipes of a caller reading this process's output.
+    // Clear inheritance on stdio handles so the detached child does not hold
+    // open pipes belonging to a caller reading this process's output.
     for kind in [STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE] {
         // SAFETY: `GetStdHandle` has no pointer arguments.
         let handle = unsafe { GetStdHandle(kind) };
@@ -214,8 +214,8 @@ pub(super) fn allow_foreground(pid: u32) {
     unsafe { AllowSetForegroundWindow(pid) };
 }
 
-/// The job of a program and the programs that it starts. Windows has no request to end for a
-/// program without a console, so each end is at once.
+// Windows has no graceful termination signal for consoleless processes, so
+// `end` always terminates the job immediately regardless of `force`.
 pub(super) struct Group(OwnedHandle);
 
 impl Group {

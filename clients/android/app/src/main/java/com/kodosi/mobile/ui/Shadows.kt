@@ -20,12 +20,11 @@ import androidx.compose.ui.graphics.nativePaint
 import androidx.compose.ui.graphics.shadow.Shadow
 import kotlin.math.abs
 
-// Compose's own drop and inner shadows keep a blurred mask for each size of a surface until the app leaves
-// the screen. A surface that changed its size with an animation, such as a terminal above the keyboard or the
-// thumb of a dock, kept a mask for each frame: about 25 MB for each opening and closing of the keyboard.
-// These draw the same blur with each frame, so the GPU draws it and keeps nothing for each size.
+// Compose's built-in drop/inner shadow modifiers cache a blurred mask per surface size until
+// disposed. Animating surfaces (like a terminal resizing for the IME or a dock thumb) leak a mask
+// per frame (~25 MB per keyboard toggle). Drawing via BlurMaskFilter lets the GPU blur each frame
+// without caching per-size bitmaps.
 
-/** The shadow that [shape] casts below this element and its content. */
 fun Modifier.dropShadow(shape: Shape, shadow: Shadow): Modifier = drawWithCache {
     val outline = outlinePath(shape, size)
     val fill = shadowPaint(shadow)
@@ -47,7 +46,6 @@ fun Modifier.dropShadow(shape: Shape, shadow: Shadow): Modifier = drawWithCache 
     }
 }
 
-/** The shadow that falls inside [shape], over this element's background and below its content. */
 fun Modifier.innerShadow(shape: Shape, shadow: Shadow): Modifier = drawWithCache {
     val spread = shadow.spread.toPx()
     val offset = Offset(shadow.offset.x.toPx(), shadow.offset.y.toPx())

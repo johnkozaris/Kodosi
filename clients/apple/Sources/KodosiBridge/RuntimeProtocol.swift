@@ -39,8 +39,8 @@ public struct RuntimeEvent: Decodable, Sendable {
         return try value.decode(as: type)
     }
 
-    /// The failure of a refresh that an app asks for by itself is no news to the person: the
-    /// runtime refreshes again when the connection is back.
+    /// Background refresh operations whose failures are suppressed from user-facing errors because
+    /// the runtime retries automatically once reconnected.
     public static let refreshes: Set<String> = ["session.list", "auth.refresh", "friends.refresh", "devices.refresh", "project.list"]
 
     public var failedRefresh: Bool {

@@ -11,7 +11,8 @@ public extension View {
     }
 }
 
-/// A tile casts its shadow on the ground around it, so the shadow is the ground's.
+/// Uses the outer chrome theme for the drop shadow because the tile casts onto the app backdrop,
+/// which may have a different light/dark appearance than the terminal itself.
 private struct TerminalTile: ViewModifier {
     @Environment(\.theme) private var theme
     @Environment(\.chromeTheme) private var chrome
@@ -74,12 +75,12 @@ public struct TerminalPreview: View {
         #endif
     }
 
-    /// The foreground of the terminal palette of the look.
+    /// Matches `TerminalPalette` foreground colors.
     private var ink: Color {
         theme.isDark ? hex(0xE8E1D9) : hex(0x2A1D15)
     }
 
-    /// The cyan of the terminal palette of the look.
+    /// Matches `TerminalPalette` ANSI cyan colors.
     private var path: Color {
         theme.isDark ? hex(0x5DAFA6) : hex(0x1F7A74)
     }

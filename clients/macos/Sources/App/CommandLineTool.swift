@@ -9,7 +9,8 @@ enum CommandLineTool {
         return path.hasPrefix("/Applications/") || path.hasPrefix(FileManager.default.homeDirectoryForCurrentUser.path + "/Applications/")
     }
 
-    /// Homebrew folders stay Homebrew's: the cask makes its own link there.
+    /// Links the bundled CLI at `~/.local/bin/kodosi` unless an existing symlink (such as the
+    /// Homebrew cask binary link) already points to this app; never writes into Homebrew dirs.
     @discardableResult
     static func keepLinked(home: URL = FileManager.default.homeDirectoryForCurrentUser) -> String? {
         guard let own = Bundle.main.executableURL?.resolvingSymlinksInPath() else { return nil }

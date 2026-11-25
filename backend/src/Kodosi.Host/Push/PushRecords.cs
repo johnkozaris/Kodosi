@@ -26,7 +26,7 @@ internal sealed partial class PushRecords(IServiceScopeFactory scopes, ILogger<P
         }
     }
 
-    /// False while the database cannot be reached, so that the records wait for the next try.
+    // Returns false only when the database is unreachable so the caller requeues these records.
     public async Task<bool> SaveAsync(IReadOnlyDictionary<Guid, PushRecord?> records, CancellationToken ct)
     {
         try

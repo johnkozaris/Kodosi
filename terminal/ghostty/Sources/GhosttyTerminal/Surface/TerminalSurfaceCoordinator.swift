@@ -233,8 +233,8 @@ final class TerminalSurfaceCoordinator {
             return false
         }
 
-        // A host-managed surface reports the host's grid after a host resize, so only the cell
-        // size of its report counts here.
+        // After a host resize, surface.size() reports the host's grid rather than what fits the
+        // view, so recompute the grid from the view dimensions using only the reported cell size.
         let surfaceSize = (configuration?.terminalConfiguration ?? TerminalConfiguration()).grid(
             widthPixels: pixelWidth,
             heightPixels: pixelHeight,
@@ -434,7 +434,7 @@ final class TerminalSurfaceCoordinator {
         isDisplayVisible && isApplicationActive
     }
 
-    /// Ghostty blinks the cursor of a focused surface even while it draws nothing.
+    /// Ghostty still blinks the cursor on a focused surface while occluded.
     private var effectiveSurfaceFocused: Bool {
         isSurfaceFocused && effectiveSurfaceVisible
     }

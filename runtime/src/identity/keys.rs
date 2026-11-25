@@ -112,7 +112,8 @@ pub struct DeviceKeys {
     recovery: Option<(String, ProjectKeyPair)>,
 }
 
-/// A device reads the keys that it saved only under the names that it saved them with.
+/// Preserves the original `room_*` and `recovery_room` serialized field names so existing stored
+/// device keys load.
 #[derive(Serialize, Deserialize)]
 struct StoredKeys {
     version: u8,

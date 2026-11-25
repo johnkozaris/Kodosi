@@ -43,15 +43,14 @@ pub(crate) struct Routes {
     session_of_target: HashMap<String, String>,
     downloads: HashMap<String, i64>,
     pages: HashMap<String, mpsc::UnboundedSender<devtools::Event>>,
-    /// Host pages that the engine opens, until it names their targets.
+    /// Pending host page opens waiting for their CDP target ID.
     opening: HashMap<i64, oneshot::Sender<String>>,
-    /// Tabs that a window's driver asked for, until the engine names their targets.
+    /// Pending driver-initiated tab opens waiting for their CDP target ID.
     asked: HashMap<i64, oneshot::Sender<String>>,
     attaching: HashSet<String>,
-    /// The engine's last report of its tabs, which the windows get again once the host attached.
+    /// Most recent tab snapshot from the engine, re-dispatched once new targets attach.
     last_tabs: Vec<EngineTab>,
-    /// Windows that lost a frame. The frames after it need it, so a window gets none until its
-    /// next key frame.
+    /// Windows that dropped a frame and must skip delta frames until the next keyframe.
     behind: HashSet<i64>,
 }
 
@@ -103,10 +102,10 @@ pub(crate) struct Engine {
     address: String,
     commands: mpsc::Sender<ToEngine>,
     routes: Arc<Mutex<Routes>>,
-    /// Changes each time the tabs have their windows again.
+    /// Notified whenever tab-to-window mappings are updated.
     placed: watch::Sender<()>,
     stopped: watch::Sender<bool>,
-    /// Ends the engine when the host lets go of it.
+    /// Dropping this sender releases the engine process task, killing the child.
     _kept: oneshot::Sender<()>,
     downloads: PathBuf,
     next_window: AtomicI64,
@@ -240,7 +239,7 @@ impl Engine {
         let ask = self.next_ask.fetch_add(1, Ordering::Relaxed);
         let (named, target) = oneshot::channel();
         self.routes().asked.insert(ask, named);
-        // The driver may go first and drop this wait.
+        // Remove the pending entry if the driver disconnects and cancels this future.
         let _asking = DropGuard::new(ask, |ask| {
             self.routes().asked.remove(&ask);
         });
@@ -276,7 +275,7 @@ impl Engine {
         let page = self.next_page.fetch_add(1, Ordering::Relaxed);
         let (named, target) = oneshot::channel();
         self.routes().opening.insert(page, named);
-        // A dropped opening must not leave a page open that nobody holds.
+        // Close the page in the engine if this future is cancelled before returning.
         let opening = DropGuard::new(page, |page| {
             self.routes().opening.remove(&page);
             self.command(ToEngine::ClosePage { page });
@@ -308,8 +307,8 @@ impl Engine {
         })
     }
 
-    /// CEF's browser-wide auto-attach misses the pages that the engine opens and holds back the
-    /// popups that a page opens, so the host attaches to each new target itself.
+    /// Attaches to newly reported targets manually because CEF's browser-wide auto-attach
+    /// misses engine-opened pages and pauses popups.
     fn attach_new(self: &Arc<Self>, tabs: &[EngineTab]) {
         let targets: Vec<String> = {
             let mut routes = self.routes();
@@ -368,7 +367,7 @@ impl Engine {
         self.stop_if_idle().await;
     }
 
-    /// Closes a host page now; a dropped page has no time to wait for the browser to stop.
+    /// Synchronous teardown for `HostPage::drop`, which cannot await `stop_if_idle`.
     pub(crate) fn forget_page(&self, page: i64, target: Option<&str>) {
         if let Some(session) = target.and_then(|target| self.session_of(target)) {
             self.routes().pages.remove(&session);
@@ -402,7 +401,7 @@ impl Engine {
         }
     }
 
-    /// Waits until the browser is gone, so its profile is free.
+    /// Requests a clean quit and waits for exit so the profile directory is unlocked.
     pub(crate) async fn stop(&self) {
         if self.is_stopped() {
             return;
@@ -513,8 +512,8 @@ impl Engine {
         ))
     }
 
-    /// A window that is behind loses a frame and starts again at a key frame, so one slow
-    /// window never holds up the others or the browser's answers.
+    /// Drops frames for slow windows until the next keyframe so one window cannot stall
+    /// others or block engine reports.
     fn deliver_frame(&self, frame: EncodedFrame) {
         let window = frame.window;
         let sender = {
@@ -617,7 +616,7 @@ impl Engine {
     }
 }
 
-/// Never waits for a window, so the events of the browser always drain.
+/// Dispatches engine and `DevTools` events without blocking on windows so incoming streams drain.
 async fn follow(
     engine: Arc<Engine>,
     mut events: mpsc::UnboundedReceiver<devtools::Event>,
@@ -693,13 +692,14 @@ fn arguments(profile: &Path, link: &Path, port: u16, system_keychain: bool) -> V
     arguments
 }
 
-/// A debug port that the host picks keeps `navigator.webdriver` false.
+/// Passing a host-chosen debug port keeps `navigator.webdriver` false.
 async fn free_port() -> Result<u16, Error> {
     let listener = TcpListener::bind(("127.0.0.1", 0)).await?;
     Ok(listener.local_addr()?.port())
 }
 
-/// Keeps reading the rest of the engine's error output, so that the engine never waits for it.
+/// Reads the `DevTools` URL from stderr and continues draining stderr so the engine never blocks
+/// on a full pipe.
 async fn wait_for_address(port: u16, process: &mut Child) -> Result<String, Error> {
     let output = process
         .stderr
@@ -722,8 +722,8 @@ async fn wait_for_address(port: u16, process: &mut Child) -> Result<String, Erro
     Ok(address)
 }
 
-/// Only the engine writes this output, so a program that held the port first cannot give the
-/// host its address. When the port of `127.0.0.1` is taken, the engine listens on `::1` instead.
+/// Parses the `DevTools` URL from the engine's own stderr rather than probing the port, preventing
+/// hijacking if another process binds the port first. Accepts `::1` for IPv6 fallback.
 fn debug_address(line: &str, port: u16) -> Option<String> {
     let address = line.trim().strip_prefix("DevTools listening on ")?;
     let browser = ["127.0.0.1", "[::1]"]

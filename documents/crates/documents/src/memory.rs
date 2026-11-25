@@ -11,21 +11,18 @@ use serde::{Deserialize, Serialize};
 use crate::journal::{private_folder, write_replacing};
 
 const FILE: &str = "taken.json";
-/// A client that the document took nothing from in this many closes no longer comes back.
+/// Evict a client's sequence entry after this many clean closes with no new changes from it.
 const MOST_QUIET_CLOSES: u32 = 32;
 const MOST_CLIENTS: usize = 256;
 const MOST_DOCUMENTS: usize = 256;
 
-/// What a document keeps of a client after it closed: the last batch that it took, and how many
-/// closes went by since.
+/// `quiet` counts consecutive clean closes with no new batches from this client.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Remembered {
     seq: Seq,
     quiet: u32,
 }
 
-/// What the document took of each client when it closes, from what it knew when it opened. The
-/// clients that it heard from last stay.
 pub(crate) fn remembered(
     before: &HashMap<String, Remembered>,
     seqs: HashMap<String, Seq>,
@@ -54,7 +51,7 @@ pub(crate) fn seqs_of(clients: &HashMap<String, Remembered>) -> HashMap<String, 
 
 #[derive(Default, Serialize, Deserialize)]
 struct Closed {
-    /// The document that closed last comes last.
+    /// Ordered from oldest to most recently closed (LRU eviction drains from the front).
     documents: Vec<ClosedDocument>,
 }
 
@@ -64,9 +61,8 @@ struct ClosedDocument {
     clients: HashMap<String, Remembered>,
 }
 
-/// What each document that closed cleanly took of each client, until it opens again, so that a
-/// client that comes back learns what became of the batch that it sent. Only the documents that
-/// closed last stay, and only the user can read it.
+/// Persists the last accepted client sequence numbers across clean closes so reconnecting clients
+/// can reconcile in-flight batches. Keeps the most recently closed documents in a user-only file.
 pub(crate) struct Memory {
     folder: PathBuf,
     lock: Mutex<()>,
@@ -89,8 +85,8 @@ impl Memory {
             .map_or_default(|closed| closed.clients)
     }
 
-    /// An open document keeps what it takes in its journal, so what it kept when it closed before
-    /// could only mislead.
+    /// Removes the closed-state record once a document opens; while open, the journal is the
+    /// source of truth and stale data here would mislead recovery.
     pub(crate) fn forget(&self, path: &Path) -> io::Result<()> {
         let _held = self.held();
         let mut closed = self.read();

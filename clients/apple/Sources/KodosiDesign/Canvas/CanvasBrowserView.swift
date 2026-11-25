@@ -32,9 +32,8 @@ public struct CanvasBrowserView: View {
         self.ask = ask
     }
 
-    /// A browser that wakes has no tab for a moment, and a tab that loads a page is at about:blank
-    /// first, so the last picture stays until the page draws, and only a tab that rests at
-    /// about:blank, or no tab before any picture, is blank.
+    /// Keeps the last frame visible while waking or navigating away from `about:blank`; only shows
+    /// the blank placeholder when idle on `about:blank` or before the first frame arrives.
     private var blank: Bool {
         guard let tab = tabs.first(where: \.active) else { return feed.picture == .waiting }
         return (tab.address.isEmpty || tab.address == Self.blankPage) && !tab.loading
@@ -72,8 +71,8 @@ public struct CanvasBrowserView: View {
             .clipped()
             .onGeometryChange(for: CGSize.self) { $0.size } action: { feed.viewSize = $0 }
             .onChange(of: displayScale, initial: true) { _, scale in feed.viewScale = scale }
-            // A device off its screen would keep the host coding a page that nobody sees there,
-            // and the page in its shape, so it watches again once it is back.
+            // Stop watching when off-screen so the host does not encode video or hold this
+            // device's viewport size while nobody is looking.
             .task(id: browser.problem == nil && onScreen) {
                 if browser.problem == nil, onScreen {
                     feed.copied = Pasteboard.copy
@@ -106,7 +105,7 @@ public struct CanvasBrowserView: View {
         }
     }
 
-    /// A page that a tab opens counts as a visit; a change of tab does not.
+    /// Keyed by `(tab, address)` so switching between open tabs does not record duplicate visits.
     private struct TabPage: Hashable {
         let tab: String
         let address: String
@@ -360,8 +359,8 @@ public struct CanvasBrowserView: View {
         .contentShape(Rectangle())
     }
 
-    /// The rule of the host's address bar: words are a search when they hold a space or an `@`,
-    /// or no computer's name or address comes before their path.
+    /// Mirrors the host's address-bar heuristic: input without a scheme is a search when it holds a
+    /// space or an `@`, or when no valid host/IP comes before its path.
     private static func searches(_ words: String) -> Bool {
         if words.contains("://") || words.hasPrefix("about:") || words.hasPrefix("data:") {
             return false

@@ -10,10 +10,8 @@ import com.kodosi.mobile.runtime.number
 import java.io.ByteArrayOutputStream
 import java.util.Base64
 
-/**
- * The runtime keeps the pipe of a view and opens it again after each loss, until the view closes it.
- * A link lives on one thread: the main thread for a document, the browser's own for the browser.
- */
+// The runtime owns each pipe and reconnects it after drops until closed. Each DocumentLink is
+// single-threaded: main thread for documents, the BrowserPipes executor for the browser.
 class DocumentLink(
     private val commands: CommandSink,
     val session: String,
@@ -22,13 +20,12 @@ class DocumentLink(
     private val onClose: (DocumentLink) -> Unit
 ) {
     sealed interface News {
-        /** The pipe is open, again after each loss: the view sends its first message. */
+        // Emitted on initial open and after each reconnect; the view must resend its handshake.
         data object Open : News
 
-        /** The pipe stayed lost for a while, for the reason that the runtime gives. */
         data class Lost(val reason: String?) : News
 
-        /** The terminal of the pipe is gone. */
+        // Emitted when the owning terminal is gone and the pipe will not reconnect.
         data object Closed : News
     }
 
@@ -38,10 +35,7 @@ class DocumentLink(
             onPipe()
         }
 
-    /** The pipe that waits for the answer to its registration. */
     private var registering: String? = null
-
-    /** The next part, or none while the pipe has not opened. */
     private var next: Long? = null
     private var filling = ByteArrayOutputStream()
     var onFrame: (ByteArray) -> Unit = {}
@@ -61,10 +55,7 @@ class DocumentLink(
         }
     }
 
-    /**
-     * The app dropped events when it fell behind, maybe parts of this pipe, so the pipe starts
-     * again. A pipe that waits for its registration registers again by itself.
-     */
+    // Restart active pipes after event loss; pipes still registering retry via LostAnswer.
     fun renewAfterLoss() {
         val pipe = pipe ?: return
         if (pipe != registering) renew(pipe)
@@ -135,10 +126,7 @@ class DocumentLink(
         }
     }
 
-    /**
-     * An answer that went with the events that the app dropped leaves the pipe unknown, so the
-     * link closes it and registers it again.
-     */
+    // If event loss drops the open reply, the runtime's pipe state is unknown; close and retry.
     private suspend fun register(pipe: String) {
         registering = pipe
         try {
@@ -156,7 +144,6 @@ class DocumentLink(
         }
     }
 
-    /** A part that went missing breaks the frames, so the pipe starts again. */
     private fun renew(pipe: String) {
         shut(pipe)
         if (commands.send("document.open", fields("sessionId" to session, "pipe" to pipe, "key" to key)) != Ffi.OK) {
@@ -165,7 +152,7 @@ class DocumentLink(
         }
     }
 
-    /** The parts that are on their way go nowhere, until the pipe opens again. */
+    // Clear next so in-flight frames are ignored until the pipe reopens.
     private fun shut(pipe: String) {
         filling.reset()
         next = null

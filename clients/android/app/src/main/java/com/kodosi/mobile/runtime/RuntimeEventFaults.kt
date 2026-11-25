@@ -2,11 +2,6 @@ package com.kodosi.mobile.runtime
 
 import android.util.Log
 
-/**
- * An event that the app cannot read, and the events that it drops when it falls behind, go to
- * Android's log and into the runtime's own log, beside the lines of the runtime. The app goes
- * on without them.
- */
 class RuntimeEventFaults {
     private var last: String? = null
 
@@ -15,7 +10,6 @@ class RuntimeEventFaults {
 
     fun unreadableChatFrame(reason: String) = once("the app could not read a frame of a terminal's chat: $reason")
 
-    /** A fault that repeats with each new event or frame goes into the log once. */
     private fun once(fault: String) {
         if (fault == last) return
         last = fault

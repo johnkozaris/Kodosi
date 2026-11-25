@@ -1,6 +1,6 @@
-// App Installer reads the App Installer file with a HEAD and with a GET of a byte range, and it
-// gives up without Last-Modified or without a 206 answer for the range. Cloudflare Pages gives
-// neither for a static file, so this one file goes through this worker.
+// Windows App Installer fetches .appinstaller files with HEAD and byte-range GET requests and
+// fails without Last-Modified or HTTP 206 responses. Cloudflare Pages provides neither for static
+// assets, so this worker serves the file instead.
 const MODIFIED = "__MODIFIED__";
 
 export default {

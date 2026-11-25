@@ -92,8 +92,6 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         known.write()
     }
 
-    /// A fresh terminal list says which terminals still have a mark, and a notification leaves
-    /// with its mark.
     func settle(_ sessions: [RuntimeSession]) {
         let marked = KeptTerminals(Set(sessions.filter(\.attention).map(\.id)))
         let waiting = TerminalCatalog.unseenWaits(sessions)
@@ -105,7 +103,6 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    /// In the background the app knows only the notifications that stay.
     static func takeBack(keeping pushed: KeptTerminals, countsBadge: Bool) async -> Bool {
         let center = UNUserNotificationCenter.current()
         let delivered = await center.deliveredNotifications().map(\.request)
@@ -117,8 +114,8 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         return !withdrawn.isEmpty
     }
 
-    /// UIKit ends the app when the answer to a tapped notification comes from a thread that is not
-    /// the main thread, so this method and the next stay on the main actor.
+    /// Keep these delegate methods on `@MainActor`: UIKit terminates the app if notification
+    /// delegate callbacks complete off the main thread.
     func userNotificationCenter(
         _: UNUserNotificationCenter, willPresent _: UNNotification,
     ) async -> UNNotificationPresentationOptions {
@@ -130,8 +127,8 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         opened = terminal
     }
 
-    /// The APNs environment of this build's token: the one that its provisioning profile names,
-    /// and production for the App Store and TestFlight, which carry no profile.
+    /// Reads the APNs environment from `embedded.mobileprovision`, falling back to `"production"`
+    /// for App Store and TestFlight builds, which do not bundle a provisioning profile.
     private static var environment: String {
         #if targetEnvironment(simulator)
             return "development"
@@ -160,8 +157,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         Self.push?.failed(error)
     }
 
-    /// A push without an alert takes back the notifications of the terminals that it does not
-    /// name. While Kodosi is in front, its terminal list sets the badge.
+    /// Silent pushes (no alert payload) carry the set of terminals with active notifications so
+    /// alerts seen on other devices can be withdrawn. Skip badge updates while active because the
+    /// live session list owns the badge in the foreground.
     func application(
         _ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any],
     ) async -> UIBackgroundFetchResult {

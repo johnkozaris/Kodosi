@@ -226,7 +226,7 @@ fn an_outside_write_merges_from_the_saved_state_that_its_writer_read() {
     );
 }
 
-/// The length of the longest common subsequence, the slow way.
+/// Reference O(nm) LCS length used to verify `diff::kept`.
 fn common(old: &[u8], new: &[u8]) -> usize {
     let mut table = vec![vec![0; new.len() + 1]; old.len() + 1];
     for (row, one) in old.iter().enumerate() {

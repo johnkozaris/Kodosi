@@ -18,8 +18,8 @@ public enum DeviceCode {
         symbols(in: text).count == length
     }
 
-    /// A scanner or an opened link passes on only a text in the form that the runtime makes
-    /// for this way; the runtime decides the rest.
+    /// Checks only the `kodosi://device/<way>/` prefix of links and QR scans; the runtime
+    /// validates the payload.
     public static func scanned(in text: String, for way: ScannedWay) -> String? {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         return text.hasPrefix("kodosi://device/\(way.rawValue)/") ? text : nil

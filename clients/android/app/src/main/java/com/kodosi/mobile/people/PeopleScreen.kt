@@ -216,7 +216,7 @@ fun PeopleScreen(model: AppModel, back: () -> Unit, open: (String) -> Unit) {
     if (adding) {
         AddFriendDialog(dismiss = { adding = false }) { text ->
             adding = false
-            // The confirmation names the trust being granted, before the runtime resolves the handle.
+            // Confirm trust before sending the friend request to the runtime.
             accepting = Person("", text, "")
         }
     }

@@ -15,7 +15,8 @@ internal sealed record PushRecord(Guid OwnerId, Guid TerminalId, TerminalStatus 
 
 internal sealed partial class TerminalAlerts(ConnectionDirectory directory, TimeProvider clock, ILogger<TerminalAlerts> logger)
 {
-    // The wait also keeps a server that just started from pushing before the devices report again.
+    // Also prevents a freshly started server from pushing before devices reconnect and report
+    // presence.
     internal static readonly TimeSpan Delay = ConnectionDirectory.PresenceGrace;
     internal static readonly TimeSpan SoundSpacing = TimeSpan.FromSeconds(30);
     internal static readonly TimeSpan Hour = TimeSpan.FromHours(1);
@@ -80,9 +81,9 @@ internal sealed partial class TerminalAlerts(ConnectionDirectory directory, Time
         }
     }
 
-    /// The pushes from before a restart come back while the hosts connect again. A state that a host
-    /// reported first decides at once; a terminal whose host is back without that wait by the time
-    /// the hosts had to connect again has its push taken back.
+    // Restores pre-restart push state while hosts reconnect. If a host already reported a state that
+    // no longer matches a push, withdraw it immediately; otherwise defer verification until the
+    // reconnect window elapses.
     public void Restore(IEnumerable<PushRecord> records)
     {
         lock (sync)
@@ -199,7 +200,7 @@ internal sealed partial class TerminalAlerts(ConnectionDirectory directory, Time
 
     private void ForgetOld(DateTimeOffset now)
     {
-        // The hosts of a server that just started have to connect again before their terminals wait.
+        // Wait for hosts to reconnect after startup before expiring or withdrawing restored pushes.
         if (now >= forgetsFrom)
         {
             ConfirmRestored();

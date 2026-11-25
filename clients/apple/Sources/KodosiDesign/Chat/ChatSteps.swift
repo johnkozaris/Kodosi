@@ -1,8 +1,8 @@
 import KodosiBridge
 import SwiftUI
 
-/// Steps of a turn as one line: what they did, and the steps that did not go as the agent wanted.
-/// The line is there from the first step, so a person can open a step while it runs.
+/// A turn's steps as one line: what they did, and the steps that didn't go as the agent wanted.
+/// The line appears with the first step, so a person can open a step while it is running.
 struct ChatWork: View {
     @Environment(\.theme) private var theme
     let items: [ChatItem]
@@ -63,7 +63,6 @@ struct ChatWork: View {
         .animation(theme.motion.snappy, value: ended.count)
     }
 
-    /// The kind that most steps of the turn have.
     private static func main(_ tools: [ChatTool]) -> ChatToolKind {
         var counts: [ChatToolKind: Int] = [:]
         for tool in tools {
@@ -73,7 +72,6 @@ struct ChatWork: View {
     }
 }
 
-/// The plain symbol of a kind of step: no tile, no outline.
 struct StepSymbol: View {
     @Environment(\.theme) private var theme
     let kind: ChatToolKind
@@ -141,7 +139,6 @@ struct ChatStepLine: View {
         .contentShape(Rectangle())
     }
 
-    /// A command, a file and a search say themselves in the letters of code.
     private static func code(_ tool: ChatTool) -> Bool {
         [.command, .read, .edit, .write, .search].contains(tool.kind)
     }
@@ -253,8 +250,6 @@ struct ChatStepDetail: View {
     }
 }
 
-/// Code that a step ran and what it printed, sunk into the chat that shows it. What a command
-/// printed starts at its end, where a result or a fault is.
 struct CodeTile: View {
     @Environment(\.theme) private var theme
     let text: String
@@ -274,13 +269,13 @@ struct CodeTile: View {
             .appTextStyle(.monoCaption).textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading).padding(10)
         }
+        // Anchor command output at the bottom so results and errors appear first.
         .defaultScrollAnchor(output.isEmpty ? .top : .bottom)
         .frame(maxHeight: most).fixedSize(horizontal: false, vertical: true)
         .well(Radius.md)
     }
 }
 
-/// The lines of a change to a file, as the agent sends them, sunk into the chat that shows them.
 struct ChangeLines: View {
     @Environment(\.theme) private var theme
     let lines: [ChangeLine]

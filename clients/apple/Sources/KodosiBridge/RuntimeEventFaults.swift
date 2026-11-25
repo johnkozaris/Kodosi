@@ -2,15 +2,13 @@ import Foundation
 import KodosiKit
 import os
 
-/// An event that the app cannot read, and the events that it drops when it falls behind, go
-/// into the app's log, next to the lines of its link to the runtime, where a report can name
-/// them. The app goes on without them.
+/// Logs undecodable or dropped runtime events to both `os.Logger` and the runtime log so
+/// diagnostic reports include them while the app continues running.
 public struct RuntimeEventFaults {
     private var last: String?
 
     public init() {}
 
-    /// A fault that repeats with each new event goes into the log once.
     public mutating func unreadable(_ type: String?, _ error: any Error) {
         let fault = "the app could not read \(type.map { "the event \($0)" } ?? "an event"): \(Self.reason(error))"
         guard fault != last else { return }

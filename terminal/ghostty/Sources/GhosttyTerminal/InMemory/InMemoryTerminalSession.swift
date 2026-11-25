@@ -73,14 +73,14 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
         surfaceAccess.currentSurface
     }
 
-    /// Only the surface that gets the output shows the terminal. Another view of
-    /// the same terminal has an old screen, so its input and size do not count.
+    /// Returns whether `surface` is the active surface receiving session output. Other views of
+    /// the same session have stale screens, so their input and viewport resizes are ignored.
     func shows(_ surface: ghostty_surface_t?) -> Bool {
         guard let surface else { return false }
         return shownLock.withLock { shownSurface == surface }
     }
 
-    /// The size that this terminal's view last asked for.
+    /// The viewport size last requested by the terminal view.
     public var viewport: InMemoryTerminalViewport? {
         lastResize.withLock { $0 }
     }
@@ -165,8 +165,8 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
         return true
     }
 
-    /// Replaces the terminal with a Ghostty snapshot. A console host keeps its
-    /// scrollback on resize, and the snapshot does not hold that rule.
+    /// Replaces the terminal state with a Ghostty snapshot. Snapshots do not encode whether
+    /// resizes pull rows from scrollback, so `console` disables that behavior for console hosts.
     @discardableResult
     public func restoreCheckpointSynchronously(_ data: Data, console: Bool) -> Bool {
         guard surfaceAccess.restoreCheckpointSynchronously(data, console: console) else {

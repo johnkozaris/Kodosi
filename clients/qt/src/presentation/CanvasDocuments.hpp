@@ -13,8 +13,8 @@
 namespace kodosi {
 class SessionCatalogModel;
 
-// A frame comes in parts, in their order from the moment that its pipe opens, so a part that goes
-// missing breaks each frame until the pipe opens again.
+// Reassembles sequenced pipe frame chunks; any missing or invalid chunk breaks framing until the
+// pipe reopens.
 class PipeParts {
 public:
     struct Taken {
@@ -29,15 +29,16 @@ public:
 
 private:
     QByteArray m_filling;
-    // The next part, or -1 while the pipe has not opened.
+    // Expected sequence number, or -1 when closed.
     qint64 m_next = -1;
 };
 
-// The runtime takes a frame in parts, and a part of another frame between them breaks both.
+// Sends a frame in chunks; callers must serialize sends per pipe so chunks from different frames
+// do not interleave.
 [[nodiscard]] bool sendPipeFrame(CommandDispatcher& commands, const QString& pipe, const QString& frame);
 
-// The runtime keeps the pipe of a view and opens it again after each loss, until the view closes
-// it.
+// Manages document pipes for views; the runtime reopens them automatically after disconnects until
+// they are closed.
 class CanvasDocuments final : public QObject {
     Q_OBJECT
 

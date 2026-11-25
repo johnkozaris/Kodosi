@@ -144,9 +144,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         return .terminateLater
     }
 
-    /// Whether macOS asks Kodosi to quit, not the person: to shut down, restart or log out, or
-    /// to open Kodosi again with a permission that the person turns on while Kodosi's guide shows
-    /// its list in System Settings.
+    /// Returns true for system-initiated quits (shutdown, restart, logout) or when the privacy
+    /// guide is open, since macOS quits and relaunches the app when permissions are toggled.
     static func systemQuits(_ event: NSAppleEventDescriptor?, guiding: Bool) -> Bool {
         if guiding {
             return true
@@ -191,8 +190,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
     }
 
-    /// macOS shows nothing while Kodosi is in front unless this says so, and the runtime decides
-    /// what a notification shows. Kodosi is also in front behind a locked screen.
+    /// Always present delivered notifications: macOS hides them while the app is active (including
+    /// behind a locked screen), and the runtime already filters what should alert.
     func userNotificationCenter(
         _: UNUserNotificationCenter,
         willPresent notification: UNNotification,

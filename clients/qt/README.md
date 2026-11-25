@@ -1,12 +1,12 @@
 # Kodosi for Linux and Windows
 
-This is the native Qt app. It embeds the Rust runtime and the Ghostty terminal engine. Build
-each platform on that platform.
+Native Qt desktop app embedding the Rust runtime and Ghostty's VT engine. Build each platform
+natively on that OS.
 
 ## Linux
 
-You need Linux x86-64 (Ubuntu 24.04 recommended) with GCC 14 or later, the pinned Rust
-toolchain, `uv`, `just`, a desktop D-Bus session and these libraries:
+Requires Linux x86-64 (Ubuntu 24.04 recommended), GCC 14+, the pinned Rust toolchain, `uv`,
+`just`, an active desktop D-Bus session, and these system packages:
 
 ```sh
 sudo apt-get install build-essential g++-14 git curl unzip zstd pkg-config \
@@ -19,41 +19,42 @@ just linux-build
 ./clients/qt/build/dev/src/kodosi-qt
 ```
 
-The first build puts the pinned Qt with Qt WebEngine, CMake, Ninja and Python tools in
-`.tools/` here, and builds the pinned agent-browser of the shared browser next to the app.
-`just linux-check` builds, tests and lints. Here, `just release-package` makes the
-Debian, Arch and portable packages in `build/release/`; it needs `patchelf`, `dpkg-deb`,
-`binutils`, `zstd`, `desktop-file-utils` and `appstream`. The Debian package needs
-glibc 2.39 or later and adds the Kodosi apt repository, so system updates update Kodosi.
+The first build downloads pinned Qt (with Qt WebEngine), CMake, Ninja, and Python tools into
+`clients/qt/.tools/`, and compiles the pinned `agent-browser` binary next to the app.
+
+`just linux-check` builds, tests, and lints. Inside `clients/qt/`, `just release-package` builds
+the Debian, Arch, and portable packages into `build/release/` (requires `patchelf`, `dpkg-deb`,
+`binutils`, `zstd`, `desktop-file-utils`, and `appstream`). The `.deb` package targets glibc 2.39+
+and configures the Kodosi apt repository so OS updates update Kodosi too.
 
 ## Windows
 
-Kodosi runs on Windows 11 24H2 or later. Run the recipes in Git Bash, with Visual Studio
-2022 or later (Desktop development with C++ and C++ Clang Compiler for Windows), Rust
-through `rustup`, `just`, `uv` (`uv python install 3.12 --default`) and
-[NASM](https://www.nasm.us). Keep the checkout path under about 90 characters.
+Requires Windows 11 24H2+. Run all recipes from Git Bash with Visual Studio 2022+ (including the
+"Desktop development with C++" workload and "C++ Clang Compiler for Windows"), Rust via `rustup`,
+`just`, `uv` (`uv python install 3.12 --default`), and [NASM](https://www.nasm.us). Keep the
+repository checkout path under roughly 90 characters to avoid Windows path-length limits.
 
 ```sh
 just windows-check
 ```
 
-Here, `just windows-run` builds and starts the app, and `just windows-package` makes
-`build/release/kodosi-<version>-windows-<arch>.msix`. Install it unsigned from an
-administrator PowerShell:
+Inside `clients/qt/`, `just windows-run` builds and launches the app, and `just windows-package`
+outputs `build/release/kodosi-<version>-windows-<arch>.msix`. Install an unsigned test build from
+an elevated PowerShell prompt:
 
 ```powershell
 Add-AppxPackage -Path build\release\kodosi-<version>-windows-x64.msix -AllowUnsigned
 ```
 
-The package puts `kodosi` on the PATH, opens `kodosi://` links, keeps data in
-`%USERPROFILE%\.kodosi`, and gets updates from its
-[App Installer file](packaging/windows/Kodosi.appinstaller.in). Windows installs an
-update only when Kodosi starts, so a running Kodosi downloads it and offers to restart.
-The repository has the Ghostty library for x64 only, built by the Windows Ghostty
-library workflow, so the app builds for x64 only.
+The MSIX package puts `kodosi` on `PATH`, registers the `kodosi://` URL handler, stores data in
+`%USERPROFILE%\.kodosi`, and pulls updates from its
+[App Installer file](packaging/windows/Kodosi.appinstaller.in). Because Windows only applies MSIX
+updates at launch, a running instance downloads the update and prompts you to restart. The repo
+currently ships prebuilt Ghostty binaries for x64 only (built via the Windows Ghostty library
+workflow), so Windows builds target x64 only.
 
-## Command line
+## CLI
 
-Packages install `kodosi` beside `kodosi-qt`. From a checkout, `just rust-cli-build`
-builds `./runtime/target/debug/kodosi`. Third-party notices are in
+Release packages install `kodosi` alongside `kodosi-qt`. In a development checkout, run
+`just rust-cli-build` to produce `./runtime/target/debug/kodosi`. Third-party notices live in
 [packaging/licenses](packaging/licenses/).

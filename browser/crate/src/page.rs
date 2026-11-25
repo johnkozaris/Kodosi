@@ -15,7 +15,7 @@ use crate::{
     link::ToEngine,
 };
 
-/// The address of a host page's own files, which never reach the network.
+/// Synthetic origin intercepted via CDP `Fetch` to serve local files without network access.
 const ORIGIN: &str = "https://kodosi.invalid/";
 const BINDING: &str = "kodosiHost";
 const MESSAGES: usize = 256;
@@ -87,8 +87,8 @@ impl HostPage {
         self.messages.recv().await
     }
 
-    /// A script that waits for the page's files answers through the binding instead, since the
-    /// page gets no files during the call.
+    /// Evaluates `script` synchronously. Scripts that load assets asynchronously must report
+    /// results through the `kodosiHost` binding instead, as fetches do not complete during `run`.
     pub async fn run(&self, script: &str) -> Result<Value, Error> {
         let answer = self
             .call(
@@ -106,8 +106,8 @@ impl HostPage {
         Ok(answer["result"]["value"].clone())
     }
 
-    /// Makes the view at least this large, since a picture reaches no farther than the view.
-    /// Says whether the view grew, which can move what the page shows.
+    /// Ensures the viewport is at least `width` x `height` (screenshots clip to the viewport).
+    /// Returns `true` if the viewport grew, which may reflow page layout.
     pub async fn hold(&mut self, width: f64, height: f64) -> Result<bool, Error> {
         let wanted = (side(width)?.max(self.width), side(height)?.max(self.height));
         if wanted == (self.width, self.height) {
@@ -138,7 +138,8 @@ impl HostPage {
         }
     }
 
-    /// In CSS pixels from the top of the document. The part must fit in the view.
+    /// Captures a PNG clip in CSS pixels from the document origin; `width` and `height` must fit
+    /// within the current viewport.
     pub async fn picture(&self, x: f64, y: f64, width: f64, height: f64) -> Result<Vec<u8>, Error> {
         if width > f64::from(self.width) || height > f64::from(self.height) {
             return Err(Error::Engine(
@@ -239,7 +240,7 @@ async fn answer_of(folder: &Path, params: &Value) -> Value {
     }
 }
 
-/// The file that an address of a host page names, inside its folder and nowhere else.
+/// Maps a host page address to a file inside its folder and nowhere else.
 fn file_of(folder: &Path, address: &str) -> Option<PathBuf> {
     let path = address.strip_prefix(ORIGIN)?;
     let path = path.split(['?', '#']).next().unwrap_or_default();

@@ -18,7 +18,7 @@ public struct AgentInfo: Decodable, Equatable, Identifiable, Sendable {
     public var defaultPermissions: AgentPermissions
     public var defaultOutput: AgentOutput
     public var fast: Bool
-    /// The agent also runs in the chat of its terminal, in a conversation of its own.
+    /// Whether the agent supports Kodosi's structured terminal chat mode.
     public var chat: Bool
     /// Dosi can run on the agent.
     public var dosi: Bool
@@ -325,7 +325,6 @@ public struct LaunchPlan {
         pick?.fast == true && info?.fast == true
     }
 
-    /// The agent starts in the chat of its terminal.
     public var chat: Bool {
         pick?.chat == true && info?.chat == true
     }

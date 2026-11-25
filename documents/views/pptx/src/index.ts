@@ -75,7 +75,7 @@ function pixels(emu: number): number {
   return emu / EMU_PER_PIXEL;
 }
 
-/** Shape ids are unique only within a slide. */
+/** Shape IDs are unique only within a slide. */
 function textKey(slide: string, shape: string): string {
   return `${slide}/${shape}`;
 }
@@ -268,7 +268,7 @@ class PptxEditor implements Editor, Pictures {
     return Math.min(width, height) || 1;
   }
 
-  /** A drag keeps its stage, so what comes in while it runs draws when it ends. */
+  // Skip full stage rebuilds during an active drag or transform; moved() redraws on completion.
   private redraw(): void {
     if (this.holding) return;
     this.drawSlide();
@@ -759,14 +759,15 @@ class PptxEditor implements Editor, Pictures {
     if (this.current === slide && this.textShape === shape) this.textView?.updateState(next);
   }
 
-  /** A collaborator took away what these changes touch, and the document would refuse them. */
+  // Drop queued changes and undo entries targeting a slide or shape deleted by a peer.
   private forget(touching: (change: Change) => boolean): void {
     this.outbox.move((waiting) => (touching(waiting) ? null : waiting));
     const kept = this.undoes.filter((undo) => !touching(undo));
     this.undoes.splice(0, this.undoes.length, ...kept);
   }
 
-  /** A view's own change is on this copy already, but for its text. */
+  // Local non-text changes are already applied optimistically, but ProseMirror collab still needs
+  // own text steps fed through receiveTransaction to confirm them.
   private showChange(change: Change, own = false, author: string = this.clientKey): void {
     const deck = this.deck;
     if (!deck) return;
@@ -829,8 +830,8 @@ class PptxEditor implements Editor, Pictures {
   }
 
   /**
-   * The document can bring a shape back other than as it went, such as a box whose piece of the
-   * file went, and later steps in its text name only what the document holds.
+   * Syncs local shape and text state when the document normalizes an added shape (for example,
+   * dropping a missing XML source), so subsequent text steps match what the document holds.
    */
   private takeBack(change: Change): void {
     if (change.kind === "group") {

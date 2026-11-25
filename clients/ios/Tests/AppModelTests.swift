@@ -86,7 +86,7 @@ struct AppModelTests {
 }
 
 extension CommandSink {
-    /// For a test that sends from the main actor alone.
+    /// Assumes all commands in the test are sent on `@MainActor`.
     func transport(_ answer: @escaping @MainActor (Data) -> Int32?) {
         transport = { data in MainActor.assumeIsolated { answer(data) } }
     }

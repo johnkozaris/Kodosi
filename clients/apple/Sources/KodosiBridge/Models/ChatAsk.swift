@@ -34,19 +34,17 @@ public struct ChatOption: Decodable, Equatable, Sendable {
     }
 }
 
-/// A question of the agent that is open. The agent shows the same question in its terminal, and
-/// the first answer counts.
+/// A pending agent prompt, mirrored in both chat and the terminal; the first answer wins.
 public struct ChatAsk: Decodable, Equatable, Identifiable, Sendable {
     public let id: String
     public let body: AskBody
 }
 
 public enum AskBody: Decodable, Equatable, Sendable {
-    /// `always` is what the agent offers to allow from now on, and `helper` the task of the
-    /// helper that asks.
+    /// `always` is the standing permission on offer; `helper` is the requesting subagent's task.
     case permission(ChatTool, always: AskAlways?, helper: String)
     case question([ChatQuestion])
-    /// With the ways on that the agent offers, the one that it recommends first.
+    /// `choices` lists the offered next steps with the recommended option first.
     case plan(String, choices: [PlanChoice])
 
     private enum Key: String, CodingKey {
@@ -68,30 +66,27 @@ public enum AskBody: Decodable, Equatable, Sendable {
     }
 }
 
-/// A way on after a plan of the agent.
 public enum PlanChoice: String, Decodable, Sendable {
-    /// Carry out the plan, and the agent asks as it is set.
+    /// Execute the plan using the current permission mode.
     case go
-    /// Carry out the plan, and the agent asks before each change.
+    /// Execute the plan, prompting before each change.
     case ask
-    /// Carry out the plan, and the agent changes files without asking.
+    /// Execute the plan, allowing file edits without prompting.
     case edits
-    /// Carry out the plan, and the agent's safety check decides what it may do.
+    /// Execute the plan using the agent's automated safety check.
     case auto
-    /// The agent carries out the plan alone and asks nothing.
+    /// Execute the plan without prompting for permissions.
     case alone
-    /// Helpers of the agent carry out parts of the plan side by side, alone.
+    /// Execute parts of the plan in parallel with autonomous subagents.
     case helpers
-    /// The agent leaves plan mode and does not carry out the plan.
+    /// Exit plan mode without executing the plan.
     case leave
 }
 
 public enum AskAlways: Decodable, Equatable, Sendable {
-    /// Calls that match this rule, such as a command.
     case rule(tool: String, text: String)
-    /// Each call that this permission mode allows, until the session ends.
+    /// Switches to this permission mode for the rest of the session.
     case mode(ChatMode)
-    /// A folder that the agent may also work in.
     case folder(String)
 
     private enum Key: String, CodingKey {
@@ -110,28 +105,24 @@ public enum AskAlways: Decodable, Equatable, Sendable {
     }
 }
 
-/// When the agent asks before it acts.
 public enum ChatMode: String, Decodable, Sendable {
-    /// Before each change and each command.
+    /// Prompts before file changes and commands.
     case ask
-    /// Before each command, and not before a change of a file.
+    /// Allows file edits automatically; prompts before commands.
     case edits
-    /// The agent plans and changes nothing.
+    /// Plans without modifying files.
     case plan
-    /// The agent decides which calls are safe.
+    /// Uses the agent's safety check to approve or deny calls.
     case auto
-    /// The agent does what a rule allows and refuses the rest. It asks nothing.
+    /// Allows calls matching configured rules and denies everything else without prompting.
     case rules
     case unrestricted
 }
 
-/// What the app sends on the chat pipe.
 public enum ChatRequest: Equatable, Sendable {
-    /// A message for the agent. It waits in the queue while the agent works.
     case send(String)
     case unqueue(String)
     case answer(ask: String, ChatAnswer)
-    /// Stop the agent's turn and the commands of the turn.
     case stop
 
     var json: JSONValue {
@@ -146,13 +137,11 @@ public enum ChatRequest: Equatable, Sendable {
 
 public enum ChatAnswer: Equatable, Sendable {
     case allow
-    /// Allow, with what the question offers to allow from now on.
     case always
-    /// With words, the agent reads them and continues. Without, the agent stops.
+    /// With text, passes the feedback to the agent so it continues; with `nil`, stops the turn.
     case deny(String?)
-    /// For each question in order, the labels that the person chose or one text of their own.
+    /// One entry per question in order: selected option labels or a single free-text answer.
     case answers([[String]])
-    /// The way on after a plan that the person chose.
     case plan(PlanChoice)
 
     var json: JSONValue {

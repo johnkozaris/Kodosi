@@ -33,7 +33,7 @@ struct CanvasKey: View {
 }
 
 struct CanvasBanner: View {
-    /// The banner lies on the first lines of the terminal. The canvas key keeps the news after it.
+    /// The banner covers the terminal's first lines; once it goes, the canvas key keeps the news.
     static let stay = Duration.seconds(6)
 
     @Environment(\.theme) private var theme
@@ -176,7 +176,8 @@ struct CanvasScreen: View {
                         } add: {
                             addingFile = true
                         }
-                        // A toolbar item takes no touch beyond its view, and the keys take touches 44 points high.
+                        // Toolbar items clip hit-testing to their own bounds, so reserve the full
+                        // 44pt touch height here.
                         .frame(minHeight: 44)
                     }
                     .sharedBackgroundVisibility(.hidden)

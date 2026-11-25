@@ -15,7 +15,7 @@ public struct TerminalPicture: Equatable, Sendable {
 enum TerminalPictureFile {
     private static let readable: Set<String> = Set([UTType.png, .jpeg, .gif, .webP].map(\.identifier))
 
-    /// Agents read PNG, JPEG, GIF and WebP, so other formats become PNG.
+    /// Transcodes formats other than PNG, JPEG, GIF, and WebP to PNG for agent compatibility.
     static func readable(_ picture: Data) -> Data? {
         guard let source = CGImageSourceCreateWithData(picture as CFData, nil),
               let type = CGImageSourceGetType(source) as String?

@@ -7,7 +7,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.ceil
 
-/** Its calls are safe from any thread, also after it closes. */
+// Thread-safe; calls after close() are safe no-ops.
 class TerminalKernel : AutoCloseable {
     enum class Key {
         ENTER,
@@ -63,7 +63,7 @@ class TerminalKernel : AutoCloseable {
         if (handle == 0L) CLOSED else nativeResize(handle, atSequence, rows, cols, cellWidth, cellHeight)
     }
 
-    /** A later checkpoint keeps the look. Tells whether the colors changed. */
+    // Persists across subsequent checkpoints; returns true if the theme changed.
     fun look(next: TerminalLook): Boolean = synchronized(this) {
         if (handle == 0L || look == next) return false
         look = next
@@ -72,7 +72,7 @@ class TerminalKernel : AutoCloseable {
         true
     }
 
-    /** Null before the first checkpoint. */
+    // Returns null until the first checkpoint is installed.
     fun frame(): TerminalFrame? = synchronized(this) {
         if (handle == 0L) return null
         val now = SystemClock.uptimeMillis()
@@ -185,7 +185,7 @@ class TerminalKernel : AutoCloseable {
         }
     }
 
-    /** Zero returns to the bottom. Tells whether the view moved. */
+    // Passing 0 jumps to the bottom; returns true if the viewport offset changed.
     fun scroll(rows: Int): Boolean = synchronized(this) {
         val moved = handle != 0L && nativeScroll(handle, rows)
         if (moved) changed = true

@@ -1,10 +1,9 @@
-//! The link of the Codex in a terminal: its app-server, and Kodosi as a second program of it.
+//! Proxy and sidecar link for Codex's `app-server`.
 //!
-//! Codex's own program for a terminal can work through an app-server at an address. Each
-//! terminal has such an address. When a Codex connects there, Kodosi starts an app-server with
-//! what that Codex started with, and carries the bytes between the two without a look at them. A
-//! second connection of Kodosi's own to the server gets what Codex does and takes what the chat
-//! asks for. The server ends with the last Codex of the terminal.
+//! Each terminal exposes a local socket address to Codex. When Codex connects, Kodosi spawns a
+//! matching `codex app-server` with the client process's config/environment, transparently proxies
+//! bytes between Codex and the server, and opens a second WebSocket connection to observe events
+//! and drive chat actions. The server shuts down when the last Codex client disconnects.
 
 use std::{
     collections::HashMap,
@@ -30,26 +29,26 @@ use super::{
     room::{Asked, Job},
 };
 
-/// The server takes the name of the first program that connects as the name of what works with
-/// it. That is the terminal's Codex, so Kodosi connects after it.
+/// Delay before Kodosi connects so the terminal's Codex initializes first (the app-server records
+/// the first client's identity as its primary user agent).
 const AFTER_CODEX: Duration = Duration::from_millis(600);
 const START: Duration = Duration::from_secs(15);
 const START_STEP: Duration = Duration::from_millis(50);
 const END: Duration = Duration::from_secs(2);
-/// A link that asks the chat for nothing during the chat's own limit counts as gone.
+/// Re-poll interval for `Job::Next`; the chat room treats a link as disconnected if it stops
+/// polling within its heartbeat timeout.
 const ASK_AGAIN: Duration = Duration::from_secs(20);
 const MOST_WAITING: usize = 64;
 
-/// How the names of the addresses of Codex's servers start in the host's folder of local addresses.
+/// Filename prefix for Codex app-server sockets in the host IPC directory.
 pub(super) const NAME: &str = "codex-";
 
-/// The address of a terminal's Codex server, as Codex takes it.
 pub(super) fn address(socket: &Path) -> Option<String> {
     socket.to_str().map(|path| format!("unix://{path}"))
 }
 
-/// A server on Unix does not end with the host that started it, so a host that ended without its
-/// stop leaves its servers. The host that takes the folder next ends them before it starts one.
+/// Terminates orphaned Codex app-servers left behind if a previous host crashed on Unix (where
+/// process groups are not automatically killed on parent exit).
 #[cfg(unix)]
 pub(super) async fn end_left_servers(folder: &Path) {
     let Ok(entries) = std::fs::read_dir(folder) else {
@@ -88,7 +87,6 @@ async fn end_left(server: u32, socket: &Path) {
     }
 }
 
-/// Serves the address of one terminal until its chat ends.
 pub(super) async fn serve(
     endpoint: kodosi_os::ipc::Endpoint,
     server: PathBuf,
@@ -125,8 +123,9 @@ pub(super) async fn serve(
     }
 }
 
-/// One run of the server: from the first Codex that connects until the last one leaves. The
-/// Codex of a terminal works through its server also when the chat does not follow it.
+/// Runs one app-server lifetime from the first Codex connection until all Codex clients
+/// disconnect. Proxying stays up even if the chat link stops following, so terminal Codex keeps
+/// working.
 async fn session(
     first: kodosi_os::ipc::Stream,
     listener: &mut kodosi_os::ipc::Listener,
@@ -194,7 +193,7 @@ impl Server {
                 "developer_instructions={}",
                 toml_string(crate::agents::CONTEXT.trim())
             ))
-            // Codex keeps its list of the work only with its plan tool, which the chat shows.
+            // Enable `update_plan` so Codex emits task-list updates for the chat UI.
             .args(["-c", "tools.update_plan.enabled=true"])
             .env_clear()
             .envs(start.variables.iter().map(|(name, value)| (name, value)))
@@ -226,7 +225,6 @@ impl Server {
         }
     }
 
-    /// The server and the commands that it runs get the time to end by themselves.
     async fn stop(mut self) {
         if self.child.id().is_none() {
             return;
@@ -238,7 +236,6 @@ impl Server {
     }
 }
 
-/// A server that does not end by itself leaves its socket file.
 impl Drop for Server {
     fn drop(&mut self) {
         if matches!(self.child.try_wait(), Ok(None)) {
@@ -248,8 +245,8 @@ impl Drop for Server {
     }
 }
 
-/// The settings that a Codex took on its command line. With a server, Codex reads its settings
-/// in the server, so the server gets the same ones.
+/// Extracts config flags from the connecting Codex process's argv so the spawned app-server runs
+/// with the same settings (in app-server mode, Codex reads these on the server side).
 fn settings(arguments: &[String]) -> Vec<&str> {
     let mut settings = Vec::new();
     let mut rest = arguments.iter().skip(1).map(String::as_str);
@@ -272,7 +269,6 @@ fn settings(arguments: &[String]) -> Vec<&str> {
     settings
 }
 
-/// A text as Codex reads a value of its settings on its command line.
 fn toml_string(text: &str) -> String {
     let mut out = String::with_capacity(text.len() + 2);
     out.push('"');
@@ -301,7 +297,6 @@ async fn follow(socket: PathBuf, room: mpsc::Sender<Job>, left: CancellationToke
     report(stream, room, left).await;
 }
 
-/// What the chat's room hears from this link, in order.
 struct Reports {
     room: mpsc::Sender<Job>,
     link: String,
@@ -309,7 +304,6 @@ struct Reports {
 }
 
 impl Reports {
-    /// False when the chat does not follow this link.
     async fn tell(&mut self, mut event: Value) -> bool {
         event["t"] = crate::identity::now_ms().into();
         self.batch += 1;
@@ -325,8 +319,6 @@ impl Reports {
     }
 }
 
-/// Reports what the server says to the chat, and gives the server what the chat's adapter asks
-/// for, until Codex leaves the terminal or the server ends.
 pub(super) async fn report<S>(stream: S, room: mpsc::Sender<Job>, left: CancellationToken)
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
@@ -355,7 +347,7 @@ where
                 if !reports.tell(event).await {
                     break;
                 }
-                // The chat has the request before the link waits for a person's decision of it.
+                // Wait for a decision only after `tell()` registers the request in the chat room.
                 if let Some(id) = request {
                     tokio::spawn(wait_for_decision(
                         room.clone(),
@@ -384,7 +376,6 @@ where
     reports.tell(json!({"k": "end"})).await;
 }
 
-/// Makes Kodosi known to the server, and the server's Codex known to the chat.
 async fn greet<S>(stream: S, room: mpsc::Sender<Job>) -> Option<(WebSocketStream<S>, Reports)>
 where
     S: AsyncRead + AsyncWrite + Unpin,
@@ -418,7 +409,6 @@ where
     reports.tell(greeting).await.then_some((server, reports))
 }
 
-/// The calls that the link made for the adapter and that the server did not answer yet.
 #[derive(Default)]
 struct Calls {
     made: u64,
@@ -439,8 +429,6 @@ impl Calls {
         call
     }
 
-    /// A message of the server as the chat's adapter takes it. A request of the server comes
-    /// with its number, because it waits for an answer.
     fn heard(&mut self, message: &Message) -> Option<(Value, Option<Value>)> {
         let Message::Text(text) = message else {
             return None;
@@ -478,8 +466,6 @@ where
         .map_err(|_| ())
 }
 
-/// The server's answer to the request with this number. What it says before the answer is of
-/// no use to a program that the server does not know yet.
 async fn answer_to<S>(server: &mut WebSocketStream<S>, id: u64) -> Option<Value>
 where
     S: AsyncRead + AsyncWrite + Unpin,
@@ -499,8 +485,6 @@ where
     tokio::time::timeout(START, answer).await.ok().flatten()
 }
 
-/// Asks the chat again and again for what the adapter wants done, as the module of another
-/// agent's link does over its own connection.
 async fn ask_for_commands(room: mpsc::Sender<Job>, link: String, commands: mpsc::Sender<Value>) {
     loop {
         let (reply, next) = oneshot::channel();
@@ -525,8 +509,6 @@ async fn ask_for_commands(room: mpsc::Sender<Job>, link: String, commands: mpsc:
     }
 }
 
-/// The decision of a person in the chat for a request of the server, when the chat shows the
-/// request as a question and a person decides it there.
 async fn wait_for_decision(
     room: mpsc::Sender<Job>,
     link: String,

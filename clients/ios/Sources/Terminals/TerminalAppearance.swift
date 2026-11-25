@@ -4,7 +4,7 @@ import KodosiTerminalSessions
 import UIKit
 
 enum TerminalAppearance {
-    /// A larger size gives the terminal fewer columns while this device types in it.
+    /// A larger size gives the terminal fewer columns while this device is typing in it.
     enum TextSize: String, CaseIterable {
         case smaller
         case standard

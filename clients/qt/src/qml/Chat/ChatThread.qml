@@ -5,8 +5,8 @@ import QtQuick
 import QtQuick.Controls.Basic
 import Kodosi.Models 1.0 as Models
 
-// The newest message of a person starts a part as high as the view, so that after Send the message
-// moves to the top and the answer grows below it.
+// Pad the footer so the latest user message can scroll to the top of the viewport while the
+// agent's reply grows underneath it.
 Item {
     id: root
 
@@ -37,8 +37,7 @@ Item {
             list.positionViewAtEnd()
         }
     }
-    // The steps that a person opens grow below the line that they pressed, and the view stays
-    // where it is.
+    // Stop auto-scrolling when the user expands a step so the viewport stays anchored on it.
     function hold(): void {
         following = false
     }

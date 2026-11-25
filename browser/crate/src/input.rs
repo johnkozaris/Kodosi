@@ -7,9 +7,8 @@ const CONTROL: u8 = 2;
 const SHIFT: u8 = 8;
 const SEARCH: &str = "https://www.google.com/search?q=";
 
-/// The address of what a person typed. An address with no scheme gets `https`, and one on this
-/// computer or the local network, such as an agent's server at `localhost:3000`, gets `http`.
-/// Words that are no address, such as a question, go to the search engine.
+/// Resolves omnibox input to a URL: local hosts default to `http`, domains to `https`, and
+/// non-URL queries to a search URL.
 pub(crate) fn address(typed: &str) -> String {
     let typed = typed.trim();
     if typed.contains("://") || typed.starts_with("about:") || typed.starts_with("data:") {
@@ -66,7 +65,7 @@ fn search(words: &str) -> String {
     address
 }
 
-/// On a computer that is not a Mac, a Mac's Command is Control.
+/// Maps macOS Command (`META`) to `CONTROL` when the browser host is not macOS.
 fn host_modifiers(modifiers: u8, mac: bool) -> u8 {
     if mac || modifiers & META == 0 {
         modifiers
@@ -166,8 +165,8 @@ pub(crate) fn key(event: Key<'_>, mac: bool) -> Value {
     value
 }
 
-/// A Mac takes these keys from its menus, which a hidden browser never shows, so the key event
-/// names its command.
+/// macOS normally dispatches Cmd editing shortcuts through the app menu bar, which a windowless
+/// browser lacks, so we pass explicit CDP editing commands instead.
 fn editing_command(key: &str, modifiers: u8) -> Option<&'static str> {
     if modifiers & META == 0 {
         return None;

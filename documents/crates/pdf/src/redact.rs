@@ -5,8 +5,8 @@ use lopdf::{
 
 use crate::read::{inherited, number_of};
 
-/// A wide guess of how far a line of text runs, in sizes of its font for each letter, so a guess
-/// errs on the side of removing it.
+/// Conservative glyph-width multiplier (in ems) so bounding boxes err on the side of
+/// over-redacting.
 const WIDEST_LETTER: f64 = 1.1;
 const DEEPEST_FORM: usize = 16;
 
@@ -124,7 +124,8 @@ impl State {
         landing([0.0, 0.0, 1.0, 1.0], self.graphics)
     }
 
-    /// What `Do` draws takes the resources, so a redaction follows it.
+    /// Advances graphics/text state and returns true if the operation intersects `rects`. `Do`
+    /// operators are handled in `Redaction::operations` because they need page resources.
     fn step(&mut self, operation: &Operation, rects: &[[f64; 4]]) -> bool {
         let number = |index: usize| {
             operation
@@ -175,7 +176,6 @@ impl State {
     }
 }
 
-/// What a redaction cannot look into, which it refuses rather than leave words there.
 fn unsure(name: &[u8]) -> String {
     format!(
         "The page draws {}, which a redaction cannot look into, so it redacts nothing.",
@@ -259,8 +259,8 @@ impl Redaction<'_> {
         }
     }
 
-    /// The form loses what it draws in the redacted places wherever it is drawn, so that no
-    /// redacted word stays in the file.
+    /// Redacts a Form `XObject` stream in place so redacted content cannot survive anywhere in the
+    /// PDF.
     fn form(
         &mut self,
         id: ObjectId,
@@ -337,11 +337,10 @@ fn black_boxes(rects: &[[f64; 4]]) -> Vec<Operation> {
     operations
 }
 
-/// Removes what a page draws in these places, and covers them. Text comes out as whole text
-/// operations and pictures as whole objects, so a word next to a redacted one can go too, and
-/// no redacted word can stay. A form that draws there loses what it draws there, and a page
-/// that draws something that a redaction cannot look into is not redacted. All old revisions go
-/// with the rewrite.
+/// Permanently removes content intersecting `rects` and draws black boxes over them. Whole text
+/// operators and overlapping images are dropped (erring toward over-redaction), Form `XObjects`
+/// are redacted recursively, and uninspectable `XObjects` fail the operation. Full rewrite strips
+/// prior PDF revisions.
 pub(crate) fn redact(file: &[u8], page: ObjectId, rects: &[[f64; 4]]) -> Result<Vec<u8>, String> {
     let mut document = Document::load_mem(file).map_err(failed)?;
     let resources = document

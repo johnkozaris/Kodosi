@@ -32,11 +32,11 @@ rust-lint:
 build: runtime-build documents-build notices-build
     ./gradlew --quiet assembleDebug
 
-# Build the optimized release APK, signed when the signing environment is set.
+# Build the release APK (signed if signing env vars are set).
 release-build: (runtime-build "release") documents-build notices-build
     ./gradlew --quiet assembleRelease
 
-# Build the optimized Android App Bundle with the same signing environment.
+# Build the release Android App Bundle (signed if signing env vars are set).
 bundle-build: (runtime-build "release") documents-build notices-build
     ./gradlew --quiet bundleRelease
 
@@ -51,7 +51,7 @@ notices-build:
         --manifest "{{ root }}/runtime/Cargo.toml" --target aarch64-linux-android \
         --no-default-features --output-dir "{{ justfile_directory() }}/app/build/rust-notices"
 
-# Install the Debug app on the device or emulator that adb sees, and open it.
+# Install and launch the Debug app on the connected adb device or emulator.
 run: build
     ./gradlew --quiet installDebug
     "$ANDROID_HOME/platform-tools/adb" shell am start -n com.kodosi.mobile.debug/com.kodosi.mobile.MainActivity
@@ -72,7 +72,7 @@ test: documents-build notices-build
 device-test-build: build
     ./gradlew --quiet assembleDebugAndroidTest
 
-# Exercise the terminal, browser decoder and encrypted storage on an attached ARM64 device.
+# Run terminal, browser decoder, and encrypted storage tests on an attached ARM64 device.
 device-test: device-test-build
     ./gradlew --quiet connectedDebugAndroidTest
 

@@ -1,7 +1,7 @@
-/** Schemes that would run in the view's own page instead of going to the host. */
+// Schemes that execute or navigate inside the webview instead of delegating to the host.
 const IN_PAGE = new Set(["javascript:", "data:", "blob:", "vbscript:", "about:"]);
 
-/** A link that would run in this page goes nowhere. The host opens the others by its rules. */
+/** Delegates external links to the host via a new-window navigation; ignores in-page URLs. */
 export function followLink(address: string): void {
   if (!passesOn(address)) return;
   const link = document.createElement("a");
@@ -18,9 +18,8 @@ export function passesOn(address: string): boolean {
 }
 
 /**
- * Where a person edits, a click places the caret or picks a shape or a cell, so a link opens with
- * ⌘ or Ctrl, as in a terminal. Where they only look, and on a touch screen, which has no such
- * keys, a click or a tap opens it.
+ * Requires Cmd/Ctrl while editing on desktop so plain clicks still place the caret or select
+ * shapes/cells. Plain clicks and taps open links directly in read-only mode and on touch devices.
  */
 export function opensLink(
   keys: Pick<MouseEvent, "metaKey" | "ctrlKey">,

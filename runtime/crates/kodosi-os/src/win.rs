@@ -95,7 +95,8 @@ fn sid_string(sid: PSID) -> io::Result<String> {
     }))
 }
 
-/// Administrators own the objects that elevated processes create.
+// Treat the built-in Administrators SID as matching because elevated processes
+// create objects owned by Administrators rather than the user's SID.
 pub(crate) fn owned_by_user(handle: HANDLE, kind: SE_OBJECT_TYPE) -> io::Result<bool> {
     let mut owner: PSID = ptr::null_mut();
     let mut descriptor: PSECURITY_DESCRIPTOR = ptr::null_mut();
@@ -144,7 +145,8 @@ impl Descriptor {
         Self::parse(&format!("D:P(A;{flags};{rights};;;{sid}){system}"))
     }
 
-    /// A folder that its user owns and that only its user and what it holds can reach.
+    /// Owned by the current user, with full access granted only to that user
+    /// (inherited by children), excluding SYSTEM.
     pub(crate) fn user_only_folder() -> io::Result<Self> {
         let sid = user_sid()?;
         Self::parse(&format!("O:{sid}D:P(A;OICI;FA;;;{sid})"))

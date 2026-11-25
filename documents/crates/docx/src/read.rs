@@ -19,7 +19,7 @@ const STRICT_MAIN: &str = "http://purl.oclc.org/ooxml/wordprocessingml/main";
 const DRAWING_MAIN: &str = "http://schemas.openxmlformats.org/drawingml/2006/main";
 const WORD_DRAWING: &str = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
 const EMU_PER_PIXEL: f64 = 9525.0;
-/// Stands in the text of a run that holds a page break, so that a view can start a new page.
+/// Sentinel appended to an opaque run's text when it contains a page break so views paginate.
 const PAGE_BREAK: char = '\u{c}';
 
 fn broken(error: impl std::fmt::Display) -> Unreadable {
@@ -90,7 +90,7 @@ pub(crate) fn run_look(properties: Xml<'_, '_>) -> RunLook {
     }
 }
 
-/// The line is in 240ths of a line, and the indent in twentieths of a point.
+/// `line` is in 240ths of a line; `indent` is in twips (1/20 pt).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct ParagraphLook {
     pub style: Option<String>,
@@ -103,7 +103,7 @@ pub(crate) struct ParagraphLook {
     pub deleted: Value,
 }
 
-/// The spacing of lines, when it is a number of lines rather than points.
+/// Returns `w:line` only when `w:lineRule` is omitted or `"auto"` (proportional line spacing).
 pub(crate) fn line_of<'a>(spacing: Xml<'a, '_>) -> Option<&'a str> {
     word_attribute(spacing, "line")
         .filter(|_| matches!(word_attribute(spacing, "lineRule"), None | Some("auto")))
@@ -285,8 +285,7 @@ impl<'input> Reader<'_, 'input> {
         word_child(parent, name).map(|child| self.keep(self.xml_of(child)))
     }
 
-    /// Gives a top-level block an id that stays the same for the same XML, and only one block
-    /// in the document holds it.
+    /// Assigns a deterministic, unique block ID from the XML hash and occurrence count.
     fn next_id(&mut self, xml: &str) -> String {
         let hash = short_hash(xml);
         let count = self.seen.entry(hash.clone()).or_insert(0);
@@ -584,8 +583,8 @@ fn is_page_break(node: Xml<'_, '_>) -> bool {
     is_word(node, "br") && word_attribute(node, "type") == Some("page")
 }
 
-/// `lastRenderedPageBreak` only says where a program last broke the pages, so the tree leaves it
-/// out. A run with any other child stays as it came.
+/// `lastRenderedPageBreak` is a layout hint and safely ignored; runs containing any other
+/// unsupported child are preserved verbatim as `inlineOpaque`.
 fn held_in_tree(child: Xml<'_, '_>) -> bool {
     [
         "rPr",

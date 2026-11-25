@@ -1,7 +1,6 @@
-//! The chat of a terminal: what its agent does, as items that a person reads and answers.
+//! Structured chat view of a terminal's coding agent.
 //!
-//! The agent reports each step through its own interface, so the chat reads nothing from the
-//! terminal's screen.
+//! Agents report events through their own link interfaces; the chat never scrapes terminal output.
 
 use serde::{Deserialize, Serialize};
 
@@ -43,19 +42,16 @@ pub(crate) use link::{Links, TerminalChat};
 #[cfg(feature = "host")]
 pub(crate) use room::ChatHandle;
 
-/// The variable that gives the programs of a terminal the socket file where an agent reports to
-/// the chat.
+/// Env var with the Unix socket path where terminal agents report chat events.
 #[cfg(feature = "host")]
 pub(crate) const LINK_VARIABLE: &str = "KODOSI_AGENT_LINK";
-/// The variable that gives the programs of a Windows terminal the named pipe where an agent that
-/// runs in Node reports to the chat.
+/// Env var with the Windows named pipe path used by Node-based agent links.
 #[cfg(feature = "host")]
 pub(crate) const PIPE_VARIABLE: &str = "KODOSI_AGENT_PIPE";
-/// The variable that gives a terminal the address of its own app-server of Codex.
+/// Env var with the per-terminal Codex app-server address.
 #[cfg(feature = "host")]
 pub(crate) const CODEX_VARIABLE: &str = "KODOSI_CODEX_SERVER";
 
-/// The key of the pipe that carries a terminal's chat.
 pub const CHAT_PIPE: &str = "chat";
 #[cfg(feature = "host")]
 const MOST_ITEMS: usize = 400;
@@ -84,7 +80,7 @@ const MOST_TASKS: usize = 64;
 #[cfg(feature = "host")]
 const MOST_COMMANDS: usize = 256;
 
-/// What the terminal's computer sends on the chat pipe: the chat as it is, then each change in order.
+/// Host sends a `Snapshot` on attach, then sequential `Update` frames.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum ChatFrame {
@@ -111,7 +107,6 @@ pub struct ChatSnapshot {
     pub commands: Vec<ChatCommand>,
 }
 
-/// The changes that make the chat of one revision from the chat of the revision before.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatUpdate {
@@ -122,11 +117,11 @@ pub struct ChatUpdate {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(tag = "change", rename_all = "camelCase")]
 pub enum ChatChange {
-    /// A new item at the end, or an item with this identifier in its place.
+    /// Appends a new item or replaces an existing item with the same `id` in place.
     Item {
         item: ChatItem,
     },
-    /// More text at the end of the answer that the agent writes.
+    /// Appends a streaming text delta to an existing text item.
     Text {
         id: String,
         text: String,
@@ -140,7 +135,6 @@ pub enum ChatChange {
     Queued {
         queued: Vec<ChatQueued>,
     },
-    /// The agent's list of its work, whole.
     Tasks {
         tasks: Vec<ChatTask>,
     },
@@ -156,23 +150,22 @@ pub enum ChatChange {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         now: Option<ChatNow>,
     },
-    /// The agent started a new conversation: the items and the questions are gone.
+    /// Clears `items`, `asks`, and `tasks` for a new conversation while keeping `queued`,
+    /// `commands`, `facts`, and `state`.
     Reset,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum ChatState {
-    /// No agent of this terminal reports to the chat.
+    /// No agent is currently linked to this terminal.
     #[default]
     Away,
     Idle,
     Working,
-    /// The agent waits for an answer of a person.
     Asking,
 }
 
-/// What the agent does at this moment.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ChatNow {
@@ -186,7 +179,7 @@ pub enum ChatNow {
 #[serde(rename_all = "camelCase")]
 pub struct ChatItem {
     pub id: String,
-    /// In milliseconds since 1970 on the terminal's computer.
+    /// Unix timestamp in milliseconds from the host's clock.
     pub at: u64,
     pub body: ChatBody,
 }
@@ -196,20 +189,19 @@ pub struct ChatItem {
 pub enum ChatBody {
     Person {
         text: String,
-        /// The person who sent it from the chat. A message without one was typed in the terminal.
+        /// Sender when submitted from chat; `None` if typed directly in the terminal.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         by: Option<ChatPerson>,
     },
     Text {
         text: String,
-        /// The agent still writes it.
+        /// True while the agent is still streaming this message.
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         live: bool,
     },
     Tool {
         tool: Box<ChatTool>,
     },
-    /// The agent's turn ended here.
     Turn {
         end: TurnEnd,
         ms: u64,
@@ -231,13 +223,14 @@ pub enum TurnEnd {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ChatNote {
-    /// The agent made its conversation shorter to free its context.
+    /// The agent compacted its conversation to free up context.
     Compacted,
-    /// The agent is not signed in, and signs in with its own steps in its terminal.
+    /// The agent is signed out and signs in through its own flow in its terminal.
     SignedOut,
     /// What the agent says happened while the person was away.
     Recap { text: String },
-    /// The agent could not continue. `error` is the agent's word for the cause.
+    /// The agent could not continue. `error` is the agent's word for the cause; `text` is
+    /// optional detail.
     Failed {
         error: String,
         #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -248,12 +241,11 @@ pub enum ChatNote {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatTool {
-    /// The agent's name of the tool.
     pub name: String,
     pub kind: ToolKind,
     pub state: ToolState,
-    /// The short subject: a command, a file, a pattern, an address. A file in the terminal's
-    /// folder shows by its name, and a file elsewhere by its place.
+    /// Short subject (command, file, search pattern, or URL). Files under the terminal's
+    /// working directory use their basename; files outside use a `~`-relative or full path.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub target: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -281,9 +273,8 @@ pub enum ToolKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum ToolState {
-    /// The agent writes the call.
+    /// The agent is still streaming the tool call arguments.
     Preparing,
-    /// The call waits for a person's permission or answer.
     Asking,
     Running,
     Done,
@@ -305,7 +296,7 @@ pub enum ToolDetail {
         command: String,
         #[serde(default, skip_serializing_if = "String::is_empty")]
         output: String,
-        /// The command runs on after its call ended.
+        /// True if the command continues running after the tool call returned.
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         background: bool,
     },
@@ -320,7 +311,7 @@ pub enum ToolDetail {
     },
     Question {
         questions: Vec<ChatQuestion>,
-        /// For each question in order, what the person chose or wrote.
+        /// User answers, aligned by index with `questions`.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         answers: Vec<String>,
     },
@@ -328,14 +319,13 @@ pub enum ToolDetail {
         text: String,
     },
     Agent {
-        /// The agent's name of the helper's kind.
+        /// Subagent type or display name reported by the agent.
         #[serde(default, skip_serializing_if = "String::is_empty")]
         name: String,
         steps: u32,
-        /// The helper's last step.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         doing: Option<ChatStep>,
-        /// The start of what the helper wrote last.
+        /// Truncated prefix of the subagent's latest message.
         #[serde(default, skip_serializing_if = "String::is_empty")]
         said: String,
     },
@@ -383,13 +373,12 @@ pub struct ChatOption {
     pub description: String,
 }
 
-/// A question of the agent that is open. The agent shows the same question in the terminal, and
-/// the first answer counts.
+/// An open prompt from the agent. Shown in both the terminal and chat; the first answer wins.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatAsk {
     pub id: String,
-    /// The item of the tool call that waits.
+    /// `ChatItem::id` of the waiting tool call, if it has a top-level item.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub item: Option<String>,
     pub body: AskBody,
@@ -400,10 +389,9 @@ pub struct ChatAsk {
 pub enum AskBody {
     Permission {
         tool: Box<ChatTool>,
-        /// What the agent offers to allow from now on.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         always: Option<AskAlways>,
-        /// The task of the helper that asks.
+        /// Task description of the requesting subagent; empty for the main agent.
         #[serde(default, skip_serializing_if = "String::is_empty")]
         helper: String,
     },
@@ -412,39 +400,38 @@ pub enum AskBody {
     },
     Plan {
         text: String,
-        /// The ways on that the agent offers, the one that it recommends first.
+        /// Available next actions, with the agent's recommended option first.
         choices: Vec<PlanChoice>,
     },
 }
 
-/// A way on after a plan of the agent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum PlanChoice {
-    /// Carry out the plan, and the agent asks as it is set.
+    /// Execute the plan using the session's current permission settings.
     Go,
-    /// Carry out the plan, and the agent asks before each change.
+    /// Execute the plan, asking before each change.
     Ask,
-    /// Carry out the plan, and the agent changes files without asking.
+    /// Execute the plan, auto-approving file edits.
     Edits,
-    /// Carry out the plan, and the agent's safety check decides what it may do.
+    /// Execute the plan, letting the agent's safety classifier approve calls.
     Auto,
-    /// The agent carries out the plan alone and asks nothing.
+    /// Execute the plan autonomously without asking for approval.
     Alone,
-    /// Helpers of the agent carry out parts of the plan side by side, alone.
+    /// Execute the plan autonomously in parallel using subagents.
     Helpers,
-    /// The agent leaves plan mode and does not carry out the plan.
+    /// Exit plan mode without executing the plan.
     Leave,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum AskAlways {
-    /// Calls that match this rule, such as a command.
+    /// Allows calls matching `tool` and `text` from now on.
     Rule { tool: String, text: String },
-    /// Each call that this permission mode allows, until the session ends.
+    /// Switches to `mode` for the rest of the session.
     Mode { mode: ChatMode },
-    /// A folder that the agent may also work in.
+    /// Grants the agent access to an additional directory.
     Folder { name: String },
 }
 
@@ -452,18 +439,16 @@ pub enum AskAlways {
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum ChatAnswer {
     Allow,
-    /// Allow, with what the question offers to allow from now on.
     Always,
-    /// With words, the agent reads them and continues. Without, the agent stops.
+    /// With `text`, sends feedback so the agent can adjust and continue; without, stops the turn.
     Deny {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         text: Option<String>,
     },
-    /// For each question in order, the labels that the person chose or one text of their own.
+    /// One list per question (in order): selected option labels or a single custom text entry.
     Answers {
         answers: Vec<Vec<String>>,
     },
-    /// The way on after a plan that the person chose.
     Plan {
         choice: PlanChoice,
     },
@@ -476,8 +461,8 @@ pub struct ChatQueued {
     pub text: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub by: Option<ChatPerson>,
-    /// The agent did not take the message, in the agent's words. The message waits until a person
-    /// sends another, removes it, or writes to the agent in the terminal.
+    /// Error from the agent if delivery was refused. The message waits until the user sends
+    /// another message, unqueues it, or types in the terminal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub refused: Option<String>,
     /// The agent shows this command in its terminal, where a person finishes it.
@@ -507,7 +492,6 @@ pub enum ChatControl {
     Usage,
 }
 
-/// A step of the list that the agent keeps of its work.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatTask {
@@ -523,7 +507,7 @@ pub enum TaskState {
     Done,
 }
 
-/// A person of the terminal: the account, or for a person with no account the view that sent.
+/// A chat participant, identified by account ID or (when unauthenticated) by viewer ID.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatPerson {
@@ -534,7 +518,6 @@ pub struct ChatPerson {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatFacts {
-    /// The agent's name, as the terminal's program has it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -551,10 +534,10 @@ pub struct ChatFacts {
     pub context: Option<ChatContext>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub limits: Vec<crate::agents::UsageLimit>,
-    /// What the agent estimates that the conversation cost, in US dollars.
+    /// Estimated conversation cost in USD.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cost: Option<f64>,
-    /// Commands that run on after their calls ended.
+    /// Running background command count.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub background: u32,
 }
@@ -574,31 +557,28 @@ pub struct ChatContext {
     pub window: u64,
 }
 
-/// When the agent asks before it acts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum ChatMode {
-    /// Before each change and each command.
+    /// Prompt before file edits and shell commands.
     Ask,
-    /// Before each command, and not before a change of a file.
+    /// Auto-approve file edits; prompt before shell commands.
     Edits,
-    /// The agent plans and changes nothing.
+    /// Read-only planning mode.
     Plan,
-    /// The agent decides which calls are safe.
+    /// Let the agent's own safety check decide which calls to approve.
     Auto,
-    /// The agent does what a rule allows and refuses the rest. It asks nothing.
+    /// Allow only rule-matched calls and deny everything else without prompting.
     Rules,
-    /// The agent asks nothing.
+    /// Run all calls without prompting.
     Unrestricted,
 }
 
-/// What an app sends on the chat pipe.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(tag = "do", rename_all = "camelCase", deny_unknown_fields)]
 pub enum ChatRequest {
-    /// A message for the agent. It waits in the queue while the agent works. Of a message that is
-    /// longer than the chat takes, such as a pasted log, the agent gets the start and the end,
-    /// where a person's question usually is.
+    /// Queues a message while the agent is busy. Oversized messages are truncated in the middle
+    /// so pasted logs keep both the start and the trailing prompt.
     Send {
         text: String,
     },
@@ -609,6 +589,5 @@ pub enum ChatRequest {
         ask: String,
         answer: ChatAnswer,
     },
-    /// Stop the agent's turn and the commands of the turn.
     Stop,
 }

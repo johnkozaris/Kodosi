@@ -171,8 +171,8 @@ printf '\036end\n'"#,
     }
 }
 
-/// Start files that need a terminal (ones that start tmux, for example) never
-/// finish, so such a shell is asked again as a login shell only.
+/// Interactive rc files that expect a TTY (for example, auto-starting tmux) can hang,
+/// so fall back to a non-interactive login shell if the interactive probe times out.
 #[cfg(unix)]
 async fn probe(shell: &Path) -> Facts {
     let Some(family) = family(shell) else {
@@ -290,7 +290,7 @@ pub(super) fn parse(output: &str) -> Option<Facts> {
     Some(facts)
 }
 
-/// Bash prints `alias name='value'`, zsh the value alone.
+/// Bash outputs `alias name='value'`, while zsh outputs the value alone.
 #[cfg(unix)]
 fn alias_value(name: &str, text: &str) -> String {
     text.strip_prefix("alias ")

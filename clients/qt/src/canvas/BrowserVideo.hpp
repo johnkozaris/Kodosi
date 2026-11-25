@@ -14,8 +14,9 @@ class BrowserStream;
 class CanvasDocuments;
 class CanvasModel;
 
-// Each frame is decoded and acknowledged on a thread of its own, so the host keeps the picture as
-// sharp as this device and the link allow while the GUI thread is busy, and no queue forms.
+// Decodes and acknowledges frames on a dedicated thread so a busy GUI thread does not build up a
+// frame queue or stall the feedback the host uses to keep the picture as sharp as this device and
+// the link allow.
 class BrowserVideo : public QQuickItem {
     Q_OBJECT
     Q_PROPERTY(QObject* documents READ documents WRITE setDocuments FINAL)

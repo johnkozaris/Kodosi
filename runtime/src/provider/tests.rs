@@ -476,9 +476,8 @@ fn the_codex_conversation_of_a_process_group_is_the_rollout_that_it_wrote_last()
     for (rollout, seconds) in [(&shown, 10), (&helper, 30), (&other, 40)] {
         touch(rollout, seconds);
     }
-    // Other tests start processes at the same time, and such a process holds a copy of each open
-    // file of the test process until it starts its program. So a process in a group of its own
-    // holds the rollouts.
+    // Concurrent tests fork child processes that inherit the test runner's open FDs until exec,
+    // so hold the rollout files in an isolated process group.
     let mut holder = Command::new("/bin/sh")
         .args([
             "-c",

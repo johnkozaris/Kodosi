@@ -118,7 +118,6 @@ private final class BrowserRuntime {
 
     static let terminalId = "01992e43-53db-7040-8e02-f6ebf4149b28"
 
-    /// A terminal whose canvas holds a file and a browser that is awake.
     static func terminal() throws -> RuntimeSession {
         let fields: [String: Any] = [
             "id": terminalId, "incarnationId": "01992e43-53db-7040-8e02-f6ebf4149b29", "kind": "local", "name": "checkout",
@@ -154,7 +153,7 @@ private final class BrowserRuntime {
         feed = store.feed(Self.terminalId)
     }
 
-    /// The view opens the pipe once, and the runtime opens it again after each loss.
+    /// Only expects `document.open` on the first call; reconnects reuse the same pipe.
     func open() async throws -> String {
         if pipe == nil {
             let opening = try await log.next("document.open")
@@ -168,7 +167,6 @@ private final class BrowserRuntime {
         return pipe
     }
 
-    /// Whether the next watch of the view says that a person opened the browser.
     func watched() async throws -> Bool? {
         var sent = try await Self.body(log.next("document.send"))
         while sent?["type"] as? String != "watch" {
@@ -177,7 +175,6 @@ private final class BrowserRuntime {
         return sent?["opened"] as? Bool
     }
 
-    /// The view leaves the screen and closes its pipe.
     func leave(_ watching: Task<Void, Never>) async throws {
         watching.cancel()
         await watching.value
@@ -203,7 +200,7 @@ private final class BrowserRuntime {
         return messages
     }
 
-    /// The pipe's task sends its acknowledgments on its own time.
+    /// Awaits `count` outbound messages emitted asynchronously by the pipe task.
     func messages(_ count: Int) async throws -> [String?] {
         var messages: [String?] = []
         while messages.count < count {
@@ -212,7 +209,6 @@ private final class BrowserRuntime {
         return messages
     }
 
-    /// The events of a pipe go the way that the runtime's callback gives them.
     private func deliver(_ type: String, _ fields: [String: Any]) throws {
         #expect(try pipes.take(Self.data(type, fields)))
     }

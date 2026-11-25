@@ -35,8 +35,8 @@ struct CanvasPair {
     }
 }
 
-/// With `always`, the body is there without a canvas too, and `tab` is the tab that it flows out
-/// of. With `chat`, the terminal shows its chat.
+/// Set `always` to keep the `CanvasBody` shell rendered even when no canvas is open; `tab` is the
+/// tab that the body flows out of. Set `chat` when the terminal shows its chat.
 struct CanvasStage<Terminal: View>: View {
     static var corner: CGFloat {
         16
@@ -244,7 +244,7 @@ struct CanvasPanel: View {
     private func actions(_ item: CanvasItem) -> some View {
         if !item.missing {
             Button("Save a Copy…", systemImage: "square.and.arrow.down") { save(item) }
-            // The key of a file is its path on the terminal's computer.
+            // For canvas files, `item.key` is the path on the host machine, so it is local here.
             if session.kind == .local {
                 Button("Show in Finder", systemImage: "folder") {
                     NSWorkspace.shared.activateFileViewerSelecting([URL(filePath: item.key)])

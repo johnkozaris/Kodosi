@@ -2,7 +2,8 @@ import KodosiBridge
 import SwiftUI
 import WebKit
 
-/// The view bundle draws in a closed frame, whose only way out is the pipe of the document.
+/// Hosts the bundled document viewer in a sandboxed WebView that communicates only over the
+/// document pipe.
 struct CanvasDocumentView: View {
     @Environment(\.theme) private var theme
     @Environment(\.self) private var environment
@@ -73,10 +74,10 @@ struct CanvasDocumentView: View {
     }
 }
 
-/// A page that a person leaves stays open a while, with its place and its undo. Each page has a
-/// web process of its own, so at most four pages stay open, and a page off the screen closes first,
-/// the one that left first. A web page shows in one view at a time, so a second view of a file at
-/// the same moment gets a page of its own, which closes with that view.
+/// Caches off-screen document `WebPage` instances for a while to preserve scroll position and undo
+/// history. Each `WebPage` owns a WebKit process, so at most `mostOpen` stay alive (evicting the
+/// oldest off-screen page first). Because a `WebPage` can only attach to one view at a time, a
+/// concurrent second view of the same file gets a dedicated uncached page.
 @MainActor
 public final class CanvasDocumentPages {
     private static let kept = Duration.seconds(300)
@@ -189,8 +190,8 @@ final class CanvasDocumentPage {
         ]
     }
 
-    /// WebKit keeps a content controller that has a message handler, and each handler with what it
-    /// holds, after the page ends.
+    /// WebKit retains `WKUserContentController` and its script message handlers past `WebPage`
+    /// teardown unless explicitly removed.
     isolated deinit {
         scripts.removeAllScriptMessageHandlers()
     }
@@ -233,7 +234,7 @@ final class CanvasDocumentPage {
 
     private static let longestRest = Duration.seconds(60)
 
-    /// The system can end a web process, mostly on an iPhone.
+    /// Reloads and reconnects if the OS terminates the WebKit process (common on iOS).
     private func stayOpen() async {
         let start = URL(string: "\(Self.scheme)://view/index.html")!
         var failures = 0
@@ -299,7 +300,8 @@ final class CanvasDocumentPage {
         self.waking = nil
     }
 
-    /// The frames and the news of the pipe reach the page in their order.
+    /// Consumed sequentially from one `AsyncStream` so pipe frames and lifecycle events reach JS
+    /// in order.
     private func take(_ item: Inbound) async {
         switch item {
         case let .frame(frame):
@@ -332,7 +334,7 @@ private final class PageMessages: NSObject, WKScriptMessageHandler {
     }
 }
 
-/// Serves only the view bundle of the app, with no way to the network.
+/// Serves bundled viewer assets only, with no network access.
 struct ViewBundleHandler: URLSchemeHandler {
     private static let types = [
         "html": "text/html; charset=utf-8", "js": "text/javascript", "mjs": "text/javascript", "css": "text/css",

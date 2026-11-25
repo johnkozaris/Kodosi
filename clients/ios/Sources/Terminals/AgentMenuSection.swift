@@ -120,8 +120,8 @@ struct AgentMenuSection: View {
 }
 
 extension View {
-    /// A menu makes its content only when it opens, so the key that opens it loads the models
-    /// of the agent.
+    /// Preloads agent models on the menu trigger because SwiftUI evaluates `Menu` content lazily
+    /// only when opened.
     func loadsAgentModels(of session: RuntimeSession) -> some View {
         modifier(AgentModelsLoader(session: session))
     }

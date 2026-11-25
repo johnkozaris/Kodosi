@@ -78,8 +78,8 @@ import SwiftUI
     }
 #endif
 
-/// AVFoundation marks its video renderer as not sendable, yet it takes sample buffers from any
-/// queue, and the frames come on the task of the browser pipes.
+/// Wraps `AVSampleBufferVideoRenderer` as `@unchecked Sendable`; AVFoundation accepts sample
+/// buffers from any thread, and frames arrive on the `BrowserPipes` task.
 private final class VideoRenderer: @unchecked Sendable {
     private let renderer: AVSampleBufferVideoRenderer
 
@@ -87,7 +87,7 @@ private final class VideoRenderer: @unchecked Sendable {
         self.renderer = renderer
     }
 
-    /// A display that lost the stream starts again at the next key frame.
+    /// Flushes a failed renderer and returns `false` so the feed requests a fresh keyframe.
     func enqueue(_ sample: CMSampleBuffer) -> Bool {
         let failed = renderer.status == .failed
         if failed {
@@ -98,19 +98,17 @@ private final class VideoRenderer: @unchecked Sendable {
     }
 }
 
-/// The page: the layer that the browser on this Mac draws, when the host gives it, or else the
-/// video. Under the layer, the video view keeps the browser's last still for the time that the
-/// layer cannot show the page. The video view has the page's shape, so a still from before a new
-/// shape never shows beside the layer.
+/// Renders the local `CALayerHost` when available, with `BrowserVideoView` underneath as a
+/// fallback still. While the layer is active, the video view matches the page's aspect ratio so a
+/// previous-size still cannot peek out beside the layer.
 struct BrowserPicture: View {
     @Environment(\.theme) private var theme
     let browser: CanvasBrowser
     let feed: BrowserFeed
     let blank: Bool
 
-    /// A video alone fills the view, and the display fits each picture in its own shape at once: a
-    /// view that took the shape from the layout lagged the pictures by a frame, and while the page
-    /// takes a new size its pictures still have the size before.
+    /// Returns `nil` in video-only mode so `AVSampleBufferDisplayLayer` handles aspect-fitting
+    /// directly without lagging behind frame size changes by a SwiftUI layout pass.
     private var layerRatio: CGFloat? {
         feed.window.layer == nil ? nil : Self.ratio(of: feed.window.size)
     }

@@ -19,8 +19,8 @@ enum TerminalPasteboardContent {
         return UTType(mimeType: mime)?.identifier ?? mime
     }
 
-    /// The types of a picture, in the order that a paste takes them: the formats that agents
-    /// read first, and then those that the app converts.
+    /// Image pasteboard types in lookup order: formats agents accept directly come before formats
+    /// the app must convert.
     static let pictureTypes: [UTType] = [.png, .jpeg, .gif, .webP, .tiff, .heic]
 
     static func text(string: String?, urls: [URL]) -> String? {

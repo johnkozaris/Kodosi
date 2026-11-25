@@ -44,7 +44,7 @@ class TerminalSessionRegistry final : public TerminalEventSink {
 public:
     struct Listener {
         std::function<void(GhosttyTerminalKernel::Frame)> frameChanged;
-        // Output changed the terminal; latestFrame builds and publishes its frame.
+        // Signaled when output dirties the terminal; latestFrame() builds and publishes the frame.
         std::function<void()> outputChanged;
         std::function<void(GhosttyTerminalKernel::Failure)> failed;
         std::function<void(std::int32_t)> connectionCompleted;

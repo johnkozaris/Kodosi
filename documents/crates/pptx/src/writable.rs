@@ -9,14 +9,11 @@ use crate::{
     read::names_of,
 };
 
-// The places, sizes and turns that the DrawingML schema takes: ST_CoordinateUnqualified,
-// ST_PositiveCoordinate and ST_Angle.
+// DrawingML schema bounds: ST_CoordinateUnqualified, ST_PositiveCoordinate, and ST_Angle.
 const PLACES: RangeInclusive<i64> = -27_273_042_329_600..=27_273_042_316_900;
 const SIZES: RangeInclusive<i64> = 0..=27_273_042_316_900;
 const TURNS: RangeInclusive<i64> = -2_147_483_648..=2_147_483_647;
 
-/// A fill that the writer names in the file: six hex digits, or `scheme:` and a color of the
-/// theme.
 pub(crate) fn writable_fill(color: &str) -> Result<(), String> {
     let hex = color.len() == 6 && color.bytes().all(|byte| byte.is_ascii_hexdigit());
     let scheme = color.strip_prefix("scheme:").is_some_and(|name| {
@@ -30,8 +27,8 @@ pub(crate) fn writable_fill(color: &str) -> Result<(), String> {
     ))
 }
 
-/// The writer moves, sizes and turns a shape and gives it a fill. It takes no fill away and
-/// changes no line and no stacking order, so a person or an agent cannot send those.
+/// Rejects field edits the writer cannot serialize (clearing fills, or changing lines or stacking
+/// order).
 pub(crate) fn sendable_fields(fields: &ShapeFields) -> Result<(), String> {
     if fields.line.is_some() || fields.order.is_some() {
         return Err("The file takes no change of a line or of the stacking order.".to_owned());
@@ -43,7 +40,7 @@ pub(crate) fn sendable_fields(fields: &ShapeFields) -> Result<(), String> {
     }
 }
 
-/// Refuses a change after which the writer could not save the presentation.
+/// Rejects changes that would leave the presentation unserializable.
 pub(crate) fn writable_change(before: &Model, after: &Model) -> Result<(), String> {
     for slide in &after.slides {
         let old = before.slide(&slide.id);
@@ -95,7 +92,7 @@ fn writable_shape(
         .map_or(Ok(()), |tree| writable_text(tree, raws))
 }
 
-/// A shape that the writer makes whole, which the file need not have held.
+/// True if the writer can synthesize this shape from scratch without an original XML fragment.
 pub(crate) fn is_box(shape: &Shape) -> bool {
     shape.kind == "shape"
         && shape
@@ -108,8 +105,8 @@ pub(crate) fn is_box(shape: &Shape) -> bool {
         && shape.line.is_none()
 }
 
-/// A file may bring a frame that the schema does not take. It stays, and only what a change
-/// gives must fit.
+/// Existing out-of-range coordinates from the source file are preserved; only values modified by
+/// a change must stay within `DrawingML` bounds.
 fn writable_frame(old: Option<&Shape>, shape: &Shape) -> Result<(), String> {
     let fits = |value: fn(&Shape) -> i64, range: RangeInclusive<i64>| {
         old.is_some_and(|old| value(old) == value(shape)) || range.contains(&value(shape))

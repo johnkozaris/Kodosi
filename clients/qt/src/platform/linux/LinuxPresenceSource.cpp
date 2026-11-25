@@ -67,8 +67,8 @@ public:
     {
     }
 
-    // Version 2 counts only input. A compositor with only version 1 also counts an app that keeps the
-    // screen awake, such as a video, as a person who is there.
+    // v2 tracks user input only; with v1, an app that inhibits idle (such as a video player) also
+    // counts as activity.
     void watch(const std::chrono::milliseconds quietTime) override
     {
         m_notification.reset();
@@ -230,9 +230,9 @@ void LinuxPresenceSource::watchSession()
     readSession();
 }
 
-// The session's own facts, not the Lock and Unlock requests to its screen locker: a desktop whose
-// locker does not obey them never locks, and an unlock with the password sends no Unlock. A locker
-// sets LockedHint, or, like light-locker, shows the greeter and so makes the session inactive.
+// Read logind session state instead of Lock/Unlock signals: some lockers ignore those signals,
+// and password unlocks do not emit Unlock. Lockers either set LockedHint or, like light-locker,
+// switch to the greeter, which makes the session inactive.
 void LinuxPresenceSource::readSession()
 {
     auto request = QDBusMessage::createMethodCall(login, m_session, properties, QStringLiteral("GetAll"));

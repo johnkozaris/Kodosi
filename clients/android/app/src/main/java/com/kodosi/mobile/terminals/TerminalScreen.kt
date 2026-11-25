@@ -297,7 +297,7 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                         }
                     } else {
                         val cover = coverOf(session, online, state, openResults[sessionId])
-                        // The app lets a terminal go as soon as its screen starts to leave; the card stays as it was.
+                        // Freeze the cover during exit so disconnecting on back does not flash it.
                         val leaving =
                             LocalNavAnimatedContentScope.current.transition.targetState == EnterExitState.PostExit
                         val kept = remember(leaving) { cover }
@@ -421,10 +421,7 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
     }
 }
 
-/**
- * The screen stays on while a terminal shows, as its screen or as its chat. A terminal that opens
- * from another one overlaps it while the other leaves, so the screen goes off only after the last.
- */
+// Reference-counted because transitioning from one terminal to another overlaps their lifecycles.
 private object ScreenAwake {
     private var holders = 0
 
@@ -682,7 +679,6 @@ private fun Header(
     }
 }
 
-/** What takes the terminal's place until it draws. It is one card that changes in place. */
 private data class TerminalCover(
     val title: String,
     val message: String?,
@@ -692,7 +688,7 @@ private data class TerminalCover(
 
 private enum class CoverAction { CONNECT, RECONNECT, RETRY }
 
-/** Until the request to open the terminal is answered, an offline terminal without a message is still opening. */
+// Treat an offline session with no message and no OpenResult yet as still connecting.
 @Composable
 private fun coverOf(
     session: RuntimeSession,

@@ -23,7 +23,7 @@ export interface Sheet {
   links: { ranges: string; to: LinkTarget }[];
 }
 
-/** The rows and the columns that stay in sight: `rows` rows from `top`, `columns` from `left`. */
+/** Frozen pane bounds: `rows` rows starting at `top` and `columns` columns starting at `left`. */
 export interface Frozen {
   top: number;
   left: number;
@@ -136,7 +136,7 @@ export type Change =
       kind: "size";
       sheet: string;
       widths?: Record<string, number>;
-      /** `null` makes a row fit what it holds. */
+      /** null resets the row to auto-fit its content. */
       heights?: Record<string, number | null>;
     }
   | { kind: "merges"; sheet: string; add?: Merge[]; remove?: Merge[] }
@@ -167,9 +167,8 @@ export function moveLine(line: number, at: number, count: number): number | null
 }
 
 /**
- * Lines that come in before the first line that scrolls join the frozen ones, and lines that go
- * before it leave them, though one stays. Univer moves the panes this way for a person's own
- * change, and the document moves them alike.
+ * Shifts frozen pane counts when rows or columns are inserted or removed before the split point,
+ * clamping to at least 1 frozen line on deletion to match Univer and the document server.
  */
 export function moveFrozen(frozen: Frozen, kind: Line, at: number, count: number): Frozen {
   const [start, lines] =
@@ -234,12 +233,12 @@ export function moveChange(
 }
 
 /**
- * Waiting changes go on only to sheets that the workbook holds, in their order, with the sheets
- * that they add and remove themselves. A workbook keeps its last sheet.
+ * Filters queued changes in order against a reloaded workbook's sheets (tracking sheets added or
+ * removed by the queue itself) and rejects removing the last remaining sheet.
  */
 export class SheetFitting {
   private readonly held: Set<string>;
-  /** Whether an edit went because its sheet is gone. */
+  /** True if any edit was dropped because its sheet is gone or was the last remaining sheet. */
   lost = false;
 
   constructor(sheets: Iterable<string>) {
@@ -319,7 +318,6 @@ export function touches(change: Change, sheet: string, row: number, column: numb
   }
 }
 
-/** Whether an unanswered change hides or shows a line, which then stays as that change has it. */
 export function hides(change: Change, sheet: string, kind: Line, line: number): boolean {
   if (change.kind === "group") {
     return change.changes.some((inner) => hides(inner, sheet, kind, line));
@@ -327,13 +325,11 @@ export function hides(change: Change, sheet: string, kind: Line, line: number): 
   return change.kind === "hidden" && change.sheet === sheet && String(line) in (change[kind] ?? {});
 }
 
-/** Whether an unanswered change sets the panes of a sheet, which then stay as it has them. */
 export function freezes(change: Change, sheet: string): boolean {
   if (change.kind === "group") return change.changes.some((inner) => freezes(inner, sheet));
   return change.kind === "freeze" && change.sheet === sheet;
 }
 
-/** The value of an unanswered edit wins over the document's. */
 export function covers(change: Change, sheet: string, row: number, column: number): boolean {
   if (change.kind === "group") {
     return change.changes.some((inner) => covers(inner, sheet, row, column));

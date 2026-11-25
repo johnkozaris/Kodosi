@@ -37,8 +37,8 @@ int browserModifiers(int modifiers)
 }
 }
 
-// Reads the browser's pipe on its own thread. A frame depends on the frames before it, so each one
-// is decoded, and after a broken frame or on a new pipe only a key frame can begin again.
+// Reads and decodes the browser video pipe on a dedicated thread. Frames depend on prior frames,
+// so every frame is decoded and recovery after a broken frame or new pipe waits for a keyframe.
 class BrowserStream final : public QObject {
     Q_OBJECT
 
@@ -82,7 +82,7 @@ public:
         }
     }
 
-    // Any thread: the runtime takes the parts of one frame of a pipe in a row.
+    // Thread-safe: the runtime expects all chunks of a pipe frame to be sent contiguously.
     bool post(CommandDispatcher& commands, const QString& pipe, const QJsonObject& message)
     {
         QByteArray bytes(1, messageTag);
@@ -91,7 +91,7 @@ public:
         return sendPipeFrame(commands, pipe, QString::fromLatin1(bytes.toBase64()));
     }
 
-    // A picture that a busy GUI thread missed shows nothing that the newest does not.
+    // Coalesce decoded frames so a busy GUI thread always picks up only the latest image.
     std::pair<QString, QImage> takePicture()
     {
         std::lock_guard lock(m_showing);
@@ -162,9 +162,9 @@ private:
         ack(commands, frame);
     }
 
-    // The decoder fails each frame after a broken one, so the view waits for a key frame after the
-    // first failure. A frame that the decoder had from before the newest key frame broke nothing
-    // that the key frame does not mend, and an ask for it would make the host send another.
+    // Wait for a keyframe after the first decode failure, since subsequent delta frames will also
+    // fail. Ignore failures for frames older than the latest keyframe to avoid asking the host for
+    // a redundant keyframe.
     void decodeFailed(CommandDispatcher& commands, quint32 frame)
     {
         ack(commands, frame);
@@ -174,7 +174,7 @@ private:
         askKeyframe(commands);
     }
 
-    // The host sends key frames at most once a second, as each costs every viewer.
+    // The host rate-limits keyframes to one per second because each is broadcast to all viewers.
     void askKeyframe(CommandDispatcher& commands)
     {
         if (!post(commands, m_pipe, { { QStringLiteral("type"), QStringLiteral("keyframe") } }))
@@ -202,8 +202,8 @@ private:
             emit pictureReady();
     }
 
-    // The states that wait for a busy GUI thread stay within a bound. Past it they go nowhere until
-    // the pipe opens again, which brings the whole state.
+    // Bound queued state messages for a busy GUI thread. Once exceeded, drop further messages and
+    // reset the pipe so reopening delivers a fresh full state snapshot.
     void hand(const QByteArray& message)
     {
         if (m_statesDropped)
@@ -220,8 +220,7 @@ private:
         emit received(m_pipe, m_stateGeneration.load(), message);
     }
 
-    // A part that went missing breaks the frames, and so does one that could not go, so the pipe
-    // starts again.
+    // Missing or unsent chunks corrupt the stream, so close and reopen the pipe to resync.
     void breakPipe()
     {
         m_parts.close();
@@ -499,9 +498,9 @@ void BrowserVideo::input(const QJsonObject& event)
     sendSize();
 }
 
-// The page takes the shape of the view of the person who acted last, so a new size goes to the
-// host once the view settles, never while a button is held, and one that waits goes right after
-// the person's act: the act then reaches the page that the person saw.
+// The remote page adopts the viewport of whoever interacted last. Send resizes only after the
+// view settles and no button is held, and flush any pending resize right after input so the
+// input targets the layout the user saw.
 void BrowserVideo::sendSize()
 {
     const auto size = sizeMessage();
@@ -521,8 +520,8 @@ QSizeF BrowserVideo::browserSize() const
     return QSizeF(m_window.value(QStringLiteral("width")).toReal(), m_window.value(QStringLiteral("height")).toReal());
 }
 
-// While a button is held, a point beyond the page goes to its nearest edge, so that the page also
-// gets the rest of the drag and its release.
+// Clamp pointer coordinates to the page edge while a button is held so drags and releases
+// outside the bounds still reach the page.
 void BrowserVideo::pointer(const QString& action, qreal x, qreal y, int button, int clicks, int modifiers)
 {
     const auto at = CanvasModel::browserPoint(QPointF(x, y), size(), browserSize(), m_holding);
@@ -624,8 +623,8 @@ QSGNode* BrowserVideo::updatePaintNode(QSGNode* node, UpdatePaintNodeData*)
         picture->setFiltering(QSGTexture::Linear);
     }
     const auto shown = pictureRect();
-    // Linear filtering alone skips pixels of a picture larger than the view, which makes it
-    // shimmer. A texture keeps no copy of its picture, so other mipmaps need a new texture.
+    // Enable mipmaps when downscaling to avoid shimmer. Textures do not retain the source image,
+    // so toggling mipmap filtering requires recreating the texture.
     const auto mipmaps = qRound(shown.width() * QQuickItem::window()->effectiveDevicePixelRatio()) < m_image.width()
         ? QSGTexture::Linear
         : QSGTexture::None;

@@ -32,14 +32,14 @@ pub(crate) struct Source {
 pub struct Model {
     pub(crate) doc: Node,
     pub(crate) sources: HashMap<String, Source>,
-    /// Pieces of the original XML that the tree does not hold, by the hash in its attributes.
+    /// Original XML fragments omitted from the text tree, keyed by the hash stored in node attrs.
     pub(crate) raws: HashMap<String, String>,
-    /// Styles, numbering and the page, which a view needs in order to draw.
+    /// Styles, numbering, and page layout metadata sent to views for rendering.
     pub(crate) view: Value,
 }
 
-/// A view sends steps. The CLI sends named ops, and the server turns them into steps, so a view
-/// never sees an op.
+/// Views send `Steps`; the CLI sends `Ops`, which the host translates into `Steps` before
+/// broadcasting.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -49,10 +49,11 @@ pub struct Model {
 pub enum Change {
     Steps {
         steps: Vec<Value>,
-        /// The ids of the top-level blocks that the steps touch, which the server fills in.
+        /// Top-level block IDs touched by `steps`, populated by the host for conflict detection.
         #[serde(default)]
         touched: Vec<String>,
-        /// Pieces of XML that came with a merge, so a replay of the journal has them too.
+        /// Raw XML fragments introduced by an external-write merge, carried so journal replay has
+        /// them.
         #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
         keep: BTreeMap<String, String>,
         #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]

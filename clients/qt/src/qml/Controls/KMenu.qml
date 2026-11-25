@@ -17,7 +17,7 @@ Menu {
     }
 
     function popupFor(item: Item, position: point): void {
-        // A request from the keyboard carries no position on Windows, so the menu opens below the item.
+        // Keyboard context menus have no cursor position on Windows, so anchor below the item.
         popup(item.mapToItem(parent, item.contains(position) ? position : Qt.point(0, item.height + 4)))
     }
 

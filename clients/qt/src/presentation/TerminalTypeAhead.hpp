@@ -13,8 +13,8 @@
 
 namespace kodosi {
 
-// Keeps the keys that a person types while a new terminal opens, so that they reach that
-// terminal and not the one before it.
+// Buffers keystrokes typed while a new terminal is opening so they are delivered to the new
+// terminal rather than the previously focused one.
 class TerminalTypeAhead final : public QObject {
 public:
     explicit TerminalTypeAhead(QObject* parent = nullptr);

@@ -3,13 +3,13 @@ use std::{io, path::PathBuf, sync::Arc};
 use bytes::Bytes;
 use tokio::sync::watch;
 
-/// Writes away from the runtime's task, which also carries what people type. One write runs at a
-/// time, always with the newest bytes, so an earlier save never overwrites a later one, and the
-/// saves that come during a write make one write after it.
+/// Serializes blocking file writes off the runtime task (which also carries what people type),
+/// coalescing overlapping saves so only the latest bytes are written and an older write can never
+/// overwrite a newer one.
 pub(super) struct Saver {
-    /// The number of the newest save, and its bytes.
+    /// `(sequence, bytes)` of the latest requested save.
     newest: watch::Sender<(u64, Bytes)>,
-    /// The number of the last save that was written or failed, and whether it failed.
+    /// `(sequence, failed)` of the most recently completed write.
     done: watch::Receiver<(u64, bool)>,
 }
 

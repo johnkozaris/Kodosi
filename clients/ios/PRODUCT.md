@@ -1,30 +1,46 @@
 # Kodosi for iPhone and iPad
 
-[PRODUCT.md](../../PRODUCT.md) has the shared intent and [DESIGN.md](DESIGN.md) the
-visual system.
+See [PRODUCT.md](../../PRODUCT.md) for shared product decisions and [DESIGN.md](DESIGN.md) for
+the visual system.
 
-The app follows, answers and controls the terminals of the person's computers and of
-the friends who share with them, starts terminals on the person's computers, and takes
-part in projects. It hosts nothing. Starting an agent in an open terminal, sharing a
-terminal with friends and reading provider conversations stay on the computer.
+The iOS app lets you watch, answer, and control terminals running on your computers or shared by
+friends, launch new terminals on your computers, and participate in projects. It never hosts
+terminals locally. Starting an agent inside an existing idle terminal, sharing terminals with
+friends, and browsing provider conversation history stay desktop-only.
 
-- **Answer first.** The app is for the moment when an agent waits. Each terminal shows
-  its state, a waiting agent's short answers are one tap, and a notification opens the
-  terminal that needs the person, also while the app does not run.
-- **The terminal has the room.** The person types either in the terminal, with a row of
-  the keys that a phone lacks, or in a composer that sends its text as one paste. The
-  phone sets the size of a terminal only while it has focus.
-- **Screen or chat.** A terminal shows as its screen, with the keys, or as its chat. It
-  opens on the view where its agent works, and the person chooses the view.
-- **The canvas is full screen.** It never opens by itself: a banner names what the agent
-  showed or changed.
-- **Dosi runs on a computer.** The person writes to Dosi on one of their computers, and
-  that computer answers.
-- **Invite in person.** The invite also shows as a code that a friend scans with the
-  Camera app or in Kodosi. A scanned invite still asks whether they trust the person
-  before the request goes out.
-- **Join with one scan.** A new iPhone or iPad scans the code that a computer shows, and
-  an approved one scans the code of a new device. A code that the Camera app opens can
-  only start the first: an approval always begins in the app.
-- **Lock.** With the lock on, the app asks for Face ID, Touch ID or the passcode, and
-  covers what it shows while it is not in front.
+## Priorities and behavior
+
+### Built for quick answers
+The app is designed around agents waiting for input. Every terminal displays its status, common
+short answers for waiting agents are one tap away, and tapping a push notification jumps straight
+into the terminal that needs you, even from a cold launch.
+
+### Terminal input and sizing
+You can type directly into the terminal (with an accessory row for keys missing from the iOS
+keyboard) or draft a longer reply in a composer that sends its text as a single paste. The phone
+only resizes a terminal while that terminal has focus.
+
+### Screen and chat views
+Terminals with chat-capable agents can toggle between the terminal screen (with the accessory key
+row) and the chat view. Each terminal opens in whichever view its agent runs in, and you can
+switch views at any time.
+
+### Full-screen canvas
+The canvas opens full screen on demand and never interrupts you automatically. When an agent shows
+or updates something, a banner names the item so you can tap to open it.
+
+### Remote Dosi
+Dosi runs on your computers. You pick which of your computers to message, and that machine's Dosi
+handles the turn.
+
+### In-person invites and QR device linking
+Your friend invite can be shown as a QR code that a friend scans with the Camera app or inside
+Kodosi; scanning still prompts them to confirm trust before sending the request.
+
+A new iPhone or iPad links in a single scan of a QR code shown on an approved computer, and an
+approved phone can scan a new device's code to approve it. Scanning with the system Camera app can
+only enroll a new device; approving another device always starts inside Kodosi.
+
+### App lock
+When enabled, app lock requires Face ID, Touch ID, or the device passcode and conceals app content
+in the app switcher while backgrounded.

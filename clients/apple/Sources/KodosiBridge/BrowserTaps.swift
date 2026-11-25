@@ -1,8 +1,8 @@
 import CoreGraphics
 import Foundation
 
-/// A touch screen counts no clicks, so taps that follow each other in about one place count as
-/// the clicks of a mouse: two select a word, and three a paragraph.
+/// Synthesizes mouse click counts from consecutive nearby taps (for word and paragraph selection)
+/// because touch events do not track multi-click counts.
 public struct BrowserTaps: Sendable {
     private struct Tap {
         let time: TimeInterval

@@ -1,10 +1,8 @@
-//! Codex's link: the messages of its app-server as changes of the chat.
+//! Chat adapter for Codex via its `app-server` protocol.
 //!
-//! The terminal's Codex works through an app-server that Kodosi starts for it, and Kodosi is a
-//! second program of that server. The link carries each message of the server as it is, and makes
-//! the calls that this adapter gives it, so what the server's protocol means is all here. A
-//! person's answer goes back as the decision that Codex takes. A field can be absent or of another
-//! type after an update of Codex, so a message gives what it has and never stops the chat.
+//! `codex_link` spawns and proxies the app-server and forwards raw JSON-RPC messages here; this
+//! adapter tracks the terminal's active thread and translates updates, approvals, and plan flows.
+//! Field parsing is lenient so schema changes across Codex updates degrade gracefully.
 
 use std::collections::{HashMap, VecDeque};
 
@@ -22,48 +20,41 @@ use super::{
     state::{Chat, ends_of, start_of},
 };
 
-/// The turns that the chat shows of a conversation that is older than the link.
 const HISTORY: u64 = 20;
-/// Codex's own words, which its terminal sends when a person chooses to carry out a plan.
+/// Prompt Codex's terminal sends when the user chooses to implement a plan.
 const IMPLEMENT: &str = "Implement the plan.";
 const MOST_PASSED: usize = 64;
 
 #[derive(Default)]
 pub(super) struct Codex {
     linked: bool,
-    /// The conversation of the Codex in the terminal.
     thread: Option<String>,
     follows: Follows,
-    /// The conversations of the server that the chat looked at and does not show.
+    /// Thread IDs already inspected and ignored (ephemeral, subagent, or already probed).
     passed: VecDeque<String>,
     turn: Option<Turn>,
-    /// The chat's item of each item of Codex.
     items: HashMap<String, String>,
     asked: HashMap<String, Asked>,
     calls: VecDeque<Value>,
     handed: VecDeque<Handed>,
     sent: u64,
-    /// What a person wrote to refuse a question. Codex gets it as the next message.
+    /// Follow-up prompt queued from a plan decision or denial reason, sent on the next turn.
     said: Option<(String, Option<ChatPerson>)>,
-    /// The next message carries out the plan, in Codex's default mode.
+    /// When true, the next prompt switches back to default mode to execute the plan.
     implement: bool,
-    /// The model and the effort of the default mode. Plan mode has its own, and the work on a plan
-    /// goes back to these, as Codex's terminal does.
+    /// Cached `(model, effort)` from default mode, restored when leaving plan mode to implement.
     default_mode: Option<(String, Option<String>)>,
-    /// Codex's own setting of its plan mode, which a `/plan` of the chat takes, as the terminal's.
     plan_mode: Option<Value>,
-    /// The chat's item of the plan that the turn that runs wrote.
     plan: Option<String>,
-    /// The commands that ran when a person of the chat stopped their turn. Codex lets them run
-    /// on, so the adapter ends them.
+    /// Item IDs of commands interrupted by a chat stop; Codex leaves them running as background
+    /// terminals unless terminated explicitly.
     stopped: Vec<String>,
     now: Option<ChatNow>,
-    /// Codex refused a message of the chat.
     held: bool,
 }
 
-/// The server sends the messages of a conversation only to a program that asked for it, and it
-/// takes that request only after the conversation's first turn began.
+/// Subscription state for `thread/resume`. Codex only streams thread events to subscribed
+/// clients and rejects `thread/resume` until the thread's first turn has started.
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
 enum Follows {
     #[default]
@@ -82,7 +73,7 @@ struct Asked {
     kind: AskKind,
     item: String,
     offered: Vec<Value>,
-    /// Codex's names of the questions of a request for the person's input, in order.
+    /// Codex question IDs in display order, used to key `requestUserInput` responses.
     questions: Vec<String>,
 }
 
@@ -91,13 +82,11 @@ enum AskKind {
     Command,
     Change,
     Question,
-    /// Whether to carry out a plan, which Codex's terminal asks after its plan mode wrote one.
     Plan,
 }
 
 struct Handed {
     n: u64,
-    /// The message of the queue, or nothing for the words of a refusal.
     queued: Option<String>,
     text: String,
     by: Option<ChatPerson>,
@@ -106,7 +95,6 @@ struct Handed {
 impl Codex {
     pub(super) const NAME: &'static str = "codex";
 
-    /// The name of the question that a request of the server makes.
     pub(super) fn ask_name(request: &Value) -> Option<String> {
         match request {
             Value::Number(number) => Some(format!("r{number}")),
@@ -131,8 +119,7 @@ impl Codex {
             linked: true,
             ..Self::default()
         };
-        // The server names the program that started it and that program's version, as in
-        // "codex-tui/0.171.0 (Mac OS 27.2.1; arm64)".
+        // `server` is a user-agent string such as "codex-tui/0.171.0 (Mac OS 27.2.1; arm64)".
         let version = text(event, "server")
             .split_once('/')
             .map(|(_, rest)| rest.split(' ').next().unwrap_or_default())
@@ -240,8 +227,6 @@ impl Codex {
         }
     }
 
-    /// A message that Codex did not take stays in the queue with Codex's reason. The words of a
-    /// refusal go there too.
     fn refused(&mut self, chat: &mut Chat, n: &str, event: &Value) {
         let n = n.parse::<u64>().ok();
         let Some(index) = self.handed.iter().position(|handed| Some(handed.n) == n) else {
@@ -261,9 +246,8 @@ impl Codex {
         }
     }
 
-    /// The terminal's Codex has one conversation that a person writes in. A conversation that
-    /// Codex makes for its own work is not it: the one that names a conversation, which Codex
-    /// does not keep, and the one of a helper or of a review, which has a parent.
+    /// Adopts the terminal's main user thread, skipping internal threads Codex creates for title
+    /// generation (`ephemeral`) and subagents or reviews (`parentThreadId` / `source.subAgent`).
     fn consider(&mut self, chat: &mut Chat, thread: &Value) {
         let id = text(thread, "id");
         if id.is_empty() {
@@ -300,8 +284,8 @@ impl Codex {
         self.passed.push_back(thread.to_owned());
     }
 
-    /// Codex works in a conversation that is not the chat's. When a person went to it in the
-    /// terminal, the server tells no more than this, so the chat reads what the conversation is.
+    /// Probes an unknown thread ID via `thread/read` to check whether the user switched to it in
+    /// the terminal.
     fn look(&mut self, thread: &str) {
         if thread.is_empty() || self.passed.iter().any(|passed| passed == thread) {
             return;
@@ -314,7 +298,6 @@ impl Codex {
         );
     }
 
-    /// The person began another conversation, so the chat begins again.
     fn forget(&mut self, chat: &mut Chat) {
         chat.close_asks(|_| true);
         chat.reset();
@@ -342,8 +325,6 @@ impl Codex {
         );
     }
 
-    /// Codex's plan mode, with the model and the effort that its setting gives and the
-    /// conversation's own where it gives none.
     fn plan_settings(&self, chat: &Chat) -> Option<Value> {
         let facts = chat.facts();
         let mask = self.plan_mode.as_ref();
@@ -390,8 +371,8 @@ impl Codex {
                     self.look(text(params, "threadId"));
                 }
             }
-            // Codex resumed a conversation, as after a restart of its terminal: the server tells
-            // the other programs only that the conversation has no goal now.
+            // When the terminal resumes an existing thread, `thread/goal/cleared` is the only
+            // notification other clients receive.
             "thread/goal/cleared" if !self.is_ours(params) => self.look(text(params, "threadId")),
             _ if !self.is_ours(params) => {}
             "thread/status/changed" => match text(&params["status"], "type") {
@@ -399,7 +380,8 @@ impl Codex {
                     self.turn.get_or_insert_default();
                     self.follow();
                 }
-                // Without the conversation's messages, its state is all that tells the turn's end.
+                // Before `thread/resume` succeeds we do not receive `turn/completed`, so status
+                // transitions are the only turn-end signal.
                 _ if self.follows != Follows::Yes => self.turn = None,
                 _ => {}
             },
@@ -411,13 +393,14 @@ impl Codex {
                 self.now = None;
                 self.held = false;
                 self.plan = None;
-                // A person chose in the terminal, or wrote there.
+                // Starting a turn dismisses any pending chat plan prompt (e.g., answered in the
+                // terminal).
                 return self.close_plan(chat);
             }
             "turn/completed" => {
                 let closed = self.end_turn(chat, &params["turn"], at);
-                // Codex has each message that the chat gave it before the turn. One that Codex
-                // did not write down in the chat's words leaves the queue here.
+                // Unqueue any handed prompts whose echoed text did not match verbatim in
+                // `said_by_person`.
                 for handed in std::mem::take(&mut self.handed) {
                     if let Some(queued) = handed.queued {
                         chat.unqueue(&queued);
@@ -443,8 +426,8 @@ impl Codex {
                 let Some(ask) = Self::ask_name(&params["requestId"]) else {
                     return Vec::new();
                 };
-                // A person answered in the terminal, or the chat's stop ended the turn. What Codex
-                // did with the answer comes with the item.
+                // Resolved outside chat (answered in the terminal or interrupted); the final
+                // outcome arrives with the completed item.
                 if let Some(asked) = self.asked.remove(&ask) {
                     let answered = match asked.kind {
                         AskKind::Question
@@ -483,8 +466,6 @@ impl Codex {
         Vec::new()
     }
 
-    /// More of an item that grows: the answer that Codex writes, its plan, or what a command
-    /// prints.
     fn piece(&mut self, chat: &mut Chat, method: &str, params: &Value) {
         let Some(item) = self.items.get(text(params, "itemId")).cloned() else {
             return;
@@ -548,7 +529,8 @@ impl Codex {
                     tool: Box::new(plan(item, done)),
                 },
             )),
-            // The pieces of a plan need not add up to the plan, so the whole plan replaces them.
+            // Plan deltas do not always concatenate to the final text, so replace with the full
+            // completed plan.
             ("plan", Some(shown)) if done => {
                 chat.put(
                     &shown,
@@ -569,7 +551,7 @@ impl Codex {
             }),
             ("commandExecution" | "fileChange", Some(shown)) if done => {
                 chat.change_tool(&shown, |tool| {
-                    // The command of a turn that a person of the chat stopped ends as a failure.
+                    // Commands terminated after a chat stop report as failed; preserve `Stopped`.
                     let stopped = tool.state == ToolState::Stopped;
                     end(tool, item);
                     if stopped {
@@ -606,10 +588,9 @@ impl Codex {
         }
     }
 
-    /// After a turn of its plan mode that wrote a plan, Codex's terminal asks whether to carry the
-    /// plan out, unless a message waits, and the chat asks it too. The answer that comes first
-    /// counts: the chat's starts the work, as the terminal's does, and the terminal's starts a
-    /// turn, which ends the chat's question.
+    /// Synthesizes a plan-approval ask after a plan-mode turn, matching Codex's terminal prompt
+    /// (the app-server does not emit a server request for this). Whichever side answers first
+    /// wins: a terminal response starts a new turn, which dismisses this ask in `close_plan`.
     fn offer_plan(&mut self, chat: &mut Chat, turn: &Value) {
         let Some(item) = self.plan.take() else {
             return;
@@ -660,8 +641,6 @@ impl Codex {
         chat.close_asks(|open| planned.iter().any(|(ask, _)| *ask == open.id))
     }
 
-    /// A message of a person: one that the chat gave Codex, or one that a person typed in the
-    /// terminal.
     fn said_by_person(&mut self, chat: &mut Chat, item: &Value, at: u64) -> Option<String> {
         let said = list(item, "content")
             .filter(|part| text(part, "type") == "text")
@@ -746,9 +725,9 @@ impl Codex {
         );
     }
 
-    /// Codex asks the person questions, as its plan mode does before a plan. The call has no item
-    /// of Codex, so the chat keeps the questions as a step of its own. A question with a secret
-    /// answer is for the terminal alone.
+    /// Handles `item/tool/requestUserInput`. Synthesizes a chat tool item because Codex creates
+    /// none for user-input requests. Secret prompts (`isSecret`) are skipped so sensitive input
+    /// stays in the terminal.
     fn question(&mut self, chat: &mut Chat, event: &Value) {
         let params = event.get("p").unwrap_or(&Value::Null);
         let Some(ask) = event.get("id").and_then(Self::ask_name) else {
@@ -817,7 +796,8 @@ impl Codex {
         for item in &open {
             match chat.body(item).cloned() {
                 Some(ChatBody::Text { text, .. }) => chat.put(item, answer(&text, false)),
-                // After a stop in the terminal, Codex lets a command that runs go on.
+                // Terminal interrupts leave running commands alive in the background (whereas a
+                // chat stop terminates them below).
                 _ => chat.change_tool(item, |tool| match &mut tool.detail {
                     Some(ToolDetail::Command { background, .. })
                         if !stopped
@@ -871,7 +851,6 @@ impl Codex {
         chat.close_asks(|_| true)
     }
 
-    /// The turns of a conversation that began before the link, the oldest first.
     fn history(&mut self, chat: &mut Chat, result: &Value) {
         let mut turns = list(result, "data").collect::<Vec<_>>();
         turns.reverse();
@@ -966,8 +945,6 @@ impl Agent for Codex {
             .any(|handed| handed.queued.as_deref() == Some(queued))
     }
 
-    /// Codex takes no words with a refusal. As its own "No, and tell Codex what to do
-    /// differently", a refusal ends the turn, and the person's words are the next message.
     fn decision(
         &mut self,
         ask: &str,
@@ -987,7 +964,7 @@ impl Agent for Codex {
                 self.implement = true;
                 return Some(json!({"implement": true}));
             }
-            // As the terminal's "No, stay in Plan mode": words go to Codex as the next message.
+            // "No, stay in Plan mode": follow-up text becomes the next prompt.
             (AskKind::Plan, ChatAnswer::Deny { text }) => {
                 self.said = text
                     .as_deref()
@@ -1008,6 +985,8 @@ impl Agent for Codex {
                 .clone(),
             (AskKind::Change, ChatAnswer::Always) => json!("acceptForSession"),
             (_, ChatAnswer::Deny { text }) => {
+                // Codex's "cancel" carries no reason field, so send refusal text as the next
+                // prompt (matching its terminal "No, and tell Codex what to do differently" flow).
                 self.said = text
                     .as_deref()
                     .map(str::trim)
@@ -1025,7 +1004,7 @@ impl Agent for Codex {
             return true;
         };
         chat.close_asks(|open| open.id == ask);
-        // The adapter asked about the plan for Codex, and the decision starts a turn.
+        // Plan approval is synthesized locally; return false so no server reply is sent.
         if asked.kind == AskKind::Plan {
             chat.change_tool(&asked.item, |tool| tool.state = ToolState::Done);
             self.show(chat);
@@ -1065,8 +1044,6 @@ impl Agent for Codex {
         true
     }
 
-    /// The calls of the adapter, then the next message when Codex can start it: no turn runs, no
-    /// question is open and Codex has no earlier message of the chat.
     fn commands(&mut self, chat: &Chat) -> Vec<Value> {
         let mut commands = self.calls.drain(..).collect::<Vec<_>>();
         let ready = self.linked
@@ -1095,7 +1072,6 @@ impl Agent for Codex {
             let plan = plan_command(&text).map(str::to_owned);
             let text = plan.clone().unwrap_or(text);
             let plan_mode = plan.as_ref().and_then(|_| self.plan_settings(chat));
-            // A `/plan` without words changes only the mode, as the terminal's does.
             if plan.as_deref() == Some("") {
                 if let Some(mode) = plan_mode {
                     commands.push(json!({
@@ -1120,8 +1096,7 @@ impl Agent for Codex {
             if let Some(mode) = plan_mode {
                 start["collaborationMode"] = mode;
             }
-            // As the terminal's own choice: Codex's default mode with its model and effort, and
-            // that mode's own instructions.
+            // Restore default mode's model, effort, and built-in instructions when implementing.
             let default_mode = self.default_mode.clone().or_else(|| {
                 let facts = chat.facts();
                 facts
@@ -1184,7 +1159,6 @@ impl Agent for Codex {
     }
 }
 
-/// What a conversation tells of the agent that works in it.
 fn describe(chat: &mut Chat, thread: &Value) {
     chat.change_facts(|facts| {
         facts.model = words(thread, "model").or_else(|| facts.model.take());
@@ -1193,8 +1167,8 @@ fn describe(chat: &mut Chat, thread: &Value) {
     });
 }
 
-/// The settings of a conversation, as a change of them gives them or as the answer to the
-/// request to follow does, which has other names for two of them.
+/// Extracts thread settings from either `thread/settings/updated` or `thread/resume`, which use
+/// different field names for sandbox policy and reasoning effort.
 fn settings(chat: &mut Chat, settings: &Value) {
     let sandbox = settings
         .get("sandboxPolicy")
@@ -1231,7 +1205,6 @@ fn limits(chat: &mut Chat, result: &Value) {
     }
 }
 
-/// What an item of Codex tells of its tool now.
 fn end(tool: &mut ChatTool, item: &Value) {
     tool.state = state_of(item);
     tool.ms = item.get("durationMs").and_then(Value::as_u64).or(tool.ms);
@@ -1256,7 +1229,6 @@ fn state_of(item: &Value) -> ToolState {
     }
 }
 
-/// A command or a change of files as the chat shows it.
 fn described(item: &Value, places: &Places) -> Option<ChatTool> {
     match text(item, "type") {
         "commandExecution" => Some(command(item, places)),
@@ -1265,8 +1237,8 @@ fn described(item: &Value, places: &Places) -> Option<ChatTool> {
     }
 }
 
-/// Codex gives a command as its shell runs it, and the parts that it understood: what the agent
-/// asked for, and which of them read a file or search.
+/// Maps a Codex `commandExecution` item, preferring parsed `commandActions` over the raw shell
+/// wrapper to classify pure reads and searches.
 fn command(item: &Value, places: &Places) -> ChatTool {
     let actions = list(item, "commandActions").collect::<Vec<_>>();
     let asked = actions
@@ -1352,7 +1324,6 @@ fn change(item: &Value, places: &Places) -> Option<ChatTool> {
     })
 }
 
-/// Codex's plan, as its plan mode writes it.
 fn plan(item: &Value, done: bool) -> ChatTool {
     ChatTool {
         name: "plan".to_owned(),
@@ -1370,7 +1341,6 @@ fn plan(item: &Value, done: bool) -> ChatTool {
     }
 }
 
-/// An item of a kind that the chat has no own view of. It shows with Codex's name of the kind.
 fn other(kind: &str, item: &Value, places: &Places) -> Option<ChatTool> {
     let (shown, subject) = match kind {
         "webSearch" => (ToolKind::Web, words(item, "query")),
@@ -1393,9 +1363,8 @@ fn other(kind: &str, item: &Value, places: &Places) -> Option<ChatTool> {
     })
 }
 
-/// The answers to Codex's questions: for each question in order, the labels that the person chose,
-/// or their own words. Words in place of the answers answer the first question, as Codex's own
-/// "Other" does.
+/// Formats answers for `requestUserInput`. Free-text `Deny` input fills the first question,
+/// matching Codex's "Other" option.
 fn answers_for(questions: &[String], answer: &ChatAnswer) -> Option<Value> {
     let given = match answer {
         ChatAnswer::Answers { answers } if answers.len() == questions.len() => answers.clone(),
@@ -1425,8 +1394,6 @@ fn answers_for(questions: &[String], answer: &ChatAnswer) -> Option<Value> {
     Some(json!({"answers": answers}))
 }
 
-/// What Codex offers to allow from now on: commands that start as this one does. A command that
-/// Codex runs through its shell shows without the shell.
 fn rule(amendment: &Value) -> String {
     let words = amendment
         .as_array()

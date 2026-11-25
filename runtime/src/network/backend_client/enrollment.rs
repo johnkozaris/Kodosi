@@ -392,7 +392,7 @@ impl BackendClient {
         let Some(watched) = self.inner.state.lock().await.link.clone() else {
             return;
         };
-        // The computer that showed a scanned code approves by itself, in less than a second.
+        // Scanned QR links auto-approve on the offering device within a second, so poll faster.
         let pace = if scanned { LINK_POLL / 2 } else { LINK_POLL };
         let this = self.clone();
         tokio::spawn(async move {

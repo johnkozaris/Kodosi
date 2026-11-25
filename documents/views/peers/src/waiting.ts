@@ -6,15 +6,15 @@ import { sendableSteps } from "prosemirror-collab";
 
 interface Carried {
   steps: Step[];
-  /** The text of the edits that stay off the snapshot, when they change what shows. */
+  /** Visible text from edits that could not be rebased onto the snapshot, if any. */
   lost: string | undefined;
 }
 
 type Range = [number, number];
 
 /**
- * Whether two nodes show the same: their type, marks, text and children. Attributes, such as the
- * ids that a file gets when it opens again, do not count.
+ * Compares visible content (type, marks, text, and children) while ignoring attributes such as
+ * block IDs, which may be regenerated when a document reopens.
  */
 function alike(a: ProseNode, b: ProseNode): boolean {
   if (a === b) return true;
@@ -27,9 +27,9 @@ function alike(a: ProseNode, b: ProseNode): boolean {
 }
 
 /**
- * The top-level blocks of `doc` that differ from `other`: the blocks before and after them are
- * the same in both. Where blocks only went in or out, the range takes in a block on each side, so
- * it has a place.
+ * Returns the top-level block index range in `doc` that differs from `other`. For pure
+ * insertions or deletions (`first === end`), expands by one adjacent block on each side to anchor
+ * the position.
  */
 function changed(doc: ProseNode, other: ProseNode): Range | null {
   const most = Math.min(doc.childCount, other.childCount);
@@ -84,8 +84,8 @@ function anchorOf(base: ProseNode, index: number, snapshot: ProseNode): number |
 }
 
 /**
- * Whether the blocks `range` of `base`, at `at` in `snapshot`, stay after the nearest block before
- * them and before the nearest block after them that show once in both.
+ * Verifies that `base[first..end]` matched at `at` in `snapshot` preserves ordering relative to
+ * the nearest unique surrounding blocks present in both documents.
  */
 function anchored(base: ProseNode, [first, end]: Range, snapshot: ProseNode, at: number): boolean {
   for (let index = first - 1; index >= 0; index--) {
@@ -109,9 +109,9 @@ function startOf(doc: ProseNode, block: number): number {
 }
 
 /**
- * Moves steps across others that came first, as prosemirror-collab does: each step maps back
- * across the steps before it, across `over`, and forward across those that moved. `docs` holds
- * the document before each step.
+ * Rebases `steps` (with pre-step states in `docs`) across `over` using the prosemirror-collab
+ * algorithm: map backward through inverted prior steps, across `over`, then forward through
+ * previously rebased steps.
  */
 function rebase(steps: readonly Step[], docs: readonly ProseNode[], over: Transform): Step[] {
   const mapping = new Mapping();
@@ -134,10 +134,9 @@ function rebase(steps: readonly Step[], docs: readonly ProseNode[], over: Transf
 }
 
 /**
- * Moves the steps `from` on of `typed` onto `snapshot`, where the blocks `range` of the document
- * before them show unchanged once. The blocks around them may hold changes of others. It gives the
- * moved steps only when the snapshot ends with the person's blocks in place of those blocks and
- * all else as it was.
+ * Rebases `typed.steps[from..]` onto `snapshot` when `base[first..end]` appears unchanged at a
+ * unique, properly anchored position in `snapshot`. Returns the rebased steps only if applying
+ * them replaces those blocks cleanly without altering anything else in `snapshot`.
  */
 function onto(typed: Transform, from: number, [first, end]: Range, snapshot: ProseNode) {
   const base = typed.docs[from] ?? typed.doc;
@@ -172,8 +171,9 @@ function onto(typed: Transform, from: number, [first, end]: Range, snapshot: Pro
 }
 
 /**
- * The steps from `from` on, moved onto the snapshot, or null when they do not fit it. With
- * `proving`, the steps before `from` must show in the snapshot too.
+ * Rebases `typed.steps[from..]` onto `snapshot`, or returns null if they do not fit cleanly.
+ * When `proving` is true, expands the matched block range to verify the earlier batch (`0..from`)
+ * is already reflected in `snapshot`.
  */
 function way(typed: Transform, from: number, proving: boolean, snapshot: ProseNode) {
   const base = typed.docs[from] ?? typed.doc;
@@ -207,10 +207,10 @@ function textOf(typed: Transform, steps: readonly number[]): string {
 }
 
 /**
- * Moves the steps that wait, made on `confirmed`, onto a snapshot. The first `count` of them are
- * the batch on its way, and `sent` says what became of it. They come only onto a snapshot that
- * shows as the document they were made on, at least in the blocks that they change, so a step
- * never comes twice and never comes in part. Else the text of the edits shows, to write again.
+ * Attempts to rebase pending `waiting` steps (based on `confirmed`, with the first `count` steps
+ * representing the in-flight batch of outcome `sent`) onto `snapshot`. Succeeds only when the
+ * touched blocks match unambiguously so edits are never duplicated or partially applied; otherwise
+ * returns the dropped visible text for recovery.
  */
 function carry(
   confirmed: ProseNode,
@@ -244,9 +244,8 @@ function carry(
 }
 
 /**
- * The steps of this copy that wait for the document, kept across a snapshot. A snapshot comes
- * when the document opened again, such as after it closed or its computer started again, and
- * what the person did meanwhile moves onto it.
+ * Tracks unacknowledged local steps so offline or in-flight edits can be rebased onto a fresh
+ * snapshot after a reconnect or document reopen.
  */
 export class Waiting {
   private confirmed: ProseNode | undefined;

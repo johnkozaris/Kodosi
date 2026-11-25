@@ -2,17 +2,14 @@ import Foundation
 import Observation
 import os
 
-/// The chat of one terminal, as the terminal's computer keeps it. The pipe is open only while a
-/// view watches.
 @MainActor
 @Observable
 public final class TerminalChat {
     public private(set) var chat: ChatSnapshot?
-    /// The pipe is open and the chat as it is has come.
+    /// True once the pipe is open and the initial snapshot has been received.
     public private(set) var linked = false
     public private(set) var failure: String?
-    /// The answers that a person gave on this device, until their questions are gone or the chat
-    /// comes again.
+    /// Locally submitted answers by ask ID, until their ask is gone or a fresh snapshot arrives.
     public private(set) var answers: [String: ChatAnswer] = [:]
     public var draft = ""
 
@@ -20,8 +17,7 @@ public final class TerminalChat {
     @ObservationIgnored let session: String
     @ObservationIgnored private var link: DocumentLink?
     @ObservationIgnored private var watchers = 0
-    /// After each opening of the pipe the host sends the whole chat first, and the changes count
-    /// from it.
+    /// Ignores incremental updates until the host sends a full snapshot after each pipe open.
     @ObservationIgnored private var awaitsSnapshot = true
 
     init(store: CanvasStore, session: String) {
@@ -69,7 +65,6 @@ public final class TerminalChat {
         chat?.now
     }
 
-    /// The first question that no person on this device answered yet.
     public var question: ChatAsk? {
         asks.first { answers[$0.id] == nil }
     }
@@ -86,7 +81,6 @@ public final class TerminalChat {
         chat?.items.last { $0.id == id }
     }
 
-    /// Each view that shows the chat watches until it ends, and they share one pipe.
     public func watch() async {
         watchers += 1
         defer {
@@ -106,7 +100,7 @@ public final class TerminalChat {
     private func connect() async {
         let link = store.chatLink(of: session)
         self.link = link
-        // The canvas store gives the pipe of a chat its events on the main actor.
+        // Safe because `CanvasStore` delivers chat pipe events on the main actor.
         link.onFrame = { [weak self] frame in
             MainActor.assumeIsolated { self?.receive(frame) }
         }
@@ -139,8 +133,8 @@ public final class TerminalChat {
         }
     }
 
-    /// A typed message while a question waits answers it: the agent reads the words in place of
-    /// what it asked to do.
+    /// Submitting text while a prompt is pending denies the prompt with that text as feedback so
+    /// the agent adjusts and continues.
     public func submit() {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, canWrite else { return }
@@ -186,8 +180,8 @@ public final class TerminalChat {
         case let .snapshot(snapshot):
             awaitsSnapshot = false
             chat = snapshot
-            // The host closes a question when it takes its answer, and the pipe loses what an app
-            // sends while it is broken. A question that is still there waits for its answer.
+            // Clear pending answers: accepted answers already removed their ask on the host, while
+            // any ask still present in the snapshot was never answered (e.g. lost during a drop).
             answers = [:]
             linked = true
             failure = nil
@@ -208,8 +202,7 @@ public final class TerminalChat {
         }
     }
 
-    /// A change that went missing leaves the chat wrong, so the pipe starts again and the host sends
-    /// the chat as it is.
+    /// Reopens the pipe to force a fresh snapshot after a decode error or revision gap.
     private func renew() {
         guard let link else { return }
         awaitsSnapshot = true

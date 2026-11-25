@@ -1,9 +1,9 @@
-//! A document can come from anyone, so reading limits the entries, the unpacked size and the
-//! compression ratio, and it checks each entry name. It refuses a package that another program
-//! could read as other parts: one with data before it or entries hidden in it, one whose local
-//! headers disagree with its central directory, one that gives an entry a second name, or one
-//! with two entries whose names differ at most in case. Writing copies each part that did not
-//! change byte for byte.
+//! Safe OOXML ZIP package reader and patcher.
+//!
+//! Reading enforces entry-count, uncompressed-size, and compression-ratio limits, validates entry
+//! paths, and rejects ambiguous archives (leading data, hidden entries, local/central header
+//! mismatches, Info-ZIP Unicode Path aliases, or case-colliding names) that another parser could
+//! interpret differently. Writing copies unmodified entries verbatim without recompressing.
 
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -51,10 +51,9 @@ fn u16_at(file: &[u8], at: usize) -> Option<u16> {
     Some(u16::from_le_bytes(file.get(at..at + 2)?.try_into().ok()?))
 }
 
-/// Word and `SharePoint` give a local header another time than its entry in the central directory,
-/// and Hancell writes local extended timestamps that zip cannot read. A time names no part and
-/// changes no bytes, so zip compares the headers of a copy in which each local header has the
-/// central directory's time and no extended timestamp.
+/// Word and `SharePoint` can write mismatched local/central timestamps, and Hancell writes
+/// local extended timestamp fields (`0x5455`) that the `zip` crate cannot read. Normalize
+/// those harmless timestamp fields on a scratch copy before running header consistency checks.
 fn without_local_time(file: &[u8], local: usize, central: usize, copy: &mut Option<Vec<u8>>) {
     let time = local + TIME_IN_LOCAL_HEADER..local + TIME_IN_LOCAL_HEADER + TIME_BYTES;
     let central_time =
@@ -198,7 +197,6 @@ pub const PACKAGE_RELATIONSHIPS: &str =
     "http://schemas.openxmlformats.org/package/2006/relationships";
 pub const RELATIONSHIPS: &str =
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
-/// The same namespace in the strict form of the standard.
 const STRICT_RELATIONSHIPS: &str = "http://purl.oclc.org/ooxml/officeDocument/relationships";
 
 pub fn relation_id<'a>(node: roxmltree::Node<'a, '_>, name: &str) -> Option<&'a str> {
@@ -238,7 +236,7 @@ fn join_part(folder: &str, target: &str) -> String {
     parts.join("/")
 }
 
-/// `None` removes a part.
+/// Maps part paths to replacement bytes, or `None` to remove a part.
 pub type Parts = BTreeMap<String, Option<Vec<u8>>>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -289,7 +287,7 @@ pub fn spans(line: &str) -> Vec<Span> {
     out
 }
 
-/// The parts that do not change keep their compressed bytes.
+/// Rewrites the ZIP package, raw-copying unchanged entries without recompressing.
 pub fn rewrite(file: &[u8], parts: &Parts) -> Result<Vec<u8>, PackageError> {
     let mut archive = ZipArchive::new(Cursor::new(file)).map_err(broken)?;
     let mut writer = ZipWriter::new(Cursor::new(Vec::with_capacity(file.len())));
@@ -332,7 +330,7 @@ pub fn create<N: AsRef<str>, B: AsRef<[u8]>>(
     Ok(writer.finish().map_err(broken)?.into_inner())
 }
 
-/// The characters that XML 1.0 cannot hold, such as most control characters, go.
+/// Escapes XML metacharacters and strips characters disallowed by XML 1.0.
 pub fn escape(text: &str) -> String {
     let mut escaped = String::with_capacity(text.len());
     for letter in text.chars() {
@@ -361,7 +359,7 @@ mod tests {
         package_after(b"", entries)
     }
 
-    /// The offsets count the data in front, as `zip -A` makes them.
+    /// Builds a ZIP after `front` bytes with offsets adjusted past the prefix (like `zip -A`).
     fn package_after(front: &[u8], entries: &[(&str, &[u8])]) -> Vec<u8> {
         let mut file = Cursor::new(front.to_vec());
         file.set_position(u64::try_from(front.len()).unwrap());
@@ -382,8 +380,8 @@ mod tests {
         })
     }
 
-    /// Readers that take the Info-ZIP Unicode Path read each entry by its second name, and the
-    /// others by its first.
+    /// Adds Info-ZIP Unicode Path extra fields (`0x7075`) so parsers that honor them see `second`
+    /// while others see `name`.
     fn package_with_second_names(entries: &[(&str, &str, &[u8])]) -> Vec<u8> {
         let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
         for (name, second, bytes) in entries {
@@ -426,8 +424,8 @@ mod tests {
             ("word/document.xml", "word/documentä.xml", b"<a/>"),
             ("word/documentä.xml", "word/document.xml", b"<b/>"),
         ]);
-        // zip refuses a second name of an entry that says its name is UTF-8, so an attack leaves
-        // that flag off.
+        // The `zip` crate refuses a differing Unicode Path extra when the UTF-8 flag (bit 11) is
+        // set, so an attack leaves that flag clear; clear it here to exercise the spoofing check.
         for (header, high_flags) in [(&b"PK\x03\x04"[..], 7), (b"PK\x01\x02", 9)] {
             let at = swapped
                 .windows(4)

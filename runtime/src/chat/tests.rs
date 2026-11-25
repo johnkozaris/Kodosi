@@ -1,14 +1,13 @@
-//! The records in `fixtures/claude` are what the link module sends in real sessions of Claude Code.
-//! Those in `fixtures/codex` are the messages of Codex's app-server in real sessions, as the link
-//! gives them to the chat, without the messages that the chat does not read. Those in
-//! `fixtures/copilot` are what the extension sends in real sessions of Copilot CLI 1.0.115.
-//! Those in `fixtures/antigravity` are the messages of `agy acp` 1.5.14 as `kodosi acp` gives them
-//! to the chat, in sessions whose model was a local stand-in of the Gemini API
-//! (`GOOGLE_GEMINI_BASE_URL`) that answered with written calls and words.
+//! Replay tests driven by recorded JSONL sessions under `fixtures/`:
+//! - `claude/`: events emitted by the Claude Code link module.
+//! - `codex/`: relevant Codex app-server messages forwarded by the Codex link.
+//! - `copilot/`: events emitted by the Copilot extension (Copilot CLI 1.0.115).
+//! - `antigravity/`: `agy acp` 1.5.14 messages via `kodosi acp`, in sessions backed by a local
+//!   Gemini API mock via `GOOGLE_GEMINI_BASE_URL`.
 //!
-//! The names of private places are replaced. A line with `answer` holds the decision that the
-//! recording gave the agent for a question, which the agent then took. A line with `prompt` is a
-//! message that a person sent in the chat, and a line with `stop` is a person's stop.
+//! Private paths in fixtures have been scrubbed. Synthetic harness directives in the JSONL
+//! (`answer`, `prompt`, `stop`) represent expected prompt decisions, chat messages, and
+//! user stops recorded during capture.
 
 use serde_json::{Value, json};
 
@@ -47,22 +46,17 @@ macro_rules! antigravity {
     };
 }
 
-/// A chat that takes a record, and a viewer that follows the chat's changes as an app does.
 struct Play {
     chat: Chat,
     agent: Box<dyn Agent>,
     view: ChatSnapshot,
     closed: Vec<String>,
     changes: Vec<ChatChange>,
-    /// What Codex's adapter gave its link to do.
     calls: Vec<Value>,
-    /// The person who gives the answers of the play.
     answers_by: Option<ChatPerson>,
 }
 
 impl Default for Play {
-    /// The records of Claude Code are of sessions in Sam's shop, whose folder the module reports
-    /// when it starts.
     fn default() -> Self {
         let mut play = Self::new(Box::new(Claude::default()));
         play.take(&json!({"k": "cwd", "cwd": "/home/sam/shop"}));
@@ -71,7 +65,6 @@ impl Default for Play {
 }
 
 impl Play {
-    /// A chat on Sam's computer.
     fn new(agent: Box<dyn Agent>) -> Self {
         Self::at_home(agent, "/home/sam")
     }
@@ -88,8 +81,6 @@ impl Play {
         }
     }
 
-    /// Plays records of Codex after the start of its link. As the chat's room does after each
-    /// message, the play takes what the adapter gives the link to do.
     fn codex(records: &[&str], answers: &[ChatAnswer]) -> Self {
         let mut play = Self::new(Box::new(Codex::default()));
         play.answers_by = Some(sam());
@@ -99,8 +90,6 @@ impl Play {
         play
     }
 
-    /// Plays a record of Antigravity CLI's server on Ana's computer from its start. Each question
-    /// gets the next of `answers`, and the person who answers is Sam.
     fn antigravity(record: &str, answers: &[ChatAnswer]) -> Self {
         let mut play = Self::at_home(Box::new(Antigravity::default()), "/home/ana");
         play.answers_by = Some(sam());
@@ -108,7 +97,6 @@ impl Play {
         play
     }
 
-    /// Plays records of Copilot after the start of its extension.
     fn copilot(records: &[&str], answers: &[ChatAnswer]) -> Self {
         let mut play = Self::new(Box::new(Copilot::default()));
         play.more(copilot!("start"), &[]);
@@ -116,16 +104,13 @@ impl Play {
         play
     }
 
-    /// Plays a record of Claude Code. Each question gets the next of `answers`, and the decision
-    /// that the answer makes must be the one that the agent took in the recording.
     fn of(record: &str, answers: &[ChatAnswer]) -> Self {
         let mut play = Self::default();
         play.more(record, answers);
         play
     }
 
-    /// As the chat's room does for each request of the module that it follows, the play first
-    /// counts the module as present.
+    /// Mirrors `Room::hears` by marking the link active before replaying `record`.
     fn more(&mut self, record: &str, answers: &[ChatAnswer]) {
         self.agent.back(&mut self.chat);
         let mut answers = answers.iter();
@@ -160,7 +145,6 @@ impl Play {
         assert!(answers.next().is_none(), "an answer had no question");
     }
 
-    /// A person stops the turn in the chat, as the chat's room passes it on.
     fn stop(&mut self) {
         match self.agent.stop(&self.chat) {
             Stop::Command(command) => self.calls.push(command),
@@ -703,7 +687,6 @@ fn sam() -> ChatPerson {
     }
 }
 
-/// The calls of the play to one method of the agent's server.
 fn calls<'a>(play: &'a Play, method: &str) -> Vec<&'a Value> {
     play.calls
         .iter()
@@ -741,8 +724,8 @@ fn codex_shows_its_first_turn_from_the_moment_its_server_lets_the_chat_follow() 
             .collect::<Vec<_>>(),
         [(Some(720), 12)]
     );
-    // The server refuses the first request to follow: the conversation has no turn yet. The
-    // conversation that Codex makes to name this one is not followed.
+    // The first `thread/resume` fails before the thread has a turn, so the adapter retries;
+    // Codex's internal title-generation thread is ignored.
     let followed = calls(&play, "thread/resume");
     assert_eq!(followed.len(), 2);
     assert!(
@@ -779,11 +762,10 @@ fn a_change_of_a_file_by_codex_shows_its_lines_and_is_allowed_once_or_for_the_se
         })
     );
 
-    // The record holds Codex's own word for "from now on" for these files.
+    // `Play::more` asserts that `Always` produces the recorded session-approval decision.
     Play::codex(&[codex!("first"), codex!("session")], &[ChatAnswer::Always]);
 }
 
-/// The record of a turn that ended while its command ran, cut after the command's first output.
 fn stopped_turn() -> (String, String) {
     let record = codex!("stop");
     let runs = record
@@ -905,8 +887,6 @@ async fn the_next_host_ends_a_server_of_codex_that_the_host_before_left() {
     assert!(other.exists(), "the other addresses of the folder stay");
 }
 
-/// A greeting of Claude Code's module, sent at an address of the agents' links, and the first
-/// line of the host's answer.
 async fn greet<S>(mut stream: S, terminal: uuid::Uuid) -> String
 where
     S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,

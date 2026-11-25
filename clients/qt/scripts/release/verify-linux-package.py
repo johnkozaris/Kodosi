@@ -36,7 +36,7 @@ PLUGINS = (
     "plugins/platformthemes/libqxdgdesktopportal.so",
     "qml/QtQuick/Controls/libqtquickcontrols2plugin.so",
 )
-# The app loads or starts these at run time, so no library link shows them.
+# Loaded or spawned at runtime, so dynamic library linking does not detect these dependencies.
 DEBIAN_DEPENDENCIES = ("libopengl0", "desktop-file-utils", "xdg-desktop-portal", "xdg-utils")
 
 

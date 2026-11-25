@@ -1,8 +1,8 @@
 import Foundation
 @preconcurrency import UserNotifications
 
-/// A push from the Kodosi server carries only identifiers, so the names and the words come from
-/// this device.
+/// Push payloads from the server carry only opaque identifiers and state, so terminal names and
+/// localized notification text are resolved locally on the device.
 final class NotificationService: UNNotificationServiceExtension {
     override func didReceive(
         _ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void,
@@ -24,24 +24,24 @@ final class NotificationService: UNNotificationServiceExtension {
             contentHandler(content)
             return
         }
-        // The system takes the content on any thread, but its SDK does not mark the handler so.
+        // The SDK omits @Sendable on contentHandler, even though it may be called on any thread.
         nonisolated(unsafe) let deliver = contentHandler
         let center = UNUserNotificationCenter.current()
         center.getDeliveredNotifications { delivered in
             center.removeDeliveredNotifications(withIdentifiers: pushed.withdrawn(from: delivered.map(\.request)))
-            // A push has a badge only while a terminal waits: a badge of 0 in a push takes every
-            // notification of the app away.
+            // Sending badge 0 in an APNs payload clears all delivered notifications, so the server
+            // omits the badge when no terminal is waiting and we reset it locally instead.
             if content.badge == nil {
                 center.setBadgeCount(0)
             }
-            // The system can stop the extension when it has the content, so the content goes
-            // after one more answer of the notification center, which comes after the removal.
+            // Calling contentHandler lets iOS terminate the extension immediately, so issue a
+            // follow-up query as a barrier to ensure the removal above completes first.
             center.getDeliveredNotifications { _ in deliver(content) }
         }
     }
 }
 
 private extension Bundle {
-    /// The app that holds this extension, whose words the extension shows.
+    /// Host app bundle (two levels above `.appex`), used to load the app's localized strings.
     static let app = Bundle(url: Bundle.main.bundleURL.deletingLastPathComponent().deletingLastPathComponent()) ?? .main
 }

@@ -19,14 +19,14 @@ use crate::text::Text;
 
 const ENGINE_PROGRAM_VARIABLE: &str = "KODOSI_BROWSER_ENGINE";
 const LINK: u32 = shared_browser::link::VERSION;
-/// Each version of the link has its own feed, so no host ever reads the feed of another one.
+/// Base URL for browser update feeds; each `LINK` version uses `{FEEDS}/{LINK}/engine.json`.
 const FEEDS: &str = "https://updates.kodosi.com/browser";
-/// The key of Kodosi's updates, which also signs this feed.
+/// Base64 Ed25519 public key (shared with Kodosi app updates) that signs the browser feed.
 const FEED_KEY: &str = "6eh21KvaRNcq4kfPMxINLLm+OsMXLgIT6VWfYlU3fow=";
 const MOST_FEED: usize = 64 * 1024;
 const MOST_ARCHIVE: u64 = 1024 * 1024 * 1024;
 const LOOK_LIMIT: Duration = Duration::from_secs(30);
-/// Chromium has a security release about every two weeks, so a host looks each day.
+/// Poll daily to pick up Chromium security releases promptly.
 const LOOK_EVERY: Duration = Duration::from_hours(24);
 fn no_engine() -> Text {
     text!("Kodosi could not get its browser. Check the network and open it again.")
@@ -70,12 +70,11 @@ pub(crate) struct BrowserStatus {
 #[derive(Clone)]
 pub(crate) struct BrowserHost {
     folder: PathBuf,
-    /// The data root is isolated, so the browsers must not touch the person's keychain.
+    /// When true, avoid touching the OS keychain (used for isolated data roots and tests).
     isolated: bool,
     browsers: Arc<OnceCell<Browsers>>,
     updating: Arc<Once>,
-    /// One download at a time, so no two write the same engine and no start removes one that
-    /// comes.
+    /// Serializes engine downloads and cleanup so concurrent starts do not clobber each other.
     installing: Arc<tokio::sync::Mutex<()>>,
     getting: Arc<Mutex<Option<u8>>>,
 }
@@ -122,7 +121,7 @@ impl BrowserHost {
         self.download(progress).await
     }
 
-    /// The caller holds `installing`.
+    /// Caller must hold `self.installing`.
     async fn download(&self, progress: impl Fn(u8) + Send) -> Result<PathBuf, Text> {
         let got = install(&self.engines(), move |part| {
             self.tell(Some(part));
@@ -226,7 +225,8 @@ impl BrowserHost {
         }
     }
 
-    /// Reads the sign-ins first, so a browser that gives no access costs no download.
+    /// Read cookies from the source browser before initializing Kodosi Browser so permission
+    /// failures do not trigger an unnecessary engine download.
     pub(crate) async fn copy_sign_ins(&self, name: &str) -> Result<usize, Text> {
         let sources = shared_browser::sign_in_sources();
         let source = sources
@@ -306,7 +306,7 @@ fn platform() -> String {
     format!("{system}-{machine}")
 }
 
-/// Spotlight skips a `.noindex` folder, so macOS does not show the engine as a second app.
+/// Suffix with `.noindex` so macOS Spotlight skips the bundled Chromium app.
 fn folder_of(version: &str) -> String {
     format!("{version}.noindex")
 }
@@ -359,8 +359,9 @@ async fn install(engines: &Path, progress: impl Fn(u8) + Send) -> Result<PathBuf
     Ok(program)
 }
 
-/// The signature proves who made a feed and not that it is the newest, so whoever controls the
-/// update site could give an earlier feed and move hosts back to a browser with known faults.
+/// Reject downgrades to older versions: a valid signature proves authenticity, not freshness,
+/// so whoever controls the update site could otherwise replay an older feed with known
+/// vulnerabilities.
 async fn kept(engines: &Path, offered: &str) -> Option<PathBuf> {
     let (version, program) = installed(engines).await?;
     (!newer(offered, &version)).then_some(program)
@@ -370,8 +371,8 @@ fn newer(offered: &str, installed: &str) -> bool {
     order(offered) > order(installed)
 }
 
-/// A version is `<Chromium>-<Kodosi Browser>`. Kodosi Browser comes first, so a browser that is
-/// published again with a higher number of its own is newer, also on an earlier Chromium.
+/// Parses `<chromium>-<kodosi_browser>` with the Kodosi Browser version first, so a newer
+/// Kodosi Browser release wins even if it ships an earlier Chromium version.
 fn order(version: &str) -> Option<(Vec<u64>, Vec<u64>)> {
     let (chromium, browser) = version.split_once('-')?;
     let fields = |part: &str| {
@@ -391,7 +392,7 @@ async fn feed(client: &reqwest::Client) -> Result<Feed, Text> {
     read_feed(&bytes)
 }
 
-/// The signature covers the feed and not its address, so the feed says its version of the link too.
+/// Verify `feed.link` inside the signed payload because the signature does not cover the URL.
 fn read_feed(bytes: &[u8]) -> Result<Feed, Text> {
     let feed: Feed = serde_json::from_slice(bytes).map_err(|_| no_engine())?;
     if feed.link == LINK {
@@ -401,7 +402,7 @@ fn read_feed(bytes: &[u8]) -> Result<Feed, Text> {
     }
 }
 
-/// A feed that is not there means that no browser is out yet, which no network can change.
+/// Treat HTTP 404 as "no browser published yet" rather than a transient network error.
 async fn get(client: &reqwest::Client, url: &str) -> Result<Vec<u8>, Text> {
     let response = client
         .get(url)
@@ -475,8 +476,7 @@ async fn unpack(archive: PathBuf, folder: PathBuf) -> Result<(), Text> {
         std::fs::create_dir_all(&unpacking)?;
         let file = std::fs::File::open(&archive)?;
         tar::Archive::new(flate2::read::GzDecoder::new(file)).unpack(&unpacking)?;
-        // The engine of another version of the link can have the same number, and no host of
-        // this version may start it.
+        // Remove any existing dir with the same version name left by a different `LINK` version.
         drop(std::fs::remove_dir_all(&folder));
         std::fs::rename(&unpacking, &folder)
     })

@@ -260,7 +260,7 @@ fn set_text(model: &Model, slide: &str, shape: &str, text: &str) -> Result<Chang
     })
 }
 
-/// Each place of the text in one shape's tree, from last to first, so earlier positions hold.
+/// Returns match ranges in reverse order so applying replacements preserves earlier offsets.
 fn places_in(tree: &Node, find: &str) -> Vec<(usize, usize)> {
     let needle: Vec<u16> = find.encode_utf16().collect();
     let mut places = Vec::new();

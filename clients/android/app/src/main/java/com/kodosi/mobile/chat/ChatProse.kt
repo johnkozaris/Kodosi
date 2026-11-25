@@ -49,7 +49,7 @@ internal sealed interface ProseBlock {
     data class Table(val table: ProseTable) : ProseBlock
 
     companion object {
-        /** A fence that is still open while the agent writes holds the rest. */
+        // Unclosed code fences remain code blocks so streaming output renders cleanly.
         fun blocks(text: String): List<ProseBlock> = buildList {
             val lines = mutableListOf<String>()
             var code: MutableList<String>? = null
@@ -113,10 +113,6 @@ internal sealed interface ProseBlock {
     }
 }
 
-/**
- * A table as an agent writes it in Markdown. The first row names the columns when a row of dashes
- * follows it, and that row says on which side each column stands.
- */
 internal data class ProseTable(val header: List<String>, val rows: List<List<String>>, val sides: List<Side>) {
     enum class Side { START, CENTER, END }
 
@@ -135,10 +131,6 @@ internal data class ProseTable(val header: List<String>, val rows: List<List<Str
             }
         }
 
-        /**
-         * A bar after a backslash belongs to the words of its cell, and the bars at the two ends of
-         * a row hold no cell.
-         */
         fun cells(line: String): List<String> {
             val cells = mutableListOf<String>()
             val cell = StringBuilder()
@@ -182,7 +174,6 @@ internal data class ProseTable(val header: List<String>, val rows: List<List<Str
     }
 }
 
-/** An agent's answer. Agents write Markdown: a block of code sinks into a well, a heading stands out, a table has its columns. */
 @Composable
 internal fun ChatProse(text: String, live: Boolean, modifier: Modifier = Modifier) {
     val colors = KodosiTheme.colors
@@ -220,7 +211,6 @@ internal fun ChatProse(text: String, live: Boolean, modifier: Modifier = Modifie
     }
 }
 
-/** A table wider than the conversation moves sideways, and a long cell breaks its lines. */
 @Composable
 private fun ProseTableView(table: ProseTable) {
     val colors = KodosiTheme.colors

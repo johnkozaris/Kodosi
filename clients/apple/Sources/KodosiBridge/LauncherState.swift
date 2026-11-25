@@ -79,8 +79,8 @@ public final class LauncherState {
         usage[AccountUsage.key(agent, account)]
     }
 
-    /// The host reads plan usage through each provider's command, which takes seconds the first
-    /// time.
+    /// True only during the initial usage fetch, which can take several seconds while the host
+    /// queries each provider CLI.
     public var loadingUsage: Bool {
         readingUsage && !usageRead
     }

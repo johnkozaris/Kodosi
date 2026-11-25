@@ -22,8 +22,7 @@ class RuntimeEvent(val type: String, val accountUserId: String?, val accountEpoc
 
     operator fun get(key: String): JsonElement? = payload[key]
 
-    /** The failure of a refresh that the app asks for by itself is no news to the person: the
-     *  runtime refreshes again when the connection is back. */
+    // Suppress user-facing errors for background refreshes; the runtime retries on reconnect.
     val failedRefresh: Boolean
         get() = type.endsWith(".error") && string("operation") in REFRESHES
 

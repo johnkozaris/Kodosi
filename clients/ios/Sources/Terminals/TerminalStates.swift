@@ -13,8 +13,7 @@ extension AppModel {
     }
 }
 
-/// What takes the terminal's place until it draws. It is one card that changes in place, so the
-/// screen never lays a second card over the first.
+/// Unified placeholder covering both connection and render states so covers never stack.
 struct TerminalCover: Equatable {
     enum Action: Equatable {
         case connect, reconnect, retry
@@ -30,7 +29,7 @@ struct TerminalCover: Equatable {
     static let connecting = TerminalCover(symbol: nil, title: String(localized: "Connecting"), message: nil, working: true, action: nil,
                                           identifier: "terminal.state.connecting")
 
-    /// `nil` once the terminal draws; `render` is `nil` until the terminal has a surface.
+    /// Returns `nil` once the terminal draws; `render` is `nil` until the terminal has a surface.
     static func of(_ session: RuntimeSession, unreachable: Bool, opening: Bool, failure: String?, render: TerminalRenderState?) -> TerminalCover? {
         switch session.connectionState {
         case .blocked:

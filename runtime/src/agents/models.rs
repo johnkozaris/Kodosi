@@ -265,12 +265,11 @@ pub(super) fn opencode(list: Option<&str>) -> Vec<AgentModel> {
         .collect()
 }
 
-/// The thinking levels that end the identifiers of Antigravity CLI's models, lowest first.
+/// Thinking-level suffixes on Antigravity CLI model IDs, ordered lowest to highest.
 const ANTIGRAVITY_LEVELS: [&str; 5] = ["low", "medium", "high", "xhigh", "max"];
 
-/// One model and thinking level on each line, its identifier, a tab and its name, as in
-/// `gemini-4-neon-high` and `Gemini 4 Neon (High)`. The launcher shows each model once with its
-/// levels.
+/// Parses `agy models` output (`<id>\t<Display Name (Level)>`, e.g., `gemini-4-neon-high` and
+/// `Gemini 4 Neon (High)`), grouping thinking levels under each base model.
 pub(super) fn antigravity(list: Option<&str>) -> (Vec<AgentModel>, Vec<AgentOption>) {
     let mut models: Vec<AgentModel> = Vec::new();
     for line in list.into_iter().flat_map(str::lines) {

@@ -1,7 +1,7 @@
 use pulldown_cmark::{Options, Parser, html};
 
-/// The Markdown of GitHub, which agents write. Smart punctuation, math, sub- and superscript and
-/// wikilinks would change the flags, prices, paths and shell tests in their text.
+/// GitHub Flavored Markdown options. Smart punctuation, math, sub/superscript, and wikilinks are
+/// excluded because they mangle CLI flags, prices, paths, and shell tests (`[[ ... ]]`).
 const MARKDOWN: Options = Options::ENABLE_TABLES
     .union(Options::ENABLE_FOOTNOTES)
     .union(Options::ENABLE_STRIKETHROUGH)

@@ -2,77 +2,100 @@
 
 [English](../SECURITY.md) · **Deutsch** · [Ελληνικά](../el/SECURITY.md) · [Español](../es/SECURITY.md) · [Français](../fr/SECURITY.md) · [Italiano](../it/SECURITY.md) · [日本語](../ja/SECURITY.md) · [한국어](../ko/SECURITY.md) · [简体中文](../zh-Hans/SECURITY.md)
 
-Deine Geräte verschlüsseln den Terminal-Verkehr und die Inhalte der Projekte Ende-zu-Ende.
-Private Schlüssel bleiben auf den Geräten. Das Backend leitet Verbindungen weiter und
-speichert verschlüsselte Projektdaten; es führt nie Befehle aus und sieht nie ihren Klartext.
-Das [Verschlüsselungsdesign](../CRYPTOGRAPHY.md) (Englisch) beschreibt das Bedrohungsmodell,
-die Mechanismen und die bekannten Grenzen; noch hat es keine unabhängige Stelle geprüft.
+Terminal-Datenverkehr und Projektinhalte werden von deinen Geräten Ende-zu-Ende-verschlüsselt, und
+private Schlüssel verlassen deine Geräte nie unverschlüsselt. Das Backend vermittelt Verbindungen
+und speichert verschlüsselte Projektdaten; es führt niemals Befehle aus und sieht nie ihren
+Klartext. Das vollständige Bedrohungsmodell, die kryptografischen Verfahren und bekannte
+Einschränkungen beschreibt das [Verschlüsselungsdesign](../CRYPTOGRAPHY.md) (Englisch). Weder das
+Design noch die Implementierung wurden bisher von einer unabhängigen Stelle geprüft.
 
 ## Was Teilen erlaubt
 
-Wer ein Terminal teilt, gibt die volle Kontrolle mit den Betriebssystemrechten seines Eigentümers auf diesem Computer. Ein Terminal in einem Projekt geht an die Freunde seines Eigentümers in diesem Projekt, auch an Freunde, die später beitreten. Wenn du einen Freund
-entfernst, verliert er deine Terminals, und jeder von euch verlässt die Projekte, die dem anderen gehören. Wenn du eine Person blockierst, geschieht dasselbe, und sie kann dir keine Freundschaftsanfragen senden. Ein geteiltes Terminal läuft als du: Die Personen darin können
-auch `kodosi` als du ausführen und deine Dateien auf diesem Computer lesen und ändern. Teile es also nur mit Personen, denen du diesen Computer anvertraust. Kodosi vertraut allen, die ein Terminal oder ein Projekt teilen, sowie den Programmen und Agents in ihren Terminals,
-und schränkt nicht ein, was sie tun. Jedes deiner freigegebenen Geräte steuert all deine Terminals und kann neue auf deinen anderen Computern starten, auf denen Kodosi läuft. Von jedem deiner Geräte aus kannst du Dosi auf deinen Computern schreiben, und Dosi handelt dort
-genauso, wie wenn du direkt am Computer schreibst. Ein Gerät, das du entfernst, kann Dosi nicht mehr schreiben.
+Wenn du ein Terminal teilst, erhalten die Empfänger die volle Kontrolle mit deinen
+Betriebssystemrechten auf diesem Computer. Teilst du ein Terminal in ein Projekt, können alle deine
+Freunde in diesem Projekt darauf zugreifen, auch diejenigen, die später beitreten. Da ein geteiltes
+Terminal unter deinem Konto läuft, kann jede Person darin auch `kodosi` als du ausführen sowie
+Dateien auf diesem Computer lesen und ändern. Teile Terminals daher nur mit Personen, denen du
+diesen Computer anvertraust.
 
-Alle, die ein Terminal öffnen können, sehen auch die Dateien auf seinem Canvas und nutzen
-seinen geteilten Browser; melde dich dort also nur an, wo alle von ihnen handeln dürfen. Der
-geteilte Browser eines geteilten Terminals nutzt nie deine gespeicherten Anmeldungen. Die
-Dateien auf einem Canvas sind normale Dateien, und alle, die das Terminal öffnen können, können
-sie bearbeiten. Eine Seite auf dem Canvas und ein Live-Dokument laufen in einem geschlossenen
-Frame ohne Netzwerk, ohne Dateien und ohne Speicher, der bleibt. Solange ein geteilter Browser
-wach ist, lauschen sein Debug-Port und der Treiber-Port jedes Fensters auf `127.0.0.1` oder
-`::1`, wo andere Konten dieses Computers sie erreichen können. Eine Website im geteilten
-Browser speichert pro Aktion einer Person oder eines Agents einen Download im Ordner des
-Terminals, und sie erreicht deine Zwischenablage nur, wenn du kopierst. Die Linux-App zeigt
-Seiten nur dort, wo Chromium sie in einer Sandbox ausführen kann; unter Ubuntu erlaubt ihr
-AppArmor-Profil der App, ihrem Seitenprozess und Kodosi Browser, die User-Namespaces anzulegen,
-die die Sandbox braucht. Aus demselben Grund läuft der geteilte Browser unter Linux nicht als
-root. Die Apps enthalten Kodosi Browser nicht. Wenn ein Computer seinen ersten geteilten Browser
-öffnet, holt Kodosi den Browser aus dem Feed auf `updates.kodosi.com` und sieht dort jeden Tag
-nach einer neuen Version. Kodosi nutzt einen Download nur, wenn der Feed die Signatur des
-Schlüssels der Kodosi-Updates trägt und der Download den SHA-256 hat, den der Feed angibt.
+Kodosi schränkt nicht ein, was Beteiligte oder ihre Agents in einem geteilten Terminal oder Projekt
+tun können. Wenn du einen Freund entfernst, wird der Zugriff auf deine Terminals sofort entzogen,
+und ihr werdet gegenseitig aus den Projekten des jeweils anderen entfernt. Das Blockieren einer
+Person hat dieselbe Wirkung und verhindert künftige Freundschaftsanfragen.
+
+Jedes deiner freigegebenen Geräte kann alle deine Terminals steuern, neue Terminals auf deinen
+anderen Computern mit laufendem Kodosi starten und Dosi auf diesen Computern schreiben (wo Dosi mit
+demselben lokalen Zugriff handelt wie bei direkter Nutzung am Computer). Das Entfernen eines Geräts
+entzieht ihm den Zugriff auf deine Terminals und auf Dosi.
+
+### Canvas und geteilter Browser
+
+Alle Personen mit Zugriff auf ein Terminal können Dateien auf dessen Canvas ansehen und bearbeiten
+sowie den geteilten Browser nutzen. Melde dich in einem geteilten Browser daher nur bei Konten an,
+die alle Beteiligten verwenden dürfen. Geteilte Terminals greifen niemals auf deine gespeicherten
+Browser-Anmeldungen aus privaten Terminals zurück. Canvas-Dateien sind reguläre Dateien auf dem
+Host-Computer.
+
+HTML-Seiten und Live-Dokumentansichten laufen in einem isolierten Frame ohne Netzwerkzugriff, ohne
+Dateizugriff und ohne dauerhaften Speicher. Solange ein geteilter Browser aktiv ist, binden sein
+Debug-Port und der Treiber-Port jedes Fensters an `127.0.0.1` oder `::1`, sodass andere lokale
+Betriebssystemkonten auf demselben Computer sie erreichen können. Websites im geteilten Browser
+können pro Aktion einer Person oder eines Agents höchstens einen Download im Ordner des Terminals
+speichern und erhalten nur dann Zugriff auf deine Zwischenablage, wenn du ausdrücklich kopierst.
+
+Unter Linux rendert Kodosi Seiten nur dort, wo die Chromium-Sandbox laufen kann. Für Ubuntu liefert
+Kodosi ein AppArmor-Profil mit, das der App, ihrem Renderer-Prozess und dem Kodosi Browser erlaubt,
+die von der Chromium-Sandbox benötigten User-Namespaces anzulegen. Aus demselben Grund läuft der
+geteilte Browser unter Linux nicht als root.
+
+Die Kodosi-Apps enthalten den Kodosi Browser nicht im Paket. Wenn du auf einem Computer zum ersten
+Mal einen geteilten Browser öffnest, lädt Kodosi ihn von `updates.kodosi.com` herunter und prüft
+täglich auf Updates. Downloads werden nur akzeptiert, wenn der Update-Feed eine gültige Signatur
+des Kodosi-Updateschlüssels trägt und der SHA-256-Wert der Datei mit dem Feed übereinstimmt.
 
 ## Direkte Verbindungen
 
-Wenn zwei deiner eigenen Geräte einander erreichen können, im selben Netzwerk oder über ihre
-Router, geht der Verkehr eines Terminals direkt zwischen ihnen statt über den Dienst, mit
-derselben Verschlüsselung. Jedes der beiden Geräte sieht dann die IP-Adressen des anderen. Um
-die öffentliche Adresse eines Geräts zu erfahren, fragt Kodosi einen STUN-Server von
-Cloudflare, der diese Adresse sieht. Solange ein Gerät eine solche Verbindung sucht oder hat,
-und noch eine Minute danach, hält es einen UDP-Port offen, und es nimmt dort nur Verbindungen
-von deinen eigenen Geräten an. Terminals anderer Personen gehen immer über den Dienst, daher
-sehen diese Personen deine Adressen nie.
+Wenn sich zwei deiner eigenen Geräte direkt erreichen können, im selben lokalen Netzwerk oder per
+NAT-Traversal, läuft der Terminal-Datenverkehr mit derselben Ende-zu-Ende-Verschlüsselung direkt
+zwischen ihnen statt über den Relay-Server. Beide Geräte sehen dabei gegenseitig ihre IP-Adressen.
+
+Um die eigene öffentliche Adresse zu ermitteln, fragt Kodosi einen STUN-Server von Cloudflare ab,
+der diese IP-Adresse sieht. Solange ein Gerät eine direkte Verbindung sucht oder hält (sowie eine
+Minute danach), hält es einen einzelnen UDP-Port offen und akzeptiert dort ausschließlich
+Verbindungen von deinen eigenen freigegebenen Geräten. Terminals, die mit anderen Personen geteilt
+sind, laufen immer über den Relay-Server, sodass andere Nutzer deine IP-Adressen nie sehen.
 
 ## Was der Dienst sieht
 
-Der Dienst sieht Konto- und Gerätedaten, Projektmitgliedschaften, Metadaten von Projekten und
-Terminals, den Agent und den Zustand jedes Terminals (etwa arbeitet oder wartet auf eine
-Freigabe, nie seinen Text) und ob du diesen Zustand schon gesehen hast, Routing-Felder,
-Zeitpunkte und die Größen der Chiffretexte, außer bei Verkehr, der direkt zwischen deinen
-Geräten geht. Er sieht auch für jedes deiner Geräte, ob du Kodosi darauf nutzt, an diesem
-Computer eine andere App nutzt oder das Gerät nicht nutzt, damit eine Mitteilung nur an ein
-Gerät geht, das du nutzt. Push-Benachrichtigungen an dein iPhone, iPad oder Android-Gerät laufen
-über den Push-Dienst von Apple oder Google, der die IDs deiner Terminals, die warten, fertig
-oder fehlgeschlagen sind, ihre Agents und ihre Zustände sieht, nie Namen oder Text.
-Verschlüsselung verbirgt diese Metadaten nicht und verhindert keinen Ausfall. Ein Gerät, das du
-entfernst, verliert ab dann den Zugriff. Nachdem du ein verlorenes oder gestohlenes Gerät
-entfernt hast, erstelle einen neuen Wiederherstellungsschlüssel, um dieses Gerät draußen zu
-halten. Wenn jemand auf deinem Konto neu beginnt, während du Geräte hast, wartet das einen Tag,
-und deine Geräte zeigen es an, damit du es stoppen kannst. Zugangsdaten für GitHub und Gitea
-bleiben auf deinem Computer.
+Das Backend sieht Konto- und Gerätedaten, Projektmitgliedschaften, Projekt- und Terminal-Metadaten,
+den Agent-Typ und den gemeldeten Status jedes Terminals (etwa ob es arbeitet oder auf eine Freigabe
+wartet, niemals jedoch Terminaltext), ob du diesen Status bereits gesehen hast, Routing-Header,
+Zeitpunkte sowie die Größen der Chiffretexte (außer bei Datenverkehr über eine direkte
+Peer-to-Peer-Verbindung). Außerdem sieht es den Aktivitätsstatus jedes Geräts (in Kodosi, in einer
+anderen Desktop-App oder inaktiv), damit Mitteilungen nur an ein aktives Gerät gehen.
 
-Wer ein Konto löscht, entfernt seine Geräte, Wiederherstellungsdaten, Freunde, geteilten
-Terminals und eigenen Projekte; Nachrichten in Projekten anderer bleiben ohne Konto stehen. 30 Tage lang behält
-der Dienst Aussteller und Subjekt der gelöschten Anmeldung, um ältere Tokens abzuweisen.
+Mobile Push-Mitteilungen laufen über APNs von Apple oder FCM von Google. Diese Anbieter sehen die
+IDs von wartenden, fertigen oder fehlgeschlagenen Terminals sowie deren Agent-Typ und Status,
+niemals aber Terminalnamen oder Inhalte.
+
+Die Verschlüsselung verbirgt diese Metadaten nicht und schützt nicht vor Serverausfällen. Das
+Entfernen eines Geräts beendet dessen Zugriff ab diesem Zeitpunkt; geht ein Gerät verloren oder
+wird es gestohlen, erstelle zusätzlich einen neuen Wiederherstellungsschlüssel, um dieses Gerät
+auszusperren. Wenn jemand auf deinem Konto eine neue Identität anlegt, während du noch aktive
+Geräte hast, verzögert das Backend diesen Vorgang um 24 Stunden und benachrichtigt deine
+bestehenden Geräte, damit du ihn abbrechen kannst. GitHub- und Gitea-Zugangsdaten bleiben auf
+deinem Computer.
+
+Wenn du dein Konto löschst, werden deine Geräte, Wiederherstellungsdaten, Freundesliste, aktiven
+Freigaben und eigenen Projekte entfernt. Nachrichten, die du in Projekten anderer geschrieben hast,
+bleiben ohne zugeordnetes Konto erhalten. Das Backend speichert Aussteller und Subjekt der
+gelöschten Anmeldung 30 Tage lang, um zuvor ausgestellte Tokens abzuweisen.
 
 ## Einen Download prüfen
 
-Jedes Release enthält `SHA256SUMS`, den SHA-256-Wert jeder seiner Dateien, und
-`SHA256SUMS.asc`, die Signatur dieser Liste mit dem Schlüssel von Kodosi, der auch das
-apt-Repository signiert. Leg die beiden Dateien neben deinen Download und führ dann diese
-Befehle aus:
+Jedes Release enthält `SHA256SUMS` (die SHA-256-Prüfsumme jeder Datei) und `SHA256SUMS.asc`,
+signiert mit demselben Kodosi-Schlüssel, der auch das apt-Repository signiert. Lege beide Dateien
+neben deinen Download und führe Folgendes aus:
 
 ```sh
 curl -fsSLO https://updates.kodosi.com/apt/kodosi-archive-keyring.pgp
@@ -80,12 +103,12 @@ gpgv --keyring ./kodosi-archive-keyring.pgp SHA256SUMS.asc SHA256SUMS
 shasum -a 256 --ignore-missing -c SHA256SUMS
 ```
 
-`gpgv` aus GnuPG muss eine gültige Signatur des Schlüssels
-`E8007A36D199B6EE755B1EE9C612C00442E52299` melden, und `shasum` muss für deinen Download OK melden.
+`gpgv` (aus GnuPG) muss eine gültige Signatur des Schlüssels
+`E8007A36D199B6EE755B1EE9C612C00442E52299` melden, und `shasum` muss für deine Datei `OK` ausgeben.
 
 ## Eine Schwachstelle melden
 
-Nutze die [vertrauliche Meldung von Schwachstellen](https://github.com/johnkozaris/Kodosi/security/advisories/new)
-oder schreib an [security@kodosi.com](mailto:security@kodosi.com), mit der Revision, den
-Schritten, den Auswirkungen und geschwärzten Logs. Halte Details aus öffentlichen Issues
-heraus.
+Nutze die [vertrauliche Meldung von Schwachstellen auf GitHub](https://github.com/johnkozaris/Kodosi/security/advisories/new)
+oder sende eine E-Mail an [security@kodosi.com](mailto:security@kodosi.com) mit Commit oder
+Version, Schritten zur Reproduktion, Auswirkungen und geschwärzten Logs. Bitte veröffentliche keine
+Details zu Schwachstellen in öffentlichen Issues.

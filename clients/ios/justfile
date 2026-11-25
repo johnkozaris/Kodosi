@@ -16,16 +16,16 @@ tools-install:
 xcode-gen: tools-install
     KODOSI_VERSION="$(cat ../../VERSION)" KODOSI_BUILD="{{ build_number }}" KODOSI_IOS_DEPLOYMENT_TARGET="$(cat ../apple/Config/iOSDeploymentTarget)" "{{ xcodegen }}" generate --quiet
 
-# Lint the Swift sources of the iPhone and iPad app and of its notification extension.
+# Lint Swift sources for the iOS app and notification extension.
 lint: tools-install
     "{{ swiftformat }}" Sources Tests Notifications --lint
     "{{ swiftlint }}" lint --quiet Sources Tests Notifications
 
-# Format the Swift sources of the iPhone and iPad app and of its notification extension.
+# Format Swift sources for the iOS app and notification extension.
 format: tools-install
     "{{ swiftformat }}" Sources Tests Notifications
 
-# Check that the Swift packages and the Ghostty build agree with the deployment targets of the apps.
+# Verify that Swift packages and Ghostty match the app deployment targets.
 deployment-targets-check:
     ../apple/scripts/verify-deployment-targets.py
 
@@ -37,7 +37,7 @@ build: xcode-gen
         -destination 'generic/platform=iOS Simulator' \
         build
 
-# Run the unit tests on the simulator that KODOSI_IOS_SIMULATOR names. Make the simulator if it is missing.
+# Run unit tests on KODOSI_IOS_SIMULATOR (creating the simulator if missing).
 test: xcode-gen
     #!/usr/bin/env bash
     set -euo pipefail
@@ -57,7 +57,7 @@ device-build: xcode-gen
         -allowProvisioningUpdates \
         build
 
-# Lint and test the iPhone and iPad app, build it for devices, then check its translations.
+# Lint, test, build the iOS app for devices, and check translations.
 check: lint deployment-targets-check test device-build
     python3 ../apple/scripts/sync-string-catalogs.py --check
     python3 ../../scripts/check-translations.py

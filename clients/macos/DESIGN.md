@@ -68,42 +68,120 @@ components:
 # Design System: Kodosi for macOS
 
 ## Overview
-The app is a warm workbench lit from the top left. A source list rests on the ground, one framed surface holds the work, raised objects rest on it and inputs sink into wells. The copper cursor is the one sign of the brand: it ends the wordmark, marks the slot for a new terminal, and new terminals open from it. Each screen starts with the objects of its job, and text is short.
+
+The interface is a warm workbench lit from the top left. The sidebar sits on the base ground, a
+single inset frame holds the active workspace, raised controls sit above the surface, and text
+inputs sink into recessed wells. The copper cursor is the sole brand motif: it closes the
+wordmark, marks the placeholder slot for a new terminal, and is the origin when a new
+terminal opens. Screens lead with the actual objects of work, keeping copy minimal.
 
 ## Colors
-Copper `accent` means "act here" or "selected", and nothing else. `glowAmber` flashes behind a fresh change and `glowOrange` is a breathing dot for work or for a change out of view. Green `ready` means done or verified and is never a person's color. Plain tokens are dark and `-light` tokens their light pair. Use `AppTheme` roles, not literals. Every fill is solid. A terminal takes the light or dark look of the computer that it runs on, for everyone who sees it, and what belongs to a terminal takes its look.
+
+Copper (`accent`) signals primary actions or active selection and nothing else. `glowAmber` briefly
+flashes behind freshly updated items, while `glowOrange` is a gently pulsing dot for active work
+or off-screen activity. Green (`ready`) indicates completion or verification and is never assigned
+as a user avatar color.
+
+Base tokens are dark mode; `-light` tokens are their light-mode counterparts. Always reference
+`AppTheme` semantic roles rather than hardcoded hex values. All surfaces use solid fills. A
+terminal adopts its host computer's light or dark appearance for everyone viewing it, and chrome
+belonging to that terminal follows the same theme.
 
 ## Typography
-Use `AppTextStyle`: `large` for page titles, `title` for sheets, `headline` for object names, `body` for conversation and rows, `footnote` and `caption` for facts, monospace for code and paths. Labels use sentence case. The wordmark is a picture.
+
+Use `AppTextStyle` roles consistently: `large` for page titles, `title` for sheets, `headline` for
+object names, `body` for chat messages and list rows, `footnote` and `caption` for metadata, and
+`mono` for code and paths. Use sentence case for all labels. The wordmark is rendered as an image
+asset.
 
 A person picks the text size in Settings: Small, Normal, Large or Larger, about one point a step at the size of the conversation. It scales the text styles, the other sizes of words and of the symbols beside them (`font(scaled:)`), and the heights of the controls that hold words, so a key keeps its text centered. Marks, avatars, pictures, icon-only keys and spacing keep their size. The terminal has its own font size, and a document on the canvas its own zoom.
 
 ## Layout
-The window has no title bar. The source list can shrink to a rail of marks or widen for Dosi; one inset frame holds the work, and pages are one centered column. When chrome moves or a tile comes or goes, each terminal takes its final size at once.
 
-## Elevation & Depth
-There are three levels: resting, lifted (hover, focused composer, popovers) and floating (sheets, notices, Go to). Raised shapes have a light top-left rim, a dark bottom-right rim and two shadows falling down and right; wells have an inner shadow. A sheet rises in the middle of the dimmed window, and a popover rises from its source; a click outside or Escape dismisses either, unless the sheet waits for a decision.
+The window has no standard title bar. The sidebar collapses to an icon rail or widens for Dosi,
+one inset frame holds the workspace, and settings/detail pages use a single centered column. When
+chrome resizes or tiles appear and disappear, terminals snap straight to their final grid
+dimensions without intermediate resizes.
+
+## Elevation and depth
+
+UI sits on three planes: resting, lifted (hover states, focused composers, popovers), and floating
+(sheets, alerts, Go to). Raised elements carry a light top-left rim, a dark bottom-right rim, and
+two subtle downward-right shadows; recessed wells carry an inner shadow.
+
+Sheets rise centered over a dimmed window and popovers anchor to their trigger. Clicking outside
+or pressing Escape dismisses either, unless the sheet requires an explicit decision.
 
 ## Shapes
-Tags and pills are capsules, buttons are rounded rectangles, agents, projects and kinds of things are squircles, and people are circles. A slot you can fill has a dashed outline.
+
+Tags and pills are capsules, buttons are rounded rectangles, agents, projects, and category icon
+tiles are squircles, and people are circles. Empty fillable slots use a dashed outline.
 
 ## Components
-- **Marks.** An agent is a squircle in its program's color with its glyph, and each helper that it started shows as a small squircle of that color before the status sign while the helper works. A person is a circle and a project a squircle of four tiles, each colored from its identifier; your own circle is copper. A file is a sheet with a turned corner in the color that people know for its kind.
-- **Status sign.** Each row, card, tab and tile header ends with one status sign, and it is the only sign that a program waits: copper while it waits, a green check for done and a `caution` triangle for failed. While a program works, a warm light circles the edge of its mark, and nothing glows outside the mark. A breathing copper dot marks news out of view.
-- **Buttons.** A button is a rounded rectangle with a flat face lit from the top left. Primary is copper and the others are quiet. A symbol-only button turns copper only while it is on, and names itself in a tip after a short pause.
-- **Selection.** The selection is a raised pill with a copper caret, and segmented controls and tabs slide a raised thumb.
-- **Terminal tile.** A terminal is a rounded tile in its look whose header actions stay faint until hover or selection, and the selected tile has a thin copper edge. Its chat fills the same body. The header says where the terminal runs in one line of words, never as tags or fields. The launcher is the terminal about to open, in this Mac's look.
-- **Canvas.** A terminal and its open canvas are two lobes of one body with a soft waist between them. The keys of the canvas sit in a well, and files and browser tabs are tabs over what they show.
-- **Drop.** A place that takes a dragged thing shows a dashed copper outline, and the dragged thing is a lifted chip.
-- **Conversation.** Your messages are bubbles on the right; others show an avatar and a name, and agents their mark, owner and terminal. Mentions are tinted chips.
-- **Dosi.** Its face is the copper cursor doubled into two eyes on a dark squircle, on a line at the bottom of the source list with no box. The face and one monospace line say what Dosi does, and nothing pops up for Dosi.
 
-A state has one moving sign: the light that circles a working terminal's mark, or Dosi's face while Dosi works. Text and the wordmark stay still, and keyboard moves through a list change at once. With reduced motion, from the system or from Settings, or while the window does not show, every change is instant and nothing loops.
+### Icons and avatars
+Agents use a squircle in the provider's color with its glyph, and each helper an agent started
+shows as a small squircle in that color before the status indicator while the helper works.
+People are circles colored from their identifier (your own avatar is copper). Projects use a
+squircle of four colored tiles derived deterministically from the project ID. Files appear as a
+dog-eared sheet tinted by file type.
 
-## Do's and Don'ts
-- **Do** use the springs in `AppTheme.Motion`, and animate only for an action or a real change of state.
-- **Do** keep native focus, labels, stable accessibility identifiers, localizable text and selectable message text.
-- **Do** keep hidden terminal surfaces inactive, and let Core Animation run anything that loops.
-- **Don't** clip or scale the terminal surface; inset it in its tile.
-- **Don't** put a glow, blur, colored shadow, gradient, gloss or bright rim on a mark, cursor or button, or use copper as decoration.
-- **Don't** add explanatory text where an object, a state or one short line is enough.
+### Status indicators
+Every list row, card, tab, and tile header ends with a single status indicator, and it is the only
+place a waiting state is shown: copper when waiting for input, a green check when done, and a
+`caution` triangle when failed. While a program is working, a warm light orbits the edge of its
+icon without any outer glow. A pulsing copper dot marks unread updates out of view.
+
+### Buttons and selection
+Buttons are flat rounded rectangles lit from the top left: copper for primary actions and subtle
+neutral fills for secondary ones. Icon-only buttons turn copper only when toggled on and show a
+tooltip after a brief hover delay.
+
+Selected rows use a raised pill with a copper indicator bar. Segmented controls and tabs animate a
+sliding raised thumb inside a recessed track.
+
+### Terminal tiles and launcher
+Terminals render inside rounded tiles matching their host's theme. Header controls stay subdued
+until hovered or selected, and the focused tile gets a thin copper border. The chat view occupies
+the same tile body. The header shows where the terminal runs as a single plain line of text rather
+than badges or form fields. The launcher is styled as the terminal about to open, using this Mac's
+theme.
+
+### Canvas and drag-and-drop
+A terminal and its open canvas form two lobes of one body, with a soft waist at the seam between
+them. Canvas tab controls sit in a recessed well, with files and browser tabs sitting above their
+content. Drop targets show a dashed copper outline while the dragged item appears as a lifted chip.
+
+### Conversation and Dosi
+Your own messages align right as bubbles; other people show an avatar and name, and agents show
+their icon, owner, and terminal name. Mentions render as tinted chips.
+
+Dosi's avatar doubles the copper cursor into two eyes on a dark squircle, sitting directly at the
+bottom of the sidebar without a container box. Its face and a single monospace status line report
+activity; nothing pops up unprompted.
+
+## Motion
+
+At most one element animates continuously for a given state: the orbiting light on a working
+terminal icon or Dosi's face while working. Text and the wordmark stay static, and keyboard
+navigation through lists updates immediately without lag. When reduced motion is enabled (in macOS
+or Kodosi Settings) or when the window is hidden, transitions become instant and looping animations
+stop.
+
+## Guidelines
+
+Do:
+
+- Use the spring curves defined in `AppTheme.Motion`, and only animate in response to user actions
+  or real state transitions.
+- Maintain full keyboard focus, accessibility labels, stable accessibility identifiers, localized
+  strings, and selectable message text.
+- Pause hidden terminal surfaces, and run looping animations in Core Animation rather than SwiftUI
+  timers.
+
+Don't:
+
+- Clip or scale the terminal surface; always inset it cleanly inside its tile.
+- Add outer glows, blurs, colored shadows, gradients, gloss, or bright rims to icons, cursors, or
+  buttons, or use copper decoratively.
+- Add explanatory copy where an object, status indicator, or single short label is already clear.

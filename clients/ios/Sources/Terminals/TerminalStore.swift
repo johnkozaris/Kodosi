@@ -10,11 +10,11 @@ final class TerminalStore {
     private(set) var userId: String?
     private(set) var loaded = false
     private(set) var listed = false
-    /// The list answered since the app last left the background, so its marks are the hosts' marks.
+    /// True once `session.list` has replied since returning from background, meaning `attention`
+    /// flags are current and safe to settle push notifications against.
     @ObservationIgnored private(set) var fresh = false
     @ObservationIgnored private var listing: String?
     private(set) var revision = 0
-    /// The faces that the person picked for terminals.
     private(set) var faces: [String: FacePick] = [:]
     var watchingSessionId: String? {
         didSet {
@@ -86,7 +86,6 @@ final class TerminalStore {
         session.shownFace(faces[session.id])
     }
 
-    /// `own` is the terminal's own face, which the pick holds over.
     func pick(_ face: TerminalFace, of id: String, over own: TerminalFace?) {
         faces[id] = FacePick(face, over: own)
     }
@@ -144,7 +143,7 @@ final class TerminalStore {
         live.reconcile(with: received)
     }
 
-    /// Until the answer comes, the list is not known to be empty, so the empty state waits for it.
+    /// Tracks the in-flight `session.list` request so empty-state UI waits for a server reply.
     func list() {
         let request = UUIDv7.generate()
         listing = request

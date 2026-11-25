@@ -3,7 +3,7 @@ import type { JsonValue } from "./serde_json/JsonValue";
 
 export type ToDocument = { "type": "join", contract: number, client: string, epoch: number, rev: number, 
 /**
- * The client sent no batch yet and has none on its way, so a document that does not
- * know it took nothing from it.
+ * True when the client has never sent a change batch and has none in flight, so an
+ * unknown client ID implies no prior changes were accepted.
  */
 fresh: boolean, } | { "type": "change", seq: number, base: number, body: JsonValue, } | { "type": "place", rev: number, body: JsonValue, } | { "type": "query", id: number, body: JsonValue, } | { "type": "people", id: number, };

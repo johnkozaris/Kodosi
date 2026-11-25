@@ -31,16 +31,16 @@ bool drawsByProcessor(const QRhi* rhi)
     const auto info = rhi->driverInfo();
     if (info.deviceType == QRhiDriverInfo::CpuDevice)
         return true;
-    // Where Windows has no graphics processor, its first adapter is the Basic Render Driver, which
-    // draws by the processor and does not say so. Its vendor and device numbers tell it.
+    // Without a GPU, Windows falls back to the Microsoft Basic Render Driver, which renders on the
+    // CPU without reporting CpuDevice. Identify it by its PCI vendor and device IDs.
     if (info.vendorId == microsoft && info.deviceId == basicRenderDriver)
         return true;
-    // OpenGL names no type of device, but Mesa's drivers that draw by the processor name themselves.
+    // OpenGL does not report deviceType, so detect Mesa's software renderers by driver name.
     return rhi->backend() == QRhi::OpenGLES2
         && (info.deviceName.contains("llvmpipe") || info.deviceName.contains("softpipe"));
 }
 
-// A window's QRhi belongs to its render thread, so the window is asked there, after a frame.
+// Query QRhi on the render thread after a frame ends, since QRhi lives on that thread.
 void learnDrawing(QQuickWindow* window)
 {
     auto connection = std::make_shared<QMetaObject::Connection>();

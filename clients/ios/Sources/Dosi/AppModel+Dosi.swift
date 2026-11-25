@@ -2,8 +2,7 @@ import Foundation
 import KodosiBridge
 
 extension AppModel {
-    /// The computer that answered last stays in the list while it is away, because a message
-    /// waits for it.
+    /// Keeps the last responding computer in the list while offline because messages wait for it.
     var dosiComputers: [DosiComputer] {
         var computers = account.computers.map { DosiComputer(device: $0.deviceId, name: $0.label) }
         if let last = dosi.snapshot?.last, !computers.contains(where: { $0.device == last.device }),

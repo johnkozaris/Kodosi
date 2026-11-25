@@ -18,8 +18,8 @@ use tokio::{
 const TERMINAL_COMMAND_CAPACITY: usize = 64;
 const TERMINAL_COMMAND_SEND_TIMEOUT: Duration = Duration::from_millis(50);
 const COMPRESSION_IDLE: Duration = Duration::from_secs(2);
-/// `ConPTY` draws from the top left as if the screen were empty, so a console terminal moves a
-/// screen it starts with into its history.
+/// `ConPTY` starts drawing from the top-left assuming a blank viewport; scroll any restored screen
+/// into scrollback first (`CSI 22 J` + cursor home).
 const CONSOLE_START: &[u8] = b"\x1b[22J\x1b[H";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -253,7 +253,8 @@ const DARK: Colors = Colors {
     ],
 };
 
-/// White and bright white are mid grays, so that white text stays readable on the light ground.
+/// ANSI white (7) and bright white (15) are mid-grays so white text remains legible on the light
+/// background.
 const LIGHT: Colors = Colors {
     foreground: [0x2a, 0x1d, 0x15],
     background: [0xfa, 0xf6, 0xee],

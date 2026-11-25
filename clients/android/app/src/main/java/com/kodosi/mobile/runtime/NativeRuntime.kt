@@ -38,7 +38,7 @@ internal object NativeRuntime {
 
     @JvmStatic external fun setEnvironment(name: String, value: ByteArray): Boolean
 
-    /** The runtime needs the app's context to check certificates. */
+    // Passes the Android context so the runtime can verify TLS certificates.
     @JvmStatic external fun prepare(context: Context): Int
 
     @JvmStatic external fun setLanguage(language: String)

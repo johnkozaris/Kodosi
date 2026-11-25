@@ -38,7 +38,7 @@ public extension TerminalPalette {
         ],
     )
 
-    /// White and bright white are mid greys, so that a program's white text stays readable.
+    /// ANSI white and bright white use mid-greys so white terminal text stays legible on light.
     static let light = TerminalPalette(
         background: "faf6ee",
         foreground: "2a1d15",

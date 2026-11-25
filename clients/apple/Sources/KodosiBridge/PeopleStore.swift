@@ -98,8 +98,8 @@ public final class PeopleStore {
         return handle
     }
 
-    /// A link or a scanned code starts the add flow only with an invite in the form that the
-    /// runtime makes.
+    /// Validates a full runtime invite token; links and QR scans only start the add flow for
+    /// tokens in this format.
     public nonisolated static func invite(in text: String) -> String? {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let parts = text.split(separator: ":", omittingEmptySubsequences: false)

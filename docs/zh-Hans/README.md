@@ -5,8 +5,8 @@
 <h3 align="center">一款为你、你的编程 Agent 和好友准备的终端应用。</h3>
 
 <p align="center">
-  看到你所有电脑上哪个 Agent 需要你，在终端旁看到它做出的东西，<br>
-  还能和好友在同一个终端里一起工作。端到端加密，开源。
+  随时看到所有电脑上哪个 Agent 需要你，在终端旁查看它构建的内容，<br>
+  还能和好友在共享终端中一起工作。端到端加密，开源。
 </p>
 
 <p align="center">
@@ -28,7 +28,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: light)" srcset="../media/app-light.webp">
-    <img src="../media/app-dark.webp" width="900" alt="Kodosi Mac 应用：Claude Code 在等待批准，Codex 正在工作。">
+    <img src="../media/app-dark.webp" width="900" alt="Kodosi Mac 应用界面：Claude Code 正在等待批准，Codex 正在工作。">
   </picture>
 </p>
 
@@ -36,63 +36,64 @@
 
 ### 看看哪个 Agent 需要你
 
-Claude Code、Codex 等编程 Agent 会停下来等你。Kodosi 把你所有电脑上的终端放在一个窗口里，每个终端都会显示它的 Agent 是在工作、在等你回答、已完成还是已失败。通知会在你正在使用的设备上提醒你，手机上也能收到。你的 Agent 照原样运行，沿用它们自己的设置和登录信息。
+Claude Code、Codex 等编程 Agent 经常会暂停下来等待你的输入。Kodosi 将你所有电脑上的终端汇聚在同一个窗口中，每个终端都会清晰显示其中的 Agent 是在工作中、等待你的操作、已完成还是已失败。通知只会发送到你当前正在使用的设备，包括你的手机。各个 Agent 均直接通过自身的 CLI 运行，继续使用它们原有的设置和账号。
 
-### 问问什么需要你处理
+### 问问有哪些事需要你处理
 
-Dosi 是管理你的 Agent 的 Agent。它会读取你的终端，告诉你有什么在等你处理，并按你的选择替你在终端里作答。
+Dosi 是专门统筹其他 Agent 的 Agent。它会检查你的各个终端，汇总哪些事项正在等你处理，并在你做出决定后直接在终端里代为回复。
 
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="../media/dosi-still.webp">
-    <img src="../media/dosi.webp" width="900" alt="被问到什么需要你处理时，Dosi 读取终端，告诉你 checkout 在等待批准，并询问是否允许。">
+    <img src="../media/dosi.webp" width="900" alt="当被问到有哪些事需要处理时，Dosi 检查各个终端，汇报 checkout 正在等待批准，并询问是否允许。">
   </picture>
 </p>
 
-### 看看你的 Agent 做出了什么
+### 查看 Agent 构建的内容
 
-它的计划、页面和文档会在终端旁的画布上打开，你可以和好友以及 Agent 一起编辑这些文档。
+计划、网页和文档会直接在终端旁的画布上打开。你、好友以及 Agent 可以同时协作编辑实时文档。
 
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="../media/canvas-still.webp">
-    <img src="../media/canvas.webp" width="900" alt="Claude Code 的终端和它的画布：Leo 正在编辑的发布计划里，Claude 提出了一处修改；接着是预算表格、幻灯片、PDF，以及 Claude 把一个杯子加入购物车的共享浏览器。">
+    <img src="../media/canvas.webp" width="900" alt="Claude Code 的终端及其右侧画布：Leo 正在编辑发布计划，Claude 提出了一处修改建议；画布上还有预算表格、幻灯片、PDF，以及 Claude 正在将马克杯加入购物车的共享浏览器。">
   </picture>
 </p>
 
 ### 一起协作
 
-把一个正在运行的终端交给好友，或者把终端、对话和任务汇集到一个为人和他们的 Agent 准备的项目里。
+你可以将正在运行的终端共享给好友，也可以把终端、聊天和任务整合到同一个项目中，供大家和各自的 Agent 一起协作。
 
-<p align="center"><img src="../media/project.webp" width="900" alt="一个项目，里面有一个共享终端，以及人和 Agent 的对话。"></p>
+<p align="center"><img src="../media/project.webp" width="900" alt="一个包含共享终端以及人与 Agent 对话的项目。"></p>
 
 ### 私密且开放
 
-终端和项目采用抗量子的端到端加密，因此服务无法读取其内容。Kodosi 是开源的，你也可以自行运行这项服务。[安全](SECURITY.md) · [自行托管](../SELF-HOSTING.md)（英文）
+终端和项目均采用抗量子端到端加密，后端无法读取其中的内容。Kodosi 是开源软件，你也可以自行部署服务器。
+[安全](SECURITY.md) · [自行托管](../SELF-HOSTING.md)（英文）
 
 ## 获取 Kodosi
 
-| | 要求 | 安装 |
+| 平台 | 系统要求 | 安装方式 |
 | --- | --- | --- |
-| **Mac** | Apple silicon，macOS 26 或更高版本 | 打开磁盘映像，把 Kodosi 拖到“应用程序”，或运行 `brew install --cask johnkozaris/tap/kodosi`。应用会自动更新。 |
-| **Linux** | x86-64，Ubuntu 24.04 或 Debian 13 或更高版本 | 安装 Debian 软件包。它会添加 Kodosi 的 apt 仓库，所以系统更新时也会更新 Kodosi。[发布页](https://github.com/johnkozaris/Kodosi/releases/latest)还提供 Arch 软件包和便携压缩包。 |
-| **Windows** | x64，Windows 11 24H2 或更高版本 | 第一次打开下载的文件前，请以管理员身份把 [Kodosi 证书](https://updates.kodosi.com/windows/Kodosi.cer)添加到“本地计算机 › 受信任人”。应用会自动更新。 |
-| **Android** | ARM64，Android 15 或更高版本 | 在设备上下载 APK 并打开，Android 询问时允许安装。新版本也用同样的方法安装。 |
-| **iPhone 和 iPad** | iOS 26 或更高版本 | 为你的 [iPhone 或 iPad](../../clients/ios/README.md) 构建 Kodosi。 |
+| Mac | Apple silicon，macOS 26 或更高版本 | 打开磁盘映像，将 Kodosi 拖入“应用程序”文件夹，或运行 `brew install --cask johnkozaris/tap/kodosi`。应用支持自动更新。 |
+| Linux | x86-64，Ubuntu 24.04 或 Debian 13 及更高版本 | 安装 Debian 软件包。它会自动添加 Kodosi 的 apt 仓库，方便随系统更新同步升级 Kodosi。[最新版本](https://github.com/johnkozaris/Kodosi/releases/latest)页面还提供 Arch 软件包和便携压缩包。 |
+| Windows | x64，Windows 11 24H2 或更高版本 | 首次打开安装程序前，请以管理员身份将 [Kodosi 证书](https://updates.kodosi.com/windows/Kodosi.cer)添加到“本地计算机 › 受信任人”。应用支持自动更新。 |
+| Android | ARM64，Android 15 或更高版本 | 在设备上下载并打开 APK，在 Android 弹出提示时允许安装。后续更新也采用相同方式安装。 |
+| iPhone 和 iPad | iOS 26 或更高版本 | 从源码为 [iPhone 和 iPad](../../clients/ios/README.md) 构建 Kodosi。 |
 
-然后按照[快速上手](GETTING_STARTED.md)操作。
+安装完成后，请阅读[快速上手](GETTING_STARTED.md)。
 
-## 了解更多
+## 文档
 
 - [快速上手](GETTING_STARTED.md)
-- [安全](SECURITY.md)以及[加密设计](../CRYPTOGRAPHY.md)（英文）
+- [安全](SECURITY.md)与[加密设计](../CRYPTOGRAPHY.md)（英文）
 - [架构](../ARCHITECTURE.md)、[开发](../DEVELOPMENT.md)和[参与贡献](../../CONTRIBUTING.md)（英文）
 - [自行托管](../SELF-HOSTING.md)（英文）
 
-请在 [GitHub Issues](https://github.com/johnkozaris/Kodosi/issues) 中报告 bug，并[私下](SECURITY.md#报告漏洞)报告漏洞。
+如发现问题，请在 [GitHub Issues](https://github.com/johnkozaris/Kodosi/issues) 中提交；如发现安全漏洞，请通过[私密渠道](SECURITY.md#报告漏洞)报告。
 
-Kodosi 由 [John Kozaris](https://johnkozaris.com) 开发。
+由 [John Kozaris](https://johnkozaris.com) 构建。
 
 ## 许可证
 
-Kodosi 采用 [Apache License 2.0](../../LICENSE) 许可证。Kodosi 的名称和标志不在该许可证范围内，使用方式请参阅[商标](../../TRADEMARKS.md)（英文）。Kodosi 使用了 [Ghostty](https://ghostty.org)、Rust、Swift、Qt 和 ASP.NET Core。所包含的内容列在[第三方声明](../../terminal/ghostty/THIRD_PARTY_NOTICES.md)和[图片来源](../media/README.md)中。
+Kodosi 采用 [Apache License 2.0](../../LICENSE) 开源许可。Kodosi 的名称和标志不在该许可证涵盖范围内，使用规则请参阅[商标](../../TRADEMARKS.md)（英文）。Kodosi 基于 [Ghostty](https://ghostty.org)、Rust、Swift、Qt 和 ASP.NET Core 构建。相关归属声明见[第三方声明](../../terminal/ghostty/THIRD_PARTY_NOTICES.md)和[媒体素材来源](../media/README.md)。

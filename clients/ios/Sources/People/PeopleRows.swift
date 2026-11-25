@@ -95,7 +95,8 @@ struct OutgoingRequestRow: View {
     }
 }
 
-/// The member stays after its dialog or sheet closes, so that the closing view keeps the name.
+/// Retains `member` after `blocking` or `reporting` closes so the dismissing sheet or dialog
+/// keeps displaying the member's name during its exit transition.
 struct MemberAction {
     var member: ProjectMemberEntry?
     var blocking = false

@@ -4,7 +4,7 @@ const TIP_DELAY = 450;
 const TIP_WARM = 600;
 const GAP = 6;
 
-/** Floating boxes go into the view of their part, so they keep its look. */
+/** Mounts popovers inside the owning view so they inherit its scoped theme styles. */
 export function viewOf(element: HTMLElement): HTMLElement {
   return element.closest<HTMLElement>(".document-view") ?? document.body;
 }
@@ -65,7 +65,7 @@ interface Open {
   anchor: HTMLElement;
 }
 
-/** A menu that a panel opens lies over it. */
+// Stack of open popovers; a panel can open a menu on top of itself.
 const opened: Open[] = [];
 let listening: AbortController | undefined;
 

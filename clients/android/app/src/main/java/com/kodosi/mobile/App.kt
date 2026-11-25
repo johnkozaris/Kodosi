@@ -165,7 +165,7 @@ fun App(model: AppModel, openSignIn: (String) -> Unit) {
 
                     Stage.Locked -> Locked(model)
 
-                    // The app lock hides the person's work in the frame that it locks, not after a fade.
+                    // Hide user content immediately on lock so it cannot linger during transitions.
                     is Stage.Home -> if (!locked) home.SaveableStateProvider(shown.userId) { Home(model) }
 
                     Stage.Onboarding -> OnboardingScreen(model.account, openSignIn)
@@ -176,8 +176,8 @@ fun App(model: AppModel, openSignIn: (String) -> Unit) {
     }
 }
 
-// Saved state finds its place again after Android ends the app only under keys that hash the same in each process,
-// which a class does not.
+// Use stable string keys so saved Compose state inside AnimatedContent survives Android process
+// death (object identity hashes do not).
 private sealed class Stage(val key: String) {
     data object Launch : Stage("launch")
 
@@ -262,7 +262,7 @@ private fun Home(model: AppModel) {
     }
     val network = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { showOpening() }
     fun openTerminal(id: String, at: Int) {
-        // Only a terminal of the person's own computer can go straight on the local network.
+        // Only terminals hosted on the user's own computer connect directly over the LAN.
         val own = model.terminals.state.value.sessions.any { it.id == id && it.isOwner }
         if (opening != null) {
             opening = id
@@ -472,10 +472,9 @@ private fun Home(model: AppModel) {
 
 private val PushShift = 32.dp
 
-/** A tab's stack starts at its own root, so a scene with another root is another tab. */
+// Each tab has its own root entry, so comparing roots distinguishes tab switches from pushes.
 private fun Scene<*>.root(): Any? = (previousEntries.firstOrNull() ?: entries.firstOrNull())?.contentKey
 
-/** Going back runs the same path in reverse, so that a screen leaves the way it came. */
 private fun push(shift: Int, fading: FiniteAnimationSpec<Float>, sliding: FiniteAnimationSpec<IntOffset>) =
     (fadeIn(fading) + slideInHorizontally(sliding) { shift }) togetherWith
         (fadeOut(fading) + slideOutHorizontally(sliding) { -shift })

@@ -36,8 +36,8 @@ public struct DebugBackendConfiguration: Equatable, Sendable {
         return issuer.absoluteString
     }
 
-    /// A sign-in service given at launch wins over the build's, so that one build signs in
-    /// with another local service.
+    /// Preserves an existing `KODOSI__AUTH__ISSUER` from the launch environment so a single build
+    /// can target a different local auth service.
     public func install() throws {
         try set("KODOSI__BACKEND__API", api, replacing: true)
         if let issuer {

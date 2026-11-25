@@ -30,14 +30,14 @@ const VIEWER_QUEUE: usize = 1024;
 const TICK: Duration = Duration::from_millis(100);
 const SLEEP_AFTER: Duration = Duration::from_mins(10);
 const RETRY_CAPTURE: Duration = Duration::from_secs(1);
-/// How long a new size of the page waits for the page to take the last press, release or scroll.
+/// Max time a pending resize waits for the page to ack the last press, release, or wheel event.
 const ANSWER_LIMIT: Duration = Duration::from_secs(1);
-/// A phone on its side gives the browser a view lower than 200 points.
+/// Lower bound allows landscape phone viewports shorter than 200 pt.
 const SIZES: std::ops::RangeInclusive<u32> = 100..=4096;
-/// Chrome keeps its window at least this wide.
+/// Minimum page width, matching the narrowest window that Chrome allows.
 const NARROWEST: u32 = 500;
-/// The longer and the shorter side of the largest picture that the encoder takes: `VideoToolbox`
-/// refuses one larger than 4096 by 2304, and `OpenH264` one larger than 3840 by 2160.
+/// Max encoded frame dimensions (long, short): `VideoToolbox` caps at 4096x2304 and `OpenH264` at
+/// 3840x2160.
 const MOST_PICTURE: (u16, u16) = if cfg!(target_os = "macos") {
     (4096, 2304)
 } else {
@@ -45,17 +45,17 @@ const MOST_PICTURE: (u16, u16) = if cfg!(target_os = "macos") {
 };
 const MOST_DOWNLOADS: usize = 16;
 const MOST_TEXT: usize = 1024 * 1024;
-/// What a page says goes to every viewer with each change of the window, so it has bounds.
+/// Page-controlled strings are broadcast in every state update and capped to bound message size.
 const MOST_LINE: usize = 1024;
 const MOST_ADDRESS: usize = 8 * 1024;
 const MOST_MESSAGE: usize = 16 * 1024;
 const MOST_ITEMS: usize = 1000;
-/// The menu that a right-click opens, which the page does not know about.
+/// Sentinel menu ID for host-handled context menus (distinct from page `<select>` menus).
 const CONTEXT_MENU: u32 = u32::MAX;
 const COPY_SELECTION: u32 = 0;
 const COPY_LINK: u32 = 1;
 const BLANK: &str = "about:blank";
-/// Numbers each join, so that a pipe that goes frees only the seat that it took.
+/// Monotonic join ID so a closing pipe only removes its own seat, not a reconnected viewer's.
 static SEATS: AtomicU64 = AtomicU64::new(1);
 
 pub(crate) const FIRST_SIZE: Size = Size {
@@ -82,13 +82,13 @@ pub(crate) enum Event {
     Driven,
     Close,
     Frame(EncodedFrame),
-    /// A key frame of the engine's layer, for the views that host it.
+    /// Standalone keyframe snapshot for layer-hosting views.
     Still(Bytes),
     CaptureFailed,
-    /// The engine's layer shows the page, in the context of this id.
+    /// Core Animation context ID for the window's hosted layer.
     Layer(u32),
     NoLayer,
-    /// The page took the last press, release or scroll that a new size waited for.
+    /// The page finished handling the input event that was blocking a pending resize.
     Answered,
     Tabs {
         tabs: Vec<EngineTab>,
@@ -133,8 +133,8 @@ pub(crate) enum Event {
 }
 
 impl Event {
-    /// The engine says each of these once, so a window that is behind gets it later rather than
-    /// never.
+    /// One-shot engine signals that must be queued asynchronously rather than dropped if the
+    /// window's event channel is full.
     pub(crate) const fn must_arrive(&self) -> bool {
         matches!(self, Self::CaptureFailed | Self::Layer(_) | Self::NoLayer)
     }
@@ -152,7 +152,7 @@ pub struct Window {
 }
 
 impl Window {
-    /// The viewer's first message is `watch`.
+    /// Registers a viewer; the caller must send a `watch` message first on the returned `Pipe`.
     pub async fn watch(&self, viewer: Viewer) -> Result<Pipe, Error> {
         let (outgoing, incoming) = mpsc::channel(VIEWER_QUEUE);
         let mailbox = Arc::new(Mailbox::default());
@@ -193,7 +193,7 @@ impl Window {
         drop(open.wait_for(|open| !open).await);
     }
 
-    /// Whether the window ended because its last tab closed, as a browser's window does.
+    /// Returns `true` if the window closed because its last tab was closed.
     pub fn emptied(&self) -> bool {
         self.emptied.load(Ordering::Acquire)
     }
@@ -206,8 +206,8 @@ impl Window {
         *self.used.borrow()
     }
 
-    /// An agent's command starts. It counts as use, so an agent's work keeps the window awake,
-    /// and a copy that the page makes after it is no person's.
+    /// Marks the window as driven by an agent, keeping it awake and preventing subsequent page
+    /// copies from going to a user's clipboard.
     pub async fn driven(&self) {
         drop(self.events.send(Event::Driven).await);
     }
@@ -217,8 +217,8 @@ impl Window {
     }
 }
 
-/// What a window sends to one viewer must reach it all: the window chooses the pictures that a
-/// slow viewer misses, and a picture that goes missing on the way breaks the ones after it.
+/// Bidirectional stream for one viewer. Outgoing messages must be delivered reliably and in
+/// order: frame dropping is handled here, and downstream drops corrupt subsequent delta frames.
 pub struct Pipe {
     viewer: String,
     seat: u64,
@@ -227,8 +227,8 @@ pub struct Pipe {
     events: mpsc::Sender<Event>,
 }
 
-/// The newest state for one viewer, which its pipe takes as soon as it has room. A newer state
-/// takes the place of one that waits but keeps its copy, so that a copy reaches its viewer once.
+/// Single-slot coalescing queue for viewer `State` updates. Replacing an unread state preserves
+/// one-shot fields (`copied` and pending `icons`) so they are delivered once.
 #[derive(Default)]
 pub(crate) struct Mailbox {
     state: Mutex<Option<State>>,
@@ -271,7 +271,7 @@ impl Pipe {
             .map_err(|_| Error::Stopped)
     }
 
-    /// The newest state comes before the pictures that wait.
+    /// Returns the next outgoing message, prioritizing the latest state update over queued frames.
     pub async fn receive(&mut self) -> Option<Bytes> {
         loop {
             if let Some(state) = self.mailbox.take() {
@@ -354,12 +354,11 @@ struct Seat {
     outgoing: mpsc::Sender<Bytes>,
     mailbox: Arc<Mailbox>,
     pointer: Option<(f64, f64)>,
-    /// The size of the viewer's view, which the page takes while this viewer is in control.
     size: Option<Size>,
-    /// The viewer gets no state before it says how it watches, as the state names its picture.
+    /// `None` until `Watch` arrives; state is withheld until then since it depends on layer mode.
     watching: Option<Watching>,
-    /// Since when a still waits for the acknowledgment of a view that hosts the layer. The view
-    /// gets no other still before it, and leaves as a view of the video does when none comes.
+    /// Timestamp of an unacked fallback still for a layer-hosting view; gates further stills and
+    /// triggers `HOPELESS` eviction on timeout.
     still_since: Option<Instant>,
 }
 
@@ -372,7 +371,7 @@ impl Seat {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Watching {
     Video,
-    /// The view runs on the browser's computer and hosts the page's layer, so it takes no video.
+    /// Local view hosting the Core Animation layer (`anchors` is saved in case of video fallback).
     Layer {
         anchors: bool,
     },
@@ -380,23 +379,17 @@ enum Watching {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Layer {
-    /// It has shown no picture yet.
     Coming,
-    /// It shows the page, in the Core Animation context of this id.
     Shows(u32),
-    /// The engine has none, so each view takes video.
     Missing,
 }
 
-/// The frames that wait in a viewer's pipe.
 fn queued(seats: &HashMap<String, Seat>, viewer: &str) -> usize {
     seats.get(viewer).map_or(0, |seat| {
         seat.outgoing.max_capacity() - seat.outgoing.capacity()
     })
 }
 
-/// Frees a viewer's seat only for the join that took it. A viewer that joined again on a new
-/// pipe keeps its new seat when the earlier pipe goes.
 fn free(seats: &mut HashMap<String, Seat>, viewer: &str, number: u64) -> Option<Seat> {
     let taken = seats.get(viewer).is_some_and(|seat| seat.number == number);
     taken.then(|| seats.remove(viewer)).flatten()
@@ -418,12 +411,11 @@ struct Context {
     link: Option<String>,
 }
 
-/// The viewer whose press, key or scroll came last, or the first viewer while nobody acted: the
-/// page has the size of its view, and a list, a copy or a file picker that the page opens is its
-/// own.
+/// Viewer currently driving the window (last to act, or first to join). Its viewport sets the
+/// page size, and menus, copies, and file pickers route to it.
 struct Control {
     viewer: String,
-    /// The viewer holds a button, so the page keeps its size until the release.
+    /// Suppresses resizes while a mouse button is held down.
     held: bool,
 }
 
@@ -441,8 +433,7 @@ struct Copied {
     text: String,
 }
 
-/// Whose act on the page came last. A copy goes to the clipboard of the person who made it, and
-/// a copy after an agent's command is no person's.
+/// Tracks whether a user or agent acted last so agent-triggered copies do not reach a clipboard.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Actor {
     Person,
@@ -464,38 +455,33 @@ struct Live {
     active: Option<i64>,
     capturing: Option<i64>,
     capture_failed_at: Option<Instant>,
-    /// The tab that the engine draws into the window's layer.
+    /// Tab currently rendered into the window's Core Animation layer.
     layering: Option<i64>,
     layer: Layer,
     next_frame: u32,
     used_at: Instant,
     control: Option<Control>,
     actor: Actor,
-    /// The page's answer to the last press, release or scroll, which a new size waits for.
+    /// Pending CDP reply for the last mouse press/release/wheel; resizes wait on this.
     answer: Option<oneshot::Receiver<Result<serde_json::Value, Error>>>,
     answering: bool,
     events: mpsc::WeakSender<Event>,
-    /// A copy goes once, with the next state, so that each copy reaches the pasteboard, also
-    /// the same words again, and an old copy never comes back.
+    /// One-shot clipboard copy cleared after publishing so repeated identical copies still deliver.
     copied: Option<Copied>,
-    /// The icon of each tab, and those that changed since the last state, which go to every
-    /// viewer once.
+    /// Full favicon cache for new joiners, plus changes pending broadcast in the next publish.
     icons: BTreeMap<String, String>,
     new_icons: BTreeMap<String, String>,
     open_menu: Option<OpenMenu>,
     context: Option<Context>,
-    /// The dialogs of the window's tabs, one for each tab, oldest first. The window shows the
-    /// newest.
+    /// Open tab dialogs ordered oldest-first; the newest is shown.
     dialogs: Vec<(i64, Dialog)>,
     chooser: Option<Waiting>,
     downloads: HashMap<String, String>,
-    /// Whether a page may start a download. Each action of a person or an agent allows one, as
-    /// in a browser, so a page cannot fill the folder on its own.
+    /// Allows one download per user or agent action so pages cannot flood the folder.
     may_download: bool,
-    /// Downloads that a page started with no action before them, until they end.
+    /// Unsolicited download GUIDs cancelled on start and tracked until cleanup in `download_ended`.
     refused: HashSet<String>,
-    /// Steps that came before the window knew its page, such as the address of a new window:
-    /// the latest of each kind.
+    /// Latest queued CDP commands per method waiting for the initial page session to attach.
     waiting: Vec<(&'static str, serde_json::Value)>,
 }
 
@@ -547,7 +533,6 @@ impl Live {
         }
     }
 
-    /// Returns whether the window ended because its last tab closed.
     async fn run(
         mut self,
         mut events: mpsc::Receiver<Event>,
@@ -678,9 +663,8 @@ impl Live {
         }
     }
 
-    /// A list, a copy and a file picker belong to the viewer in control. A person's own pointer
-    /// is on the screen that they use, so no view of theirs shows it again; an agent's pointer
-    /// comes from the canvas and stays. Only a view that hosts the layer learns its context.
+    /// Hides pointers belonging to the same user (already visible locally) and scopes `layer`,
+    /// `menu`, `copied`, and `chooser` to the eligible viewer.
     fn state_for(&self, viewer: &Viewer, layer: bool) -> State {
         let pressed = self.in_control(&viewer.id);
         let mut state = self.state.clone();
@@ -702,7 +686,7 @@ impl Live {
         state
     }
 
-    /// Returns whether the window ends.
+    /// Returns `true` when the window should close.
     async fn handle(&mut self, event: Event) -> bool {
         match event {
             Event::Join {
@@ -747,7 +731,7 @@ impl Live {
                 self.capture_failed_at = Some(Instant::now());
             }
             Event::Layer(context) => {
-                // A report of the layer that waited for this window can come after its failure.
+                // Ignore a queued `Layer` event that arrives after `NoLayer` disabled layer mode.
                 if self.layer != Layer::Missing {
                     self.layer = Layer::Shows(context);
                     self.publish();
@@ -755,7 +739,7 @@ impl Live {
             }
             Event::NoLayer => self.take_video(),
             Event::Tabs { tabs, active } => return self.tabs(tabs, active),
-            // The person's own pointer takes this shape, so it cannot wait for the tick.
+            // The user's own pointer takes this shape, so publish it now rather than at the tick.
             Event::Shape(shape) => {
                 self.state.shape = shape;
                 self.publish();
@@ -917,8 +901,7 @@ impl Live {
         }
     }
 
-    /// A still has the number of the newest frame of the video, as the views that take the video
-    /// count its frames for gaps.
+    /// Reuses `next_frame` without incrementing it so video viewers do not see a frame ID gap.
     fn still(&mut self, data: Bytes) {
         let now = Instant::now();
         let message = ToViewer::Frame(Frame {
@@ -938,7 +921,7 @@ impl Live {
         }
     }
 
-    /// Returns whether the last tab closed.
+    /// Returns `true` if the last tab closed.
     fn tabs(&mut self, tabs: Vec<EngineTab>, active: Option<i64>) -> bool {
         let emptied = !self.state.tabs.is_empty() && tabs.is_empty();
         self.active = active;
@@ -1034,8 +1017,8 @@ impl Live {
         });
     }
 
-    /// A viewer that only looks keeps its size here, so that it never changes the shape of the
-    /// page under the viewer who uses it, only the pixels that the page gets.
+    /// Stores each viewer's size so passive viewers never change the page dimensions, only the
+    /// render scale factor when sharper.
     fn keep_size(&mut self, viewer: &str, size: Size) {
         if let Some(seat) = self.seats.get_mut(viewer) {
             seat.size = Some(size);
@@ -1056,9 +1039,8 @@ impl Live {
         }
     }
 
-    /// A person who opens the browser on another of their devices uses that one now. Another
-    /// person's view takes the page only when it acts, so that nobody reshapes it under the one
-    /// who uses it.
+    /// Hands control to a newly opened view from the same user; another user's view only takes
+    /// control when it interacts, avoiding unexpected resizes.
     fn opened(&mut self, viewer: &str) {
         let person = |view: &str| self.seats.get(view).map(|seat| &seat.viewer.person);
         let own = self.control.as_ref().is_some_and(|control| {
@@ -1078,9 +1060,8 @@ impl Live {
             .is_some_and(|control| control.viewer == viewer)
     }
 
-    /// The control goes to another view of the person whose view went, as they use it now, or
-    /// else to the viewer that came first of those that stay, and the page loses the pixels that
-    /// only the viewer that went showed.
+    /// Transfers control to another view of the same user if one remains, otherwise to the
+    /// earliest remaining viewer, then recalculates page size and scale.
     fn gone(&mut self, left: &Seat) {
         if self.in_control(&left.viewer.id) {
             self.control = self
@@ -1092,10 +1073,9 @@ impl Live {
         self.follow();
     }
 
-    /// The page takes the size of the view in control, but never under a held button, and only
-    /// after the page took the last press, release or scroll. Those reach the page by its debug
-    /// port and the size by the engine's link, so without the wait a press could meet the new
-    /// layout with the place that the viewer found on the old one.
+    /// Resizes the page to match the controlling viewer once no mouse button is held and the last
+    /// press/release/wheel has been processed. Input travels over CDP while resizes use the engine
+    /// link, so waiting prevents clicks from landing on a newly reflowed layout.
     fn follow(&mut self) {
         if self.answering {
             return;
@@ -1127,9 +1107,8 @@ impl Live {
         self.resize(size);
     }
 
-    /// The engine draws the pages of this window at the size of the viewer in control and with
-    /// the pixels of the sharpest view, so that each picture has the pixels that its viewers show.
-    /// The new size goes to the viewers at once, because they place each point by it.
+    /// Sends the new size to the engine and publishes immediately because viewers use the window
+    /// dimensions to map pointer coordinates.
     fn resize(&mut self, size: Size) {
         self.size = size;
         self.state.width = size.width;
@@ -1160,8 +1139,8 @@ impl Live {
         }
     }
 
-    /// A new window learns its page a moment after it opens, so a step that the page must get,
-    /// such as an address, waits for it.
+    /// Sends a CDP command immediately, or queues the latest call per method until the new
+    /// window's initial page attaches.
     fn page_soon(&mut self, method: &'static str, params: serde_json::Value) {
         if let Some(session) = self.active_session() {
             self.engine.devtools().send(method, &params, Some(&session));
@@ -1372,7 +1351,6 @@ impl Live {
         self.dirty = true;
     }
 
-    /// A menu opens where its viewer last pointed, which is where a press opened it.
     fn menu_of(
         &self,
         viewer: String,
@@ -1527,9 +1505,9 @@ fn keep_latest(
     waiting.push((method, params));
 }
 
-/// A view that is narrower than Chrome's window gets a wider page of its own shape, drawn with
-/// fewer pixels for each point, so that the picture fills the view and still has its pixels. Each
-/// of the `views` fits the page into itself, and the page gets the pixels of the sharpest.
+/// Computes engine viewport dimensions and scale for the controlling `size` and all `views`.
+/// Views narrower than `NARROWEST` expand proportionally at a lower scale to preserve aspect
+/// ratio and pixel count, then scale up to match the sharpest viewer.
 fn fitted(size: Size, views: impl IntoIterator<Item = Size>) -> Option<Size> {
     if !usable(size) {
         return None;
@@ -1559,7 +1537,7 @@ fn usable(size: Size) -> bool {
     SIZES.contains(&size.width) && SIZES.contains(&size.height) && size.scale > 0.0
 }
 
-/// The pixels for each point of a page that a view shows when it fits the page into itself.
+/// Effective device pixels per page CSS pixel when aspect-fitting `width` x `height` into `view`.
 fn shown(view: Size, width: u32, height: u32) -> Option<f32> {
     if !usable(view) {
         return None;
@@ -1572,9 +1550,8 @@ fn shown(view: Size, width: u32, height: u32) -> Option<f32> {
     Some(fit * view.scale)
 }
 
-/// A page whose picture the encoder would refuse gets fewer pixels for each point, and one that is
-/// too large for it even at one pixel for each point gets smaller in its own shape. Chrome rounds
-/// the pixels of each side up.
+/// Clamps scale (and, if needed, CSS dimensions at scale 1.0) so the encoded frame fits within
+/// the encoder's limits. Uses `ceil` because Chromium rounds fractional pixel dimensions up.
 fn encodable(size: Size, (most_long, most_short): (u16, u16)) -> Option<Size> {
     let tall = size.height > size.width;
     let (long, short) = if tall {
@@ -1613,7 +1590,8 @@ fn cut(text: &str, most: usize) -> String {
     text[..text.floor_char_boundary(most)].to_owned()
 }
 
-/// A page names the file, so only its last part counts, and an equal name gets a number.
+/// Strips directory components from the page-supplied `name` before moving the download into
+/// `folder` under a unique filename.
 async fn deliver(source: &Path, folder: &Path, name: &str) -> Result<PathBuf, Error> {
     let name = Path::new(name)
         .file_name()

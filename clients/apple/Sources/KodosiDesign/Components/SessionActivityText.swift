@@ -8,7 +8,8 @@ public struct SessionActivityText: View {
     let showsPlace: Bool
     let naming: Bool
 
-    /// With `naming`, the line names the terminal, because its title shows the agent's summary.
+    /// Set `naming` when the primary title shows the agent summary so this subtitle shows the
+    /// terminal name instead.
     public init(session: RuntimeSession, fallback: String? = nil, showsPlace: Bool = false, naming: Bool = false) {
         self.session = session
         self.fallback = fallback

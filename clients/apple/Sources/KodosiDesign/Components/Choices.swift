@@ -43,8 +43,8 @@ public struct FriendChoice: View {
     let blocked: Bool
     let ring: Color?
 
-    /// A `changed` friend has a new identity, and a `blocked` one cannot be chosen until you trust
-    /// it. The `ring` is the ground under the face.
+    /// `changed` marks a friend whose identity key changed, `blocked` dims an untrusted friend,
+    /// and `ring` sets the cutout stroke color behind overlay badges.
     public init(name: String, key: String, selected: Bool, changed: Bool = false, blocked: Bool = false, ring: Color? = nil) {
         self.name = name
         self.key = key

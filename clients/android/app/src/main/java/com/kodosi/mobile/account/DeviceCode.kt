@@ -1,7 +1,6 @@
 package com.kodosi.mobile.account
 
-/** A scanner or an opened link passes on only a text in the form that the runtime makes for this
- *  way; the runtime decides the rest. */
+// Prefix check only; full validation is done by the runtime.
 object DeviceCode {
     fun join(text: String): String? = scanned(text, "join")
 

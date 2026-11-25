@@ -50,7 +50,7 @@ pub(crate) struct Recipient {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct State {
-    /// The members signed this name with the state, and each later state names the hash of those bytes.
+    /// Signed field name stays `"roomId"` because member signatures and state hashes cover it.
     #[serde(rename = "roomId")]
     pub project_id: Uuid,
     pub owner_user_id: String,
@@ -83,7 +83,7 @@ pub(crate) struct VerifiedState {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct Content {
-    /// The author signed this name with the content.
+    /// Signed field name stays `"roomId"` because content signatures cover the serialized JSON.
     #[serde(rename = "roomId")]
     pub project_id: Uuid,
     pub id: Uuid,

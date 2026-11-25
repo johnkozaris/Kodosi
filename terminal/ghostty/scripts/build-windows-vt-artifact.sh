@@ -34,9 +34,8 @@ OPTIONS=(
     "strip=true"
 )
 
-# Windows cannot unpack Ghostty's themes archive: for the theme "Neon Raincheck: After Hours",
-# NTFS makes a stream of the file "Neon Raincheck", which the archive also holds. The VT library
-# never asks for the themes.
+# Pass the VT build options so Zig skips Ghostty's themes archive, which fails to unpack on NTFS
+# because "Neon Raincheck: After Hours" collides as an alternate data stream on "Neon Raincheck".
 ZIG_STORE_DIGEST=$("$ROOT_DIR/scripts/prepare-zig-store.sh" "$SOURCE_DIR" "${OPTIONS[@]/#/-D}")
 
 echo "[*] building Ghostty VT library for $GHOSTTY_WINDOWS_VT_TARGET"
@@ -80,11 +79,11 @@ for name in objects:
     path = object_root / name
     if not path.is_file() or path.stat().st_size == 0:
         raise SystemExit(f"[!] Ghostty VT archive contains an empty object: {name}")
-    # Stripping renumbers the symbols; llvm-objcopy would leave each address-significance
-    # table pointing at the old numbers, so drop the tables and let the linker assume all.
+    # Stripping debug info renumbers symbols and invalidates .llvm_addrsig indices, so remove
+    # the section and let the linker treat all symbols as address-significant.
     subprocess.run(["llvm-objcopy", "--strip-debug", "--remove-section=.llvm_addrsig", path], check=True)
-    # Clang writes the build time into each COFF header; a zero time gives the
-    # same library from the same inputs. A big object header keeps it 8 bytes in.
+    # Zero the COFF TimeDateStamp for reproducible builds (offset 8 for bigobj headers,
+    # offset 4 for standard COFF headers).
     data = bytearray(path.read_bytes())
     stamp = 8 if data[:4] == b"\x00\x00\xff\xff" else 4
     data[stamp:stamp + 4] = bytes(4)

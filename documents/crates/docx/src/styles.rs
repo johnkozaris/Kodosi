@@ -21,7 +21,7 @@ fn number(text: Option<&str>) -> Option<f64> {
     text.and_then(|text| text.parse().ok())
 }
 
-/// Sizes are in points.
+/// Measurements in `values` are normalized to points.
 #[derive(Debug, Clone, Default)]
 struct Look {
     based_on: Option<String>,
@@ -182,7 +182,7 @@ pub(crate) fn numbering(text: &str) -> Value {
     Value::Object(lists)
 }
 
-/// The page, in points.
+/// Returns page dimensions and margins in points.
 pub(crate) fn page(section: Xml<'_, '_>) -> Value {
     let points = |node: Option<Xml<'_, '_>>, name: &str| {
         number(node.and_then(|node| word_attribute(node, name))).map(|value| value / 20.0)

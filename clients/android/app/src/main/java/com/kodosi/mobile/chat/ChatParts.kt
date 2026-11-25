@@ -60,7 +60,6 @@ internal object ChatType {
     val monoCaption = TextStyle(fontFamily = terminal, fontSize = 11.sp, lineHeight = 15.sp)
 }
 
-/** Code and what a command printed sink into the chat that shows them. */
 @Composable
 internal fun CodeWell(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
     Box(modifier.well(KodosiTheme.colors, RoundedCornerShape(Radius.md)).padding(10.dp), content = content)

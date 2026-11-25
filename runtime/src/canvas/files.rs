@@ -265,7 +265,8 @@ impl Files {
             .filter(|snapshot| self.contains(&snapshot.key));
     }
 
-    /// Every part of one revision comes from one copy of the file.
+    /// Serves all chunks of a revision from a single cached snapshot so mid-transfer edits do not
+    /// mix bytes from different file versions.
     pub(super) async fn read(
         &mut self,
         key: &str,

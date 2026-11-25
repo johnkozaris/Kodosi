@@ -144,8 +144,8 @@ pub enum CompressionProgress {
     Complete,
 }
 
-/// What a snapshot declares in its first record. The decoder allocates by
-/// these values before it checks the rest of the snapshot.
+/// Header fields from a snapshot's first record, read up front because the
+/// decoder allocates from them before validating the rest of the snapshot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SnapshotHeader {
     pub cols: u16,
@@ -157,7 +157,7 @@ pub struct SnapshotHeader {
 }
 
 impl SnapshotHeader {
-    /// Follows the documented TERMINAL record of snapshot format version 1.
+    /// Parses the TERMINAL record layout defined by Ghostty snapshot format v1.
     pub fn read(snapshot: &[u8]) -> Result<Self, Error> {
         let record = snapshot
             .strip_prefix(SNAPSHOT_ENVELOPE)
@@ -269,11 +269,10 @@ impl Terminal {
         Ok(terminal)
     }
 
-    /// Restores a terminal from a Ghostty snapshot. A snapshot that ends before its
-    /// history, after READY and the image pixels that follow it, restores the
-    /// screens without history. The decoder keeps history up to the limits the
-    /// snapshot declares, so a snapshot that declares more than these limits is
-    /// refused before it is decoded. Images over the image limit evict older ones.
+    /// Snapshots ending after READY and screen image payloads restore without
+    /// history. Because the decoder adopts the scrollback limits declared in
+    /// the snapshot header, snapshots that declare more than `limits` are
+    /// rejected before decoding. Images beyond the storage limit evict older ones.
     pub fn from_snapshot(snapshot: &[u8], limits: Limits) -> Result<Self, Error> {
         let Limits {
             continuation_max_bytes,
@@ -492,8 +491,8 @@ impl Terminal {
         self.drain_effects()
     }
 
-    /// Matches `ConPTY`, which measures grapheme clusters (mode 2027) and keeps no
-    /// scrollback, so a taller screen gains blank rows instead of history.
+    /// Matches `ConPTY`: enables grapheme cluster widths (mode 2027) and keeps
+    /// taller resizes from pulling scrollback rows into the viewport.
     pub fn use_console_profile(&mut self) -> Result<(), Error> {
         self.ensure_healthy()?;
         let graphemes = GhosttyTerminalModeConfig {
@@ -789,10 +788,10 @@ impl Terminal {
         Ok(config.value)
     }
 
-    /// Encodes a Ghostty snapshot. Without history it ends before the history,
-    /// after READY and the pixels of the images on screen: the screens, their
-    /// cursors and modes, their images, and the unfinished input. Pixels over the
-    /// image data limit stay out, and their images wait for a later snapshot.
+    /// When `history` is false, stops after READY and any screen image pixel
+    /// payloads, omitting scrollback history. Image pixel payloads exceeding
+    /// `limits.image_data_bytes` are omitted so the snapshot stays within budget;
+    /// their images wait for a later snapshot.
     pub fn encode_snapshot(
         &mut self,
         history: bool,
@@ -905,7 +904,8 @@ impl DecoderGuard {
         self.get(GhosttySnapshotDecoderData_GHOSTTY_SNAPSHOT_DECODER_DATA_SOURCE_OFFSET)
     }
 
-    /// Once a history page arrived, the snapshot must end with FINISH.
+    /// Once any history page is decoded, require the snapshot to reach FINISH
+    /// rather than stopping at EOF.
     fn restore_history(&self, snapshot_len: usize) -> Result<(), Error> {
         let mut history = false;
         while history || self.source_offset()? < snapshot_len {
@@ -935,7 +935,7 @@ struct SnapshotRecord {
     kept: bool,
 }
 
-/// Follows the documented record framing of snapshot format version 1.
+/// Frames encoded records according to Ghostty snapshot format v1.
 struct SnapshotSink {
     bytes: Vec<u8>,
     limits: SnapshotLimits,

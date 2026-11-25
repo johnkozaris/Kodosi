@@ -5,7 +5,7 @@ use super::{Cookie, CopyError, Kind, SignInSource, open_store, store_copy};
 const STORE: &str = "cookies.sqlite";
 const BROWSER: &str = "firefox";
 const MILLISECONDS: f64 = 1000.0;
-/// A date that is larger than this counts in milliseconds, as newer stores do.
+/// Threshold distinguishing legacy Unix-second expiries from newer millisecond timestamps.
 const LARGEST_DATE_IN_SECONDS: i64 = 100_000_000_000;
 
 fn roots(home: &Path) -> Vec<PathBuf> {

@@ -40,7 +40,7 @@ import kotlinx.coroutines.withContext
 @SuppressLint("ViewConstructor")
 class TerminalView(context: Context, private val connection: TerminalConnection, scope: CoroutineScope) :
     View(context) {
-    /** Control for the next key, from the key row. */
+    // One-shot Ctrl modifier toggled from the soft key row; cleared after the next key press.
     var control = false
         set(value) {
             field = value
@@ -402,7 +402,7 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
         connection.kernel.animationDelay?.let { postInvalidateDelayed(it.coerceAtLeast(8)) }
     }
 
-    /** With less room than the terminal's rows, the bottom rows show, or the rows down to the cursor. */
+    // When the view is shorter than the PTY, anchor to the bottom rows unless the cursor is higher.
     private fun top(frame: TerminalFrame): Int {
         val hidden = max(0, frame.rows * cellHeight - height)
         val cursorTop = frame.cursor.row * cellHeight

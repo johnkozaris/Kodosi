@@ -8,7 +8,7 @@ import type { JsonValue } from "./serde_json/JsonValue";
 
 export type ToClient = { "type": "joined", id: string, name: string, canEdit: boolean, epoch: number, rev: number, 
 /**
- * The last batch of this client that the document took, and none when the document does
- * not know the client, so that it cannot tell whether it took the batch on its way.
+ * Last accepted sequence number for this client, or `None` if the client is unknown and
+ * in-flight batch status cannot be determined.
  */
 seq: number | null, peers: Array<Peer>, catchup: Catchup, } | { "type": "changed" } & Changed | { "type": "refused", seq: number, reason: RefusedReason, detail?: string, } | { "type": "answer", id: number, rev: number, body: JsonValue, } | { "type": "saved", rev: number, waits: boolean, } | { "type": "peer" } & Peer | { "type": "left", id: string, } | { "type": "closed", reason: ClosedReason, };

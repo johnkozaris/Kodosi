@@ -85,7 +85,8 @@ fn parse(bytes: &[u8]) -> Option<Vec<Cookie>> {
     Some(cookies)
 }
 
-/// Safari keeps its store where macOS lets only apps with Full Disk Access read.
+/// Safari's cookie container requires Full Disk Access on macOS, so `PermissionDenied` maps to
+/// `CopyError::Protected`.
 pub(super) fn read(file: &Path) -> Result<Vec<Cookie>, CopyError> {
     let bytes = match std::fs::read(file) {
         Ok(bytes) => bytes,

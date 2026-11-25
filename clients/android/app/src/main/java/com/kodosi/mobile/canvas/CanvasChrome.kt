@@ -164,7 +164,7 @@ private fun RemoveKey(@StringRes label: Int, close: () -> Unit) {
     }
 }
 
-/** A tab that changes, such as one that gets its title, has its new width only after the next layout. */
+// Wait a frame so any updated tab width (e.g. a new title) is measured before scrolling.
 internal suspend fun LazyListState.keepInView(index: Int) {
     withFrameNanos {}
     val info = layoutInfo

@@ -155,7 +155,6 @@ fun MenuPicker(
         } else {
             row()
         }
-        // The menu opens under the value that it changes, at the end of the line.
         Box(Modifier.align(Alignment.BottomEnd)) {
             KodosiMenu(expanded && enabled, { expanded = false }) {
                 options.forEach { (id, name) ->

@@ -90,7 +90,7 @@ inline constexpr TerminalColors darkTerminalColors {
     .minimumContrast = 1.1,
 };
 
-// White and bright white are mid grays, so that text a program draws as white stays readable.
+// ANSI white and bright white use mid-grays so white text stays legible on the light background.
 inline constexpr TerminalColors lightTerminalColors {
     .foreground = {0x2a, 0x1d, 0x15},
     .background = {0xfa, 0xf6, 0xee},

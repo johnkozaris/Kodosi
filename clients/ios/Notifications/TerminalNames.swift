@@ -1,6 +1,5 @@
 import Foundation
 
-/// The app keeps these names in its app group for the notification extension.
 nonisolated struct TerminalNames: Codable, Equatable {
     struct Entry: Codable, Equatable {
         let name: String

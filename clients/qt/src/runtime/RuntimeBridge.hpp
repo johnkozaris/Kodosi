@@ -39,9 +39,8 @@ public:
     [[nodiscard]] virtual Result send(QByteArrayView json) = 0;
 };
 
-// The events of a routed pipe skip the GUI thread: each one goes to its reader's thread in the
-// order that the runtime sent it, with `afterDrop` when the app dropped events since the one
-// before, until the pipe is unrouted.
+// Delivers events for a pipe directly to its reader's thread in runtime order, bypassing the GUI
+// thread. `afterDrop` is true if events were dropped since the previous delivery.
 class PipeRouter {
 public:
     using Read = std::function<void(const QByteArray& event, bool afterDrop)>;
@@ -125,9 +124,8 @@ public:
     void stop() noexcept;
     void quit() noexcept;
     void stopHostAsync(std::function<void(HostStop)> completion);
-    // Takes commands from any thread. A runtime callback holds a lock of the runtime while it
-    // runs, and the runtime may call back on the sending thread, so no lock that a callback
-    // takes may be held while a command goes.
+    // Thread-safe. Runtime callbacks hold an internal runtime lock and may fire synchronously on
+    // the calling thread, so never hold any callback-acquired mutex across `send()`.
     [[nodiscard]] Result send(QByteArrayView json) override;
     void route(const QString& pipe, QObject& reader, Read read) override;
     void unroute(const QString& pipe) override;
@@ -141,8 +139,8 @@ signals:
     void eventReceived(QJsonObject event, quint64 accountEpoch, QByteArray payload);
     void runningChanged(bool running);
     void hostForegroundChanged();
-    // The events that the app dropped may hold the answers that its requests wait for, so each
-    // request that waits ends with this message.
+    // Emitted when event backlog overflow forces a resync; receivers should fail pending requests
+    // with `message` because their replies may have been dropped.
     void fellBehind(QString message);
 
 private:

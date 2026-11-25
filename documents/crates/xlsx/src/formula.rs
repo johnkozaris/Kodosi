@@ -1,6 +1,6 @@
 use std::fmt::Write as _;
 
-/// The name of a column, from 0: A, B, ... Z, AA.
+/// Converts a 0-based column index to Excel letters (`0` -> `"A"`, `26` -> `"AA"`).
 pub(crate) fn column_name(mut column: u32) -> String {
     let mut letters = Vec::new();
     loop {
@@ -30,7 +30,7 @@ pub(crate) fn cell_name(row: u32, column: u32) -> String {
     format!("{}{}", column_name(column), row + 1)
 }
 
-/// `B2` as a row and a column, from 0.
+/// Parses a cell reference like `"B2"` into 0-based `(row, column)`.
 pub(crate) fn parse_cell(name: &str) -> Option<(u32, u32)> {
     let split = name.find(|letter: char| letter.is_ascii_digit())?;
     let (letters, digits) = name.split_at(split);
@@ -121,8 +121,8 @@ type ReferenceEnds = (Reference, Option<Reference>);
 type MapReference<'a> =
     dyn Fn(Option<&str>, Reference, Option<Reference>) -> Option<ReferenceEnds> + 'a;
 
-/// `change` takes the sheet that the reference names and both of its ends, and it can give
-/// nothing, which makes the reference `#REF!`.
+/// Rewrites cell and range references via `change`; returning `None` replaces the reference with
+/// `#REF!`.
 pub(crate) fn map_references(formula: &str, change: &MapReference<'_>) -> String {
     let letters: Vec<char> = formula.chars().collect();
     let mut out = String::with_capacity(formula.len());

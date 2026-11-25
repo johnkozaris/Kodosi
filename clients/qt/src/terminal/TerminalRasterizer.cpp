@@ -363,8 +363,8 @@ bool graphicsElement(const QString& grapheme)
         || (codepoint >= 0x1FB00 && codepoint <= 0x1FBFF) || (codepoint >= 0x1CC00 && codepoint <= 0x1CEBF);
 }
 
-// As in Ghostty's renderer, so that a terminal reads alike in every app. Graphics elements keep
-// their colors because they join the colors of the cells around them.
+// Match Ghostty's minimum-contrast adjustment so a terminal reads the same in every app. Skip
+// graphics/box-drawing glyphs so they keep matching adjacent cell colors.
 QColor legibleForeground(const TerminalCell& cell, const double minimumContrast)
 {
     if (minimumContrast <= 1.0 || graphicsElement(cell.grapheme)) {

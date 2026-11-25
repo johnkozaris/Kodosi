@@ -13,7 +13,6 @@ mod windows;
 #[cfg(windows)]
 pub use windows::{KodosiPty, PtyReader, process_start};
 
-/// What a running process of this user started with.
 pub struct ProcessStart {
     pub program: PathBuf,
     pub arguments: Vec<String>,
@@ -21,13 +20,13 @@ pub struct ProcessStart {
     pub directory: PathBuf,
 }
 
-/// Windows has no process groups; its foreground observation names the agent's process.
+/// Windows has no POSIX process groups; foreground inspection tracks the
+/// process PID directly.
 #[cfg(windows)]
 pub const fn process_group(_pid: u32) -> Option<u32> {
     None
 }
 
-/// Kodosi does not read the open files of a process on Windows.
 #[cfg(windows)]
 pub const fn open_files(_group: u32) -> Option<Vec<PathBuf>> {
     None

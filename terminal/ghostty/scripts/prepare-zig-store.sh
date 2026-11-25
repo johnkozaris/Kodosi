@@ -17,15 +17,13 @@ if ! command -v zig >/dev/null 2>&1; then
 fi
 
 rm -rf "$SOURCE_DIR/zig-pkg"
-# Zig 0.17 can crash a --system build whose global cache holds package
-# archives, and a build cache without them proves that the build used only
-# the store, so the fetch keeps its own cache apart from the build cache.
+# Isolate the fetch cache from the build cache: Zig 0.17 can crash a --system build if its
+# global cache holds package archives, and keeping them separate ensures builds only use zig-pkg.
 FETCH_CACHE_DIR="$PWD/build/cache/zig-fetch"
 FETCH=(--fetch=all)
 if [ $# -gt 0 ]; then
-    # Configuring the build with these options fetches the lazy packages that it asks for.
-    # Zig also puts each lazy package that its cache already holds into the store, so this
-    # fetch starts from an empty cache.
+    # --list-steps fetches only the lazy dependencies needed for these build options. Clear the
+    # cache first so Zig does not also copy unrelated cached packages into zig-pkg.
     FETCH_CACHE_DIR="$PWD/build/cache/zig-fetch-build"
     rm -rf "$FETCH_CACHE_DIR"
     FETCH=(--list-steps "$@")

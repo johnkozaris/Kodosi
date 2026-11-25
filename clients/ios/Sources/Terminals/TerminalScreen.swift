@@ -299,7 +299,7 @@ private struct TerminalScreenContent: View {
             .animation(theme.motion.spring, value: arrival)
     }
 
-    /// The screen is the terminal's, and the chat face, full screen without a tile, is the app's.
+    /// Full-screen chat follows the app theme instead of the terminal's light/dark look.
     private func look(of session: RuntimeSession?) -> TerminalLook {
         guard let session, !(chatting && session.isConnected) else { return theme.isDark ? .dark : .light }
         return session.terminalLook
@@ -366,8 +366,8 @@ private struct TerminalScreenContent: View {
     }
 }
 
-/// The model in a chat's facts opens the agent's model, effort and fast mode in a sheet, which
-/// `/model` also opens.
+/// The model shown in a chat's facts opens a sheet with the agent's model, effort, and fast mode;
+/// `/model` opens the same sheet.
 private struct ChatModelMenu: View {
     @Environment(AppModel.self) private var model
     let session: RuntimeSession

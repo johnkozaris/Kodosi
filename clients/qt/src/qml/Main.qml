@@ -14,7 +14,8 @@ ApplicationWindow {
     readonly property string notice: Models.AppState.error || Models.DesktopState.lastError || Models.DesktopFiles.errorMessage
     readonly property bool updateNotice: Models.ApplicationLifecycle.updateInstalled && !updateNoticeDismissed
     property bool updateNoticeDismissed: false
-    // Windows installs the update only when no program of Kodosi runs, and `kodosi host` in a terminal is one.
+    // Windows only applies a staged MSIX update once all Kodosi processes exit, including a
+    // foreground `kodosi host`.
     readonly property string updateText: Qt.platform.os === "windows" && Models.ApplicationLifecycle.hostForeground
         ? qsTr("Kodosi was updated. Stop the kodosi host command, then restart Kodosi.")
         : qsTr("Kodosi was updated. Restart it to use the new version.")
@@ -169,7 +170,8 @@ ApplicationWindow {
 
             readonly property real reach: 560
 
-            // The light is clear beyond its reach, so the shape ends there and leaves the rest of the window undrawn.
+            // Clamp the shape to the radial gradient's reach so the rest of the window avoids
+            // transparent overdraw.
             width: Math.min(parent.width, light.centerX + reach)
             height: Math.min(parent.height, light.centerY + reach)
             preferredRendererType: Shape.CurveRenderer

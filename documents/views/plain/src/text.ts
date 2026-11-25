@@ -20,10 +20,6 @@ function leadOf(text: string): string {
   return /^[\t ]*/.exec(text)?.[0] ?? "";
 }
 
-/**
- * The text that one press of Tab adds: a tab where lines step in with tabs, else the spaces by
- * which lines step in most often, and two spaces where no line steps in.
- */
 export function indentOf(doc: ProseNode): string {
   const steps = new Map<number, number>();
   let tabs = 0;

@@ -1,8 +1,3 @@
-//! The chat of one terminal.
-//!
-//! It takes what the agent's link reports, keeps the chat, sends each change to the people who
-//! have the chat open, and carries what they send back to the agent.
-
 use std::{collections::HashMap, time::Duration};
 
 use serde_json::Value;
@@ -23,10 +18,10 @@ use crate::{
 };
 
 const JOBS: usize = 256;
-/// The module of a link asks again at once after each answer, and each answer comes within the
-/// time that a request waits. A link that asks for nothing during this time is gone.
+/// Disconnect timeout: an active link immediately re-issues long-poll requests (which return
+/// within `link::HOLD`), so 45 seconds of silence means the link is gone.
 const SILENCE: Duration = Duration::from_secs(45);
-/// After the waiting request of a link broke, the module has this time to ask again.
+/// Grace period for a link to reconnect after its active long-poll connection drops.
 const GRACE: Duration = Duration::from_secs(3);
 const MOST_DECISIONS: usize = 32;
 
@@ -42,10 +37,10 @@ pub(super) enum Job {
     Detach {
         viewer: u64,
     },
-    /// The answer says if the reports come from the link that the chat follows.
+    /// Replies `false` if `link` is not the active link for this chat.
     Events {
         link: String,
-        /// The module counts its batches, and sends a batch again when it got no answer.
+        /// Monotonic batch sequence number used to ignore retried batches.
         batch: u64,
         events: Vec<Value>,
         /// The session of the process that sent them.
@@ -62,7 +57,7 @@ pub(super) enum Job {
         ask: String,
         reply: oneshot::Sender<Asked>,
     },
-    /// The answer is nothing for a link that the chat does not follow.
+    /// Replies `None` if `link` is not the active link for this chat.
     Next {
         link: String,
         reply: oneshot::Sender<Option<Vec<Value>>>,
@@ -127,13 +122,13 @@ impl ChatHandle {
         self.jobs.downgrade()
     }
 
-    /// The agent that reports to the chat, while one does.
+    /// Reports the agent linked to the chat, or `None` when no agent is linked.
     pub(crate) fn linked(&self) -> watch::Receiver<Option<ChatAgent>> {
         self.linked.clone()
     }
 
-    /// The conversation that the agent of the chat shows, when the chat follows one that only the
-    /// chat knows.
+    /// Returns the active conversation ID for agents whose session is tracked only by the chat
+    /// adapter (such as Codex and Antigravity).
     pub(crate) async fn conversation(&self) -> Option<String> {
         let (reply, conversation) = oneshot::channel();
         self.jobs.send(Job::Conversation { reply }).await.ok()?;
@@ -180,20 +175,18 @@ struct Room {
     own: mpsc::WeakSender<Job>,
     linked: watch::Sender<Option<ChatAgent>>,
     chat: Chat,
-    /// The adapter of the agent whose link the chat follows.
     agent: Option<Box<dyn Agent>>,
-    /// The link that the chat follows: the last that started in the terminal.
     link: Option<String>,
     /// The session of the terminal's own program, where an agent of the terminal runs.
     terminal: Option<u32>,
-    /// The last batch of the followed module that the chat took.
+    /// Last processed batch sequence number for the active link.
     heard: u64,
     seen: Instant,
     gone: Option<Instant>,
     poll: Option<oneshot::Sender<Option<Vec<Value>>>>,
     commands: Vec<Value>,
     waits: HashMap<String, oneshot::Sender<Asked>>,
-    /// Decisions of people that wait for the next request of their question.
+    /// User decisions buffered until the agent's `/v1/ask` request arrives.
     decisions: HashMap<String, Value>,
     viewers: HashMap<u64, Viewer>,
     made: u64,
@@ -319,8 +312,6 @@ impl Room {
         }
     }
 
-    /// The chat follows a link that starts to report. A link of another kind of agent ends what
-    /// the chat had from the agent before it.
     fn follow(&mut self, link: String, greeting: &Value) {
         let name = greeting
             .get("agent")
@@ -343,8 +334,8 @@ impl Room {
         self.agent.as_ref().is_some_and(|agent| agent.is_linked())
     }
 
-    /// True for a request of the link that the chat follows. A link that was silent is back: its
-    /// agent was stopped for a time, not ended.
+    /// Records activity from `link` and returns `true` if it is the active link.
+    /// Restores the agent via `back` in case it timed out while suspended rather than exiting.
     fn hears(&mut self, link: &str) -> bool {
         if self.link.as_deref() != Some(link) {
             return false;
@@ -366,7 +357,6 @@ impl Room {
         self.close(closed);
     }
 
-    /// The questions that ended with no decision from the chat stop their waiting requests.
     fn close(&mut self, asks: Vec<String>) {
         for ask in asks {
             self.decisions.remove(&ask);
@@ -417,8 +407,6 @@ impl Room {
         }
     }
 
-    /// The first decision of a question counts. It goes to the request that waits for it, or to
-    /// the next one.
     fn decide(&mut self, ask: String, decision: Value) {
         let waits = self
             .agent
@@ -473,8 +461,8 @@ impl Room {
         });
     }
 
-    /// A viewer that does not take its frames loses the pipe, and gets the chat as it is when it
-    /// opens the pipe again.
+    /// Broadcasts pending updates, dropping any slow viewer whose queue is full so it
+    /// disconnects and resyncs via a fresh snapshot instead of blocking the room.
     fn publish(&mut self) {
         let Some(update) = self.chat.take() else {
             return;

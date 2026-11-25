@@ -15,7 +15,6 @@ pub(crate) struct Ivars {
 }
 
 define_class!(
-    /// The NSApplication subclass that CEF needs on a Mac.
     #[unsafe(super(NSApplication))]
     #[ivars = Ivars]
     pub(crate) struct EngineApplication;
@@ -69,17 +68,16 @@ impl EngineApplication {
     }
 }
 
-/// Makes CEF's application class the shared application. It runs before anything else asks
-/// for the shared application, on the main thread.
+/// Registers `EngineApplication` as `NSApp`. Must be called on the main thread before anything
+/// else initializes the shared application.
 pub(crate) fn install_application() -> bool {
     let _ = EngineApplication::shared_application();
     MainThreadMarker::new()
         .is_some_and(|main| NSApp(main).isKindOfClass(EngineApplication::class()))
 }
 
-/// Loads CEF's framework from the app bundle: from `Contents/Frameworks` for the main program,
-/// and from three folders up for a helper app inside it. CEF's loader panics when the framework
-/// is not there, so the engine looks for it first.
+/// Pre-checks that the CEF framework exists in the bundle because `cef::library_loader` panics
+/// when it is missing.
 pub(crate) fn load_framework(helper: bool) -> Option<cef::library_loader::LibraryLoader> {
     let program = std::env::current_exe().ok()?;
     let frameworks = program

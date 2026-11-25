@@ -95,9 +95,9 @@ fn removed_by<'s>(change: &'s Change, removed: &mut Removed<'s>) {
     }
 }
 
-/// A sender may change a slide or a shape that a change before it removed, which it had not seen
-/// yet. That change goes, as it would have gone with what it changes, and the rest of its batch
-/// stays. A change of what was never there is still refused.
+/// Drops sub-changes targeting slides or shapes concurrently removed in `since` while keeping the
+/// rest of the batch. References to IDs that never existed are left intact so `apply_one` rejects
+/// them.
 fn past_removals(model: &Model, change: Change, since: &[Ordered<Change>]) -> Change {
     let mut removed = (HashSet::new(), HashSet::new());
     for ordered in since {
@@ -142,9 +142,9 @@ fn without_removed(model: &Model, change: Change, removed: &Removed<'_>) -> Opti
     (!gone).then_some(change)
 }
 
-/// A box whose slide no longer holds its piece, as after the presentation opened again from its
-/// file while Undo waited to bring the box back, comes back as a new box. It keeps its words, its
-/// frame, its fill and the look of its text, without the pieces of the file that went.
+/// If an undo re-adds a text box whose original XML fragment was purged (e.g. after a save and
+/// reopen), strip missing raw XML references so it recreates cleanly as a new box with its text
+/// and styling intact.
 fn returning(model: &Model, change: Change) -> Change {
     match change {
         Change::AddShape {
@@ -278,7 +278,8 @@ fn set_fields(shape: &mut Shape, fields: &ShapeFields) {
     }
 }
 
-/// A shape that a merge brings comes with its piece, which its slide now holds.
+/// Registers merged raw XML (`keep`) in `model.raws` and `slide.sources` so the shape can
+/// round-trip through later saves.
 fn add_shape(
     model: &mut Model,
     slide: &str,
@@ -395,9 +396,8 @@ fn apply_one(model: &mut Model, change: &Change) -> Result<(), Refused> {
     Ok(())
 }
 
-/// Whether a write kept the kind of shape under its id, so that fields and text steps carry what
-/// changed. Another kind, name, geometry, picture, link or look of its text makes it a shape of
-/// its own.
+/// Returns true if an external write preserved the shape's identity under the same ID so changes
+/// can be expressed as field/text patches instead of a remove and re-add.
 fn same_shape(old: &Shape, new: &Shape) -> bool {
     old.name == new.name
         && old.kind == new.kind
@@ -419,8 +419,8 @@ fn stack<'s>(slide: &'s Slide, other: &Slide) -> Vec<&'s str> {
     shapes.iter().map(|shape| shape.id.as_str()).collect()
 }
 
-/// Whether a write stacked the shapes of a slide anew or brought a shape there, so that the order
-/// of each shape carries over. A shape that went leaves the others where they stand.
+/// True if an external write reordered or added shapes, requiring z-order updates; pure deletions
+/// leave remaining shapes' relative order intact.
 fn stacked_anew(old: &Slide, new: &Slide) -> bool {
     stack(old, new) != stack(new, old)
         || new.shapes.iter().any(|shape| {
@@ -431,7 +431,7 @@ fn stacked_anew(old: &Slide, new: &Slide) -> bool {
         })
 }
 
-/// The pieces of the new file that a merged shape or text names, which the change carries.
+/// Collects raw XML fragments referenced by `json` into `keep` for merge changes.
 fn pieces_in(json: &Value, raws: &HashMap<String, String>, keep: &mut BTreeMap<String, String>) {
     match json {
         Value::Object(fields) => {

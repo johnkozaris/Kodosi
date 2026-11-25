@@ -121,7 +121,7 @@ fun PreviewPage(content: ByteArray, modifier: Modifier, selection: (suspend () -
                 return true
             }
         }
-        // A reload keeps the reader's scroll position, which a fresh load of the same address would lose.
+        // Use reload() on updates to preserve scroll position; loadUrl() resets it.
         if (web.url?.substringBefore('#') == PREVIEW) web.reload() else web.loadUrl(PREVIEW)
     }
     if (failed === web) {

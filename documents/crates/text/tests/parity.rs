@@ -5,8 +5,6 @@ use text::{Node, Schema, SchemaSpec, Step};
 
 const CASES: &str = "150";
 
-/// Runs random edits through the real `ProseMirror` under Bun, and checks that each step gives
-/// the same tree here, or fails here too.
 #[test]
 fn each_step_gives_the_same_tree_as_prosemirror() {
     let folder = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../views/text-parity");

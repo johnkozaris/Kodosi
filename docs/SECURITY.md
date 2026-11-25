@@ -2,75 +2,94 @@
 
 **English** · [Deutsch](de/SECURITY.md) · [Ελληνικά](el/SECURITY.md) · [Español](es/SECURITY.md) · [Français](fr/SECURITY.md) · [Italiano](it/SECURITY.md) · [日本語](ja/SECURITY.md) · [한국어](ko/SECURITY.md) · [简体中文](zh-Hans/SECURITY.md)
 
-Your devices encrypt terminal traffic and project content end to end. Private keys stay on
-devices. The backend routes connections and stores encrypted project data; it never runs
-commands or sees their plaintext. The [encryption design](CRYPTOGRAPHY.md) gives the
-threat model, mechanisms and known limits; no independent party has audited it yet.
+Terminal traffic and project content are end-to-end encrypted by your devices, and private keys
+never leave your devices unencrypted. The backend routes connections and stores encrypted project
+records; it never executes commands or sees their plaintext. For the full threat model,
+cryptographic mechanisms, and known limitations, see the [encryption design](CRYPTOGRAPHY.md). No
+independent third party has audited this design or implementation yet.
 
 ## What sharing grants
 
-Sharing a terminal grants full control with the operating-system privileges of its owner on
-that computer. A terminal in a project goes to the friends of its owner in that project,
-including friends who join later. When you remove a friend, they lose your terminals, and
-each of you leaves the projects that the other owns. Blocking a person does the same, and
-they cannot send you friend requests. A shared terminal runs as you: the people in it can
-also run `kodosi` as you and read and change your files on that computer, so share it only
-with people whom you trust with that computer. Kodosi trusts everyone who shares a terminal
-or a project, and the programs and agents in their terminals, and does not limit what they
-do. Each of your approved devices controls all your terminals and can start new ones on
-your other computers that run Kodosi. From any of your devices you can write to Dosi on
-your computers, and Dosi acts there as it does when you write to it at the computer. A
-device that you remove can no longer write to Dosi.
+Sharing a terminal gives recipients full control with your OS privileges on that computer.
+Sharing a terminal into a project makes it accessible to all of your friends in that project,
+including friends who join later. Because a shared terminal runs as you, anyone in it can also run
+`kodosi` as you and read or modify files on that machine. Only share terminals with people you
+trust with that computer.
 
-Everyone who can open a terminal also sees the files on its canvas and uses its shared browser, so
-sign in there only where all of them may act. The shared browser of a shared terminal never uses
-your kept sign-ins. The files on a canvas are normal files, and everyone who can open the terminal
-can edit them. A page on the canvas and a live document run in a closed frame with no network, no
-files and no storage that stays. While a shared browser is awake, its debug port and the driver port
-of each window listen on `127.0.0.1` or `::1`, where other accounts of that computer can reach them.
-A site in the shared browser saves one download into the terminal's folder for each action of a
-person or an agent, and it reaches your clipboard only when you copy. The Linux app shows pages only
-where Chromium can sandbox them; on Ubuntu its AppArmor profile lets the app, its page process and
-Kodosi Browser make the user namespaces that the sandbox needs. For the same reason the shared
-browser does not run as root on Linux. The apps do not contain Kodosi Browser. When a computer opens
-its first shared browser, Kodosi gets the browser from the feed on `updates.kodosi.com`, and it
-looks there for a new version each day. Kodosi uses a download only when the feed has the signature
-of the key of Kodosi's updates and the download has the SHA-256 that the feed gives.
+Kodosi does not restrict what participants or their agents can do inside a shared terminal or
+project. Removing a friend immediately revokes access to your terminals and removes each of you
+from projects owned by the other. Blocking a user does the same and prevents future friend
+requests.
 
-## Straight connections
+Each of your approved devices can control all your terminals, launch new ones on your other
+computers running Kodosi, and message Dosi on those computers (where Dosi acts with the same local
+access as when you use it directly). Removing a device revokes its access to terminals and Dosi.
 
-When two of your own devices can reach each other, on one network or through their routers, a
-terminal's traffic goes straight between them instead of through the service, with the same
-encryption. Each of the two devices then sees the other's IP addresses. To learn the public address
-of a device, Kodosi asks a STUN server of Cloudflare, which sees that address. While a device looks
-for or has such a connection, and for a minute after, it keeps one UDP port open, and it takes a
-connection there only from your own devices. Terminals of other people always go through the
-service, so they never see your addresses.
+### Canvas and shared browser
+
+Everyone with access to a terminal can view and edit files on its canvas and use its shared
+browser, so only sign in to accounts in a shared browser that every participant should be allowed
+to use. Shared terminals never reuse your saved browser logins from private terminals. Canvas
+files are regular files on the host computer.
+
+HTML pages and live document views run inside an isolated frame with no network access, no file
+access, and no persistent storage. While a shared browser is awake, its debug port and each
+window's driver port bind to `127.0.0.1` or `::1`, which means other local OS user accounts on
+that same machine can reach them. Sites in the shared browser can save at most one download into
+the terminal's folder per user or agent action, and can only access your clipboard when you
+explicitly copy.
+
+On Linux, Kodosi only renders pages where Chromium's sandbox can run. On Ubuntu, Kodosi ships an
+AppArmor profile permitting the app, its renderer process, and Kodosi Browser to create the user
+namespaces Chromium's sandbox requires. For the same reason, the shared browser does not run as
+root on Linux.
+
+Kodosi apps don't bundle Kodosi Browser. The first time you open a shared browser on a computer,
+Kodosi downloads it from `updates.kodosi.com` and checks daily for updates. Downloads are only
+accepted if the update feed carries a valid signature from Kodosi's update key and the file's
+SHA-256 matches the feed.
+
+## Direct connections
+
+When two of your own devices can reach each other directly, on the same LAN or through NAT
+traversal, terminal traffic travels directly between them with the same end-to-end encryption
+instead of going through the relay server. Both devices see each other's IP addresses.
+
+To discover its public address, Kodosi queries a Cloudflare STUN server, which observes that IP.
+While searching for or holding a direct connection (and for one minute afterward), the device
+keeps a single UDP port open and only accepts connections from your own approved devices.
+Terminals shared with other people always go through the relay server, so other users never see
+your IP addresses.
 
 ## What the service sees
 
-The service sees account and device records, project membership, project and terminal metadata, each
-terminal's agent and state (such as working or waiting for an approval, never its text) and whether
-you saw that state yet, routing fields, timing and ciphertext sizes, except for traffic that goes
-straight between your devices. It also sees, for each of your devices, whether you use Kodosi on it,
-use another app on that computer, or do not use it, so that a notification goes only to a device
-that you use. Push notifications to your iPhone, iPad or Android device go through Apple's or
-Google's push service, which sees the IDs of your terminals that wait, finished or failed, their
-agents and their states, never names or text. Encryption does not hide this metadata or prevent an
-outage. A device that you remove loses access from then on. After you remove a lost or stolen
-device, make a new recovery key to keep that device out. When someone starts fresh on your account
-while you have devices, it waits a day and your devices show it, so that you can stop it. GitHub and
-Gitea credentials stay on your computer.
+The backend sees account and device records, project membership, project and terminal metadata,
+each terminal's agent type and reported state (such as working or waiting for approval, never
+terminal text), whether you have viewed that state yet, routing headers, timing, and ciphertext
+sizes (except for traffic taking a direct peer-to-peer path). It also sees per-device activity
+status (in Kodosi, in another desktop app, or idle) so notifications route only to an active
+device.
 
-Deleting an account removes its devices, recovery data, friends, sharing and owned
-projects; messages in other people's projects stay without an account. For 30 days the service
-keeps the issuer and subject of the deleted sign-in to refuse older tokens.
+Mobile push notifications travel through Apple's APNs or Google's FCM. Those providers see the IDs
+of terminals that are waiting, finished, or failed along with their agent type and state, never
+terminal names or contents.
 
-## Check a download
+Encryption does not hide this metadata or protect against server outages. Removing a device cuts
+off access from that point on; if a device is lost or stolen, also generate a new recovery key to
+keep that device out. If someone starts a fresh identity on your account while you still have
+active devices, the backend delays it by 24 hours and notifies your existing devices so you can
+cancel it. GitHub and Gitea credentials stay on your machine.
 
-Each release has `SHA256SUMS`, the SHA-256 of each of its files, and `SHA256SUMS.asc`, the
-signature of that list by the key of Kodosi that also signs the apt repository. Put the two
-files beside your download, then run:
+Deleting your account removes its devices, recovery data, friend list, active shares, and owned
+projects. Messages you posted in other people's projects remain without an associated account. The
+backend retains the deleted sign-in's issuer and subject for 30 days to reject previously issued
+tokens.
+
+## Verify a download
+
+Every release includes `SHA256SUMS` (the SHA-256 digest of each artifact) and `SHA256SUMS.asc`,
+signed with the same Kodosi key that signs the apt repository. Place both files next to your
+download and run:
 
 ```sh
 curl -fsSLO https://updates.kodosi.com/apt/kodosi-archive-keyring.pgp
@@ -78,11 +97,11 @@ gpgv --keyring ./kodosi-archive-keyring.pgp SHA256SUMS.asc SHA256SUMS
 shasum -a 256 --ignore-missing -c SHA256SUMS
 ```
 
-`gpgv`, from GnuPG, must report a good signature by the key
-`E8007A36D199B6EE755B1EE9C612C00442E52299`, and `shasum` must say OK for your download.
+`gpgv` (from GnuPG) must report a good signature from key
+`E8007A36D199B6EE755B1EE9C612C00442E52299`, and `shasum` must output `OK` for your file.
 
 ## Report a vulnerability
 
-Use [private vulnerability reporting](https://github.com/johnkozaris/Kodosi/security/advisories/new)
-or write to [security@kodosi.com](mailto:security@kodosi.com) with the revision, steps,
-impact and redacted logs. Keep details out of public issues.
+Use [GitHub private vulnerability reporting](https://github.com/johnkozaris/Kodosi/security/advisories/new)
+or email [security@kodosi.com](mailto:security@kodosi.com) with the commit or version, reproduction
+steps, impact, and redacted logs. Please keep vulnerability details out of public issues.

@@ -424,7 +424,7 @@ struct CapturedView {
     std::optional<Qt::CursorShape> programPointer;
 };
 
-// A terminal starts with the text pointer, so it stands for a program that chose no pointer.
+// Ghostty defaults to GHOSTTY_MOUSE_SHAPE_TEXT, so treat it as no explicit cursor override.
 std::optional<Qt::CursorShape> programPointer(const GhosttyMouseShape shape)
 {
     switch (shape) {
@@ -489,8 +489,8 @@ std::optional<Qt::CursorShape> programPointer(const GhosttyMouseShape shape)
 
 using ViewCapture = std::expected<CapturedView, GhosttyTerminalKernel::Failure>;
 
-// The terminal keeps the frames of a Kitty animation but no timer: each tick shows the frame
-// that is due and tells when the next one is.
+// Ghostty stores Kitty animation frames without an internal timer; tick advances to the due
+// frame and returns the timestamp of the next frame.
 std::optional<std::chrono::steady_clock::time_point> advanceImageAnimations(
     const GhosttyTerminal terminal)
 {
@@ -819,8 +819,8 @@ FrameResult extractFrame(
     return buildFrame(renderState, *view, nextSequence, viewportRevision, displayRevision);
 }
 
-// A snapshot may end before its history, after READY and the image pixels that follow it.
-// Once a history page arrived, the snapshot must end with FINISH.
+// A snapshot may end after READY and its image pixels without any history pages; once any
+// history page arrives, the decoder must run through FINISH.
 GhosttyResult restoreSnapshotHistory(const GhosttySnapshotDecoder decoder, const std::size_t size)
 {
     bool history = false;
@@ -1001,7 +1001,8 @@ public:
         }
     }
 
-    // An unanswered read makes Ghostty write an empty OSC 52 answer for the focused view to fill.
+    // Leaving the read callback unanswered makes Ghostty emit an empty OSC 52 reply, which
+    // recordClipboardRead captures for the focused view to answer later.
     static void deferClipboardRead(const GhosttyTerminal, void* const, const GhosttyClipboardRead* const) {}
 
     static void recordClipboardRead(
@@ -1351,11 +1352,11 @@ public:
     std::uint64_t viewportRevision = 0;
     std::uint64_t displayRevision = 0;
     Frame currentFrame;
-    // Output that the terminal has and currentFrame does not show yet.
+    // True when terminal output has been written since currentFrame was built.
     bool outputPending = false;
     std::optional<std::chrono::steady_clock::time_point> renderHeldSince;
     std::optional<ViewCapture> heldView;
-    // The view at the start of the render hold that holds the pending output.
+    // View captured at the start of the active render hold, used to build pending output frames.
     std::optional<ViewCapture> outputHeldView;
     TerminalKernelSettings settings;
     TerminalClipboardOperations clipboard;

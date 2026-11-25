@@ -70,8 +70,6 @@ class PeopleStore(private val commands: CommandSink) {
         private val HANDLE = Regex("[\\p{L}\\p{N}._-]{1,64}")
         private val IDENTITY = Regex("[0-9a-fA-F]{64}")
 
-        /** A link or a scanned code starts the add flow only with an invite in the form that the
-         *  runtime makes. */
         fun invite(text: String): String? {
             val trimmed = text.trim()
             val parts = trimmed.split(':')

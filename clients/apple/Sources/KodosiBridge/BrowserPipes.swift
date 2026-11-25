@@ -1,9 +1,8 @@
 import Foundation
 import Synchronization
 
-/// The open pipes of the shared browser. The runtime's callback gives each event that names one
-/// of them to their own inbox, and their own task reads it, so that a frame never waits behind
-/// the events of the main actor or for the main thread.
+/// Routes shared-browser pipe events to a dedicated inbox and background task so video frames
+/// never block behind main-actor events or main-thread work.
 public final class BrowserPipes: Sendable {
     private struct Claim {
         let mark: Data
@@ -24,8 +23,8 @@ public final class BrowserPipes: Sendable {
         inbox.close()
     }
 
-    /// Returns whether the event names a claimed pipe, which then takes it. Only the events of a
-    /// pipe carry its name, and the base64 data of a frame holds no quote.
+    /// Claims and enqueues events for active browser pipes. Raw byte matching is safe without JSON
+    /// parsing because only pipe events carry `"pipe":"..."` and base64 payloads contain no quotes.
     public func take(_ event: Data) -> Bool {
         let marks = state.withLock { $0.claims.isEmpty ? [] : $0.claims.values.map(\.mark) }
         guard marks.contains(where: { Self.names(event, $0) }) else { return false }

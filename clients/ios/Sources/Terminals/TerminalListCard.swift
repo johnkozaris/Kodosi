@@ -2,7 +2,6 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-/// Without `showsFolder`, for a list in folders, the line names the agent rather than the folder.
 struct TerminalListCard: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme

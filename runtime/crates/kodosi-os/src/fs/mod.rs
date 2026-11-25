@@ -14,8 +14,8 @@ mod windows;
 use windows as imp;
 
 pub fn home_dir() -> io::Result<PathBuf> {
-    // std passes over an empty HOME but gives an empty home folder of the user database as it
-    // is, and an empty path would put the data root in the working folder.
+    // `std::env::home_dir` skips an empty `HOME` env var, but returns an empty
+    // passwd entry verbatim, which would resolve relative to the working dir.
     std::env::home_dir()
         .filter(|home| !home.is_empty())
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "cannot find the home folder"))
@@ -38,8 +38,8 @@ pub fn create_private_dir(path: &Path) -> io::Result<()> {
     imp::create_private_dir(path)
 }
 
-/// A private folder that gives the system no access of its own either. Codex's server takes a
-/// socket file only in such a folder.
+/// Creates a directory accessible only to the current user (excluding SYSTEM),
+/// as required by Codex's server for socket directories.
 #[cfg(windows)]
 pub(crate) fn create_user_only_dir(path: &Path) -> io::Result<()> {
     imp::create_user_only_dir(path)
@@ -111,7 +111,7 @@ pub fn move_to_trash(path: &Path) -> io::Result<()> {
     #[cfg(target_os = "macos")]
     let trash = {
         let mut trash = trash::TrashContext::default();
-        // Finder's way makes macOS ask the person to let Kodosi control Finder.
+        // Avoid Finder AppleScript, which triggers a macOS Automation permission prompt.
         trash::macos::TrashContextExtMacos::set_delete_method(
             &mut trash,
             trash::macos::DeleteMethod::NsFileManager,

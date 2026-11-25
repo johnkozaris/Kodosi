@@ -1,6 +1,5 @@
-//! Tree text and its steps: the same document model and the same step results as `ProseMirror`,
-//! so the server's tree stays equal to each view's tree. Positions count UTF-16 units, as a
-//! JavaScript string does.
+//! `ProseMirror`-compatible document tree and step engine so the host tree stays identical to
+//! frontend views. Positions are UTF-16 code unit offsets matching JavaScript strings.
 
 mod map;
 mod node;

@@ -4,9 +4,9 @@ import Foundation
 public struct Canvas: Decodable, Equatable, Sendable {
     public let items: [CanvasItem]
     public let browser: CanvasBrowser?
-    /// What the agent showed last, which each device acts on once.
+    /// Most recent item the agent explicitly opened; each device handles it once.
     public let open: CanvasOpen?
-    /// What changed last: a file, or the browser by a command of the agent. Each device acts on it once.
+    /// Most recent file or agent-driven browser change; each device handles it once.
     public let change: CanvasOpen?
 
     public init(from decoder: any Decoder) throws {
@@ -143,11 +143,11 @@ public struct CanvasBrowser: Decodable, Equatable, Sendable {
     public let state: State
     public let changed: UInt64
     public let tabs: [BrowserTab]
-    /// The part of the first download of the browser, from 0 to 100.
+    /// Initial browser download progress (0...100) while downloading.
     public let getting: Int?
     public let doing: BrowserDoing?
     public let problem: String?
-    /// The terminal is shared, so its browser keeps sign-ins of its own.
+    /// True for shared terminals, whose browser uses an isolated sign-in profile.
     public let ownSignIns: Bool
 
     public init(from decoder: any Decoder) throws {
@@ -175,7 +175,7 @@ public struct BrowserTab: Decodable, Equatable, Identifiable, Sendable {
     public let active: Bool
 }
 
-/// The point is the middle of the element that the agent acts on, in the browser's CSS pixels.
+/// `point` is the center of the element the agent is interacting with, in browser CSS pixels.
 public struct BrowserDoing: Decodable, Equatable, Sendable {
     public enum Kind: String, Decodable, Sendable { case open, click, type, scroll, read, wait, other }
 
@@ -193,8 +193,7 @@ public struct BrowserStatus: Equatable, Sendable {
     public struct Source: Decodable, Hashable, Sendable {
         public let name: String
         public let browser: String
-        /// macOS keeps the data of the browser from Kodosi until the person gives Kodosi Full Disk
-        /// Access.
+        /// True when macOS blocks reading this browser's profile until Full Disk Access is granted.
         public let protected: Bool
 
         public init(name: String, browser: String, protected: Bool) {
@@ -207,7 +206,7 @@ public struct BrowserStatus: Equatable, Sendable {
     public let sources: [Source]
     public let sites: Int
     public let engine: String?
-    /// The part of a download of Kodosi Browser, from 0 to 100, while one runs.
+    /// Kodosi Browser download progress (0...100) while a download is active.
     public let getting: Int?
 
     public init(sources: [Source], sites: Int, engine: String?, getting: Int?) {
@@ -247,14 +246,14 @@ public struct BrowserWindow: Decodable, Equatable, Sendable {
 
     public struct Menu: Decodable, Equatable, Sendable {
         public let id: Int
-        /// Where the menu opens, in the CSS pixels of the page.
+        /// Menu anchor position in page CSS pixels.
         public let x: Double
         public let y: Double
         public let items: [MenuItem]
         public let context: MenuContext?
     }
 
-    /// What a right-click was on; the app gives its menu the items.
+    /// Context for a right-click; the client builds the context menu items from these fields.
     public struct MenuContext: Decodable, Equatable, Sendable {
         public static let copySelection = 0
         public static let copyLink = 1
@@ -304,10 +303,9 @@ public struct BrowserWindow: Decodable, Equatable, Sendable {
     public var dialog: Dialog?
     public var chooser: Chooser?
     public var copied: String?
-    /// The icons that changed, as PNG in base64; an empty one takes a tab's icon away.
+    /// Changed tab favicons by tab ID (base64 PNG); an empty string clears a tab's icon.
     public var icons: [String: String] = [:]
-    /// The context of the page's Core Animation layer, which the host gives in place of video to a
-    /// view on the browser's own Mac.
+    /// Core Animation `CALayerHost` context ID used instead of video when viewing on the host Mac.
     public var layer: UInt32?
 
     public var size: CGSize {
@@ -334,7 +332,7 @@ public struct BrowserWindow: Decodable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey { case tabs, width, height, shape, pointers, menu, dialog, chooser, copied, icons, layer }
 }
 
-/// Positions are in the CSS pixels of the page.
+/// Coordinates are in page CSS pixels.
 public enum BrowserInput: Encodable, Equatable, Sendable {
     public enum MouseEvent: String, Encodable, Sendable {
         case mousePressed = "press", mouseReleased = "release", mouseMoved = "move", mouseWheel = "wheel"

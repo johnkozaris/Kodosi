@@ -1,79 +1,86 @@
 # Development
 
-[AGENTS.md](../AGENTS.md) lists the folders and [Architecture](ARCHITECTURE.md) shows how
-they connect.
+See [AGENTS.md](../AGENTS.md) for the repository layout and [Architecture](ARCHITECTURE.md) for
+how the subsystems connect.
 
 ## Toolchains
 
-Install `just`, Python 3.12 or later and the toolchains of the part you change.
-[rust-toolchain.toml](../rust-toolchain.toml) pins Rust and
-[backend/global.json](../backend/global.json) pins .NET; put that .NET SDK in
-`backend/.tools/dotnet/`. `just rust-tools-install` puts the Rust check tools in
-`.tools/rust/`. The Keycloak extension of the sign-in builds with Maven in Docker, with its
-downloads in `.tools/maven/`. Keep every tool and dependency inside the project. The
-[Mac](../clients/macos/README.md), [Linux and Windows](../clients/qt/README.md),
-[iOS](../clients/ios/README.md) and [Android](../clients/android/README.md) guides list the
-native prerequisites; on Windows run the recipes in Git Bash. The recipes and the app
-builds install the Bun of [.bun-version](../.bun-version) in `.tools/bun/` when they need it.
+Install `just`, Python 3.12+, and the toolchains for the areas you work on. Keep all tools and
+dependencies local to the repository:
 
-Cargo and Bun take a new release of a dependency only after it has been public for a while,
-as [.cargo/config.toml](../.cargo/config.toml) and each `bunfig.toml` set, so that a bad
-release is found before Kodosi takes it. For a fix that cannot wait, run
-`CARGO_RESOLVER_INCOMPATIBLE_PUBLISH_AGE=allow cargo update -p <crate> --precise <version>`,
-or `bun add --minimum-release-age=0 <package>@<version>`.
+- Rust is pinned in [rust-toolchain.toml](../rust-toolchain.toml). Run `just rust-tools-install`
+  to install `cargo-deny` and `cargo-machete` into `.tools/rust/`.
+- .NET is pinned in [backend/global.json](../backend/global.json); place that SDK in
+  `backend/.tools/dotnet/`.
+- Bun is pinned in [.bun-version](../.bun-version) and is required for document views and sign-in.
+  The recipes and app builds install it into `.tools/bun/` when they need it.
+- The sign-in Keycloak extension builds with Maven inside Docker, caching downloads in
+  `.tools/maven/`.
+- Native client prerequisites live in the [macOS](../clients/macos/README.md),
+  [Linux and Windows](../clients/qt/README.md), [iOS](../clients/ios/README.md), and
+  [Android](../clients/android/README.md) READMEs. On Windows, run `just` recipes in Git Bash.
+
+Cargo and Bun enforce a minimum publish-age cooldown on new package releases (configured in
+[.cargo/config.toml](../.cargo/config.toml) and each `bunfig.toml`) so compromised releases are
+caught before Kodosi picks them up. To take an urgent fix immediately, run the Cargo or the Bun
+command:
+
+```sh
+CARGO_RESOLVER_INCOMPATIBLE_PUBLISH_AGE=allow cargo update -p <crate> --precise <version>
+bun add --minimum-release-age=0 <package>@<version>
+```
 
 ## Commands
 
-Run these from the repository root; `just --list` shows the rest.
+Run from the repository root (`just --list` shows every available recipe):
 
-| Command | Does |
+| Command | Purpose |
 | --- | --- |
-| `just rust-cli-build` | Build the development CLI |
-| `just agent-browser-build` | Build the pinned agent-browser of the shared browser next to the development CLI |
-| `just documents-check` | Build and test the document views and crates |
-| `just documents-app-check` | Lint the documents app, a separate build |
-| `just documents-app-run <files>` | Run the documents app with a window for each file |
-| `just browser-check` | Lint and test the shared browser crate and Kodosi Browser |
-| `just browser-engine-build` | Build Kodosi Browser for development in `.tools/kodosi-browser/` |
-| `just rust-check` | All Rust checks |
-| `just backend-check` | Build and test the backend (database tests need Docker) |
-| `just check-all` | The Rust, documents, browser, backend and translation checks |
-| `just mac-build`, `just mac-check` | Build or check the Mac app |
-| `just linux-build`, `just linux-check` | Build or check the Linux app |
-| `just windows-check` | Build and check the Windows app, on Windows |
-| `just windows-rust-lint` | Lint the runtime for Windows in Docker, from any host |
-| `just ios-build`, `just ios-check` | Build or check the iPhone and iPad app |
-| `just android-build`, `just android-check` | Build or check the Android app |
-| `just sign-in-check` | Check and build the sign-in pages, and build and test their Keycloak extension (needs Docker) |
-| `just translations-check` | Check that each text has its words in each language |
+| `just rust-cli-build` | Build the dev `kodosi` CLI |
+| `just agent-browser-build` | Build the pinned `agent-browser` binary next to the dev CLI |
+| `just documents-check` | Build, lint, and test document views and Rust crates |
+| `just documents-app-check` | Format-check and lint the standalone Tauri documents app |
+| `just documents-app-run <files>` | Launch the standalone documents app with one window per file |
+| `just browser-check` | Format-check, lint, and test the shared browser crate and engine |
+| `just browser-engine-build` | Build Kodosi Browser for development into `.tools/kodosi-browser/` |
+| `just rust-check` | Run all Rust formatting, Clippy, dependency, Ghostty, and test checks |
+| `just backend-check` | Verify the .NET SDK pin, build, and run backend tests (DB tests require Docker) |
+| `just check-all` | Run Rust, documents, browser, backend, and translation checks |
+| `just mac-build`, `just mac-check` | Build or fully check the macOS app |
+| `just linux-build`, `just linux-check` | Build or fully check the Linux app |
+| `just windows-check` | Build and check the Windows app (run on Windows) |
+| `just windows-rust-lint` | Cross-lint the Windows Rust runtime in Docker from any host |
+| `just ios-build`, `just ios-check` | Build or fully check the iOS app |
+| `just android-build`, `just android-check` | Build or fully check the Android app |
+| `just sign-in-check` | Lint and build the sign-in theme, and build and test its Keycloak extension (requires Docker) |
+| `just translations-check` | Verify every user-facing string is translated across all languages |
 
-`gitleaks git`, run by hand, looks for secrets in the Git history and skips the reviewed
-findings in [.gitleaksignore](../.gitleaksignore).
-
-The justfile in each app's folder has its release recipes.
+Run `gitleaks git` manually to scan Git history for leaked secrets (reviewed false positives live
+in [.gitleaksignore](../.gitleaksignore)). Release packaging recipes live in each client's own
+`justfile`.
 
 ## Before a pull request
 
-Run the check of each part that you changed:
+Run the checks covering everything you touched:
 
-| You changed | Run |
+| Area changed | Command |
 | --- | --- |
-| The runtime, a contract or a Rust dependency | `just rust-check` |
-| The documents or the shared browser | `just documents-check`, `just documents-app-check`, `just browser-check` |
-| The backend | `just backend-check` |
-| The sign-in pages | `just sign-in-check` |
-| A text that people read | `just translations-check` |
-| Runtime code that only one system compiles (`cfg`) | `just windows-rust-lint`, which needs Docker |
-| The Mac app, the iPhone and iPad app or their shared code | `just mac-check`, `just ios-check` |
-| The Linux and Windows app | `just linux-check` on Linux or `just windows-check` on Windows |
-| The Android app | `just android-check` |
-| The scripts of the update site | `just release-test` |
+| Runtime, protocol contract, or Rust dependency | `just rust-check` |
+| Live documents or shared browser | `just documents-check`, `just documents-app-check`, `just browser-check` |
+| Backend | `just backend-check` |
+| Sign-in theme or extension | `just sign-in-check` |
+| Any user-facing string | `just translations-check` |
+| Platform-gated (`cfg`) Rust runtime code | `just windows-rust-lint` (requires Docker) |
+| macOS, iOS, or shared Apple code | `just mac-check`, `just ios-check` |
+| Linux / Windows Qt app | `just linux-check` (Linux) or `just windows-check` (Windows) |
+| Android app | `just android-check` |
+| Update-site or engine-feed release scripts | `just release-test` |
 
-A pull request runs the first five again, in a few minutes. No workflow builds an app for
-a pull request. The Linux app, the Windows app and the Windows package build each night on
-main. When you changed the Linux and Windows app and have no computer with Linux or
-Windows, or changed such runtime code and have no Docker, start the workflow `Linux app` or
-`Windows app` for your branch and wait for it:
+Pull request CI only re-runs the first five rows for fast feedback and does not build client apps.
+Nightly builds on `main` build the Linux app, Windows app, and Windows package. If you edited
+Linux/Windows client code without access to that OS (or platform-specific Rust code without
+Docker), trigger the `Linux app` or `Windows app` workflow manually against your branch and wait
+for it to pass:
 
 ```sh
 gh workflow run "Linux app" --ref <branch>
@@ -81,10 +88,12 @@ gh workflow run "Linux app" --ref <branch>
 
 ## Run the backend
 
-Set `ConnectionStrings__Kodosi` and the sign-in settings of
-[Self-hosting](SELF-HOSTING.md), then run `just backend-run`, which migrates first. Back
-up data before migrating. For a local backend on `127.0.0.1:5180` that signs in with
-`auth.kodosi.com`, give [compose.yaml](../compose.yaml) a new PostgreSQL volume:
+Set `ConnectionStrings__Kodosi` and the OIDC settings from [Self-hosting](SELF-HOSTING.md), then
+run `just backend-run` (which runs database migrations before starting; back up existing data
+first).
+
+To spin up a local backend at `127.0.0.1:5180` authenticating against `auth.kodosi.com`, create a
+named PostgreSQL volume for [compose.yaml](../compose.yaml):
 
 ```sh
 docker volume create kodosi-dev-postgres
@@ -92,104 +101,102 @@ export KODOSI_POSTGRES_VOLUME=kodosi-dev-postgres
 just backend-docker-run
 ```
 
-`just backend-docker-stop` stops it and keeps the volume. A new major version of PostgreSQL
-in compose.yaml starts only on a new volume; the old volume keeps its data. To sign in with
-another identity provider, such as the disposable Keycloak of `sign-in/keycloak.sh`, set
-`Auth__Authority` and `Auth__Audience` in a local Compose override. With that Keycloak,
-the client that `sign-in/keycloak.sh` prints for account deletions goes into the
-`Auth__AccountDeletion` settings of [Self-hosting](SELF-HOSTING.md).
+`just backend-docker-stop` stops the containers while preserving the volume. Upgrading to a new
+major PostgreSQL version in `compose.yaml` requires a new volume (the old volume stays untouched).
+To use a different identity provider, such as the disposable Keycloak started by
+`sign-in/keycloak.sh`, override `Auth__Authority` and `Auth__Audience` in a local Compose override
+and copy the account-deletion client credentials printed by `sign-in/keycloak.sh` into the
+`Auth__AccountDeletion` settings described in [Self-hosting](SELF-HOSTING.md).
 
-Debug builds of the Mac, iPhone and Android apps use this local backend and sign in with the
-Keycloak of `sign-in/keycloak.sh`, or with the service that `KODOSI__AUTH__ISSUER` names. For
-the Linux and Windows app and the CLI, set `KODOSI__BACKEND__API=http://127.0.0.1:5180`, and
-`KODOSI__AUTH__ISSUER` for another sign-in service.
+Debug builds of the macOS, iOS, and Android apps automatically target `127.0.0.1:5180` and the
+disposable Keycloak from `sign-in/keycloak.sh` (overridable via `KODOSI__AUTH__ISSUER`). For the
+Qt app and CLI, set `KODOSI__BACKEND__API=http://127.0.0.1:5180` (and `KODOSI__AUTH__ISSUER` if
+using another issuer).
 
 ## Contracts and Ghostty
 
-`just protocol-gen` writes `protocol/desktop-runtime.json` from the Rust types, and the
-Rust tests check it. After a change of the C API, copy the header that the
-`kodosi-ffi-c` build writes to `clients/apple/Sources/KodosiKit/kodosi_runtime.h`.
-`just ghostty-check` checks the Ghostty pins, and
-[Ghostty provenance](../terminal/ghostty/PROVENANCE.md) explains updates.
+Run `just protocol-gen` to regenerate `protocol/desktop-runtime.json` from the Rust definitions;
+Rust tests verify it stays in sync. After changing the C FFI in `kodosi-ffi-c`, copy the generated
+header from the build output to `clients/apple/Sources/KodosiKit/kodosi_runtime.h`. Run
+`just ghostty-check` to verify Ghostty pins, digests, and notices; see
+[terminal/ghostty/PROVENANCE.md](../terminal/ghostty/PROVENANCE.md) for upgrade steps.
 
-[AgentBrowser.lock](../AgentBrowser.lock) pins the agent-browser that each desktop app
-ships next to the `kodosi` program, by its version and Git commit. Each app build makes
-it from that commit with its own `Cargo.lock`, in `.tools/agent-browser/`. To move the
-pin, check the release and its tag first, change both lines and build each app.
-`just rust-cli-build` does not build it: after the pin moves, run
-`just agent-browser-build` again, or the development CLI keeps the agent-browser of the
-pin before.
+[AgentBrowser.lock](../AgentBrowser.lock) pins the `agent-browser` version and Git commit bundled
+alongside the `kodosi` binary. App builds compile it into `.tools/agent-browser/` using its own
+`Cargo.lock`. When updating the pin, verify the release tag, update both fields, rebuild each app,
+and re-run `just agent-browser-build` (`just rust-cli-build` does not rebuild it).
 
-Kodosi Browser builds on the ready-built CEF that its `cef-dll-sys` crate pins, which the
-build downloads and checks, so nothing compiles Chromium. `browser/build/build-engine.py
---output-dir <folder>` builds it on each computer with `uv`, with its archive and its entry
-in the feed. `scripts/generate-engine-feed.py <folder>` writes the feed of the archives of all
-computers and signs it with the updates key from standard input; each update site carries
-that feed. A development build of Kodosi uses the engine whose program
-`KODOSI_BROWSER_ENGINE` names, and no feed. No other build makes that engine again: after a
-change in `browser/`, run `just browser-engine-build`, or the host keeps the engine of the
-source before.
+### Kodosi Browser engine
 
-A host and an engine work together only with the same version of their link, `VERSION` in
-`browser/crate/src/link.rs`. Each engine and each feed names its version, the feed has its
-address by it, a host takes only the feed and the engine of its own version, and an engine
-of another version cannot connect to a host. So an engine and an app release in any order.
-Raise the version in the change that makes the link different. Raise the engine's own
-version in `browser/engine/Cargo.toml` in each change of the engine too: a host takes an
-engine from the feed only when its version is higher than the one that it has.
+Kodosi Browser links against prebuilt CEF pinned by `cef-dll-sys` (downloaded and verified at build
+time, so Chromium is never compiled from source):
+
+- `browser/build/build-engine.py --output-dir <folder>` builds the engine using `uv` and writes its
+  archive and feed metadata.
+- `scripts/generate-engine-feed.py <folder>` aggregates all platform archives into the signed feed
+  (reading the signing key from stdin) hosted on the update site.
+- In development, set `KODOSI_BROWSER_ENGINE` to the built engine binary to bypass the update feed.
+  After changing code under `browser/`, re-run `just browser-engine-build` because no other recipe
+  rebuilds it.
+- Host and engine must agree on `VERSION` in `browser/crate/src/link.rs`. Feed URLs and engine
+  builds are keyed by that protocol version, so hosts only fetch and connect to compatible engines,
+  allowing app and engine releases to ship independently. Bump `VERSION` whenever the link protocol
+  changes, and bump `browser/engine/Cargo.toml` on every engine change so hosts recognize the
+  newer build in the feed.
 
 ## Texts and languages
 
-Write each new text in English in the code, then give it its words in German, Greek,
-Spanish, French, Italian, Japanese, Korean and Simplified Chinese.
+Write every new user-facing string in English in code, then translate it into German, Greek,
+Spanish, French, Italian, Japanese, Korean, and Simplified Chinese:
 
-- Swift: `Text("…")` and `String(localized: "…")`, with `bundle: .module` in the shared
-  package. After a Mac or iPhone build, `just apple-strings-sync` adds the new texts to the
-  String Catalogs.
-- Qt: `qsTr()` in QML and `tr()` in C++, with `%n` for a count. `just linux-strings-sync` adds
-  the new texts to `clients/qt/i18n/`.
-- Android: `stringResource(R.string.…)` in Compose, with the words in each
+- Swift: `Text("…")` and `String(localized: "…")` (passing `bundle: .module` in shared packages).
+  After building macOS or iOS, run `just apple-strings-sync` to extract new keys into the String
+  Catalogs.
+- Qt: `qsTr()` in QML and `tr()` in C++, using `%n` for plurals. Run `just linux-strings-sync` to
+  update `clients/qt/i18n/`.
+- Android: `stringResource(R.string.…)` in Compose, with entries in every
   `clients/android/app/src/main/res/values*/strings.xml`.
-- Runtime: `text!("… {name} …", name = value)` for a sentence for people, with its words in
-  `runtime/texts/`. The detail of an internal fault stays English, as `Text::plain`.
-- Backend: a refusal that people read stays an English sentence in the backend. List it in
-  `backend_refusals()` in `runtime/src/network/http.rs`, with its words in `runtime/texts/`.
-- Document views: `say("…")` from `@documents/words`, with its words in
+- Runtime: `text!("… {name} …", name = value)` for user-facing messages, with translations in
+  `runtime/texts/`. Internal fault details stay English via `Text::plain`.
+- Backend: user-facing rejection messages stay English in C# and are mapped to localized templates
+  in `backend_refusals()` inside `runtime/src/network/http.rs` (with translations in
+  `runtime/texts/`).
+- Document views: `say("…")` from `@documents/words`, with translations in
   `documents/views/words/src/`.
-- Sign-in theme: `sign-in/src/login/i18n.ts`, `sign-in/src/account/words.ts` and
+- Sign-in theme: `sign-in/src/login/i18n.ts`, `sign-in/src/account/words.ts`, and
   `sign-in/src/email/messages/`.
 
-`just translations-check` lists each text without words in a language, and each
-translation that lost or changed a value. `just mac-check`, `just ios-check` and
-`just linux-check` also fail when a String Catalog or a Qt translation file misses a text
-of the code.
+`just translations-check` flags missing translations or mismatched format placeholders.
+`just mac-check`, `just ios-check`, and `just linux-check` also fail if String Catalogs or Qt `.ts`
+files are missing strings from the source.
 
 ## Isolated validation
 
-Validate by running the app or calling the real boundary, with a disposable database and
-a disposable `KODOSI_DATA_ROOT`. Set `KODOSI_PRODUCTION_DATA_ROOT` to the real data root
-too, so the runtime refuses an overlap. `KODOSI__RUNTIME__INITIAL_SHELL` picks the shell
-of new terminals. The Mac app gives its host `<KODOSI_DATA_ROOT>/harness-home` as `HOME`;
-elsewhere terminals get your real `HOME`, so point the shell variable at a script that
-sets a disposable one. On Linux, a host that a command starts takes the environment of
-the systemd user session, with your real `HOME`, and reads the agents' own folders for
-plan use; run it with a disposable `HOME` and a `DBUS_SESSION_BUS_ADDRESS` that points
-nowhere. Never touch real provider settings, memory, conversations,
-credentials or working files. The app writes a redacted `app.log` in the data root, and
-the host `host.log`; check them for private data before you attach them to an issue.
-With `KODOSI_TERMINAL_DEBUG=1`, the Mac and iPhone apps write the sizes and lifecycle of
-their terminal views to stderr.
+Always test against real boundaries using a disposable database and a disposable
+`KODOSI_DATA_ROOT`. Also set `KODOSI_PRODUCTION_DATA_ROOT` to your real data root so the runtime
+refuses to overlap with production data. Use `KODOSI__RUNTIME__INITIAL_SHELL` to choose the shell
+for new terminals.
 
-An agent's link to the chat is in `runtime/links/`, and for Antigravity CLI it is
-`kodosi acp` in the runtime. After a change there, or after a new release of the agent, run
-the agent in a terminal of an isolated host and look at its chat in the app. For Claude
-Code, `claude plugin validate` on the plugin in the data root checks the module against the
-installed version. The records that the chat's tests play are from real sessions: record a
-new one with the agent, and replace the names of private places.
+On macOS, the app gives its host `<KODOSI_DATA_ROOT>/harness-home` as `HOME`. On other platforms,
+terminals inherit your real `HOME`, so point `KODOSI__RUNTIME__INITIAL_SHELL` at a wrapper script
+that sets a disposable `HOME`. On Linux, a host spawned by CLI commands inherits the systemd user
+session environment (with your real `HOME`) and reads agent config directories for plan usage; run
+it with a disposable `HOME` and a bogus `DBUS_SESSION_BUS_ADDRESS`. Never touch real provider
+settings, memory, conversations, credentials, or working files.
+
+The app and the host write redacted `app.log` and `host.log` files into the data root; inspect them
+for sensitive data before attaching them to issues. Setting `KODOSI_TERMINAL_DEBUG=1` makes the
+macOS and iOS apps log terminal view sizing and lifecycle events to stderr.
+
+Agent chat adapters live in `runtime/links/` (and `kodosi acp` for Antigravity CLI). After
+changing an adapter or upgrading an agent CLI, test the real agent inside an isolated host and
+verify its chat view in the app. For Claude Code, run `claude plugin validate` against the generated
+plugin in the data root. Chat replay fixtures come from real agent sessions; record fresh ones
+with the agent and scrub private paths before committing.
 
 ## Data formats
 
-[AGENTS.md](../AGENTS.md) says when a format can change without a reader for the old one.
-A change of the database is a new migration (`dotnet ef migrations add <Name>` in
-`backend/`). A contract change that older apps cannot use raises the oldest version in
-`protocol/` in the same change.
+See [AGENTS.md](../AGENTS.md) for when saved formats can change without backward compatibility.
+Database changes always need a new migration (`dotnet ef migrations add <Name>` inside
+`backend/`). Any breaking protocol change must bump the minimum supported version in `protocol/`
+in the same change.
