@@ -87,7 +87,7 @@ public struct RecoveryKeySheet: View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
             ForEach(groups.enumerated(), id: \.offset) { index, group in
                 Text(group)
-                    .font(.system(.title3, design: .monospaced, weight: .semibold))
+                    .font(mac: 15, ios: .title3, weight: .semibold, design: .monospaced)
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
                     .foregroundStyle(theme.colors.ink)

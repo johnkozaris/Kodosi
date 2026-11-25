@@ -22,7 +22,7 @@ Column {
 
         width: Math.min(implicitWidth, root.width)
         implicitWidth: headerRow.implicitWidth
-        implicitHeight: Math.max(26, headerRow.implicitHeight + 6)
+        implicitHeight: Math.max(KodosiTheme.scaled(26), headerRow.implicitHeight + 6)
         hoverEnabled: true
         activeFocusOnTab: true
         objectName: "chat.work." + root.line.id

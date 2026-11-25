@@ -33,7 +33,7 @@ struct BrowserProblemKey: View {
 
     var body: some View {
         ExplainedKey(words: problem) {
-            Image(systemName: "exclamationmark.triangle.fill").font(scaled: 11, weight: .semibold)
+            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(theme.colors.caution)
                 .frame(width: size, height: size)
                 .touchTarget(Rectangle())

@@ -212,7 +212,7 @@ public struct DeviceTrustChoices: View {
                 .autocorrectionDisabled()
                 .focused($keyFocused)
                 .onSubmit(recover)
-                .font(.system(.callout, design: .monospaced))
+                .font(mac: 12, ios: .callout, design: .monospaced)
                 .accessibilityIdentifier("deviceTrust.recoveryKey")
             Button(action: recover) { Text("Approve", bundle: .module) }
                 .buttonStyle(.kodosi(.primary))

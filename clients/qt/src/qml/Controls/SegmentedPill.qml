@@ -27,7 +27,7 @@ Item {
 
     signal activated(var value)
 
-    implicitHeight: KodosiTheme.scaled(compact ? 28 : 34)
+    implicitHeight: symbolic ? (compact ? 28 : 34) : KodosiTheme.scaled(compact ? 28 : 34)
     implicitWidth: row.implicitWidth + 6
     Accessible.role: Accessible.PageTabList
 
@@ -103,8 +103,8 @@ Item {
                         }
                         KIcon {
                             visible: !!option.modelData.icon && option.modelData.progress === undefined
-                            Layout.preferredWidth: KodosiTheme.scaled(13)
-                            Layout.preferredHeight: KodosiTheme.scaled(13)
+                            Layout.preferredWidth: root.symbolic ? 13 : KodosiTheme.scaled(13)
+                            Layout.preferredHeight: root.symbolic ? 13 : KodosiTheme.scaled(13)
                             name: option.modelData.icon || ""
                             color: root.dock ? (option.selected ? root.look.accentStrong : root.look.inkMuted) : label.color
                             strokeWidth: 2

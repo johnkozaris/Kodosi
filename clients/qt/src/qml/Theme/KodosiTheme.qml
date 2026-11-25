@@ -9,7 +9,6 @@ QtObject {
     readonly property bool reduceMotion: Models.Appearance.reduceMotion
     readonly property real textScale: Models.Appearance.textScale
 
-    /// `size` at the person's text size, for words and the symbols beside them.
     function scaled(size) {
         return Math.round(size * textScale)
     }
@@ -48,14 +47,14 @@ QtObject {
     readonly property color highlight: look.highlight
     readonly property color lowlight: look.lowlight
 
-    readonly property int fontLarge: Math.round(28 * textScale)
-    readonly property int fontTitle: Math.round(20 * textScale)
-    readonly property int fontHeadline: Math.round(15 * textScale)
-    readonly property int fontCallout: Math.round(14 * textScale)
-    readonly property int fontBody: Math.round(13 * textScale)
-    readonly property int fontFootnote: Math.round(12 * textScale)
-    readonly property int fontCaption: Math.round(11 * textScale)
-    readonly property int fontCaption2: Math.round(10 * textScale)
+    readonly property int fontLarge: scaled(28)
+    readonly property int fontTitle: scaled(20)
+    readonly property int fontHeadline: scaled(15)
+    readonly property int fontCallout: scaled(14)
+    readonly property int fontBody: scaled(13)
+    readonly property int fontFootnote: scaled(12)
+    readonly property int fontCaption: scaled(11)
+    readonly property int fontCaption2: scaled(10)
 
     readonly property real radiusXs: 6
     readonly property real radiusSm: 8
@@ -68,8 +67,8 @@ QtObject {
     readonly property real frameInset: 8
     readonly property real titleBarHeight: 36
     readonly property real headerHeight: 54
-    readonly property real controlHeight: Math.round(32 * textScale)
-    readonly property real fieldHeight: Math.round(34 * textScale)
+    readonly property real controlHeight: scaled(32)
+    readonly property real fieldHeight: scaled(34)
 
     readonly property int motionHover: reduceMotion ? 0 : 120
     readonly property int motionFade: reduceMotion ? 0 : 200

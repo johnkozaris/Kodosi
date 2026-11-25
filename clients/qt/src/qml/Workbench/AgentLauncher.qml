@@ -583,7 +583,7 @@ ColumnLayout {
                     ToolTip.text: qsTr("Computer")
                     activeFocusOnTab: true
                     hoverEnabled: true
-                    height: 26
+                    height: KodosiTheme.scaled(26)
                     leftPadding: 8
                     rightPadding: 8
                     scale: pressed ? 0.96 : 1
@@ -762,11 +762,11 @@ ColumnLayout {
                         ToolTip.visible: hovered && !open
                         ToolTip.text: root.shown(root.directory)
                         ToolTip.delay: Tip.delay
-                        glyph: KIcon { width: 13; height: 13; name: "folder"; filled: true; strokeWidth: 1.2; color: "#4f9bb0" }
+                        glyph: KIcon { width: KodosiTheme.scaled(13); height: KodosiTheme.scaled(13); name: "folder"; filled: true; strokeWidth: 1.2; color: "#4f9bb0" }
                         onClicked: root.toggleMenu("folder")
                     }
                     Text {
-                        height: 26
+                        height: KodosiTheme.scaled(26)
                         verticalAlignment: Text.AlignVCenter
                         text: "❯"
                         color: root.look.accent
@@ -775,7 +775,7 @@ ColumnLayout {
                     }
                     CommandWord {
                         visible: root.info !== null && root.info.installed
-                        height: 26
+                        height: KodosiTheme.scaled(26)
                         verticalAlignment: Text.AlignVCenter
                         text: root.info ? root.info.program : ""
                         color: KodosiTheme.mix(Identity.kindTint(root.agentId), root.look.dark ? "#ffffff" : root.look.ink, 0.35)
@@ -821,7 +821,7 @@ ColumnLayout {
                         Accessible.id: objectName
                         Accessible.name: qsTr("Model and effort")
                         Accessible.description: [modelKey.title].concat(root.fast ? [qsTr("Fast mode")] : []).join(", ")
-                        glyph: KIcon { width: 11; height: 11; name: "sparkle"; filled: true; strokeWidth: 1; color: Identity.kindTint(root.agentId) }
+                        glyph: KIcon { width: KodosiTheme.scaled(11); height: KodosiTheme.scaled(11); name: "sparkle"; filled: true; strokeWidth: 1; color: Identity.kindTint(root.agentId) }
                         accessoryShown: root.effortLevel >= 0 || root.fast
                         accessory: Row {
                             spacing: 5
@@ -838,8 +838,8 @@ ColumnLayout {
                             KIcon {
                                 anchors.verticalCenter: parent.verticalCenter
                                 visible: root.fast
-                                width: 11
-                                height: 11
+                                width: KodosiTheme.scaled(11)
+                                height: KodosiTheme.scaled(11)
                                 name: "bolt"
                                 filled: true
                                 strokeWidth: 1
@@ -862,8 +862,8 @@ ColumnLayout {
                         Accessible.description: [root.permissionLabel(root.permissions)]
                             .concat(root.outputs.length === 0 ? [] : [root.outputLabel(root.output)]).join(", ")
                         glyph: KIcon {
-                            width: 11
-                            height: 11
+                            width: KodosiTheme.scaled(11)
+                            height: KodosiTheme.scaled(11)
                             name: "more"
                             strokeWidth: 3.4
                             color: root.permissions === "unrestricted" ? root.look.caution : Identity.kindTint(root.agentId)
@@ -872,7 +872,7 @@ ColumnLayout {
                     }
                     CommandWord {
                         visible: root.info !== null && !root.info.installed
-                        height: 26
+                        height: KodosiTheme.scaled(26)
                         verticalAlignment: Text.AlignVCenter
                         text: root.info ? root.info.install : ""
                         color: root.look.inkMuted
@@ -881,7 +881,7 @@ ColumnLayout {
                     Item {
                         visible: !root.takesWords
                         width: 12
-                        height: 26
+                        height: KodosiTheme.scaled(26)
 
                         CursorBlock {
                             anchors.centerIn: parent

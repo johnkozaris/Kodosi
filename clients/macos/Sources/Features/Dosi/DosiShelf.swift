@@ -6,24 +6,24 @@ import SwiftUI
 nonisolated enum DosiShelfFit {
     static let spacing: CGFloat = 4
     static let nameWidth: CGFloat = 112
+    static let nameSize: CGFloat = 11.5
 
-    /// `size` is the size of the chip's words, at the person's text size.
-    static func chip(_ name: String, sign: CGFloat?, size: CGFloat) -> CGFloat {
-        let font = NSFont.systemFont(ofSize: size, weight: .semibold)
+    static func chip(_ name: String, sign: CGFloat?, theme: AppTheme) -> CGFloat {
+        let font = NSFont.systemFont(ofSize: theme.scaled(nameSize), weight: .semibold)
         let text = min(ceil((name as NSString).size(withAttributes: [.font: font]).width), nameWidth)
         return 37 + text + (sign.map { 6 + $0 } ?? 0)
     }
 
-    static func more(_ hidden: Int, size: CGFloat) -> CGFloat {
-        let font = NSFont.monospacedDigitSystemFont(ofSize: size, weight: .semibold)
+    static func more(_ hidden: Int, theme: AppTheme) -> CGFloat {
+        let font = NSFont.monospacedDigitSystemFont(ofSize: theme.scaled(nameSize), weight: .semibold)
         return 28 + ceil(("\(hidden)" as NSString).size(withAttributes: [.font: font]).width)
     }
 
-    static func shown(_ widths: [CGFloat], in room: CGFloat, more: (Int) -> CGFloat) -> Int {
+    static func shown(_ widths: [CGFloat], in room: CGFloat, theme: AppTheme) -> Int {
         guard widths.reduce(0, +) + spacing * CGFloat(max(widths.count - 1, 0)) > room else { return widths.count }
         var used: CGFloat = 0
         var count = 0
-        while count < widths.count, used + widths[count] + spacing + more(widths.count - count - 1) <= room {
+        while count < widths.count, used + widths[count] + spacing + more(widths.count - count - 1, theme: theme) <= room {
             used += widths[count] + spacing
             count += 1
         }
@@ -91,11 +91,11 @@ struct DosiShelf: View {
     }
 
     private func chipWidth(of session: RuntimeSession) -> CGFloat {
-        DosiShelfFit.chip(session.name, sign: deps.sign(of: session) == nil ? nil : 14, size: theme.scaled(11.5))
+        DosiShelfFit.chip(session.name, sign: deps.sign(of: session) == nil ? nil : 14, theme: theme)
     }
 
     private func chipWidth(of project: ProjectEntry) -> CGFloat {
-        DosiShelfFit.chip(project.name, sign: project.unread ? 8 : nil, size: theme.scaled(11.5))
+        DosiShelfFit.chip(project.name, sign: project.unread ? 8 : nil, theme: theme)
     }
 
     private func need(_ session: RuntimeSession) -> Int {
@@ -119,7 +119,7 @@ private struct DosiShelfRow<Item: Identifiable, Chip: View, More: View, Trailing
     @State private var room: CGFloat = 0
 
     var body: some View {
-        let shown = DosiShelfFit.shown(widths, in: room > 0 ? room : estimate) { DosiShelfFit.more($0, size: theme.scaled(11.5)) }
+        let shown = DosiShelfFit.shown(widths, in: room > 0 ? room : estimate, theme: theme)
         HStack(spacing: 4) {
             HStack(spacing: DosiShelfFit.spacing) {
                 ForEach(items.prefix(shown).enumerated(), id: \.element.id) { order, item in
@@ -153,7 +153,7 @@ private struct DosiChip<Mark: View>: View {
         let shape = RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
         HStack(spacing: 6) {
             mark
-            Text(name).font(scaled: 11.5, weight: selected ? .semibold : .medium)
+            Text(name).font(scaled: DosiShelfFit.nameSize, weight: selected ? .semibold : .medium)
                 .foregroundStyle(shown || selected ? theme.colors.ink : theme.colors.inkMuted)
                 .lineLimit(1).truncationMode(.middle).frame(maxWidth: DosiShelfFit.nameWidth, alignment: .leading)
             if let sign {

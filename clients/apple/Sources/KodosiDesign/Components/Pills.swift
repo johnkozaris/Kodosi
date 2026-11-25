@@ -83,7 +83,11 @@ public struct SegmentedPill<Value: Hashable>: View {
             } label: {
                 HStack(spacing: 6) {
                     if let symbol = option.symbol {
-                        Image(systemName: symbol).font(scaled: compact ? 11 : 12, weight: .semibold)
+                        if symbolic {
+                            Image(systemName: symbol).font(.system(size: compact ? 11 : 12, weight: .semibold))
+                        } else {
+                            Image(systemName: symbol).font(scaled: compact ? 11 : 12, weight: .semibold)
+                        }
                     }
                     if !symbolic {
                         Text(option.title)
@@ -100,7 +104,7 @@ public struct SegmentedPill<Value: Hashable>: View {
                 .fontWeight(.medium)
                 .foregroundStyle(selected ? theme.colors.ink : theme.colors.inkMuted)
                 .padding(.horizontal, compact ? Segment.compactPadding : Segment.padding)
-                .controlHeight(compact ? Segment.compactHeight : Segment.height)
+                .controlHeight(compact ? Segment.compactHeight : Segment.height, holdsWords: !symbolic)
                 .frame(maxWidth: stacked ? .infinity : nil)
                 .background {
                     if selected {

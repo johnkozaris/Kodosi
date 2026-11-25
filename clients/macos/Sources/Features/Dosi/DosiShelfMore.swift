@@ -19,12 +19,12 @@ private struct DosiMoreChip<List: View>: View {
         let shape = RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
         Button { open.toggle() } label: {
             HStack(spacing: 4) {
-                Text(verbatim: "\(count)").font(scaled: 11.5, weight: .semibold).monospacedDigit()
+                Text(verbatim: "\(count)").font(scaled: DosiShelfFit.nameSize, weight: .semibold).monospacedDigit()
                 Image(systemName: "chevron.down").font(scaled: 8, weight: .bold)
                     .rotationEffect(.degrees(open ? 180 : 0))
             }
             .foregroundStyle(needs ? theme.colors.accentStrong : open || hovered ? theme.colors.ink : theme.colors.inkMuted)
-            .frame(width: DosiShelfFit.more(count, size: theme.scaled(11.5)), height: 26)
+            .frame(width: DosiShelfFit.more(count, theme: theme), height: 26)
             .background {
                 BezelBackground(shape: shape, fill: open || selected ? theme.colors.accentSoft
                     : theme.colors.raised.mix(with: theme.colors.ink, by: hovered ? 0.05 : 0), bezel: .quiet)

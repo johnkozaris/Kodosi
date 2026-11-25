@@ -33,7 +33,7 @@ Column {
         visible: root.group
         width: Math.min(implicitWidth, root.width)
         implicitWidth: headerRow.implicitWidth
-        implicitHeight: 22
+        implicitHeight: KodosiTheme.scaled(22)
         hoverEnabled: true
         Accessible.name: root.row.summary || ""
         ToolTip.visible: hovered
@@ -237,7 +237,7 @@ Column {
             AbstractButton {
                 id: pill
 
-                implicitHeight: 22
+                implicitHeight: KodosiTheme.scaled(22)
                 implicitWidth: Math.min(pillRow.implicitWidth + 14, receipt.width - 24)
                 hoverEnabled: true
                 Accessible.name: receipt.tool.receipt || ""
@@ -288,7 +288,7 @@ Column {
             AbstractButton {
                 visible: receipt.tool.hasOutput === true
                 implicitWidth: 18
-                implicitHeight: 22
+                implicitHeight: KodosiTheme.scaled(22)
                 hoverEnabled: true
                 Accessible.name: receipt.output ? qsTr("Hide the output") : qsTr("Show the output")
                 ToolTip.visible: hovered
@@ -299,8 +299,8 @@ Column {
                 contentItem: Item {
                     KIcon {
                         anchors.centerIn: parent
-                        width: 9
-                        height: 9
+                        width: KodosiTheme.scaled(9)
+                        height: KodosiTheme.scaled(9)
                         name: "chevron-down"
                         rotation: receipt.output ? 0 : -90
                         strokeWidth: 2.6

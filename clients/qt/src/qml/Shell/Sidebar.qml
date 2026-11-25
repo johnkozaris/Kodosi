@@ -680,7 +680,7 @@ Item {
                             Layout.leftMargin: 8
                             Layout.preferredWidth: 22
                             Layout.preferredHeight: 22
-                            KIcon { anchors.centerIn: parent; width: 15; height: 15; name: "people" }
+                            KIcon { anchors.centerIn: parent; width: KodosiTheme.scaled(15); height: KodosiTheme.scaled(15); name: "people" }
                         }
                         PlainLabel {
                             id: hint
