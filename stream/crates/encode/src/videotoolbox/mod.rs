@@ -412,7 +412,7 @@ fn plan(
     let repair_due = retry_due || (slot.retry_at.is_none() && slot.repair != Repair::None);
     let (buffer, changed) = match (&slot.picture, last) {
         (Some(picture), _) => (picture.clone(), Some(slot.changed)),
-        (None, Some(last)) if !stills && repair_due => (last.clone(), Some(1.0)),
+        (None, Some(last)) if repair_due => (last.clone(), Some(1.0)),
         (None, Some(last)) if !stills && slot.retry_at.is_none() => (last.clone(), None),
         _ => return Err(slot.retry_at.filter(|at| *at > now)),
     };
@@ -762,6 +762,46 @@ mod tests {
         encoder.want_key();
         wait_for(&frames, sent + 1);
         assert_eq!(frames.0.lock().unwrap()[sent].kind, FrameKind::Key);
+    }
+
+    /// Refuses the first frame, as a full link does.
+    #[derive(Default)]
+    struct Refusing(Mutex<Vec<FrameKind>>);
+
+    impl Output for Refusing {
+        fn frame(&self, frame: Encoded) -> bool {
+            let mut kinds = self.0.lock().unwrap();
+            kinds.push(frame.kind);
+            kinds.len() > 1
+        }
+
+        fn failed(&self, problem: String) {
+            panic!("{problem}");
+        }
+    }
+
+    #[test]
+    fn a_still_that_the_link_refused_comes_again() {
+        let refusing = Arc::new(Refusing::default());
+        let mut encoder =
+            Encoder::stills(Format::default(), Arc::clone(&refusing) as Arc<dyn Output>);
+        encoder.encode(
+            Picture::Pixels {
+                bgra: &picture(0),
+                width: WIDTH,
+                height: HEIGHT,
+            },
+            None,
+            1.0,
+        );
+        let until = Instant::now() + Duration::from_secs(3);
+        while refusing.0.lock().unwrap().len() < 2 && Instant::now() < until {
+            thread::sleep(Duration::from_millis(5));
+        }
+        assert_eq!(
+            *refusing.0.lock().unwrap(),
+            [FrameKind::Key, FrameKind::Key]
+        );
     }
 
     #[test]

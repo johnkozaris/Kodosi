@@ -89,6 +89,26 @@ public sealed class UdpRelayTests : IAsyncDisposable
         Assert.Equal(Data(allocation, "still yours"), await ReceiveAsync(device, Wait));
     }
 
+    [Fact]
+    public async Task AFloodFromOneAddressLeavesBindsAndStunToEveryoneElse()
+    {
+        var allocation = allocations.Open();
+        using var flood = Device(); using var device = Device();
+        var request = new byte[20];
+        request[1] = 0x01;
+        BinaryPrimitives.WriteUInt32BigEndian(request.AsSpan(4), 0x2112A442);
+        for (var sent = 0; sent < 20_000; sent++)
+        {
+            await flood.SendToAsync(new[] { UdpRelay.Bind }, Relay);
+            await flood.SendToAsync(request, Relay);
+        }
+        await BindAsync(device, allocation, 0);
+        using var asker = new Socket(AddressFamily.InterNetworkV6, SocketType.Dgram, ProtocolType.Udp);
+        asker.Bind(new IPEndPoint(IPAddress.IPv6Loopback, 0));
+        await asker.SendToAsync(request, new IPEndPoint(IPAddress.IPv6Loopback, Relay.Port));
+        Assert.Equal([0x01, 0x01], (await ReceiveAsync(asker, Wait))?[..2]);
+    }
+
     public async ValueTask DisposeAsync()
     {
         await stop.CancelAsync();
@@ -117,7 +137,8 @@ public sealed class UdpRelayTests : IAsyncDisposable
         timeout.CancelAfter(wait);
         try
         {
-            var received = await socket.ReceiveFromAsync(buffer, SocketFlags.None, new IPEndPoint(IPAddress.Any, 0), timeout.Token);
+            var any = socket.AddressFamily == AddressFamily.InterNetworkV6 ? IPAddress.IPv6Any : IPAddress.Any;
+            var received = await socket.ReceiveFromAsync(buffer, SocketFlags.None, new IPEndPoint(any, 0), timeout.Token);
             return buffer[..received.ReceivedBytes];
         }
         catch (OperationCanceledException) when (!TestContext.Current.CancellationToken.IsCancellationRequested)

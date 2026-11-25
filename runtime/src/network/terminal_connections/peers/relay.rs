@@ -163,10 +163,10 @@ impl Routes {
         (stand_in, true)
     }
 
-    fn remove(&mut self, allocation: [u8; ALLOCATION]) {
-        if let Some(stand_in) = self.by_allocation.remove(&allocation) {
-            self.by_stand_in.remove(&stand_in);
-        }
+    fn remove(&mut self, allocation: [u8; ALLOCATION]) -> Option<SocketAddr> {
+        let stand_in = self.by_allocation.remove(&allocation)?;
+        self.by_stand_in.remove(&stand_in);
+        Some(stand_in)
     }
 
     pub(super) fn bound(&self, stand_in: SocketAddr) -> Option<bool> {
@@ -292,10 +292,20 @@ fn plain(address: SocketAddr) -> SocketAddr {
 }
 
 impl Peers {
-    /// Takes the allocation that the server gave for the devices of `pipe`.
-    pub(crate) fn relayed(&self, pipe: Uuid, grant: Grant) {
+    /// Waits for the allocation of `pipe`, which a route of this device meets the other device on.
+    pub(crate) fn wanted(&self, pipe: Uuid) {
         if let Ok(mut grants) = self.grants.lock() {
-            grants.insert(pipe, grant);
+            grants.entry(pipe).or_default();
+        }
+    }
+
+    /// Takes the allocation that the server gave for the devices of `pipe`, when a route waits
+    /// for it.
+    pub(crate) fn relayed(&self, pipe: Uuid, grant: Grant) {
+        if let Ok(mut grants) = self.grants.lock()
+            && let Some(waiting) = grants.get_mut(&pipe)
+        {
+            *waiting = Some(grant);
         }
     }
 
@@ -307,20 +317,38 @@ impl Peers {
             .lock()
             .ok()
             .and_then(|mut grants| grants.remove(&pipe))
+            .flatten()
         else {
             return;
         };
         let used = self.grants.lock().is_ok_and(|grants| {
             grants
                 .values()
+                .flatten()
                 .any(|grant| grant.allocation == gone.allocation)
         });
         if !used
             && let Ok(bound) = self.bound.try_lock()
             && let Some(bound) = bound.as_ref()
+            && let Some(stand_in) = bound.socket.forget_route(gone.allocation)
+            && let Ok(dialed) = self.dialed.lock()
         {
-            bound.socket.forget_route(gone.allocation);
+            for joined in dialed
+                .values()
+                .filter(|joined| joined.stand_in == Some(stand_in))
+            {
+                joined.connection.close(VarInt::from_u32(0), b"");
+            }
         }
+    }
+
+    /// Whether the relay still carries the connection that `stand_in` reaches.
+    pub(super) async fn routed(&self, stand_in: SocketAddr) -> bool {
+        self.bound
+            .lock()
+            .await
+            .as_ref()
+            .is_some_and(|bound| bound.socket.bound(stand_in).is_some())
     }
 
     pub(crate) fn relays(&self) -> bool {
@@ -329,7 +357,7 @@ impl Peers {
 
     /// Relays the other device of `pipe` through `bound`'s socket, and gives its stand-in.
     pub(super) async fn relay_route(&self, pipe: Uuid, bound: &Bound) -> Option<SocketAddr> {
-        let grant = self.grants.lock().ok()?.get(&pipe).cloned()?;
+        let grant = self.grants.lock().ok()?.get(&pipe).cloned().flatten()?;
         let server = self.relay_server().await?;
         Some(bound.socket.route(&grant, server))
     }
@@ -382,10 +410,8 @@ impl Demux {
         stand_in
     }
 
-    fn forget_route(&self, allocation: [u8; ALLOCATION]) {
-        if let Ok(mut routes) = self.0.relays.lock() {
-            routes.remove(allocation);
-        }
+    fn forget_route(&self, allocation: [u8; ALLOCATION]) -> Option<SocketAddr> {
+        self.0.relays.lock().ok()?.remove(allocation)
     }
 
     fn bound(&self, stand_in: SocketAddr) -> Option<bool> {

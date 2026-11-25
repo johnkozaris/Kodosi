@@ -25,12 +25,12 @@ internal sealed partial class UdpRelay(RelaySettings settings, RelayAllocations 
     private const int Readers = 4;
     private const int LargestPacket = 64 * 1024;
     private const int SocketBufferBytes = 8 * 1024 * 1024;
-    /// <summary>STUN answers and binds each second for all devices together; each device asks about twice a minute.</summary>
-    private const double AnswersEachSecond = 10_000;
+    /// <summary>STUN answers for each source address; a device asks about twice a minute.</summary>
+    private const double StunEachSecond = 2;
+    private const double StunBurst = 10;
     private static readonly TimeSpan BindSkew = TimeSpan.FromMinutes(1);
     private static readonly IPEndPoint AnyEndPoint = new(IPAddress.IPv6Any, 0);
-    private readonly Lock answering = new();
-    private TokenBucket answers = new(AnswersEachSecond, AnswersEachSecond, clock);
+    private readonly SourceLimit stun = new(StunBurst, StunEachSecond, clock);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -87,18 +87,13 @@ internal sealed partial class UdpRelay(RelaySettings settings, RelayAllocations 
             case Data:
                 Forward(socket, packet, from);
                 break;
-            case Bind when MayAnswer():
+            case Bind:
                 TakeBind(socket, packet, from);
                 break;
-            case StunRequest when MayAnswer():
+            case StunRequest when stun.TryTake(from):
                 AnswerStun(socket, packet, from);
                 break;
         }
-    }
-
-    private bool MayAnswer()
-    {
-        lock (answering) return answers.TryTake(1);
     }
 
     private void Forward(Socket socket, ReadOnlySpan<byte> packet, SocketAddress from)
@@ -111,7 +106,7 @@ internal sealed partial class UdpRelay(RelaySettings settings, RelayAllocations 
     /// <summary>Binds a slot of an allocation to the address that a bind signed with its secret came from, and confirms it there.</summary>
     private void TakeBind(Socket socket, Span<byte> packet, SocketAddress from)
     {
-        if (packet.Length != BindBytes || allocations.Find(Id(packet)) is not { } allocation) return;
+        if (packet.Length != BindBytes || allocations.Find(Id(packet)) is not { } allocation || !allocation.MayBind()) return;
         var slot = packet[HeaderBytes];
         if (slot > 1) return;
         var time = BinaryPrimitives.ReadInt64BigEndian(packet[(HeaderBytes + 1)..]);

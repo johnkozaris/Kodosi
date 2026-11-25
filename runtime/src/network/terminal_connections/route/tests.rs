@@ -415,7 +415,7 @@ async fn two_finders_take_a_view_straight_and_its_channel_goes_on_over_the_lane(
 async fn the_devices_of_two_people_meet_only_through_the_relay_and_trade_no_addresses() {
     use super::super::{
         channel::{Channel, tests::channel_keys},
-        peers::tests::{granted, relay_for_tests},
+        peers::tests::{granted, listening, relay_for_tests},
     };
     let (host_keys, viewer_keys) = (
         DeviceKeys::generate().unwrap(),
@@ -434,6 +434,7 @@ async fn the_devices_of_two_people_meet_only_through_the_relay_and_trade_no_addr
     let pipe = Uuid::now_v7();
     let (host_peers, viewer_peers) = (Peers::on_loopback(hosting), Peers::on_loopback(viewing));
     granted(&host_peers, &viewer_peers, relay_for_tests().await, pipe);
+    let host_address = listening(&host_peers).await;
     let mut viewer_finder = Finder::viewer(
         Some(viewer_peers),
         viewer_paths.clone(),
@@ -455,7 +456,8 @@ async fn the_devices_of_two_people_meet_only_through_the_relay_and_trade_no_addr
                 }
                 Some(frame) = host_finder.next() => {
                     assert!(matches!(&frame, Frame::PathAnswer { addresses } if addresses.is_empty()));
-                    hosted.send(&frame).await.unwrap();
+                    // A host that answers with its address anyway is still met only through the relay.
+                    hosted.send(&Frame::PathAnswer { addresses: vec![host_address] }).await.unwrap();
                 }
                 frame = hosted.receive() => host_finder.heard(frame.unwrap().unwrap().0),
                 frame = view.receive() => viewer_finder.heard(frame.unwrap().unwrap().0),

@@ -239,6 +239,7 @@ fn stun_answer_for(id: [u8; 12], seen: SocketAddr) -> Vec<u8> {
 pub(crate) fn granted(host: &Peers, viewer: &Peers, relay: SocketAddr, pipe: Uuid) {
     for (peers, slot) in [(host, 1), (viewer, 0)] {
         peers.relay_at(Some(relay.to_string()));
+        peers.wanted(pipe);
         let (pipe, grant) = Grant::read(&serde_json::json!({
             "type": "relayed",
             "pipe": pipe,
@@ -309,6 +310,42 @@ async fn devices_that_find_no_straight_path_meet_through_the_relay() {
     assert_eq!(arrived.reader.recv().await.unwrap(), b"through the relay");
     arrived.write(b"back").await.unwrap();
     assert_eq!(reached.reader.recv().await.unwrap(), b"back");
+
+    // The route of the last pipe ended; a view opened again at once meets through the relay
+    // again before the host stops waiting for it.
+    drop((arrived, reached));
+    for peers in [&host, &viewer] {
+        peers.forget_relayed(pipe);
+    }
+    let again = Uuid::now_v7();
+    viewer.relayed(
+        again,
+        Grant::read(
+            &serde_json::json!({"pipe": again, "allocation": "AQIDBAUGBw==",
+        "slot": 0, "secret": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", "now": 0}),
+        )
+        .unwrap()
+        .1,
+    );
+    assert!(viewer.grants.lock().unwrap().get(&again).is_none());
+    granted(&host, &viewer, relay, again);
+    let expected = host.expect(viewer_keys.signing_public(), again);
+    let met = tokio::time::timeout(
+        ARRIVAL,
+        futures_util::future::join(
+            expected.meet(&[]),
+            viewer.reach(host_keys.signing_public(), &[], again),
+        ),
+    )
+    .await
+    .unwrap();
+    assert!(met.0.is_some() && met.1.is_some());
+}
+
+/// The address at which this computer reaches `peers`.
+#[cfg(feature = "host")]
+pub(crate) async fn listening(peers: &Arc<Peers>) -> SocketAddr {
+    on_this_computer(peers).await[0].0
 }
 
 #[tokio::test]

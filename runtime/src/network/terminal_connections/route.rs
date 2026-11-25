@@ -597,6 +597,7 @@ impl Finder {
         let (frames, outgoing) = mpsc::channel(4);
         let stop = CancellationToken::new();
         let (answers, answered) = mpsc::channel(1);
+        peers.wanted(pipe);
         let relayed = Some((Arc::clone(&peers), pipe));
         tokio::spawn(stop.clone().run_until_cancelled_owned(look(
             peers,
@@ -633,6 +634,7 @@ impl Finder {
             return Self::relay();
         };
         let (frames, outgoing) = mpsc::channel(4);
+        peers.wanted(pipe);
         Self {
             frames: outgoing,
             relayed: Some((Arc::clone(&peers), pipe)),
@@ -751,7 +753,9 @@ async fn look(
             return;
         }
         let theirs = match tokio::time::timeout(ANSWER_WAIT, answers.recv()).await {
-            Ok(Some(theirs)) if !theirs.is_empty() || !own => theirs,
+            Ok(Some(theirs)) if own && !theirs.is_empty() => theirs,
+            // Another person's host never learns this device's address, whatever it answers.
+            Ok(Some(_)) | Err(_) if !own => Vec::new(),
             Ok(_) => return,
             Err(_) => Vec::new(),
         };

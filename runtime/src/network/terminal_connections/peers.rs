@@ -79,8 +79,9 @@ pub(crate) struct Peers {
     /// The Kodosi server's UDP relay, `host:port`, which also answers STUN; the server names it
     /// when the device connects.
     relay: Locked<Option<String>>,
-    /// The relay's allocations that the server gave for the devices of each pipe.
-    grants: Locked<HashMap<Uuid, Grant>>,
+    /// The relay's allocations that the server gave for the devices of each pipe that a route
+    /// meets the other device on, or none yet.
+    grants: Locked<HashMap<Uuid, Option<Grant>>>,
     bound: Mutex<Option<Arc<Bound>>>,
     dialed: Locked<HashMap<Vec<u8>, Arc<Joined>>>,
     dialing: Locked<HashMap<Vec<u8>, Arc<Mutex<()>>>>,
@@ -106,8 +107,8 @@ impl Drop for Bound {
 
 struct Joined {
     connection: noq::Connection,
-    /// The server's UDP relay forwards the connection.
-    forwarded: bool,
+    /// The server's UDP relay forwards the connection, which reaches the other device here.
+    stand_in: Option<SocketAddr>,
     uses: AtomicUsize,
     unused_since: Locked<tokio::time::Instant>,
     /// Where each video datagram goes, by its kind and flow.
@@ -121,10 +122,10 @@ struct Joined {
 }
 
 impl Joined {
-    fn new(connection: noq::Connection, forwarded: bool) -> Arc<Self> {
+    fn new(connection: noq::Connection, address: SocketAddr) -> Arc<Self> {
         let joined = Arc::new(Self {
             connection: connection.clone(),
-            forwarded,
+            stand_in: relay::is_stand_in(address).then_some(address),
             uses: AtomicUsize::new(0),
             unused_since: Locked::new(tokio::time::Instant::now()),
             flows: Locked::new(HashMap::new()),
@@ -313,7 +314,9 @@ impl Lane {
     }
 
     pub(super) fn forwarded(&self) -> bool {
-        self.used.as_ref().is_some_and(|used| used.0.forwarded)
+        self.used
+            .as_ref()
+            .is_some_and(|used| used.0.stand_in.is_some())
     }
 
     pub(super) async fn write(&mut self, message: &[u8]) -> Result<()> {
@@ -518,13 +521,20 @@ impl Peers {
             Arc::clone(dialing.entry(host_key.to_vec()).or_default())
         };
         let _turn = turn.lock().await;
-        let kept = self
+        let mut kept = self
             .dialed
             .lock()
             .ok()?
             .get(host_key)
             .filter(|joined| joined.open())
             .map(Arc::clone);
+        // A relayed connection whose route ended sends nowhere until QUIC gives up on it.
+        if let Some(stand_in) = kept.as_ref().and_then(|joined| joined.stand_in)
+            && !self.routed(stand_in).await
+            && let Some(stale) = kept.take()
+        {
+            stale.connection.close(VarInt::from_u32(0), b"");
+        }
         if let Some(joined) = kept {
             if let Some(lane) = open_lane(&joined, pipe).await {
                 return Some(lane);
@@ -567,8 +577,7 @@ impl Peers {
             .await
             .ok()
             .flatten()?;
-        let forwarded = relay::is_stand_in(address);
-        if forwarded {
+        if relay::is_stand_in(address) {
             tracing::info!("this device reached another device through the relay");
         } else {
             tracing::info!(
@@ -576,7 +585,7 @@ impl Peers {
                 "this device reached another device of its person straight"
             );
         }
-        let joined = Joined::new(connection, forwarded);
+        let joined = Joined::new(connection, address);
         self.dialed
             .lock()
             .ok()?
@@ -870,7 +879,7 @@ async fn accept(peers: Weak<Peers>, endpoint: noq::Endpoint) {
 /// of its streams to the route waiting for it.
 #[cfg(feature = "host")]
 async fn welcome(peers: Weak<Peers>, incoming: noq::Incoming) {
-    let forwarded = relay::is_stand_in(incoming.remote_address());
+    let from = incoming.remote_address();
     let Ok(Ok(connection)) = tokio::time::timeout(ARRIVAL, incoming).await else {
         return;
     };
@@ -890,7 +899,7 @@ async fn welcome(peers: Weak<Peers>, incoming: noq::Incoming) {
             connection.close(VarInt::from_u32(1), b"");
             return;
         }
-        let joined = Joined::new(connection.clone(), forwarded);
+        let joined = Joined::new(connection.clone(), from);
         if let Ok(mut arrived) = peers.arrived.lock() {
             arrived.insert(key.clone(), Arc::clone(&joined));
         }

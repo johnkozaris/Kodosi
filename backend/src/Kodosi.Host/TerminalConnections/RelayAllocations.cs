@@ -29,16 +29,27 @@ internal sealed class Allocation
     /// <summary>A pair may relay 80 Mbit/s, with bursts of a few frames of 4K video.</summary>
     private const double BytesEachSecond = 10_000_000;
     private const double BurstBytes = 2_000_000;
+    /// <summary>A device binds about every 15 seconds, more often only while the relay does not answer.</summary>
+    private const double BindsEachSecond = 2;
+    private const double BurstBinds = 10;
     private readonly Lock sync = new();
     private readonly SocketAddress?[] addresses = new SocketAddress?[2];
     private readonly long[] boundAt = new long[2];
     private TokenBucket bandwidth;
+    private TokenBucket binds;
 
     public Allocation(ulong id, TimeProvider clock)
     {
         Id = id;
         Secrets = [RandomNumberGenerator.GetBytes(SecretBytes), RandomNumberGenerator.GetBytes(SecretBytes)];
         bandwidth = new TokenBucket(BurstBytes, BytesEachSecond, clock);
+        binds = new TokenBucket(BurstBinds, BindsEachSecond, clock);
+    }
+
+    /// <summary>Whether the relay checks another bind for the allocation now, which bounds the work that copied binds cause.</summary>
+    public bool MayBind()
+    {
+        lock (sync) return binds.TryTake(1);
     }
 
     public ulong Id { get; }
@@ -68,6 +79,26 @@ internal sealed class Allocation
             var to = from.Equals(addresses[0]) ? addresses[1] : from.Equals(addresses[1]) ? addresses[0] : null;
             return to is not null && bandwidth.TryTake(bytes) ? to : null;
         }
+    }
+}
+
+/// <summary>A rate limit for each source address, kept in a fixed number of shards so that spoofed sources take no memory.</summary>
+internal sealed class SourceLimit
+{
+    private const int Shards = 4096;
+    private readonly Lock[] locks = [.. Enumerable.Range(0, Shards).Select(_ => new Lock())];
+    private readonly TokenBucket[] buckets;
+
+    public SourceLimit(double burst, double eachSecond, TimeProvider clock) =>
+        buckets = [.. Enumerable.Range(0, Shards).Select(_ => new TokenBucket(burst, eachSecond, clock))];
+
+    /// <summary>Takes from the bucket of the address, whatever its port; the bytes after the family and port of a socket address are the address.</summary>
+    public bool TryTake(SocketAddress from)
+    {
+        var hash = new HashCode();
+        hash.AddBytes(from.Buffer.Span[4..from.Size]);
+        var shard = (int)((uint)hash.ToHashCode() % Shards);
+        lock (locks[shard]) return buckets[shard].TryTake(1);
     }
 }
 
