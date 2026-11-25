@@ -1,13 +1,15 @@
 # Ghostty patches
 
-Patches apply in alphabetical order to a clean checkout at the commits pinned by `MacOSGhostty.ref`
-and `LinuxGhostty.ref`. Each platform builds from its patched tree; each Apple slice (macOS, iOS,
-and iOS Simulator) builds the renderer and VT engine into one combined library.
+The patches apply in lexical order to clean source at the commits selected by
+`MacOSGhostty.ref` and `LinuxGhostty.ref`. Each platform builds from its
+patched checkout; each Apple slice (macOS, iOS, iOS Simulator) shares one
+renderer and terminal-engine image.
 
-Keep only patches required for host-managed I/O, terminal checkpoints, native input handling, and
-combined Apple binaries. Aim for one clean patch per requirement without compatibility shims, and
-drop a patch as soon as upstream provides the behavior. Never introduce a second terminal state
-authority, private Apple APIs, or test-only code paths in production builds.
+Keep only patches Kodosi needs for host-managed I/O, terminal checkpoints,
+native input and policy, and the combined Apple images. Prefer one patch per
+requirement, applied cleanly without a compatibility variant; remove it when
+upstream supplies the behavior. Do not add a second terminal authority, private
+Apple APIs, or test-only behavior to production builds.
 
-The patch directory itself is the source of truth; build and provenance checks verify what
-actually ships.
+The patch files are the inventory. Build and provenance checks verify what is
+actually shipped.
