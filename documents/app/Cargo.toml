@@ -54,3 +54,6 @@ tokio = { version = "1.54.1", features = ["macros", "sync"] }
 
 [lints]
 workspace = true
+
+[profile.dev.package."*"]
+debug = false

@@ -61,3 +61,6 @@ module_name_repetitions = "allow"
 # CEF's handler macros need its names in scope and turn references into its C types.
 wildcard_imports = "allow"
 transmute_ptr_to_ptr = "allow"
+
+[profile.dev.package."*"]
+debug = false
