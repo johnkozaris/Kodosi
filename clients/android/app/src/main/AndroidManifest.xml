@@ -21,6 +21,7 @@
         android:theme="@style/Theme.Kodosi">
 
         <meta-data android:name="firebase_messaging_auto_init_enabled" android:value="false" />
+        <meta-data android:name="firebase_messaging_installation_id_enabled" android:value="true" />
 
         <service android:name=".notifications.MessagingService" android:exported="false">
             <intent-filter>

@@ -10,6 +10,7 @@ import com.kodosi.mobile.canvas.CanvasStore
 import com.kodosi.mobile.canvas.DocumentPages
 import com.kodosi.mobile.dosi.DosiStore
 import com.kodosi.mobile.notifications.FirebaseConfiguration
+import com.kodosi.mobile.notifications.MessagingService
 import com.kodosi.mobile.notifications.PushRegistration
 import com.kodosi.mobile.people.PeopleStore
 import com.kodosi.mobile.projects.ProjectStore
@@ -68,8 +69,21 @@ class AppModel(
     val push = PushRegistration(
         commands,
         scope,
-        token = { FirebaseMessaging.getInstance().token.await() },
-        forgetToken = { FirebaseMessaging.getInstance().deleteToken().await() }
+        register = {
+            val messaging = FirebaseMessaging.getInstance()
+            val id = MessagingService.awaitRegistration { messaging.register().await() }
+                ?: error(words.didNotWork)
+            // Enabling auto-init waits for the installation ID, which Play services refuses on the main thread.
+            withContext(Dispatchers.IO) {
+                if (!messaging.isAutoInitEnabled) messaging.isAutoInitEnabled = true
+            }
+            id
+        },
+        unregister = {
+            val messaging = FirebaseMessaging.getInstance()
+            messaging.isAutoInitEnabled = false
+            messaging.unregister().await()
+        }
     )
     data class TerminalTarget(val id: String, val account: String)
     val terminalTarget = MutableStateFlow<TerminalTarget?>(null)
@@ -184,15 +198,14 @@ class AppModel(
         projects.refresh()
     }
 
-    fun updatePush(force: Boolean = false): Long? {
+    fun updatePush(force: Boolean = false, registered: String? = null): Long? {
         val current = account.state.value
         if (!current.authResolved) return null
         if (!preferences.state.value.notifications) notifications.dismiss()
         val user = current.userId.takeIf { current.isReady }
         notifications.account(user)
         if (!FirebaseConfiguration.available) return null
-        FirebaseMessaging.getInstance().isAutoInitEnabled = user != null && notifications.allowed
-        return push.update(user, commands.accountEpoch, notifications.allowed, force)
+        return push.update(user, commands.accountEpoch, notifications.allowed, force, registered)
     }
 
     internal suspend fun synchronizePush(): Boolean = withContext(Dispatchers.Main) {
