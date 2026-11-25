@@ -1,12 +1,7 @@
 //! The link to the host: what it asks of the capture, the input that it passes on, and what the
 //! helper tells it back.
 
-use std::{
-    future,
-    path::Path,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{path::Path, sync::Arc, time::Duration};
 
 use bytes::Bytes;
 use objc2_core_foundation::CGPoint;
@@ -16,17 +11,14 @@ use objc2_core_graphics::{
 };
 use screen::link::{self, Access, FromHelper, Message, Source, Sources, ToHelper, VERSION};
 use stream::viewer::{Input, MouseAction};
-use stream_encode::{
-    Encoder, Settings,
-    refine::{REFINE_MS, STILL_MS},
-};
+use stream_encode::{Encoder, Settings};
 use tokio::{
     io::AsyncWriteExt as _,
     net::{
         UnixStream,
         unix::{OwnedReadHalf, OwnedWriteHalf},
     },
-    sync::{mpsc, watch},
+    sync::mpsc,
 };
 
 use super::{
@@ -105,9 +97,6 @@ struct Session {
     capture: Option<Capture>,
     /// The encoder, from the first capture until the host stops it.
     frames: Option<Arc<Frames>>,
-    drawn: Option<watch::Receiver<u64>>,
-    /// When to sharpen which picture next.
-    refine: Option<(Instant, u64)>,
     hands: Hands,
 }
 
@@ -121,8 +110,6 @@ impl Session {
             sources: Sources::default(),
             capture: None,
             frames: None,
-            drawn: None,
-            refine: None,
             hands: Hands::new(),
         }
     }
@@ -155,10 +142,6 @@ impl Session {
                     }
                 }
                 Some(event) = events.recv() => self.event(event).await,
-                Some(picture) = drawn(self.drawn.as_mut()) => {
-                    self.refine = Some((Instant::now() + millis(STILL_MS), picture));
-                }
-                () = until(self.refine.map(|(at, _)| at)) => self.sharpen(),
                 _ = looking.tick() => self.look().await,
             }
         }
@@ -217,9 +200,8 @@ impl Session {
         let frames = if let Some(frames) = &self.frames {
             Arc::clone(frames)
         } else {
-            let (frames, drawn) = Frames::new(settings, self.say.clone(), self.events.clone());
+            let frames = Frames::new(settings, self.say.clone(), self.events.clone());
             self.frames = Some(Arc::clone(&frames));
-            self.drawn = Some(drawn);
             frames
         };
         frames.encode_as(settings);
@@ -244,8 +226,6 @@ impl Session {
             capture.stop().await;
         }
         self.frames = None;
-        self.drawn = None;
-        self.refine = None;
     }
 
     /// Stops the capture after it failed; the host asks again, maybe for another source.
@@ -272,19 +252,6 @@ impl Session {
     fn encoder(&self, work: impl FnOnce(&mut Encoder)) {
         if let Some(frames) = &self.frames {
             frames.encoder(work);
-        }
-    }
-
-    fn sharpen(&mut self) {
-        let Some((_, picture)) = self.refine.take() else {
-            return;
-        };
-        if self
-            .frames
-            .as_ref()
-            .is_some_and(|frames| frames.refine(picture))
-        {
-            self.refine = Some((Instant::now() + millis(REFINE_MS), picture));
         }
     }
 
@@ -355,21 +322,4 @@ fn access() -> Access {
         screen: CGPreflightScreenCaptureAccess(),
         input: CGPreflightPostEventAccess(),
     }
-}
-
-async fn drawn(drawn: Option<&mut watch::Receiver<u64>>) -> Option<u64> {
-    let drawn = drawn?;
-    drawn.changed().await.ok()?;
-    Some(*drawn.borrow_and_update())
-}
-
-async fn until(at: Option<Instant>) {
-    match at {
-        Some(at) => tokio::time::sleep_until(at.into()).await,
-        None => future::pending().await,
-    }
-}
-
-fn millis(millis: i64) -> Duration {
-    Duration::from_millis(u64::try_from(millis).unwrap_or_default())
 }

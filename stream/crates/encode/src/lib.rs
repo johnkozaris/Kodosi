@@ -1,15 +1,24 @@
 //! Video encoders, chosen at run time from what the computer has: `VideoToolbox` on the Mac,
-//! `OpenH264` elsewhere.
+//! `OpenH264` elsewhere. Each encoder sharpens a still picture on its own with passes that
+//! encode it again.
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 pub use stream::{Codec, Encoded, Format, FrameKind, Region};
 
 #[cfg(not(target_os = "macos"))]
 mod openh264;
-pub mod refine;
+#[cfg(target_os = "macos")]
+mod rate;
+#[cfg(not(target_os = "macos"))]
+mod refine;
 #[cfg(target_os = "macos")]
 mod videotoolbox;
+
+const FRAME_RATE: u32 = 60;
+/// Delay before the last picture is encoded again after the encoder or its consumer dropped one,
+/// so viewers still get the latest state when the source goes idle.
+const RETRY: Duration = Duration::from_millis(100);
 
 /// Where an encoder sends its frames.
 pub trait Output: Send + Sync + 'static {
@@ -68,13 +77,22 @@ impl Encoder {
         return Self(Backend::OpenH264(openh264::Encoder::new(settings, output)));
     }
 
-    /// Encodes a picture of `region` of the source, or of all of it.
-    pub fn encode(&mut self, picture: Picture<'_>, region: Option<Region>) {
+    /// An encoder that makes each picture a sharp keyframe, for stills that stand alone.
+    #[cfg(target_os = "macos")]
+    pub fn stills(format: Format, output: Arc<dyn Output>) -> Self {
+        Self(Backend::VideoToolbox(videotoolbox::Encoder::stills(
+            format, output,
+        )))
+    }
+
+    /// Encodes a picture of `region` of the source, or of all of it, of which `changed` is the
+    /// share that differs from the last picture.
+    pub fn encode(&mut self, picture: Picture<'_>, region: Option<Region>, changed: f64) {
         match &mut self.0 {
             #[cfg(target_os = "macos")]
-            Backend::VideoToolbox(encoder) => encoder.encode(picture, region),
+            Backend::VideoToolbox(encoder) => encoder.encode(picture, region, changed),
             #[cfg(not(target_os = "macos"))]
-            Backend::OpenH264(encoder) => encoder.encode(picture, region),
+            Backend::OpenH264(encoder) => encoder.encode(picture, region, changed),
         }
     }
 
@@ -126,17 +144,6 @@ impl Encoder {
             Backend::VideoToolbox(encoder) => encoder.set_format(format),
             #[cfg(not(target_os = "macos"))]
             Backend::OpenH264(encoder) => encoder.set_format(format),
-        }
-    }
-
-    /// Encodes the last picture again so rate control can sharpen it. Returns true when the pass
-    /// counts: it is queued, or the picture is already as sharp as the bitrate allows.
-    pub fn refine(&mut self) -> bool {
-        match &mut self.0 {
-            #[cfg(target_os = "macos")]
-            Backend::VideoToolbox(encoder) => encoder.refine(),
-            #[cfg(not(target_os = "macos"))]
-            Backend::OpenH264(encoder) => encoder.refine(),
         }
     }
 }

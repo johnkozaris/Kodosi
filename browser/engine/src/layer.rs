@@ -19,7 +19,7 @@ use objc2::{
 use objc2_core_foundation::{CGPoint, CGRect, CGSize};
 use shared_browser::link::FromEngine;
 use stream::{Format, Size};
-use stream_encode::{Encoder, Picture, Settings};
+use stream_encode::{Encoder, Picture};
 
 use crate::{
     cf::{
@@ -44,8 +44,6 @@ const METAL_COMPLETED: usize = 4;
 const SETTLE: Duration = Duration::from_millis(500);
 /// Rate-limits still snapshots because each one encodes a full keyframe.
 const STILL_EVERY: Duration = Duration::from_secs(3);
-/// High bitrate because stills are single keyframes with no follow-up refinement passes.
-const STILL_BITRATE: u32 = 40_000_000;
 
 #[repr(C)]
 struct IOSurface {
@@ -210,13 +208,7 @@ impl Layer {
             still: true,
             link: link.clone(),
         };
-        let encoder = Encoder::new(
-            Settings {
-                format: Format::default(),
-                bitrate: STILL_BITRATE,
-            },
-            Arc::new(stills),
-        );
+        let encoder = Encoder::stills(Format::default(), Arc::new(stills));
         transaction(|| {
             // SAFETY: `root` and `context` are valid CA objects, and `white` stays live until
             // `CGColorRelease`.
@@ -339,9 +331,8 @@ impl Layer {
             return;
         }
         if let (Some(_), Some(shown)) = (self.tab, &self.shown) {
-            self.encoder.want_key();
             self.encoder
-                .encode(Picture::Surface(shown.raw.mutable()), None);
+                .encode(Picture::Surface(shown.raw.mutable()), None, 1.0);
             self.stills.made(now);
         }
     }

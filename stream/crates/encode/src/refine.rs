@@ -1,21 +1,18 @@
-//! Static pictures get extra passes so rate control can spend bits sharpening them.
+//! When `OpenH264` sharpens a still picture: its rate control spends spare bits on passes that
+//! encode the last picture again.
 
 use std::time::Duration;
 
-pub(crate) const FRAME_RATE: u32 = 60;
-/// Delay before the last picture is encoded again after the encoder or its consumer dropped one,
-/// so viewers still get the latest state when the source goes idle.
-pub(crate) const RETRY: Duration = Duration::from_millis(100);
+use crate::FRAME_RATE;
 
-/// After the page stays idle for `STILL_MS`, re-encode the last frame every `REFINE_MS` so
-/// rate control can spend extra bits sharpening static detail.
-pub const STILL_MS: i64 = 250;
-pub const REFINE_MS: i64 = 33;
-/// Cap on refinement passes: `OpenH264` converges from 40 to 54 dB on static text in ~45
-/// frames (plus some frames skipped by rate control), after which extra passes waste bits.
+/// A picture that stays this long gets a pass every `PASS_EVERY`.
+pub(crate) const STILL: Duration = Duration::from_millis(250);
+pub(crate) const PASS_EVERY: Duration = Duration::from_millis(33);
+/// Cap on passes: `OpenH264` converges from 40 to 54 dB on static text in ~45 frames (plus some
+/// frames skipped by rate control), after which extra passes waste bits.
 const REFINEMENTS: u32 = 60;
 /// Small updates (like a blinking caret or typed character) already get enough bits in a
-/// single frame; only cumulative dirty area reaching this fraction triggers refinement.
+/// single frame; only cumulative dirty area reaching this fraction starts passes.
 const LARGE_CHANGE: f64 = 1.0 / 16.0;
 /// Stop refining once `CLEAN_AFTER` consecutive frames stay within 1/3 of a frame's bit
 /// budget. Require `FIRST_REFINEMENTS` passes first because rate control initially starves
@@ -24,29 +21,30 @@ const CLEAN_AFTER: usize = 3;
 const FIRST_REFINEMENTS: usize = 6;
 
 #[derive(Default)]
-pub struct Cleanup {
+pub(crate) struct Cleanup {
     changed: f64,
     left: u32,
-    pictures: u64,
 }
 
 impl Cleanup {
-    pub fn drawn(&mut self, share: f64) -> Option<u64> {
-        self.pictures += 1;
+    /// Counts a picture of which `share` changed; true while it needs passes once it is still.
+    pub(crate) fn drawn(&mut self, share: f64) -> bool {
         self.changed += share;
         if self.changed >= LARGE_CHANGE {
             self.changed = 0.0;
             self.left = REFINEMENTS;
         }
-        (self.left > 0).then_some(self.pictures)
+        self.left > 0
     }
 
-    pub const fn due(&self, picture: u64) -> bool {
-        picture == self.pictures && self.left > 0
-    }
-
-    pub const fn refined(&mut self) {
-        self.left = self.left.saturating_sub(1);
+    /// Counts a pass; true while more are due.
+    pub(crate) fn refined(&mut self, clean: bool) -> bool {
+        self.left = if clean {
+            0
+        } else {
+            self.left.saturating_sub(1)
+        };
+        self.left > 0
     }
 }
 
@@ -73,22 +71,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_large_change_earns_a_clean_up_that_a_caret_neither_restarts_nor_starts() {
+    fn a_large_change_earns_passes_that_a_caret_neither_restarts_nor_starts() {
         let mut cleanup = Cleanup::default();
-        let page = cleanup.drawn(1.0).unwrap();
-        assert!(cleanup.due(page));
-        cleanup.refined();
-        let caret = cleanup.drawn(0.001).unwrap();
-        assert!(!cleanup.due(page));
-        let mut refined = 1;
-        while cleanup.due(caret) {
-            cleanup.refined();
-            refined += 1;
+        assert!(cleanup.drawn(1.0));
+        let mut passes = 0;
+        while cleanup.refined(false) {
+            passes += 1;
+            if passes == 1 {
+                assert!(cleanup.drawn(0.001));
+            }
         }
-        assert_eq!(refined, REFINEMENTS);
-        assert_eq!(cleanup.drawn(0.001), None);
-        let typed = (0..70).find_map(|_| cleanup.drawn(0.001));
-        assert!(typed.is_some_and(|picture| cleanup.due(picture)));
+        assert_eq!(passes + 1, REFINEMENTS);
+        assert!(!cleanup.drawn(0.001));
+        assert!((0..70).any(|_| cleanup.drawn(0.001)));
+        assert!(!cleanup.refined(true));
     }
 
     #[test]

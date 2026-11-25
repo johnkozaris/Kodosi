@@ -2,13 +2,13 @@ use std::os::raw::c_int;
 
 use cef::*;
 use shared_browser::{Dialog, DialogKind};
-use stream_encode::{Picture, refine::STILL_MS};
+use stream_encode::Picture;
 
 #[cfg(target_os = "macos")]
 use crate::cf::{IOSurfaceGetHeight, IOSurfaceGetWidth};
 use crate::{
     cursor,
-    engine::{self, Capture, Origin, Painting, Shared},
+    engine::{self, Origin, Painting, Shared},
     filters, renderer,
 };
 
@@ -192,6 +192,7 @@ wrap_render_handler! {
             if let Some(capture) = capture.as_mut().filter(|capture| capture.tab == tab)
                 && capture.takes(width, height, Painting::Memory)
             {
+                let changed = changed(dirty_rects, &self.shared);
                 capture.encoder.encode(
                     Picture::Pixels {
                         bgra: pixels,
@@ -199,8 +200,8 @@ wrap_render_handler! {
                         height,
                     },
                     None,
+                    changed,
                 );
-                drawn(capture, dirty_rects, &self.shared);
             }
         }
 
@@ -232,8 +233,8 @@ wrap_render_handler! {
                 if let Some(capture) = capture.as_mut().filter(|capture| capture.tab == tab)
                     && capture.takes(width, height, Painting::Surface)
                 {
-                    capture.encoder.encode(Picture::Surface(surface), None);
-                    drawn(capture, dirty_rects, &self.shared);
+                    let changed = changed(dirty_rects, &self.shared);
+                    capture.encoder.encode(Picture::Surface(surface), None, changed);
                 }
             }
             #[cfg(not(target_os = "macos"))]
@@ -242,8 +243,9 @@ wrap_render_handler! {
     }
 }
 
-/// CEF reports `dirty_rects` in physical pixels, so `size` is scaled to match.
-fn drawn(capture: &mut Capture, dirty_rects: Option<&[Rect]>, shared: &Shared) {
+/// The share of the page that `dirty_rects` cover. CEF reports them in physical pixels, so the
+/// page's size is scaled to match.
+fn changed(dirty_rects: Option<&[Rect]>, shared: &Shared) -> f64 {
     let size = shared.size.get();
     let pixels = |points: u32| f64::from(points) * f64::from(size.scale);
     let page = pixels(size.width) * pixels(size.height);
@@ -253,9 +255,7 @@ fn drawn(capture: &mut Capture, dirty_rects: Option<&[Rect]>, shared: &Shared) {
             .map(|rect| f64::from(rect.width.max(0)) * f64::from(rect.height.max(0)))
             .sum()
     });
-    if let Some(picture) = capture.cleanup.drawn((changed / page.max(1.0)).min(1.0)) {
-        engine::clean_up(capture.window, picture, STILL_MS);
-    }
+    (changed / page.max(1.0)).min(1.0)
 }
 
 wrap_life_span_handler! {

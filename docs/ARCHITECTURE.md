@@ -257,6 +257,13 @@ names its codec. Pictures are BT.709 limited range, tagged in the stream and con
 way by every client. A frame that shows only a part of its source names that part, so a viewer
 places each frame right while the part changes.
 
+Encoders sharpen a still picture on their own, with passes that encode it again. On the Mac the
+encoder sets each frame's quantizer instead of leaving it to the hardware's rate control, and lets
+frames run only a few frame times ahead of the bitrate that the link carries. A new screen then
+shows coarse at once rather than sharp a second later, passes sharpen it while the link has room,
+and a frame made during the passes never waits long behind them. OpenH264 keeps its own rate
+control and spends its spare bits on the same passes.
+
 Slow viewers skip frames and recover on the next keyframe. When every viewer supports them, the
 encoder also marks long-term references, and a viewer that missed frames recovers from an anchor:
 a small frame that references only marks every viewer acknowledged. Some hardware decoders freeze

@@ -1,4 +1,5 @@
-//! `OpenH264` in software, on a worker thread so encoding never blocks the source.
+//! `OpenH264` in software, on a worker thread so encoding never blocks the source. The worker
+//! sharpens a picture that stays with passes that encode it again.
 
 use std::{
     mem::MaybeUninit,
@@ -25,8 +26,8 @@ use openh264_sys2::{
 use stream::{Codec, Encoded, Format, FrameKind, Region};
 
 use crate::{
-    Output, Picture, Settings,
-    refine::{Convergence, FRAME_RATE, RETRY, frame_budget},
+    FRAME_RATE, Output, Picture, RETRY, Settings,
+    refine::{Cleanup, Convergence, PASS_EVERY, STILL, frame_budget},
 };
 
 /// H.264 colour description codes for BT.709, and "unspecified" for the video format.
@@ -41,21 +42,14 @@ struct Pixels {
     region: Option<Region>,
 }
 
-#[derive(Default, Clone, Copy, PartialEq, Eq)]
-enum Refinement {
-    #[default]
-    Idle,
-    Asked,
-    Clean,
-}
-
 #[derive(Default)]
 struct Slot {
     picture: Option<Pixels>,
+    /// The share of the source that changed since the worker last took a picture.
+    changed: f64,
     spare: Vec<u8>,
     key: bool,
     bitrate: Option<u32>,
-    refinement: Refinement,
     stop: bool,
 }
 
@@ -100,19 +94,8 @@ impl Encoder {
         self.want_key();
     }
 
-    pub(crate) fn refine(&self) -> bool {
-        self.change(|slot| match slot.refinement {
-            Refinement::Clean => true,
-            Refinement::Asked => false,
-            Refinement::Idle => {
-                slot.refinement = Refinement::Asked;
-                slot.picture.is_none()
-            }
-        })
-    }
-
     /// Copies outside the lock so the worker is not blocked while the rows are cloned.
-    pub(crate) fn encode(&self, picture: Picture<'_>, region: Option<Region>) {
+    pub(crate) fn encode(&self, picture: Picture<'_>, region: Option<Region>, changed: f64) {
         let Picture::Pixels {
             bgra,
             width,
@@ -141,7 +124,7 @@ impl Encoder {
                 height: even_height,
                 region,
             });
-            slot.refinement = Refinement::Idle;
+            slot.changed = (slot.changed + changed).min(1.0);
         });
     }
 }
@@ -310,6 +293,8 @@ fn work(bitrate: u32, output: &dyn Output, shared: &Shared) {
         lost: false,
         missing: false,
         again: None,
+        cleanup: Cleanup::default(),
+        pass_at: None,
         sharpening: Convergence::default(),
     };
     while let Some(work) = worker.next() {
@@ -321,9 +306,12 @@ fn work(bitrate: u32, output: &dyn Output, shared: &Shared) {
 
 struct Work {
     picture: Option<Pixels>,
+    changed: f64,
     asked: bool,
     bitrate: Option<u32>,
-    refine: bool,
+    /// Encodes the last picture again: to retry it, or as a pass.
+    again: bool,
+    pass: bool,
 }
 
 struct Worker<'a> {
@@ -337,42 +325,53 @@ struct Worker<'a> {
     /// Set until the latest picture has been sent and taken.
     missing: bool,
     again: Option<Instant>,
+    cleanup: Cleanup,
+    pass_at: Option<Instant>,
     sharpening: Convergence,
 }
 
 impl Worker<'_> {
+    /// Waits for a picture, a keyframe asked for while the picture is still, a retry or a pass.
     fn next(&mut self) -> Option<Work> {
         let shared = self.shared;
         let mut slot = lock(shared);
-        while slot.picture.is_none() && slot.refinement != Refinement::Asked && !slot.stop {
-            let Some(wait) = self
-                .again
-                .map(|at| at.saturating_duration_since(Instant::now()))
-            else {
-                slot = shared.1.wait(slot).unwrap_or_else(PoisonError::into_inner);
-                continue;
-            };
-            if wait.is_zero() {
+        loop {
+            if slot.stop {
+                return None;
+            }
+            if slot.picture.is_some() || (slot.key && self.running.is_some()) {
                 break;
             }
-            slot = shared
-                .1
-                .wait_timeout(slot, wait)
-                .unwrap_or_else(PoisonError::into_inner)
-                .0;
+            let now = Instant::now();
+            match self.again.into_iter().chain(self.pass_at).min() {
+                Some(at) if at <= now => break,
+                Some(at) => {
+                    slot = shared
+                        .1
+                        .wait_timeout(slot, at - now)
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .0;
+                }
+                None => slot = shared.1.wait(slot).unwrap_or_else(PoisonError::into_inner),
+            }
         }
-        if slot.stop {
-            return None;
+        let now = Instant::now();
+        let picture = slot.picture.take();
+        let again = self.again.is_some_and(|at| at <= now);
+        if again || picture.is_some() {
+            self.again = None;
         }
-        let asked = slot.refinement == Refinement::Asked;
-        if asked {
-            slot.refinement = Refinement::Idle;
+        let pass = picture.is_none() && !again && self.pass_at.is_some_and(|at| at <= now);
+        if pass {
+            self.pass_at = None;
         }
         Some(Work {
-            picture: slot.picture.take(),
+            picture,
+            changed: std::mem::take(&mut slot.changed),
             asked: std::mem::take(&mut slot.key),
             bitrate: slot.bitrate.take(),
-            refine: self.again.take().is_some() || asked,
+            again,
+            pass,
         })
     }
 
@@ -382,20 +381,16 @@ impl Worker<'_> {
             self.bitrate = bitrate;
         }
         let mut key = work.asked || self.lost;
-        let repeated = match work.picture {
+        match work.picture {
             Some(picture) => {
-                let Some(started) = self.take(picture, previous) else {
+                let Some(started) = self.take(picture, work.changed, previous) else {
                     return false;
                 };
                 key |= started;
-                false
             }
-            None if work.refine => {
-                self.keep_bitrate(previous);
-                true
-            }
+            None if work.again || work.pass || work.asked => self.keep_bitrate(previous),
             None => return true,
-        };
+        }
         let Some(running) = self.running.as_mut() else {
             return true;
         };
@@ -412,11 +407,11 @@ impl Worker<'_> {
         };
         let data = stream.to_vec();
         let key_frame = matches!(stream.frame_type(), FrameType::IDR | FrameType::I);
-        self.send(data, key_frame, key, repeated);
+        self.send(data, key_frame, key, work.pass);
         true
     }
 
-    fn take(&mut self, picture: Pixels, previous: u32) -> Option<bool> {
+    fn take(&mut self, picture: Pixels, changed: f64, previous: u32) -> Option<bool> {
         let bitrate = self.bitrate;
         let fits = self.running.as_mut().is_some_and(|running| {
             (running.planes.width, running.planes.height) == (picture.width, picture.height)
@@ -431,14 +426,9 @@ impl Worker<'_> {
         }
         self.running.as_mut()?.planes.read(&picture.bgra);
         self.region = picture.region;
-        {
-            let mut slot = lock(self.shared);
-            slot.spare = picture.bgra;
-            if slot.refinement == Refinement::Clean {
-                slot.refinement = Refinement::Idle;
-            }
-        }
+        lock(self.shared).spare = picture.bgra;
         self.sharpening = Convergence::default();
+        self.pass_at = self.cleanup.drawn(changed).then(|| Instant::now() + STILL);
         self.missing = true;
         Some(!fits)
     }
@@ -455,13 +445,16 @@ impl Worker<'_> {
     }
 
     /// Retries skipped or dropped frames here rather than asking the source for a new picture,
-    /// which would look like a change and start needless refinement passes.
-    fn send(&mut self, data: Vec<u8>, key_frame: bool, key: bool, repeated: bool) {
+    /// which would look like a change and start needless passes.
+    fn send(&mut self, data: Vec<u8>, key_frame: bool, key: bool, pass: bool) {
         let retry = Instant::now() + RETRY;
         if data.is_empty() {
             self.lost = key;
             if self.lost || self.missing {
                 self.again = Some(retry);
+            }
+            if pass {
+                self.passed(false);
             }
             return;
         }
@@ -483,12 +476,17 @@ impl Worker<'_> {
         } else {
             self.missing = false;
         }
-        if repeated && self.sharpening.refined(size, frame_budget(self.bitrate)) {
-            let mut slot = lock(self.shared);
-            if slot.picture.is_none() {
-                slot.refinement = Refinement::Clean;
-            }
+        if pass {
+            let clean = self.sharpening.refined(size, frame_budget(self.bitrate));
+            self.passed(clean);
         }
+    }
+
+    fn passed(&mut self, clean: bool) {
+        self.pass_at = self
+            .cleanup
+            .refined(clean)
+            .then(|| Instant::now() + PASS_EVERY);
     }
 }
 

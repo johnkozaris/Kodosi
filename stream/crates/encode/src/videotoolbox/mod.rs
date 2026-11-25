@@ -1,6 +1,7 @@
 //! `VideoToolbox` on Apple silicon's media engine. Metal converts each picture to NV12 on the
 //! caller's thread; a worker thread feeds the encoder, because low-latency mode blocks while it
-//! encodes.
+//! encodes. The worker chooses each frame's quantizer, and sharpens a picture that settles with
+//! passes that encode it again.
 
 mod convert;
 mod session;
@@ -11,7 +12,7 @@ use std::{
     ptr::NonNull,
     sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock, PoisonError},
     thread::JoinHandle,
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use objc2_core_foundation::CFRetained;
@@ -21,17 +22,20 @@ use stream::{Codec, Encoded, Format, FrameKind, Region};
 
 use self::{
     convert::Converter,
-    session::{Coded, RECOVERY, REFINEMENT, Session},
+    session::{Coded, RECOVERY, Session, Shape},
 };
 use crate::{
-    Output, Picture, Settings,
-    refine::{Convergence, RETRY, frame_budget},
+    Output, Picture, RETRY, Settings,
+    rate::{self, Choice, Rate, SHARP},
 };
 
 /// Pictures in the encoder at once; more only add latency.
 const MOST_WAITING: usize = 2;
-/// A marker's low bits hold `REFINEMENT` and `RECOVERY`; the bits above number the picture.
-const NUMBER_SHIFT: u32 = 2;
+/// A marker's low bit holds `RECOVERY`; the bits above number the picture.
+const NUMBER_SHIFT: u32 = 1;
+/// A picture that stays for this many frame times gets passes that sharpen it; motion changes
+/// it sooner.
+const SETTLED: Duration = Duration::from_millis(50);
 
 /// An NV12 picture and the part of the source that it shows.
 #[derive(Clone)]
@@ -70,25 +74,25 @@ enum Repair {
     Key,
 }
 
-#[derive(Default, Clone, Copy, PartialEq, Eq)]
-enum Refinement {
-    #[default]
-    Idle,
-    Asked,
-    Clean,
+/// What the encoder was asked to make of a picture.
+struct Asked {
+    number: usize,
+    region: Option<Region>,
+    choice: Option<Choice>,
 }
 
 struct Slot {
     picture: Option<Buffer>,
-    /// What each picture in the encoder shows, by its number.
-    regions: VecDeque<(usize, Option<Region>)>,
+    /// The share of the source that changed since the worker last took a picture.
+    changed: f64,
+    /// When the last picture came.
+    drawn_at: Instant,
+    /// What the encoder was asked for each picture in it, in order.
+    asked: VecDeque<Asked>,
     repair: Repair,
     held: Vec<u64>,
     format: Format,
-    bitrate: u32,
-    changed: bool,
-    refinement: Refinement,
-    sharpening: Convergence,
+    rate: Rate,
     waiting: usize,
     retry_at: Option<Instant>,
     failed: bool,
@@ -100,6 +104,8 @@ struct Gate {
     slot: Mutex<Slot>,
     ready: Condvar,
     output: Arc<dyn Output>,
+    /// Makes each picture a sharp keyframe, with no passes.
+    stills: bool,
 }
 
 impl Gate {
@@ -129,9 +135,8 @@ impl Gate {
         sample: Option<Coded>,
         codec: Codec,
     ) {
-        let refinement = marker & REFINEMENT != 0;
         let recovery = marker & RECOVERY != 0;
-        let region = self.region(marker >> NUMBER_SHIFT);
+        let (region, choice) = self.answered(marker >> NUMBER_SHIFT);
         let sent = sample.map(|coded| {
             let size = coded.data.len();
             let kind = if coded.key {
@@ -152,13 +157,11 @@ impl Gate {
         });
         let mut slot = self.lock();
         slot.waiting = slot.waiting.saturating_sub(1);
+        if let Some(choice) = choice {
+            let carried = sent.filter(|(taken, _)| *taken).map_or(0, |(_, size)| size);
+            slot.rate.coded(choice, carried);
+        }
         match sent {
-            Some((true, size)) => {
-                let budget = frame_budget(slot.bitrate);
-                if refinement && slot.sharpening.refined(size, budget) {
-                    slot.refinement = Refinement::Clean;
-                }
-            }
             Some((false, _)) => {
                 slot.repair = Repair::Key;
                 slot.retry_at = Some(Instant::now() + RETRY);
@@ -169,26 +172,34 @@ impl Gate {
                 self.ready.notify_one();
                 return;
             }
-            None if dropped && (recovery || !refinement) => {
+            None if dropped => {
                 if recovery {
                     slot.repair = slot.repair.max(Repair::Recover);
                 }
                 slot.retry_at = Some(Instant::now() + RETRY);
             }
-            None => {}
+            Some((true, _)) | None => {}
         }
         drop(slot);
         self.ready.notify_one();
     }
 
-    /// Takes the region of an encoded picture, and those of earlier pictures the encoder skipped.
-    fn region(&self, number: usize) -> Option<Region> {
-        let mut slot = self.lock();
-        let at = slot.regions.iter().position(|(each, _)| *each == number)?;
-        slot.regions
-            .drain(..=at)
-            .next_back()
-            .and_then(|(_, region)| region)
+    /// Takes what the encoder was asked for a picture; the pictures before it, which the encoder
+    /// skipped, cost nothing.
+    fn answered(&self, number: usize) -> (Option<Region>, Option<Choice>) {
+        let mut guard = self.lock();
+        let slot = &mut *guard;
+        let Some(at) = slot.asked.iter().position(|asked| asked.number == number) else {
+            return (None, None);
+        };
+        for skipped in slot.asked.drain(..at) {
+            if let Some(choice) = skipped.choice {
+                slot.rate.coded(choice, 0);
+            }
+        }
+        let asked = slot.asked.pop_front();
+        drop(guard);
+        asked.map_or((None, None), |asked| (asked.region, asked.choice))
     }
 }
 
@@ -201,17 +212,25 @@ pub(crate) struct Encoder {
 
 impl Encoder {
     pub(crate) fn new(settings: Settings, output: Arc<dyn Output>) -> Self {
+        Self::start(settings.format, settings.bitrate, output, false)
+    }
+
+    pub(crate) fn stills(format: Format, output: Arc<dyn Output>) -> Self {
+        Self::start(format, 0, output, true)
+    }
+
+    fn start(format: Format, bitrate: u32, output: Arc<dyn Output>, stills: bool) -> Self {
+        let now = Instant::now();
         let gate = Arc::new(Gate {
             slot: Mutex::new(Slot {
                 picture: None,
-                regions: VecDeque::new(),
+                changed: 0.0,
+                drawn_at: now,
+                asked: VecDeque::new(),
                 repair: Repair::Key,
                 held: Vec::new(),
-                format: settings.format,
-                bitrate: settings.bitrate,
-                changed: false,
-                refinement: Refinement::Idle,
-                sharpening: Convergence::default(),
+                format,
+                rate: Rate::new(bitrate, now),
                 waiting: 0,
                 retry_at: None,
                 failed: false,
@@ -219,6 +238,7 @@ impl Encoder {
             }),
             ready: Condvar::new(),
             output,
+            stills,
         });
         let working = Arc::clone(&gate);
         let worker = std::thread::Builder::new()
@@ -232,7 +252,7 @@ impl Encoder {
         }
     }
 
-    pub(crate) fn encode(&mut self, picture: Picture<'_>, region: Option<Region>) {
+    pub(crate) fn encode(&mut self, picture: Picture<'_>, region: Option<Region>, changed: f64) {
         let nv12 = match picture {
             Picture::Nv12(buffer) => {
                 // SAFETY: the caller passes a valid `CVPixelBufferRef`, which this retains.
@@ -275,9 +295,9 @@ impl Encoder {
         match nv12 {
             Ok(picture) => self.gate.change(|slot| {
                 slot.picture = Some(Buffer { picture, region });
+                slot.changed = (slot.changed + changed).min(1.0);
+                slot.drawn_at = Instant::now();
                 slot.retry_at = None;
-                slot.refinement = Refinement::Idle;
-                slot.sharpening = Convergence::default();
             }),
             Err(problem) => self.gate.fail(problem),
         }
@@ -307,30 +327,16 @@ impl Encoder {
     }
 
     pub(crate) fn set_bitrate(&self, bitrate: u32) {
-        self.gate.change(|slot| {
-            slot.bitrate = bitrate;
-            slot.changed = true;
-        });
+        self.gate
+            .change(|slot| slot.rate.set_bitrate(bitrate, Instant::now()));
     }
 
     pub(crate) fn set_format(&self, format: Format) {
         self.gate.change(|slot| {
             slot.format = format;
-            slot.changed = true;
             slot.repair = Repair::Key;
             slot.held.clear();
         });
-    }
-
-    pub(crate) fn refine(&self) -> bool {
-        self.gate.change(|slot| match slot.refinement {
-            Refinement::Clean => true,
-            Refinement::Asked => false,
-            Refinement::Idle => {
-                slot.refinement = Refinement::Asked;
-                slot.picture.is_none()
-            }
-        })
     }
 }
 
@@ -344,59 +350,40 @@ impl Drop for Encoder {
 }
 
 enum Job {
+    /// A new picture, which becomes the last one.
     Encode(Buffer),
+    /// The last picture again, to repair the stream or to sharpen it.
     Again(Buffer),
-    Refine(Buffer),
 }
 
 struct Submission {
     job: Job,
+    /// The picture's size or the stream's format differs from the session's.
+    restart: bool,
     key: bool,
     recover: bool,
     held: Vec<u64>,
     format: Format,
-    bitrate: u32,
-    changed: bool,
+    quantizer: u8,
+    choice: Option<Choice>,
 }
 
-fn next(gate: &Gate, last: Option<&Buffer>) -> Option<Submission> {
+fn next(gate: &Gate, last: Option<&Buffer>, shape: Option<Shape>) -> Option<Submission> {
     let mut slot = gate.lock();
     loop {
         if slot.stop {
             return None;
         }
         let now = Instant::now();
-        let room = slot.waiting < MOST_WAITING;
-        let due = slot.retry_at.is_some_and(|at| at <= now);
-        let job = if !room {
-            None
-        } else if let Some(picture) = slot.picture.take() {
-            Some(Job::Encode(picture))
-        } else if let Some(last) = last.filter(|_| due) {
-            slot.retry_at = None;
-            Some(Job::Again(last.clone()))
-        } else if let Some(last) = last.filter(|_| slot.refinement == Refinement::Asked) {
-            slot.refinement = Refinement::Idle;
-            Some(Job::Refine(last.clone()))
+        let wake = if slot.waiting < MOST_WAITING {
+            match plan(&mut slot, gate.stills, last, shape, now) {
+                Ok(submission) => return Some(submission),
+                Err(wake) => wake,
+            }
         } else {
             None
         };
-        if let Some(job) = job {
-            let repair = std::mem::take(&mut slot.repair);
-            let anchors = slot.format.anchors;
-            let key = repair == Repair::Key || (repair == Repair::Recover && !anchors);
-            let recover = repair == Repair::Recover && anchors;
-            return Some(Submission {
-                job,
-                key,
-                recover,
-                held: std::mem::take(&mut slot.held),
-                format: slot.format,
-                bitrate: slot.bitrate,
-                changed: std::mem::take(&mut slot.changed),
-            });
-        }
-        slot = match slot.retry_at.filter(|_| room) {
+        slot = match wake {
             Some(at) => {
                 gate.ready
                     .wait_timeout(slot, at.saturating_duration_since(now))
@@ -411,64 +398,138 @@ fn next(gate: &Gate, last: Option<&Buffer>) -> Option<Submission> {
     }
 }
 
+/// Plans the next frame: a new picture when the link has room for it, else the last picture
+/// again to repair the stream, else a pass once the picture settles. Otherwise tells when to
+/// look again, or `None` to wait for a change.
+fn plan(
+    slot: &mut Slot,
+    stills: bool,
+    last: Option<&Buffer>,
+    shape: Option<Shape>,
+    now: Instant,
+) -> Result<Submission, Option<Instant>> {
+    let retry_due = slot.retry_at.is_some_and(|at| at <= now);
+    let repair_due = retry_due || (slot.retry_at.is_none() && slot.repair != Repair::None);
+    let (buffer, changed) = match (&slot.picture, last) {
+        (Some(picture), _) => (picture.clone(), Some(slot.changed)),
+        (None, Some(last)) if !stills && repair_due => (last.clone(), Some(1.0)),
+        (None, Some(last)) if !stills && slot.retry_at.is_none() => (last.clone(), None),
+        _ => return Err(slot.retry_at.filter(|at| *at > now)),
+    };
+    let (width, height) = (
+        CVPixelBufferGetWidth(&buffer.picture),
+        CVPixelBufferGetHeight(&buffer.picture),
+    );
+    let restart = shape != Some((width, height, slot.format));
+    let repair = slot.repair;
+    let key = stills
+        || restart
+        || repair == Repair::Key
+        || (repair == Repair::Recover && !slot.format.anchors);
+    let recover = !key && repair == Repair::Recover;
+    let pixels = rate::pixels(width, height);
+    let choice = match changed {
+        _ if stills => None,
+        Some(changed) => Some(
+            slot.rate
+                .picture(changed, key || recover, pixels, now)
+                .map_err(Some)?,
+        ),
+        None => {
+            let settled = slot.drawn_at + SETTLED;
+            if slot.rate.sharp() {
+                return Err(None);
+            }
+            if now < settled {
+                return Err(Some(settled));
+            }
+            Some(slot.rate.pass(pixels, now).ok_or(None)?.map_err(Some)?)
+        }
+    };
+    let job = if slot.picture.take().is_some() {
+        slot.changed = 0.0;
+        Job::Encode(buffer)
+    } else {
+        Job::Again(buffer)
+    };
+    if retry_due {
+        slot.retry_at = None;
+    }
+    slot.repair = Repair::None;
+    Ok(Submission {
+        job,
+        restart,
+        key,
+        recover,
+        held: std::mem::take(&mut slot.held),
+        format: slot.format,
+        quantizer: choice.map_or(SHARP, |choice| choice.quantizer),
+        choice,
+    })
+}
+
 fn work(gate: &Arc<Gate>) {
     let started = Instant::now();
     let mut session: Option<Session> = None;
     let mut last: Option<Buffer> = None;
     let mut submitted: usize = 0;
-    while let Some(submission) = next(gate, last.as_ref()) {
-        let (Buffer { picture, region }, marker) = match &submission.job {
-            Job::Encode(buffer) | Job::Again(buffer) => (buffer, 0),
-            Job::Refine(buffer) => (buffer, REFINEMENT),
-        };
-        let (width, height) = (
-            CVPixelBufferGetWidth(picture),
-            CVPixelBufferGetHeight(picture),
-        );
-        let mut key = submission.key;
-        if session.as_ref().is_none_or(|session| {
-            (session.width, session.height, session.format) != (width, height, submission.format)
-        }) {
+    while let Some(submission) = next(gate, last.as_ref(), session.as_ref().map(Session::shape)) {
+        let (Job::Encode(buffer) | Job::Again(buffer)) = &submission.job;
+        let picture = &buffer.picture;
+        if submission.restart {
             session = None;
-            match Session::start(width, height, submission.format, submission.bitrate, gate) {
+            let (width, height) = (
+                CVPixelBufferGetWidth(picture),
+                CVPixelBufferGetHeight(picture),
+            );
+            match Session::start(width, height, submission.format, gate) {
                 Ok(started) => session = Some(started),
                 Err(problem) => {
+                    if let Some(choice) = submission.choice {
+                        gate.change(|slot| slot.rate.coded(choice, 0));
+                    }
                     gate.fail(problem);
                     continue;
                 }
             }
-            key = true;
-        } else if submission.changed
-            && let Some(session) = &session
-        {
-            session.set_bitrate(submission.bitrate);
         }
         let Some(session) = &session else {
             continue;
         };
-        let recover = submission.recover && !key;
         submitted = submitted.wrapping_add(1) & (usize::MAX >> NUMBER_SHIFT);
         let number = submitted;
-        let marker = number << NUMBER_SHIFT | marker | if recover { RECOVERY } else { 0 };
+        let marker = number << NUMBER_SHIFT | if submission.recover { RECOVERY } else { 0 };
         gate.change(|slot| {
             slot.waiting += 1;
-            slot.regions.push_back((number, *region));
+            slot.asked.push_back(Asked {
+                number,
+                region: buffer.region,
+                choice: submission.choice,
+            });
         });
         let status = session.encode(
             picture,
             started.elapsed(),
-            key,
-            recover,
+            submission.key,
+            submission.recover,
             &submission.held,
+            submission.quantizer,
             marker,
         );
         if status != 0 {
             gate.change(|slot| {
                 slot.waiting = slot.waiting.saturating_sub(1);
-                slot.regions.retain(|(each, _)| *each != number);
-                let undone = if key {
+                if let Some(at) = slot.asked.iter().position(|asked| asked.number == number)
+                    && let Some(Asked {
+                        choice: Some(choice),
+                        ..
+                    }) = slot.asked.remove(at)
+                {
+                    slot.rate.coded(choice, 0);
+                }
+                let undone = if submission.key {
                     Repair::Key
-                } else if recover {
+                } else if submission.recover {
                     Repair::Recover
                 } else {
                     Repair::None
@@ -538,7 +599,7 @@ mod tests {
         while frames.count() < count && Instant::now() < until {
             thread::sleep(Duration::from_millis(5));
         }
-        assert_eq!(frames.count(), count, "the encoder sent no frame in time");
+        assert!(frames.count() >= count, "the encoder sent no frame in time");
     }
 
     fn units(data: &[u8], codec: Codec) -> Vec<u8> {
@@ -551,21 +612,17 @@ mod tests {
             .collect()
     }
 
-    fn encode(
-        format: Format,
-        pictures: usize,
-        before: impl Fn(&Encoder, &[Encoded]),
-    ) -> Vec<Encoded> {
+    fn start(format: Format, bitrate: u32) -> (Arc<Frames>, Encoder) {
         let frames = Arc::new(Frames::default());
-        let mut encoder = Encoder::new(
-            Settings {
-                format,
-                bitrate: 4_000_000,
-            },
+        let encoder = Encoder::new(
+            Settings { format, bitrate },
             Arc::clone(&frames) as Arc<dyn Output>,
         );
+        (frames, encoder)
+    }
+
+    fn draw(encoder: &mut Encoder, frames: &Frames, pictures: usize) {
         for index in 0..pictures {
-            before(&encoder, &frames.0.lock().unwrap());
             encoder.encode(
                 Picture::Pixels {
                     bgra: &picture(index * 8),
@@ -573,9 +630,29 @@ mod tests {
                     height: HEIGHT,
                 },
                 None,
+                1.0,
             );
-            wait_for(&frames, index + 1);
+            wait_for(frames, frames.count() + 1);
         }
+    }
+
+    /// Waits until the encoder has sent nothing for a while.
+    fn quiet(frames: &Frames) {
+        let until = Instant::now() + Duration::from_secs(5);
+        let mut seen = frames.count();
+        loop {
+            thread::sleep(Duration::from_millis(300));
+            let now = frames.count();
+            if now == seen || Instant::now() > until {
+                return;
+            }
+            seen = now;
+        }
+    }
+
+    fn encode(format: Format, pictures: usize) -> Vec<Encoded> {
+        let (frames, mut encoder) = start(format, 4_000_000);
+        draw(&mut encoder, &frames, pictures);
         drop(encoder);
         std::mem::take(&mut *frames.0.lock().unwrap())
     }
@@ -615,6 +692,7 @@ mod tests {
         encoder.encode(
             Picture::Nv12(CFRetained::as_ptr(&buffer).as_ptr().cast()),
             Some(region),
+            1.0,
         );
         wait_for(&frames, 1);
         let first = frames.0.lock().unwrap()[0].clone();
@@ -633,7 +711,7 @@ mod tests {
                 codec,
                 anchors: false,
             };
-            let frames = encode(format, 3, |_, _| {});
+            let frames = encode(format, 3);
             let first = units(&frames[0].data, codec);
             assert_eq!(frames[0].kind, FrameKind::Key, "{codec:?}");
             assert!(
@@ -652,19 +730,57 @@ mod tests {
     }
 
     #[test]
-    fn a_viewer_that_missed_frames_recovers_from_an_anchor_on_a_held_mark() {
+    fn a_viewer_that_missed_frames_recovers_at_once_from_an_anchor_on_a_held_mark() {
         let format = Format {
             codec: Codec::H264,
             anchors: true,
         };
-        let frames = encode(format, 4, |encoder, sent| {
-            if sent.len() == 3 {
-                let marks: Vec<u64> = sent.iter().filter_map(|frame| frame.mark).collect();
-                assert!(!marks.is_empty(), "the stream marks no references");
-                encoder.held(&marks);
-                encoder.recover();
-            }
-        });
-        assert_eq!(frames[3].kind, FrameKind::Anchor);
+        let (frames, mut encoder) = start(format, 4_000_000);
+        draw(&mut encoder, &frames, 3);
+        quiet(&frames);
+        let sent = frames.count();
+        let marks: Vec<u64> = frames
+            .0
+            .lock()
+            .unwrap()
+            .iter()
+            .filter_map(|frame| frame.mark)
+            .collect();
+        assert!(!marks.is_empty(), "the stream marks no references");
+        encoder.held(&marks);
+        encoder.recover();
+        wait_for(&frames, sent + 1);
+        assert_eq!(frames.0.lock().unwrap()[sent].kind, FrameKind::Anchor);
+    }
+
+    #[test]
+    fn a_keyframe_asked_for_while_the_picture_is_still_comes_at_once() {
+        let (frames, mut encoder) = start(Format::default(), 20_000_000);
+        draw(&mut encoder, &frames, 1);
+        quiet(&frames);
+        let sent = frames.count();
+        encoder.want_key();
+        wait_for(&frames, sent + 1);
+        assert_eq!(frames.0.lock().unwrap()[sent].kind, FrameKind::Key);
+    }
+
+    #[test]
+    fn passes_sharpen_a_still_picture_and_stop_once_it_is_sharp() {
+        let (frames, mut encoder) = start(Format::default(), 300_000);
+        draw(&mut encoder, &frames, 1);
+        quiet(&frames);
+        assert!(frames.count() > 1, "no passes");
+        assert!(encoder.gate.lock().rate.sharp());
+        let kinds: Vec<FrameKind> = frames
+            .0
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|frame| frame.kind)
+            .collect();
+        assert!(
+            kinds[1..].iter().all(|kind| *kind == FrameKind::Delta),
+            "{kinds:?}"
+        );
     }
 }

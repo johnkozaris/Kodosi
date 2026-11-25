@@ -14,10 +14,7 @@ use shared_browser::{
     link::{EngineTab, FromEngine, MOST_ICON, ToEngine},
 };
 use stream::Size;
-use stream_encode::{
-    Encoder, Settings,
-    refine::{Cleanup, REFINE_MS},
-};
+use stream_encode::{Encoder, Settings};
 
 #[cfg(target_os = "macos")]
 use crate::layer::Layer;
@@ -233,10 +230,8 @@ impl Shared {
 }
 
 pub(crate) struct Capture {
-    pub window: i64,
     pub tab: i64,
     pub encoder: Encoder,
-    pub cleanup: Cleanup,
     pub settling: Option<Settling>,
 }
 
@@ -328,37 +323,6 @@ wrap_task! {
             .flatten();
             if let Some(host) = browser.and_then(|browser| browser.host()) {
                 host.invalidate(PaintElementType::VIEW);
-            }
-        }
-    }
-}
-
-pub(crate) fn clean_up(window: i64, picture: u64, delay_ms: i64) {
-    let mut task = CleanUpTaskBuilder::new(window, picture);
-    post_delayed_task(ThreadId::UI, Some(&mut task), delay_ms);
-}
-
-wrap_task! {
-    struct CleanUpTaskBuilder {
-        window: i64,
-        picture: u64,
-    }
-
-    impl Task {
-        fn execute(&self) {
-            let due = with(|engine| {
-                let shared = engine.shared_of(self.window)?;
-                let mut capture = shared.capture.borrow_mut();
-                let capture = capture.as_mut()?;
-                let due = capture.cleanup.due(self.picture);
-                if due && capture.encoder.refine() {
-                    capture.cleanup.refined();
-                }
-                Some(due)
-            })
-            .flatten();
-            if due == Some(true) {
-                clean_up(self.window, self.picture, REFINE_MS);
             }
         }
     }
@@ -989,10 +953,8 @@ fn capture(command: &ToEngine) {
             };
             let encoder = Encoder::new(Settings { format, bitrate }, Arc::new(pictures));
             *shared.capture.borrow_mut() = Some(Capture {
-                window,
                 tab,
                 encoder,
-                cleanup: Cleanup::default(),
                 settling: None,
             });
             engine.browser_of(tab)

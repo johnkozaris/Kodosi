@@ -29,8 +29,8 @@ use objc2_screen_capture_kit::{
 };
 use screen::link::{self, Source};
 use stream::{Encoded, Region};
-use stream_encode::{Encoder, Output, Picture, Settings, refine::Cleanup};
-use tokio::sync::{mpsc, watch};
+use stream_encode::{Encoder, Output, Picture, Settings};
+use tokio::sync::mpsc;
 
 use super::{completed, describe, item, rect, session::Event, sources::Content, value};
 
@@ -209,14 +209,11 @@ fn configure(configuration: &SCStreamConfiguration, wanted: Wanted, display: Opt
 pub(super) struct Frames {
     encoding: Mutex<Encoding>,
     events: mpsc::UnboundedSender<Event>,
-    /// The number of the last picture, while it needs passes to sharpen it.
-    drawn: watch::Sender<u64>,
 }
 
 struct Encoding {
     encoder: Encoder,
     settings: Settings,
-    cleanup: Cleanup,
     /// The shown display's frame in global points, or `None` for a window, which frames show
     /// whole.
     display: Option<CGRect>,
@@ -229,24 +226,20 @@ impl Frames {
         settings: Settings,
         say: mpsc::Sender<Bytes>,
         events: mpsc::UnboundedSender<Event>,
-    ) -> (Arc<Self>, watch::Receiver<u64>) {
-        let (drawn, drawing) = watch::channel(0);
+    ) -> Arc<Self> {
         let sent = Arc::new(Sent {
             say,
             events: events.clone(),
         });
-        let frames = Arc::new(Self {
+        Arc::new(Self {
             encoding: Mutex::new(Encoding {
                 encoder: Encoder::new(settings, sent),
                 settings,
-                cleanup: Cleanup::default(),
                 display: None,
                 fresh: true,
             }),
             events,
-            drawn,
-        });
-        (frames, drawing)
+        })
     }
 
     fn lock(&self) -> MutexGuard<'_, Encoding> {
@@ -266,18 +259,6 @@ impl Frames {
 
     pub(super) fn encoder(&self, work: impl FnOnce(&mut Encoder)) {
         work(&mut self.lock().encoder);
-    }
-
-    /// Encodes the last picture again while it needs sharpening; false once it is clean.
-    pub(super) fn refine(&self, picture: u64) -> bool {
-        let mut encoding = self.lock();
-        if !encoding.cleanup.due(picture) {
-            return false;
-        }
-        if encoding.encoder.refine() {
-            encoding.cleanup.refined();
-        }
-        true
     }
 
     fn shows(&self, display: Option<CGRect>) {
@@ -315,10 +296,8 @@ impl Frames {
         encoding.encoder.encode(
             Picture::Nv12(CFRetained::as_ptr(&picture).as_ptr().cast()),
             region,
+            changed,
         );
-        if let Some(picture) = encoding.cleanup.drawn(changed) {
-            self.drawn.send_replace(picture);
-        }
     }
 
     fn failed(&self, problem: String) {

@@ -19,24 +19,24 @@ use objc2_core_media::{
 };
 use objc2_core_video::CVPixelBuffer;
 use objc2_video_toolbox::{
-    VTCompressionSession, VTEncodeInfoFlags, VTSessionSetProperty,
-    kVTCompressionPropertyKey_AllowFrameReordering, kVTCompressionPropertyKey_AverageBitRate,
-    kVTCompressionPropertyKey_ColorPrimaries, kVTCompressionPropertyKey_EnableLTR,
-    kVTCompressionPropertyKey_ExpectedFrameRate, kVTCompressionPropertyKey_MaxKeyFrameInterval,
-    kVTCompressionPropertyKey_ProfileLevel, kVTCompressionPropertyKey_RealTime,
+    VTCompressionSession, VTEncodeInfoFlags, VTSessionCopyProperty, VTSessionSetProperty,
+    kVTCompressionPropertyKey_AllowFrameReordering, kVTCompressionPropertyKey_ColorPrimaries,
+    kVTCompressionPropertyKey_EnableLTR, kVTCompressionPropertyKey_ExpectedFrameRate,
+    kVTCompressionPropertyKey_MaxKeyFrameInterval, kVTCompressionPropertyKey_ProfileLevel,
+    kVTCompressionPropertyKey_RealTime, kVTCompressionPropertyKey_SupportsBaseFrameQP,
     kVTCompressionPropertyKey_TransferFunction, kVTCompressionPropertyKey_YCbCrMatrix,
-    kVTEncodeFrameOptionKey_AcknowledgedLTRTokens, kVTEncodeFrameOptionKey_ForceKeyFrame,
-    kVTEncodeFrameOptionKey_ForceLTRRefresh, kVTProfileLevel_H264_ConstrainedBaseline_AutoLevel,
-    kVTProfileLevel_HEVC_Main_AutoLevel, kVTSampleAttachmentKey_RequireLTRAcknowledgementToken,
+    kVTEncodeFrameOptionKey_AcknowledgedLTRTokens, kVTEncodeFrameOptionKey_BaseFrameQP,
+    kVTEncodeFrameOptionKey_ForceKeyFrame, kVTEncodeFrameOptionKey_ForceLTRRefresh,
+    kVTProfileLevel_H264_ConstrainedBaseline_AutoLevel, kVTProfileLevel_HEVC_Main_AutoLevel,
+    kVTSampleAttachmentKey_RequireLTRAcknowledgementToken,
     kVTVideoEncoderSpecification_EnableLowLatencyRateControl,
 };
 use stream::{Codec, Format};
 
 use super::{Gate, sps};
-use crate::refine::FRAME_RATE;
+use crate::FRAME_RATE;
 
-pub(super) const REFINEMENT: usize = 1;
-pub(super) const RECOVERY: usize = 2;
+pub(super) const RECOVERY: usize = 1;
 const START_CODE: [u8; 4] = [0, 0, 0, 1];
 const H264_SEQUENCE: u8 = 7;
 /// Low-latency rate control never asks for keyframes on its own; this only bounds a stream that
@@ -49,6 +49,9 @@ const INVALID_TIME: CMTime = CMTime {
     flags: CMTimeFlags(0),
     epoch: 0,
 };
+
+/// A session's picture size and stream format.
+pub(super) type Shape = (usize, usize, Format);
 
 pub(super) struct Coded {
     pub(super) key: bool,
@@ -144,7 +147,6 @@ impl Session {
         width: usize,
         height: usize,
         format: Format,
-        bitrate: u32,
         gate: &Arc<Gate>,
     ) -> Result<Self, String> {
         let (wide, high) = (
@@ -188,11 +190,21 @@ impl Session {
             height,
             format,
         };
-        session.configure(bitrate)?;
+        session.configure()?;
+        if !session.takes_quantizers() {
+            return Err("the encoder takes no quantizer for each frame".to_owned());
+        }
+        // SAFETY: the session is valid. Preparing ahead saves the first frame's setup time; a
+        // session that refuses prepares with that frame instead.
+        unsafe { session.raw.prepare_to_encode_frames() };
         Ok(session)
     }
 
-    fn configure(&self, bitrate: u32) -> Result<(), String> {
+    pub(super) const fn shape(&self) -> Shape {
+        (self.width, self.height, self.format)
+    }
+
+    fn configure(&self) -> Result<(), String> {
         let raw = &*self.raw;
         let yes: &CFType = CFBoolean::new(true);
         let no: &CFType = CFBoolean::new(false);
@@ -242,19 +254,29 @@ impl Session {
                 set(raw, key, value);
             }
         }
-        self.set_bitrate(bitrate);
         Ok(())
     }
 
-    /// Only the average: a data rate limit makes low-latency rate control drop frames.
-    pub(super) fn set_bitrate(&self, bitrate: u32) {
-        let average = CFNumber::new_i64(i64::from(bitrate));
-        // SAFETY: a VideoToolbox constant key with the number it expects.
-        set(
-            &self.raw,
-            unsafe { kVTCompressionPropertyKey_AverageBitRate },
-            &average,
-        );
+    /// Low-latency rate control takes a quantizer for each frame, which replaces its own rate
+    /// control and its frame drops.
+    fn takes_quantizers(&self) -> bool {
+        let mut value: *const c_void = ptr::null();
+        // SAFETY: a VideoToolbox constant key, and the out pointer is valid.
+        let status = unsafe {
+            VTSessionCopyProperty(
+                &self.raw,
+                kVTCompressionPropertyKey_SupportsBaseFrameQP,
+                None,
+                (&raw mut value).cast(),
+            )
+        };
+        let Some(value) = NonNull::new(value.cast_mut()).filter(|_| status == 0) else {
+            return false;
+        };
+        let takes = ptr::eq(value.as_ptr().cast::<CFBoolean>(), CFBoolean::new(true));
+        // SAFETY: the copy returned the value with a +1 retain count.
+        drop(unsafe { CFRetained::from_raw(value.cast::<CFType>()) });
+        takes
     }
 
     /// Returns the encoder's status; on success the callback reports the frame later.
@@ -265,17 +287,20 @@ impl Session {
         key: bool,
         recovery: bool,
         held: &[u64],
+        quantizer: u8,
         marker: usize,
     ) -> i32 {
         let yes: &CFType = CFBoolean::new(true);
+        let quantizer = CFNumber::new_i32(i32::from(quantizer));
         let tokens: Vec<CFRetained<CFNumber>> = held
             .iter()
             .map(|mark| CFNumber::new_i64(mark.cast_signed()))
             .collect();
         let acknowledged = (!tokens.is_empty())
             .then(|| objc2_core_foundation::CFArray::from_retained_objects(&tokens));
-        let mut keys: Vec<&CFString> = Vec::new();
-        let mut values: Vec<&CFType> = Vec::new();
+        // SAFETY: a VideoToolbox constant key with the number it expects.
+        let mut keys: Vec<&CFString> = vec![unsafe { kVTEncodeFrameOptionKey_BaseFrameQP }];
+        let mut values: Vec<&CFType> = vec![&quantizer];
         // SAFETY: VideoToolbox constant keys with the values they expect.
         unsafe {
             if key {
@@ -291,7 +316,7 @@ impl Session {
                 values.push(acknowledged);
             }
         }
-        let options = (!keys.is_empty()).then(|| CFDictionary::from_slices(&keys, &values));
+        let options = CFDictionary::from_slices(&keys, &values);
         let time = CMTime {
             value: i64::try_from(since.as_micros()).unwrap_or(i64::MAX),
             timescale: 1_000_000,
@@ -305,7 +330,7 @@ impl Session {
                 picture,
                 time,
                 INVALID_TIME,
-                options.as_ref().map(|options| options.as_opaque()),
+                Some(options.as_opaque()),
                 ptr::without_provenance_mut(marker),
                 ptr::null_mut(),
             )
