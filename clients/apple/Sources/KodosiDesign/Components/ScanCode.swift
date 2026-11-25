@@ -17,7 +17,7 @@ public struct ScanCodeCard<Content: View>: View {
         }
         .aspectRatio(1, contentMode: .fit)
         .raised(Radius.xl, fill: AppTheme.Colors.light.raised)
-        .environment(\.theme, AppTheme.light.reducingMotion(theme.motion.reduced))
+        .environment(\.theme, AppTheme.light.reducingMotion(theme.motion.reduced).scalingText(theme.textScale))
         .environment(\.colorScheme, .light)
     }
 }

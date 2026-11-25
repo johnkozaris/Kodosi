@@ -24,7 +24,7 @@ struct SidebarDosiRow: View {
                         Text(line).id(line).transition(AnyTransition.roll)
                     }
                     .clipped()
-                    .font(.system(size: 12, design: .monospaced))
+                    .font(scaled: 12, design: .monospaced)
                     .foregroundStyle(calls || hovered ? theme.colors.ink : theme.colors.inkMuted)
                     .lineLimit(1).truncationMode(.tail)
                     .arrive(delay: 0.1, rise: 0)

@@ -15,7 +15,7 @@ AbstractButton {
     property bool accessoryShown: false
     property bool ready: false
 
-    implicitHeight: 26
+    implicitHeight: KodosiTheme.scaled(26)
     implicitWidth: row.implicitWidth + 18
     hoverEnabled: true
     activeFocusOnTab: true
@@ -80,8 +80,8 @@ AbstractButton {
             }
             KIcon {
                 anchors.verticalCenter: parent.verticalCenter
-                width: 9
-                height: 9
+                width: KodosiTheme.scaled(9)
+                height: KodosiTheme.scaled(9)
                 name: "chevron-down"
                 strokeWidth: 2.8
                 color: root.open ? root.look.accentStrong : root.look.inkFaint

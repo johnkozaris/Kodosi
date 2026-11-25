@@ -42,8 +42,8 @@ MenuItem {
             }
             KIcon {
                 anchors.centerIn: parent
-                width: 14
-                height: 14
+                width: KodosiTheme.scaled(14)
+                height: KodosiTheme.scaled(14)
                 visible: root.agent.length === 0 && root.image.length === 0
                 name: root.iconName
                 color: !root.enabled ? KodosiTheme.inkFaint : root.destructive ? KodosiTheme.danger : root.highlighted ? KodosiTheme.ink : KodosiTheme.inkMuted
@@ -84,16 +84,16 @@ MenuItem {
         }
         KIcon {
             visible: root.checkable && root.checked
-            Layout.preferredWidth: 12
-            Layout.preferredHeight: 12
+            Layout.preferredWidth: KodosiTheme.scaled(12)
+            Layout.preferredHeight: KodosiTheme.scaled(12)
             name: "check"
             strokeWidth: 2.4
             color: KodosiTheme.accentStrong
         }
         KIcon {
             visible: !!root.subMenu
-            Layout.preferredWidth: 9
-            Layout.preferredHeight: 9
+            Layout.preferredWidth: KodosiTheme.scaled(9)
+            Layout.preferredHeight: KodosiTheme.scaled(9)
             name: "chevron-right"
             strokeWidth: 2.6
             color: root.highlighted ? KodosiTheme.inkMuted : KodosiTheme.inkFaint

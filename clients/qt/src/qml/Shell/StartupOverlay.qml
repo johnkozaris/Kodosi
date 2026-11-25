@@ -109,7 +109,7 @@ KPopover {
                 Layout.fillWidth: true
                 color: KodosiTheme.inkMuted
                 elide: Text.ElideRight
-                font.pixelSize: 12
+                font.pixelSize: KodosiTheme.fontFootnote
                 horizontalAlignment: Text.AlignHCenter
                 maximumLineCount: 5
                 objectName: "startup.failure.detail"

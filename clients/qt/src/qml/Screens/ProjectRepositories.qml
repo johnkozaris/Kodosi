@@ -110,7 +110,7 @@ Item {
                                     x: 10
                                     anchors.verticalCenter: parent.verticalCenter
                                     spacing: 6
-                                    KIcon { Layout.preferredWidth: 12; Layout.preferredHeight: 12; name: "repository"; color: chip.current ? KodosiTheme.accentStrong : KodosiTheme.inkMuted }
+                                    KIcon { Layout.preferredWidth: KodosiTheme.scaled(12); Layout.preferredHeight: KodosiTheme.scaled(12); name: "repository"; color: chip.current ? KodosiTheme.accentStrong : KodosiTheme.inkMuted }
                                     PlainLabel { text: chip.modelData.name; color: chip.current ? KodosiTheme.ink : KodosiTheme.inkMuted; font.pixelSize: KodosiTheme.fontFootnote; font.weight: chip.current ? Font.DemiBold : Font.Medium }
                                 }
                             }

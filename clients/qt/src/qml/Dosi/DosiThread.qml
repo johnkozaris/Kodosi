@@ -164,8 +164,8 @@ Item {
 
                     KIcon {
                         anchors.verticalCenter: parent.verticalCenter
-                        width: 11
-                        height: 11
+                        width: KodosiTheme.scaled(11)
+                        height: KodosiTheme.scaled(11)
                         name: "laptop"
                         color: KodosiTheme.inkFaint
                     }
@@ -262,8 +262,8 @@ Item {
 
                         KIcon {
                             anchors.verticalCenter: parent.verticalCenter
-                            width: 10
-                            height: 10
+                            width: KodosiTheme.scaled(10)
+                            height: KodosiTheme.scaled(10)
                             name: "history"
                             color: KodosiTheme.inkFaint
                         }
@@ -337,8 +337,8 @@ Item {
 
                             KIcon {
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: 8
-                                height: 8
+                                width: KodosiTheme.scaled(8)
+                                height: KodosiTheme.scaled(8)
                                 name: "chevron-down"
                                 rotation: thinking.open ? 0 : -90
                                 strokeWidth: 2.8
@@ -436,8 +436,8 @@ Item {
 
                                 KIcon {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: 13
-                                    height: 13
+                                    width: KodosiTheme.scaled(13)
+                                    height: KodosiTheme.scaled(13)
                                     name: entry.row.tone === "signIn" ? "key" : "warning"
                                     strokeWidth: 2.2
                                     color: KodosiTheme.caution

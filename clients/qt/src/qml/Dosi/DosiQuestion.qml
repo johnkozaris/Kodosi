@@ -66,8 +66,8 @@ Item {
 
             KIcon {
                 anchors.verticalCenter: parent.verticalCenter
-                width: 10
-                height: 10
+                width: KodosiTheme.scaled(10)
+                height: KodosiTheme.scaled(10)
                 name: root.row.skipped ? "minus" : "check"
                 strokeWidth: 2.8
                 color: root.row.skipped ? KodosiTheme.inkFaint : KodosiTheme.ready

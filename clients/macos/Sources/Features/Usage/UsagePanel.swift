@@ -19,10 +19,10 @@ struct UsageMenuRow: View {
                 UsageRing(limit: nearest, lineWidth: 1.75, loading: launcher.loadingUsage)
                     .frame(width: 14, height: 14)
                     .frame(width: 18)
-                Text("Provider Usage").font(.system(size: 12.5, weight: .medium)).foregroundStyle(theme.colors.ink)
+                Text("Provider Usage").font(scaled: 12.5, weight: .medium).foregroundStyle(theme.colors.ink)
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(scaled: 9, weight: .bold)
                     .foregroundStyle(lit ? theme.colors.inkMuted : theme.colors.inkFaint)
             }
             .padding(.horizontal, 8).frame(height: 30)
@@ -162,7 +162,7 @@ private struct UsageAccountRow: View {
                     tint: info.kind.tint(account: info.accounts.firstIndex { $0.name == account.name }),
                 )
                 Text(verbatim: title)
-                    .font(.system(size: 12.5, weight: .medium)).foregroundStyle(theme.colors.ink)
+                    .font(scaled: 12.5, weight: .medium).foregroundStyle(theme.colors.ink)
                     .lineLimit(1).truncationMode(.middle)
                 Spacer(minLength: 10)
                 HStack(spacing: 0) {

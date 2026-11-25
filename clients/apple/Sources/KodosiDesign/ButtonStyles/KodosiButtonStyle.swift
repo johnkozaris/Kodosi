@@ -82,7 +82,7 @@ public struct KodosiButtonStyle: ButtonStyle {
             .lineLimit(1)
             .foregroundStyle(isEnabled ? foreground(pressed: pressed) : theme.colors.inkFaint)
             .padding(.horizontal, size.padding)
-            .frame(minHeight: size.height)
+            .frame(minHeight: theme.scaled(size.height))
             .background { background(shape, pressed: pressed).environment(\.bezelPressed, pressed) }
             .touchTarget(shape)
             .scaleEffect(pressed ? 0.97 : 1)

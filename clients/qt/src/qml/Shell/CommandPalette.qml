@@ -118,7 +118,7 @@ KPopover {
                 anchors.rightMargin: 10
                 spacing: 10
 
-                KIcon { Layout.preferredWidth: 15; Layout.preferredHeight: 15; name: "search"; color: KodosiTheme.inkMuted }
+                KIcon { Layout.preferredWidth: KodosiTheme.scaled(15); Layout.preferredHeight: KodosiTheme.scaled(15); name: "search"; color: KodosiTheme.inkMuted }
                 TextInput {
                     id: query
                     Layout.fillWidth: true

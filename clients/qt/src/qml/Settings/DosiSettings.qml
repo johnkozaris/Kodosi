@@ -199,8 +199,8 @@ ColumnLayout {
 
                 KIcon {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 11
-                    height: 11
+                    width: KodosiTheme.scaled(11)
+                    height: KodosiTheme.scaled(11)
                     name: "check"
                     color: KodosiTheme.ready
                 }

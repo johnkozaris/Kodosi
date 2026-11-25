@@ -34,7 +34,7 @@ Button {
 
     activeFocusOnTab: true
     hoverEnabled: true
-    implicitHeight: compact ? 26 : large ? 40 : KodosiTheme.controlHeight
+    implicitHeight: compact ? KodosiTheme.scaled(26) : large ? KodosiTheme.scaled(40) : KodosiTheme.controlHeight
     implicitWidth: Math.max(implicitHeight, contentRow.implicitWidth + leftPadding + rightPadding)
     leftPadding: compact ? 11 : large ? 20 : 14
     rightPadding: leftPadding
@@ -51,8 +51,8 @@ Button {
         Item { Layout.fillWidth: true }
         KIcon {
             visible: root.iconName.length > 0 && !root.iconTrailing
-            Layout.preferredWidth: root.compact ? 13 : 15
-            Layout.preferredHeight: root.compact ? 13 : 15
+            Layout.preferredWidth: KodosiTheme.scaled(root.compact ? 13 : 15)
+            Layout.preferredHeight: KodosiTheme.scaled(root.compact ? 13 : 15)
             name: root.iconName
             color: root.foreground
             strokeWidth: 2
@@ -67,8 +67,8 @@ Button {
         }
         KIcon {
             visible: root.iconName.length > 0 && root.iconTrailing
-            Layout.preferredWidth: 13
-            Layout.preferredHeight: 13
+            Layout.preferredWidth: KodosiTheme.scaled(13)
+            Layout.preferredHeight: KodosiTheme.scaled(13)
             name: root.iconName
             color: root.foreground
             strokeWidth: 2

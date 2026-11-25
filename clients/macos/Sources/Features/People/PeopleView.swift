@@ -104,7 +104,7 @@ struct PeopleView: View {
         @Bindable var workbench = deps.workbench
         let trimmed = workbench.friendDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         return HStack(spacing: 10) {
-            Image(systemName: "person.badge.plus").font(.system(size: 14, weight: .semibold))
+            Image(systemName: "person.badge.plus").font(scaled: 14, weight: .semibold)
                 .foregroundStyle(adding ? theme.colors.accentStrong : theme.colors.inkFaint)
             TextField("Paste a friend's invite, or type a username", text: $workbench.friendDraft)
                 .textFieldStyle(.plain).appTextStyle(.callout).focused($adding)

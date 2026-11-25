@@ -33,7 +33,7 @@ struct RepositoryPicker: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass").font(.system(size: 11, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
+                Image(systemName: "magnifyingglass").font(scaled: 11, weight: .semibold).foregroundStyle(theme.colors.inkFaint)
                 TextField("Find or paste a repository", text: $query)
                     .textFieldStyle(.plain).appTextStyle(.body).focused($searching)
                     .onSubmit(submit).onExitCommand(perform: close)
@@ -74,7 +74,7 @@ struct RepositoryPicker: View {
 
     private func notice(_ github: RepositoryChoices.GitHub) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: "person.crop.circle.badge.plus").font(.system(size: 14, weight: .medium))
+            Image(systemName: "person.crop.circle.badge.plus").font(scaled: 14, weight: .medium)
                 .foregroundStyle(theme.colors.accentStrong)
             Text(github == .missing ? "Install GitHub CLI to see your repositories" : "Connect GitHub to see your repositories")
                 .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
@@ -110,12 +110,12 @@ struct RepositoryPicker: View {
                 }
                 Spacer(minLength: 6)
                 if choice.private {
-                    Image(systemName: "lock.fill").font(.system(size: 9)).foregroundStyle(theme.colors.inkFaint)
+                    Image(systemName: "lock.fill").font(scaled: 9).foregroundStyle(theme.colors.inkFaint)
                 }
                 if adding == url {
                     ProgressView().controlSize(.small)
                 } else if done {
-                    Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(theme.colors.ready)
+                    Image(systemName: "checkmark").font(scaled: 11, weight: .bold).foregroundStyle(theme.colors.ready)
                 }
             }
             .padding(.horizontal, 8).frame(height: choice.folder == nil ? 36 : 44).contentShape(Rectangle())
@@ -176,7 +176,7 @@ struct IssuePicker: View {
         } else {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass").font(.system(size: 11, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
+                    Image(systemName: "magnifyingglass").font(scaled: 11, weight: .semibold).foregroundStyle(theme.colors.inkFaint)
                     TextField("Find an issue", text: $query).textFieldStyle(.plain).appTextStyle(.body)
                         .accessibilityIdentifier("project.issue.find")
                 }
@@ -200,7 +200,7 @@ struct IssuePicker: View {
         }
         let number = Self.number(in: words).flatMap { number in issues.contains { $0.number == number } ? nil : number }
         HStack(spacing: 6) {
-            Image(systemName: "shippingbox").font(.system(size: 10, weight: .semibold))
+            Image(systemName: "shippingbox").font(scaled: 10, weight: .semibold)
             Text(repository.name).appTextStyle(.caption)
             if loading.contains(repository.id) {
                 ProgressView().controlSize(.mini)
@@ -227,13 +227,13 @@ struct IssuePicker: View {
     private func numberRow(_ number: UInt64, in repository: ProjectRepository) -> some View {
         Button { add(number, from: repository) } label: {
             HStack(spacing: 10) {
-                Image(systemName: "number").font(.system(size: 12, weight: .semibold)).foregroundStyle(theme.colors.inkMuted)
+                Image(systemName: "number").font(scaled: 12, weight: .semibold).foregroundStyle(theme.colors.inkMuted)
                 Text("Add issue #\(String(number))").appTextStyle(.body).foregroundStyle(theme.colors.ink)
                 Spacer(minLength: 6)
                 if adding == key(number, in: repository) {
                     ProgressView().controlSize(.small)
                 } else {
-                    Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(theme.colors.inkMuted)
+                    Image(systemName: "plus").font(scaled: 11, weight: .bold).foregroundStyle(theme.colors.inkMuted)
                 }
             }
             .padding(.horizontal, 8).frame(height: 34).contentShape(Rectangle()).hoverRow()
@@ -246,14 +246,14 @@ struct IssuePicker: View {
         let imported = deps.projects.snapshots[projectId]?.tasks.contains { $0.issue?.url == issue.url } == true
         return Button { add(issue.number, from: repository) } label: {
             HStack(spacing: 10) {
-                Image(systemName: "smallcircle.filled.circle").font(.system(size: 13)).foregroundStyle(theme.colors.ready)
+                Image(systemName: "smallcircle.filled.circle").font(scaled: 13).foregroundStyle(theme.colors.ready)
                 Text(issue.title).appTextStyle(.body).foregroundStyle(theme.colors.ink).lineLimit(1)
                 Spacer(minLength: 6)
                 Text(verbatim: "#\(issue.number)").appTextStyle(.caption).monospacedDigit().foregroundStyle(theme.colors.inkFaint)
                 if adding == key(issue.number, in: repository) {
                     ProgressView().controlSize(.small)
                 } else {
-                    Image(systemName: imported ? "checkmark" : "plus").font(.system(size: 11, weight: .bold))
+                    Image(systemName: imported ? "checkmark" : "plus").font(scaled: 11, weight: .bold)
                         .foregroundStyle(imported ? theme.colors.ready : theme.colors.inkMuted)
                         .contentTransition(.symbolEffect(.replace))
                 }

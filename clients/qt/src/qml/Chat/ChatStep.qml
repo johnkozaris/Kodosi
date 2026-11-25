@@ -23,7 +23,7 @@ Column {
         id: line
 
         width: root.width
-        implicitHeight: 24
+        implicitHeight: KodosiTheme.scaled(24)
         hoverEnabled: true
         activeFocusOnTab: root.step.opens === true
         objectName: "chat.step." + root.step.id
@@ -53,8 +53,8 @@ Column {
 
                 KIcon {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 15
-                    height: 11
+                    width: KodosiTheme.scaled(15)
+                    height: KodosiTheme.scaled(11)
                     name: root.step.icon || "cube"
                     strokeWidth: 2.2
                     color: root.look.inkFaint
@@ -100,8 +100,8 @@ Column {
 
                     anchors.verticalCenter: parent.verticalCenter
                     visible: root.step.opens === true
-                    width: 9
-                    height: 9
+                    width: KodosiTheme.scaled(9)
+                    height: KodosiTheme.scaled(9)
                     name: "chevron-right"
                     rotation: root.open ? 90 : 0
                     strokeWidth: 2.8
@@ -144,8 +144,8 @@ Column {
 
                     KIcon {
                         anchors.verticalCenter: parent.verticalCenter
-                        width: 11
-                        height: 11
+                        width: KodosiTheme.scaled(11)
+                        height: KodosiTheme.scaled(11)
                         name: "refresh"
                         strokeWidth: 2.2
                         color: root.look.inkFaint
@@ -307,8 +307,8 @@ Column {
 
                     KIcon {
                         anchors.verticalCenter: parent.verticalCenter
-                        width: 15
-                        height: 11
+                        width: KodosiTheme.scaled(15)
+                        height: KodosiTheme.scaled(11)
                         name: root.detail.doingIcon || "cube"
                         strokeWidth: 2.2
                         color: root.look.inkFaint

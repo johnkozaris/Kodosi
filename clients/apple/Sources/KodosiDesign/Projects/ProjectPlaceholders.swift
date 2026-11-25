@@ -71,7 +71,7 @@ public struct TerminalGhost: View {
 
     public var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "chevron.right").font(.system(size: 16, weight: .heavy)).foregroundStyle(theme.colors.inkFaint)
+            Image(systemName: "chevron.right").font(scaled: 16, weight: .heavy).foregroundStyle(theme.colors.inkFaint)
             CursorBlock(width: 11, height: 20)
             Spacer()
         }

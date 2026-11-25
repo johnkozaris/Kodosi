@@ -129,7 +129,7 @@ Item {
                     id: tasksKey
 
                     width: parent.width
-                    implicitHeight: 22
+                    implicitHeight: KodosiTheme.scaled(22)
                     hoverEnabled: true
                     activeFocusOnTab: true
                     objectName: "chat.tasks"
@@ -151,8 +151,8 @@ Item {
                         spacing: 7
 
                         KIcon {
-                            Layout.preferredWidth: 11
-                            Layout.preferredHeight: 11
+                            Layout.preferredWidth: KodosiTheme.scaled(11)
+                            Layout.preferredHeight: KodosiTheme.scaled(11)
                             name: "tasks"
                             strokeWidth: 2.2
                             color: root.look.inkMuted
@@ -176,8 +176,8 @@ Item {
                             visible: tasks.open || tasks.current === null
                         }
                         KIcon {
-                            Layout.preferredWidth: 9
-                            Layout.preferredHeight: 9
+                            Layout.preferredWidth: KodosiTheme.scaled(9)
+                            Layout.preferredHeight: KodosiTheme.scaled(9)
                             name: "chevron-up"
                             rotation: tasks.open ? 180 : 0
                             strokeWidth: 2.8
@@ -272,7 +272,7 @@ Item {
                     id: helpersKey
 
                     width: parent.width
-                    implicitHeight: 22
+                    implicitHeight: KodosiTheme.scaled(22)
                     hoverEnabled: true
                     activeFocusOnTab: true
                     objectName: "chat.helpers"
@@ -294,8 +294,8 @@ Item {
                         spacing: 7
 
                         KIcon {
-                            Layout.preferredWidth: 11
-                            Layout.preferredHeight: 11
+                            Layout.preferredWidth: KodosiTheme.scaled(11)
+                            Layout.preferredHeight: KodosiTheme.scaled(11)
                             name: "people"
                             strokeWidth: 2.2
                             color: root.look.inkMuted
@@ -310,8 +310,8 @@ Item {
                             elide: Text.ElideRight
                         }
                         KIcon {
-                            Layout.preferredWidth: 9
-                            Layout.preferredHeight: 9
+                            Layout.preferredWidth: KodosiTheme.scaled(9)
+                            Layout.preferredHeight: KodosiTheme.scaled(9)
                             name: "chevron-up"
                             rotation: helpers.open ? 180 : 0
                             strokeWidth: 2.8
@@ -411,8 +411,8 @@ Item {
                                         KIcon {
                                             anchors.verticalCenter: parent.verticalCenter
                                             visible: helper.doing !== null
-                                            width: 15
-                                            height: 11
+                                            width: KodosiTheme.scaled(15)
+                                            height: KodosiTheme.scaled(11)
                                             name: helper.doing ? helper.doing.icon || "cube" : "cube"
                                             strokeWidth: 2.2
                                             color: root.look.inkFaint
@@ -567,7 +567,7 @@ Item {
 
                             anchors.verticalCenter: parent.verticalCenter
                             implicitWidth: showWords.implicitWidth
-                            implicitHeight: 22
+                            implicitHeight: KodosiTheme.scaled(22)
                             hoverEnabled: true
                             activeFocusOnTab: true
                             objectName: "chat.queued.terminal"

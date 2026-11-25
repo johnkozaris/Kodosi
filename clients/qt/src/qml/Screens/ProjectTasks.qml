@@ -69,8 +69,8 @@ Item {
                 spacing: 6
                 KIcon {
                     visible: lane.folds
-                    Layout.preferredWidth: 9
-                    Layout.preferredHeight: 9
+                    Layout.preferredWidth: KodosiTheme.scaled(9)
+                    Layout.preferredHeight: KodosiTheme.scaled(9)
                     name: "chevron-down"
                     strokeWidth: 2.6
                     color: KodosiTheme.inkFaint
@@ -360,7 +360,7 @@ Item {
                         Layout.rightMargin: 8
                         spacing: 10
 
-                        KIcon { Layout.preferredWidth: 14; Layout.preferredHeight: 14; name: "plus"; strokeWidth: 2.2; color: root.adding ? KodosiTheme.accentStrong : KodosiTheme.inkFaint }
+                        KIcon { Layout.preferredWidth: KodosiTheme.scaled(14); Layout.preferredHeight: KodosiTheme.scaled(14); name: "plus"; strokeWidth: 2.2; color: root.adding ? KodosiTheme.accentStrong : KodosiTheme.inkFaint }
                         TextInput {
                             id: quick
                             Layout.fillWidth: true

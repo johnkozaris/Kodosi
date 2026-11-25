@@ -102,7 +102,7 @@ struct ChatUsage: View {
             }
             if let cost = facts.cost, cost > 0 {
                 line {
-                    Image(systemName: "dollarsign.circle").font(.system(size: 18, weight: .regular))
+                    Image(systemName: "dollarsign.circle").font(scaled: 18, weight: .regular)
                         .foregroundStyle(theme.colors.inkMuted).frame(width: 22)
                 } title: {
                     Text("This conversation", bundle: .module)

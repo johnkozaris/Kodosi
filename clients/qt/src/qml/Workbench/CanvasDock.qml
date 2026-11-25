@@ -134,8 +134,8 @@ Row {
 
                             KIcon {
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: 13
-                                height: 13
+                                width: KodosiTheme.scaled(13)
+                                height: KodosiTheme.scaled(13)
                                 name: key.modelData === "browser" ? "globe" : "files"
                                 strokeWidth: 2.1
                                 color: key.selected ? root.look.accentStrong : root.look.inkMuted

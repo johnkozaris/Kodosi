@@ -206,7 +206,7 @@ public struct Disclosure: View {
     public init() {}
 
     public var body: some View {
-        Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
+        Image(systemName: "chevron.right").font(scaled: 12, weight: .semibold).foregroundStyle(theme.colors.inkFaint)
             .accessibilityHidden(true)
     }
 }

@@ -21,7 +21,7 @@ struct DosiComposer: View {
         VStack(alignment: .leading, spacing: 6) {
             ForEach(dosi.queued) { queued in
                 HStack(spacing: 6) {
-                    Image(systemName: "clock").font(.system(size: 9, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
+                    Image(systemName: "clock").font(scaled: 9, weight: .semibold).foregroundStyle(theme.colors.inkFaint)
                     Text(queued.text).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
                     Spacer(minLength: 2)
                     IconButton(title: "Do not send", symbol: "xmark", identifier: "dosi.queued.remove.\(AccessibilityIdentifier.token(queued.id))", size: 20) {
