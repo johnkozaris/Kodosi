@@ -10,7 +10,7 @@ use shared_browser::Viewer;
 
 use crate::{
     canvas::{
-        PipeEnds, ScreenShown,
+        PipeEnds, ScreenAccess, ScreenShown,
         pipe::{self, Viewed},
     },
     text::Text,
@@ -76,6 +76,20 @@ impl Screens {
 
     pub(super) async fn stop(self) {
         self.0.stop().await;
+    }
+
+    pub(super) async fn access(self) -> Option<ScreenAccess> {
+        let access = self.0.access().await.ok()?;
+        Some(ScreenAccess {
+            screen: access.screen,
+            input: access.input,
+        })
+    }
+
+    pub(super) async fn ask(self) {
+        if let Err(problem) = self.0.ask().await {
+            tracing::warn!(%problem, "Kodosi Screen could not ask for its permissions");
+        }
     }
 }
 

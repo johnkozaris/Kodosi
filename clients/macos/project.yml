@@ -122,6 +122,10 @@ targets:
         basedOnDependencyAnalysis: false
         script: |
           "$PROJECT_DIR/scripts/build/install-document-views.sh" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+      - name: Install Kodosi Screen
+        basedOnDependencyAnalysis: false
+        script: |
+          "$PROJECT_DIR/scripts/build/install-screen-helper.sh" "$CONFIGURATION" "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
       - name: Verify Final Ghostty Image
         basedOnDependencyAnalysis: false
         script: |

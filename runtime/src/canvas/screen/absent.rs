@@ -5,7 +5,7 @@ use std::{convert::Infallible, future::Ready, path::Path};
 use shared_browser::Viewer;
 
 use crate::{
-    canvas::{PipeEnds, ScreenShown},
+    canvas::{PipeEnds, ScreenAccess, ScreenShown},
     text::Text,
 };
 
@@ -26,6 +26,14 @@ impl Screens {
     }
 
     pub(super) fn stop(self) -> Ready<()> {
+        match self.0 {}
+    }
+
+    pub(super) fn access(self) -> Ready<Option<ScreenAccess>> {
+        match self.0 {}
+    }
+
+    pub(super) fn ask(self) -> Ready<()> {
         match self.0 {}
     }
 }

@@ -244,6 +244,16 @@ pub enum CanvasRequest {
     ShowScreen,
 }
 
+/// What macOS lets Kodosi Screen do on this computer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScreenAccess {
+    /// Screen Recording.
+    pub screen: bool,
+    /// Accessibility, which input needs.
+    pub input: bool,
+}
+
 /// What of this computer's screen `kodosi show` puts on the canvas.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(

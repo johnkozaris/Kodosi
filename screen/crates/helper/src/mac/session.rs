@@ -100,7 +100,6 @@ struct Session {
     say: mpsc::Sender<Bytes>,
     events: mpsc::UnboundedSender<Event>,
     access: Access,
-    asked_for_input: bool,
     content: Option<Content>,
     sources: Sources,
     capture: Option<Capture>,
@@ -118,7 +117,6 @@ impl Session {
             say,
             events,
             access: Access::default(),
-            asked_for_input: false,
             content: None,
             sources: Sources::default(),
             capture: None,
@@ -129,7 +127,6 @@ impl Session {
         }
     }
 
-    /// The helper starts when someone opens the screen, so it asks for Screen Recording at once.
     async fn hello(&mut self, token: String) {
         self.access = access();
         self.tell(FromHelper::Hello {
@@ -139,9 +136,6 @@ impl Session {
             access: self.access,
         })
         .await;
-        if !self.access.screen {
-            CGRequestScreenCaptureAccess();
-        }
         self.look().await;
     }
 
@@ -199,6 +193,14 @@ impl Session {
             ToHelper::Bitrate { bitrate } => self.encoder(|encoder| encoder.set_bitrate(bitrate)),
             ToHelper::Input { input } => self.play(&input).await,
             ToHelper::Notice { notice } => app::notice(notice),
+            ToHelper::Ask => {
+                if !self.access.screen {
+                    CGRequestScreenCaptureAccess();
+                }
+                if !self.access.input {
+                    CGRequestPostEventAccess();
+                }
+            }
             ToHelper::Quit => return false,
         }
         true
@@ -286,13 +288,7 @@ impl Session {
         }
     }
 
-    /// macOS asks the person at the computer for Accessibility the first time a viewer acts.
     async fn play(&mut self, input: &Input) {
-        if !self.access.input && !self.asked_for_input {
-            self.asked_for_input = true;
-            CGRequestPostEventAccess();
-            self.check_access().await;
-        }
         let Some(source) = self.capture.as_ref().map(|capture| capture.source) else {
             return;
         };

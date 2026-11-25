@@ -710,8 +710,9 @@ enum Completion {
         command: Command,
         result: std::result::Result<crate::canvas::CanvasAnswer, crate::text::Text>,
     },
+    /// The fields of an answer about this computer's browsers or its screen.
     #[cfg(feature = "host")]
-    Browser {
+    Settings {
         command: Command,
         result: std::result::Result<Value, crate::text::Text>,
     },

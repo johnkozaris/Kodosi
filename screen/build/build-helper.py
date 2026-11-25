@@ -2,7 +2,8 @@
 """Builds "Kodosi Screen", the app that captures this Mac's screens and windows for the host, into
 <output-dir> and prints its path. The Mac app's build puts it in Contents/Helpers and signs it. It
 stays an app of its own, so that macOS asks for Screen Recording and Accessibility in its name and
-agents in Kodosi's terminals do not inherit them."""
+agents in Kodosi's terminals do not inherit them. With --notices <dir>, also writes the licenses of
+its Rust crates to <dir>."""
 
 # Xcode runs this with its own Python 3.9.
 from __future__ import annotations
@@ -12,6 +13,7 @@ import os
 import plistlib
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -26,6 +28,7 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--target", default="aarch64-apple-darwin")
     parser.add_argument("--icon", type=Path, help="the .icns file of the app that it ships in")
+    parser.add_argument("--notices", type=Path)
     parser.add_argument("--debug", action="store_true", help="a quick build for development")
     arguments = parser.parse_args()
     profile = "debug" if arguments.debug else "release"
@@ -65,6 +68,15 @@ def main() -> None:
         info["CFBundleIconFile"] = arguments.icon.stem
     with (app / "Contents/Info.plist").open("wb") as file:
         plistlib.dump(info, file)
+    if arguments.notices:
+        shutil.rmtree(arguments.notices, ignore_errors=True)
+        subprocess.run(
+            [sys.executable, str(ROOT / "clients/qt/scripts/release/generate-rust-license-inventory.py"),
+             "--manifest", str(WORKSPACE / "Cargo.toml"), "--target", arguments.target,
+             "--root", "screen-helper",
+             "--overrides", str(ROOT / "clients/qt/packaging/licenses/screen-license-overrides.json"),
+             "--output-dir", str(arguments.notices)],
+            cwd=ROOT, check=True, stdout=subprocess.DEVNULL)
     print(app)
 
 

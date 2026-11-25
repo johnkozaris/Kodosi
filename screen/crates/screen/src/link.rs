@@ -58,6 +58,9 @@ pub enum ToHelper {
     Notice {
         notice: Option<Notice>,
     },
+    /// Asks macOS for what the helper may not do yet, which shows the person at the computer
+    /// its prompts.
+    Ask,
     Quit,
 }
 

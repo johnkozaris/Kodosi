@@ -20,7 +20,7 @@ use tokio::sync::watch;
 use self::absent::Screens;
 #[cfg(target_os = "macos")]
 use self::mac::Screens;
-use super::{PipeEnds, ScreenShown};
+use super::{PipeEnds, ScreenAccess, ScreenShown};
 use crate::{runtime::saver::Saver, text::Text};
 
 /// Whether the person at the computer lets its owner's other devices watch its screen.
@@ -70,12 +70,22 @@ impl ScreenHost {
         self.0.allowed.subscribe()
     }
 
+    /// The person at the computer turns the sharing on there, so it is the time for macOS to
+    /// ask them for what Kodosi Screen may not do yet.
     pub(crate) fn allow(&self, allowed: bool) -> Result<(), Text> {
         if allowed && !self.available() {
             return Err(text!("This computer cannot share its screen."));
         }
         self.0.set(allowed);
+        if let Some(screens) = self.0.screens.clone().filter(|_| allowed) {
+            tokio::spawn(screens.ask());
+        }
         Ok(())
+    }
+
+    /// What Kodosi Screen may do, while the sharing is on.
+    pub(crate) async fn access(&self) -> Option<ScreenAccess> {
+        self.screens().ok()?.access().await
     }
 
     /// Refuses unless the person at the computer allowed the sharing.

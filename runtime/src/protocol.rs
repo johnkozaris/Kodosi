@@ -1424,13 +1424,16 @@ pub enum EventBody {
         operation: String,
         message: Text,
     },
-    /// `available` is false where Kodosi Screen did not come with the app.
+    /// `available` is false where Kodosi Screen did not come with the app; `access` is known
+    /// while the sharing is on.
     #[serde(rename = "screen.result")]
     ScreenResult {
         request_id: String,
         operation: String,
         allowed: bool,
         available: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        access: Option<crate::canvas::ScreenAccess>,
     },
     #[serde(rename = "screen.error")]
     ScreenError {

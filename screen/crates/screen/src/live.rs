@@ -13,7 +13,7 @@ use stream::{
 };
 use tokio::{
     io::AsyncWriteExt as _,
-    sync::{Notify, mpsc},
+    sync::{Notify, mpsc, oneshot},
 };
 
 use crate::{
@@ -48,6 +48,8 @@ pub(crate) enum Event {
         seat: u64,
     },
     Show(Wanted),
+    Access(oneshot::Sender<Access>),
+    Ask,
     Stop,
 }
 
@@ -252,6 +254,8 @@ impl Live {
                 self.wanted = wanted;
                 self.show(self.pick());
             }
+            Event::Access(reply) => drop(reply.send(self.access)),
+            Event::Ask => self.say(&ToHelper::Ask),
             Event::Stop => return false,
         }
         true

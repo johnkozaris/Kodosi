@@ -146,6 +146,15 @@ time, so Chromium is never compiled from source):
   changes, and bump `browser/engine/Cargo.toml` on every engine change so hosts recognize the
   newer build in the feed.
 
+### Kodosi Screen
+
+Kodosi Screen, the helper app that captures a Mac's screen, ships inside the Mac app's
+`Contents/Helpers`, where the Mac build puts it with `screen/build/build-helper.py` and signs it.
+It is an app of its own so that macOS grants Screen Recording and Accessibility to it alone. A host
+that does not run from the app, such as `just rust-cli-build`, finds it through
+`KODOSI_SCREEN_HELPER`. The host starts it through Launch Services, so it needs its own permissions
+in System Settings even when the terminal that starts the host has them.
+
 ## Texts and languages
 
 Write every new user-facing string in English in code, then translate it into German, Greek,

@@ -17,11 +17,11 @@ use stream::viewer::{self, Viewer};
 use tokio::{
     net::UnixListener,
     process::Command,
-    sync::{Mutex, mpsc},
+    sync::{Mutex, mpsc, oneshot},
 };
 
 use crate::{
-    link::{self, FromHelper, Message, Notice, VERSION},
+    link::{self, Access, FromHelper, Message, Notice, VERSION},
     live::{Calls, Event, Live, Mailbox, Wanted},
     wire::ToScreen,
 };
@@ -131,6 +131,23 @@ impl Screens {
         }
     }
 
+    /// What macOS lets the helper do, which starts it when it is not running.
+    pub async fn access(&self) -> Result<Access, Error> {
+        let events = self.live().await?;
+        let (reply, access) = oneshot::channel();
+        events
+            .send(Event::Access(reply))
+            .await
+            .map_err(|_| Error::Stopped)?;
+        access.await.map_err(|_| Error::Stopped)
+    }
+
+    /// Shows the person at the computer macOS's prompts for what the helper may not do yet.
+    pub async fn ask(&self) -> Result<(), Error> {
+        let events = self.live().await?;
+        events.send(Event::Ask).await.map_err(|_| Error::Stopped)
+    }
+
     /// Ends every view and quits the helper.
     pub async fn stop(&self) {
         let live = self.shared.live.lock().await.take();
@@ -169,7 +186,7 @@ pub(crate) struct Started {
     pub(crate) reader: tokio::net::unix::OwnedReadHalf,
     pub(crate) writer: tokio::net::unix::OwnedWriteHalf,
     pub(crate) encodable: Vec<stream::Codec>,
-    pub(crate) access: link::Access,
+    pub(crate) access: Access,
 }
 
 /// Opens the helper through Launch Services, so that macOS asks for its permissions in its own

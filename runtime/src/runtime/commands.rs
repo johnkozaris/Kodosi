@@ -616,21 +616,28 @@ impl Runtime {
                     }))
                 }
             };
-            Completion::Browser { command, result }
+            Completion::Settings { command, result }
         });
         Ok(())
     }
 
     #[cfg(feature = "host")]
-    fn use_screen(&self, command: &Command) -> Result<()> {
-        let screen = &self.services.screen;
+    fn use_screen(&mut self, command: &Command) -> Result<()> {
+        let screen = self.services.screen.clone();
         if let Command::ScreenAllow { allowed, .. } = command {
             screen.allow(*allowed).map_err(Error::Text)?;
         }
-        let mut value = super::answer(command, Ok(()));
-        value["allowed"] = json!(*screen.allowed().borrow());
-        value["available"] = json!(screen.available());
-        self.emit(value);
+        self.job_capacity()?;
+        let command = command.clone();
+        self.spawn(async move {
+            let access = screen.access().await;
+            let result = Ok(json!({
+                "allowed": *screen.allowed().borrow(),
+                "available": screen.available(),
+                "access": access,
+            }));
+            Completion::Settings { command, result }
+        });
         Ok(())
     }
 
@@ -1696,7 +1703,7 @@ impl Runtime {
             },
             Completion::Canvas { command, .. } => self.error(&command, &Error::Stale),
             #[cfg(feature = "host")]
-            Completion::Browser { command, result } => match result {
+            Completion::Settings { command, result } => match result {
                 Ok(fields) => {
                     let mut value = super::answer(&command, Ok(()));
                     if let (Some(value), Value::Object(fields)) = (value.as_object_mut(), fields) {

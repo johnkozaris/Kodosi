@@ -14480,6 +14480,29 @@
       {
         "additionalProperties": false,
         "properties": {
+          "access": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "input": {
+                    "type": "boolean"
+                  },
+                  "screen": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "screen",
+                  "input"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "accountEpoch": {
             "format": "u64",
             "type": "integer"
