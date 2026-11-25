@@ -14,12 +14,12 @@ Item {
     signal dismissed
 
     implicitWidth: row.implicitWidth + 28
-    implicitHeight: Math.max(40, label.implicitHeight + 20)
+    implicitHeight: Math.max(KodosiTheme.scaled(40), label.implicitHeight + 20)
     objectName: identifier
 
     Raised {
         anchors.fill: parent
-        radius: Math.min(20, height / 2)
+        radius: Math.min(KodosiTheme.scaled(20), height / 2)
         fill: KodosiTheme.lifted
         elevation: 3
     }

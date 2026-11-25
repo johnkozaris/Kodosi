@@ -142,7 +142,7 @@ Item {
                 PlainLabel {
                     x: 42
                     y: parent.gap
-                    height: 18
+                    height: KodosiTheme.scaled(18)
                     verticalAlignment: Text.AlignVCenter
                     text: qsTr("thinking")
                     color: KodosiTheme.inkFaint
@@ -210,7 +210,7 @@ Item {
             Component {
                 id: dividerView
                 Item {
-                    height: 16
+                    height: KodosiTheme.scaled(16)
 
                     Rectangle {
                         anchors.left: parent.left
@@ -327,7 +327,7 @@ Item {
                     AbstractButton {
                         id: toggle
                         implicitWidth: toggleRow.implicitWidth
-                        implicitHeight: 18
+                        implicitHeight: KodosiTheme.scaled(18)
                         enabled: (entry.row.text || "").length > 0
                         onClicked: thinking.open = !thinking.open
 
@@ -395,13 +395,13 @@ Item {
                 Item {
                     readonly property bool stopped: entry.row.tone === "stopped"
 
-                    height: stopped ? 18 : card.height
+                    height: stopped ? KodosiTheme.scaled(18) : card.height
 
                     Rectangle {
                         visible: parent.stopped
                         width: stoppedLabel.implicitWidth + 16
-                        height: 18
-                        radius: 9
+                        height: KodosiTheme.scaled(18)
+                        radius: height / 2
                         color: KodosiTheme.alpha(KodosiTheme.ink, 0.06)
 
                         PlainLabel {

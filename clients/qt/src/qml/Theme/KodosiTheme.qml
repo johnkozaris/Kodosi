@@ -9,8 +9,6 @@ QtObject {
     readonly property bool reduceMotion: Models.Appearance.reduceMotion
     readonly property real textScale: Models.Appearance.textScale
 
-    /// For words, the symbols beside them and the controls that hold them; marks and icon-only keys
-    /// keep their size.
     function scaled(size) {
         return Math.round(size * textScale)
     }

@@ -146,7 +146,7 @@ KPopover {
                         required property var modelData
                         readonly property bool selected: root.projectId === modelData.id
 
-                        height: 28
+                        height: KodosiTheme.scaled(28)
                         implicitWidth: chipRow.implicitWidth + 16
                         scale: pressed ? 0.96 : 1
                         objectName: "sharing.project." + modelData.id

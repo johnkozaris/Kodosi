@@ -108,8 +108,6 @@ final class PromptTextView: NSTextView {
 
     private(set) var promptFont = PromptTextView.font(.dark)
 
-    /// The launcher centers the words of its command line in `rowHeight`, so the field centers its
-    /// first line in the same height, at each text size.
     func fit(_ theme: AppTheme) {
         let fitted = Self.font(theme)
         let line = layoutManager?.defaultLineHeight(for: fitted) ?? fitted.pointSize

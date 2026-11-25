@@ -44,7 +44,7 @@ Item {
         id: pill
 
         width: Math.min(pillRow.implicitWidth + 18, root.width)
-        height: 22
+        height: KodosiTheme.scaled(22)
         opacity: root.answered ? 1 : 0
         scale: root.answered ? 1 : 0.9
         visible: opacity > 0

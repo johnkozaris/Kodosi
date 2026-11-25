@@ -147,7 +147,7 @@ private struct TerminalName: View {
         if renaming {
             TextField("Name", text: $draft)
                 .textFieldStyle(.plain).appTextStyle(.subhead).foregroundStyle(theme.colors.ink)
-                .padding(.horizontal, 6).frame(minWidth: 120, maxWidth: 260).frame(height: 24)
+                .padding(.horizontal, 6).frame(minWidth: 120, maxWidth: 260).controlHeight(24)
                 .background(theme.colors.well, in: RoundedRectangle(cornerRadius: Radius.xs, style: .continuous))
                 .focused($focused)
                 .task { focused = true }

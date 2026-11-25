@@ -11,8 +11,8 @@ TextEdit {
     property bool clearsOnEscape: true
     property bool holds: true
     property bool lit: true
-    readonly property real cell: metrics.advanceWidth("M")
-    readonly property real fitWidth: Math.ceil(leftPadding + metrics.advanceWidth(hint) + rightPadding)
+    readonly property real cell: cellMetrics.advanceWidth
+    readonly property real fitWidth: Math.ceil(leftPadding + hintMetrics.advanceWidth + rightPadding)
 
     signal submitted
 
@@ -32,8 +32,8 @@ TextEdit {
     textFormat: TextEdit.PlainText
     selectByMouse: true
     cursorVisible: true
-    topPadding: 4.5
-    bottomPadding: 4.5
+    topPadding: Math.max(0, (KodosiTheme.scaled(26) - lineMetrics.height) / 2)
+    bottomPadding: topPadding
     rightPadding: cell
     activeFocusOnTab: true
     Accessible.role: Accessible.EditableText
@@ -63,8 +63,18 @@ TextEdit {
     }
 
     FontMetrics {
-        id: metrics
+        id: lineMetrics
         font: root.font
+    }
+    TextMetrics {
+        id: cellMetrics
+        font: root.font
+        text: "M"
+    }
+    TextMetrics {
+        id: hintMetrics
+        font: root.font
+        text: root.hint
     }
     Timer {
         id: blink

@@ -213,7 +213,7 @@ Item {
                                 spacing: 6
                                 PlainLabel { Layout.fillWidth: true; text: card.modelData.name; font.pixelSize: KodosiTheme.fontHeadline; font.weight: Font.DemiBold; elide: Text.ElideRight }
                                 RowLayout {
-                                    Layout.preferredHeight: 24
+                                    Layout.preferredHeight: KodosiTheme.scaled(24)
                                     spacing: 6
 
                                     PlainLabel {

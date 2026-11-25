@@ -108,17 +108,16 @@ private struct ScaledFont: ViewModifier {
     }
 }
 
-/// Exactly this height on a Mac, at the person's text size, and at least this on iPhone and iPad,
-/// where the text grows with Dynamic Type.
 private struct ControlHeight: ViewModifier {
     @Environment(\.theme) private var theme
     let height: CGFloat
+    let holdsWords: Bool
 
     func body(content: Content) -> some View {
         #if os(iOS)
             content.frame(minHeight: height)
         #else
-            content.frame(height: theme.scaled(height))
+            content.frame(height: holdsWords ? theme.scaled(height) : height)
         #endif
     }
 }
@@ -139,7 +138,9 @@ public extension View {
         modifier(ScaledFont(size: size, style: style, weight: weight, design: design))
     }
 
-    func controlHeight(_ height: CGFloat) -> some View {
-        modifier(ControlHeight(height: height))
+    /// On macOS the height is exact, and it follows the text size when the control contains text.
+    /// On iPhone and iPad it's a minimum, because Dynamic Type can make the text taller.
+    func controlHeight(_ height: CGFloat, holdsWords: Bool = true) -> some View {
+        modifier(ControlHeight(height: height, holdsWords: holdsWords))
     }
 }

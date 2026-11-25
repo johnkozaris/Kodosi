@@ -41,10 +41,15 @@ Item {
         return Models.Projects.unreadProjects.indexOf(project.id) >= 0
     }
     function chipWidth(name: var, sign: int): real {
-        return 37 + Math.min(Math.ceil(metrics.advanceWidth(name || "")), 112) + (sign > 0 ? 6 + sign : 0)
+        return 37 + Math.min(textWidth(name || ""), 112) + (sign > 0 ? 6 + sign : 0)
     }
     function moreWidth(hidden: int): real {
-        return 28 + Math.ceil(metrics.advanceWidth(String(hidden)))
+        return 28 + textWidth(String(hidden))
+    }
+    function textWidth(text: string): real {
+        // Bindings don't track the font that advanceWidth() uses, so read it here to remeasure
+        // when the text size changes.
+        return metrics.font.pixelSize > 0 ? Math.ceil(metrics.advanceWidth(text)) : 0
     }
     function shown(widths: var, room: real): int {
         let total = 0
@@ -253,7 +258,7 @@ Item {
             : Models.DesktopState.activeView === Models.DesktopState.Sessions && Models.DesktopState.selectedSessionId === value.id)
         readonly property color ink: needs ? KodosiTheme.accentStrong : open || hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
 
-        implicitWidth: 28 + Math.ceil(moreMetrics.advanceWidth(moreLabel.text))
+        implicitWidth: 28 + Math.ceil(moreMetrics.advanceWidth)
         implicitHeight: 26
         hoverEnabled: true
         activeFocusOnTab: true
@@ -285,9 +290,10 @@ Item {
 
         Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
 
-        FontMetrics {
+        TextMetrics {
             id: moreMetrics
             font: moreLabel.font
+            text: moreLabel.text
         }
 
         background: Item {

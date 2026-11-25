@@ -74,7 +74,7 @@ Row {
     }
     Item {
         implicitWidth: keys.implicitWidth + 4
-        implicitHeight: 28
+        implicitHeight: KodosiTheme.scaled(24) + 4
 
         Rectangle {
             anchors.fill: parent
@@ -110,7 +110,7 @@ Row {
 
                     readonly property real fullWidth: Math.max(26, keyRow.implicitWidth + (words.length > 0 ? 20 : 14) + (closing ? 16 : 0))
 
-                    height: 24
+                    height: KodosiTheme.scaled(24)
                     implicitWidth: fullWidth
                     hoverEnabled: true
                     objectName: root.identifier + "." + modelData

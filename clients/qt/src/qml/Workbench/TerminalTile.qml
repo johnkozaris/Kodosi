@@ -184,7 +184,7 @@ Item {
                     Layout.maximumWidth: Math.max(80, root.width * 0.4)
                     Layout.leftMargin: -6
                     Layout.rightMargin: -6
-                    implicitHeight: 24
+                    implicitHeight: KodosiTheme.scaled(24)
                     visible: !root.projectEmbedded && !root.renaming
                     enabled: root.session.isOwner === true
                     hoverEnabled: true
@@ -218,6 +218,7 @@ Item {
                 }
                 KTextField {
                     Layout.preferredWidth: Math.min(240, Math.max(140, root.width * 0.35))
+                    implicitHeight: KodosiTheme.scaled(24)
                     visible: root.renaming
                     compact: true
                     leftPadding: 8
@@ -562,7 +563,7 @@ Item {
                 anchors.bottom: parent.bottom
                 anchors.margins: 10
                 width: pictureRow.implicitWidth + 24
-                height: 34
+                height: KodosiTheme.scaled(34)
                 opacity: picture ? 1 : 0
                 visible: opacity > 0
                 objectName: root.objectName + ".picture"
@@ -589,11 +590,12 @@ Item {
                         progress: pictureCard.shown ? (pictureCard.shown.arrived ? 1 : pictureCard.shown.fraction) : 0
                         track: KodosiTheme.alpha(root.look.ink, 0.22)
                     }
-                    PlainLabel { text: pictureCard.label; color: root.look.ink }
+                    PlainLabel { text: pictureCard.label; color: root.look.ink; font.pixelSize: KodosiTheme.fontFootnote }
                     RollingText {
                         visible: pictureCard.shown && !pictureCard.shown.arrived
                         text: pictureCard.percent
                         color: root.look.inkMuted
+                        font.pixelSize: KodosiTheme.fontFootnote
                     }
                 }
             }

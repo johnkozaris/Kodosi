@@ -72,7 +72,7 @@ private struct TrustArt: View {
             PersonAvatar(name: you, size: 44, isSelf: true)
             line
             HStack(spacing: 6) {
-                Image(systemName: "chevron.right").font(scaled: 11, weight: .heavy).foregroundStyle(theme.colors.inkFaint)
+                Image(systemName: "chevron.right").font(.system(size: 11, weight: .heavy)).foregroundStyle(theme.colors.inkFaint)
                 CursorBlock(width: 7, height: 13, blink: .typing)
             }
             .padding(.horizontal, 12).frame(width: 86, height: 52, alignment: .leading)
