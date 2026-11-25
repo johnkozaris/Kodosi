@@ -3,12 +3,13 @@
 use std::{io, process::Command};
 
 use core_foundation::{
-    base::TCFType as _,
+    base::{CFType, CFTypeRef, TCFType as _},
     string::{CFString, CFStringRef},
 };
 
 const LEVEL_ON: u32 = 255;
 const SUCCESS: i32 = 0;
+const BATTERY_POWER: &str = "Battery Power";
 
 #[link(name = "IOKit", kind = "framework")]
 unsafe extern "C" {
@@ -19,6 +20,22 @@ unsafe extern "C" {
         assertion: *mut u32,
     ) -> i32;
     fn IOPMAssertionRelease(assertion: u32) -> i32;
+    fn IOPSCopyPowerSourcesInfo() -> CFTypeRef;
+    fn IOPSGetProvidingPowerSourceType(snapshot: CFTypeRef) -> CFStringRef;
+}
+
+pub(super) fn on_battery() -> bool {
+    // SAFETY: the call takes no arguments and returns a new snapshot, or null.
+    let snapshot = unsafe { IOPSCopyPowerSourcesInfo() };
+    if snapshot.is_null() {
+        return false;
+    }
+    // SAFETY: the snapshot came from a Copy call, so this wrapper owns it and releases it.
+    let snapshot = unsafe { CFType::wrap_under_create_rule(snapshot) };
+    // SAFETY: the snapshot is alive, and the answer is a constant string that it does not own.
+    let source = unsafe { IOPSGetProvidingPowerSourceType(snapshot.as_CFTypeRef()) };
+    // SAFETY: a non-null answer is a valid string, retained here for as long as it is read.
+    !source.is_null() && unsafe { CFString::wrap_under_get_rule(source) } == BATTERY_POWER
 }
 
 pub(super) struct Awake(u32);

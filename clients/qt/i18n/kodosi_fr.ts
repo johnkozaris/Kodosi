@@ -1412,6 +1412,10 @@
         <translation>Réveiller</translation>
     </message>
     <message>
+        <source>Options for %1</source>
+        <translation>Options de %1</translation>
+    </message>
+    <message>
         <source>Stay awake</source>
         <translation>Rester éveillé</translation>
     </message>
@@ -2564,8 +2568,8 @@
         <translation>Rester éveillé</translation>
     </message>
     <message>
-        <source>This computer does not go to sleep by itself while Kodosi runs.</source>
-        <translation>Cet ordinateur ne se met pas en veille de lui-même tant que Kodosi fonctionne.</translation>
+        <source>This computer does not go to sleep by itself while Kodosi runs. On battery, it stays awake only while agents work.</source>
+        <translation>Cet ordinateur ne se met pas en veille de lui-même tant que Kodosi fonctionne. Sur batterie, il ne reste éveillé que pendant le travail des agents.</translation>
     </message>
     <message>
         <source>This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.</source>

@@ -2,6 +2,7 @@ package com.kodosi.mobile.terminals
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -78,6 +79,7 @@ fun TerminalsScreen(
     online: Boolean,
     summaryFirst: Boolean,
     open: (String) -> Unit,
+    computer: (String) -> Unit,
     start: (NewTerminalRequest) -> Unit
 ) {
     val colors = KodosiTheme.colors
@@ -117,6 +119,11 @@ fun TerminalsScreen(
                         null
                     },
                     power[group.place.id].takeIf { own },
+                    if (own && group.place.id in power) {
+                        { computer(group.place.id) }
+                    } else {
+                        null
+                    },
                     { wake(group.place.id) },
                     Modifier.animateItem(fade(), snappy(), fade())
                 )
@@ -221,29 +228,39 @@ private fun GroupHeader(
     group: TerminalGroup,
     start: (() -> Unit)?,
     power: ComputerPower?,
+    open: (() -> Unit)?,
     wake: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = KodosiTheme.colors
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier.fillMaxWidth().padding(top = 18.dp, bottom = 4.dp).semantics(mergeDescendants = true) {
-            heading()
-        }
+        modifier = modifier.fillMaxWidth().padding(top = 18.dp, bottom = 4.dp)
     ) {
-        val glyph = if (group.place is TerminalGroup.Place.Friend) R.drawable.ic_person else R.drawable.ic_laptop
-        Glyph(glyph, if (group.away) colors.inkFaint else colors.inkMuted, 18.dp)
-        Spacer(Modifier.width(7.dp))
-        Text(
-            group.place.name,
-            style = KodosiType.subhead,
-            color = colors.inkMuted,
-            modifier = Modifier.weight(1f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Spacer(Modifier.width(7.dp))
-        Text(group.sessions.size.toString(), style = KodosiType.caption, color = colors.inkFaint)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f)
+                .then(if (open != null) Modifier.clickable(onClick = open) else Modifier)
+                .semantics(mergeDescendants = true) { heading() }
+        ) {
+            val glyph = if (group.place is TerminalGroup.Place.Friend) R.drawable.ic_person else R.drawable.ic_laptop
+            Glyph(glyph, if (group.away) colors.inkFaint else colors.inkMuted, 18.dp)
+            Spacer(Modifier.width(7.dp))
+            Text(
+                group.place.name,
+                style = KodosiType.subhead,
+                color = colors.inkMuted,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.width(7.dp))
+            Text(group.sessions.size.toString(), style = KodosiType.caption, color = colors.inkFaint)
+            if (open != null) {
+                Spacer(Modifier.width(6.dp))
+                AppIcon(AppSymbol.FORWARD, Modifier.size(9.dp), tint = colors.inkFaint)
+            }
+        }
         if (power?.waking == true) {
             Spacer(Modifier.width(10.dp))
             Text(stringResource(R.string.waking), style = KodosiType.caption, color = colors.inkMuted)

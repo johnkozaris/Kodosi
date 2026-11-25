@@ -287,20 +287,24 @@ Un ordinateur ne se met pas en veille de lui-même pendant qu'un agent travaille
 terminaux, et il peut de nouveau se mettre en veille quelques minutes après l'arrêt de ses agents.
 Un agent qui attend votre réponse ne le garde pas éveillé. Pour changer cela, choisissez une option
 pour **Rester éveillé** dans **Réglages › Général** sur cet ordinateur : **Pendant le travail des
-agents**, **Toujours** ou **Jamais**. Vous pouvez toujours mettre un ordinateur en veille vous-même.
+agents**, **Toujours** ou **Jamais**. **Toujours** ne garde un ordinateur éveillé que lorsqu'il est
+branché ; sur batterie, il reste éveillé pendant le travail des agents. Vous pouvez toujours mettre
+un ordinateur en veille vous-même.
 
-Pour mettre en veille un autre de vos ordinateurs, ouvrez **Réglages** et cliquez sur **Mettre en
-veille…** à côté de lui, sous **Vos appareils** (sur un téléphone, touchez d'abord **⋯**). Ses
-terminaux sont en pause jusqu'à son réveil. **Rester éveillé** à côté de lui choisit quand cet
+Pour mettre en veille un autre de vos ordinateurs, ouvrez **Réglages**, cliquez sur **⋯** à côté de
+lui, sous **Vos appareils**, puis choisissez **Mettre en veille…**. Sur un téléphone, touchez
+l'ordinateur pour ouvrir sa page. Ses terminaux sont en pause jusqu'à son réveil. Si rien ne pouvait
+le réveiller ensuite, Kodosi vous le dit avant. Le même menu, ou la page, choisit quand cet
 ordinateur reste éveillé.
 
 ### Réveiller un ordinateur
 
-Pour réveiller un ordinateur en veille, cliquez sur **Réveiller** à côté de lui dans **Réglages**,
-sur l'un de ses terminaux ou dans la liste des ordinateurs d'un nouveau terminal. Le signal de
-réveil doit partir du réseau de l'ordinateur en veille. Kodosi l'envoie depuis l'appareil que vous
-utilisez lorsqu'il est sur le même réseau, et sinon depuis un autre de vos ordinateurs éveillés sur
-ce réseau. Un iPhone ou un iPad le demande toujours à l'un de vos ordinateurs.
+Pour réveiller un ordinateur en veille, cliquez sur **Réveiller** à côté de lui dans **Réglages**
+(sur un téléphone, sur sa page), sur l'un de ses terminaux ou dans la liste des ordinateurs d'un
+nouveau terminal. Le signal de réveil doit partir du réseau de l'ordinateur en veille. Kodosi
+l'envoie depuis l'appareil que vous utilisez lorsqu'il est sur le même réseau, et sinon depuis un
+autre de vos ordinateurs éveillés sur ce réseau. Un iPhone ou un iPad le demande toujours à l'un de
+vos ordinateurs.
 
 Un ordinateur se réveille par un câble réseau, pas en Wi-Fi, et seulement si son système
 l'autorise. **Réglages** indique pour chaque ordinateur ce que Kodosi attend, ou le seul réglage à
@@ -314,9 +318,9 @@ modifier :
 Un Mac n'envoie le signal de réveil que si Kodosi peut utiliser le réseau local. Autorisez-le dans
 Réglages Système, sous **Confidentialité et sécurité**.
 
-Pour en être sûr, cliquez sur **Tester le réveil…** à côté d'un ordinateur éveillé (sur un
-téléphone, touchez d'abord **⋯**). Kodosi le met en veille, le réveille et garde le résultat.
-Restez près de l'ordinateur pour le premier test : s'il ne se réveille pas, réveillez-le à la main.
+Pour en être sûr, choisissez **Tester le réveil…** dans le menu d'un ordinateur éveillé (sur un
+téléphone, sur sa page). Kodosi le met en veille, le réveille et garde le résultat. Restez près de
+l'ordinateur pour le premier test : s'il ne se réveille pas, réveillez-le à la main.
 
 ### Clés de récupération
 

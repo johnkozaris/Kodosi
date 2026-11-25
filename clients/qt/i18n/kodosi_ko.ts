@@ -1393,6 +1393,10 @@
         <translation>깨우기</translation>
     </message>
     <message>
+        <source>Options for %1</source>
+        <translation>%1 옵션</translation>
+    </message>
+    <message>
         <source>Stay awake</source>
         <translation>깨어 있기</translation>
     </message>
@@ -2543,8 +2547,8 @@
         <translation>깨어 있기</translation>
     </message>
     <message>
-        <source>This computer does not go to sleep by itself while Kodosi runs.</source>
-        <translation>Kodosi가 실행되는 동안에는 이 컴퓨터가 스스로 잠자기로 전환되지 않아요.</translation>
+        <source>This computer does not go to sleep by itself while Kodosi runs. On battery, it stays awake only while agents work.</source>
+        <translation>Kodosi가 실행되는 동안에는 이 컴퓨터가 스스로 잠자기로 전환되지 않아요. 배터리로 작동할 때는 에이전트가 작업하는 동안에만 깨어 있어요.</translation>
     </message>
     <message>
         <source>This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.</source>

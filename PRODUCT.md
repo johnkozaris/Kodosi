@@ -52,7 +52,8 @@ as well as participate in projects while away from your desk.
 A computer doesn't go to sleep by itself while an agent works on it, but an agent that waits for
 you doesn't keep it awake. From any of your devices you can set a computer to stay awake always,
 or never, put it to sleep and wake it again. Kodosi shows for each computer if it wakes, and names
-the one setting to change when it doesn't.
+the one setting to change when it doesn't. Before it puts a computer to sleep, it says when nothing
+could wake it again.
 
 ## Design decisions
 

@@ -159,7 +159,9 @@ pub(super) fn result(event: &Value, context: &Context) -> String {
 
 pub(super) fn keeps_awake(state: &Value) -> String {
     match state["keepAwake"].as_str() {
-        Some("always") => "This computer stays awake while Kodosi runs.",
+        Some("always") => {
+            "This computer stays awake while it is plugged in. On its battery, it stays awake while an agent works."
+        }
         Some("never") => "This computer can go to sleep while an agent works.",
         _ => "This computer stays awake while an agent works.",
     }

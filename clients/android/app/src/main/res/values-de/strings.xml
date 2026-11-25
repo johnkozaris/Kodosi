@@ -221,6 +221,10 @@
     <string name="keep_awake_never">Nie</string>
     <string name="always_awake">Immer wach</string>
     <string name="can_sleep_while_agents_work">Kann in den Ruhezustand gehen, während Agenten arbeiten</string>
+    <string name="computer_awake_agents">%1$s geht nicht von selbst in den Ruhezustand, während ein Agent arbeitet, und auch einige Minuten danach nicht. Ein Agent, der auf dich wartet, hält ihn nicht wach.</string>
+    <string name="computer_awake_always">%1$s geht nicht von selbst in den Ruhezustand, solange Kodosi läuft. Im Akkubetrieb bleibt er nur wach, während Agenten arbeiten.</string>
+    <string name="computer_awake_never">%1$s kann in den Ruhezustand gehen, während ein Agent arbeitet. Der Agent pausiert dann, bis der Computer aufwacht.</string>
+    <string name="change_while_online">Du kannst das ändern, während er online ist.</string>
     <string name="wake_computer">Aufwecken</string>
     <string name="waking">Wird aufgeweckt…</string>
     <string name="wake_named">%1$s aufwecken</string>

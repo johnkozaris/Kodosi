@@ -42,11 +42,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -131,7 +133,9 @@ enum class AppSymbol {
     ARROW_RIGHT,
     PENCIL,
     SPARKLE,
-    CLOCK
+    CLOCK,
+    MOON,
+    POWER
 }
 
 @Composable
@@ -176,6 +180,11 @@ private class SymbolPainter(private val symbol: AppSymbol) : androidx.compose.ui
             CornerRadius(radius * scale),
             style = stroke
         )
+        fun outline(data: String) {
+            val path = PathParser().parsePathString(data).toPath()
+            path.transform(Matrix().apply { this.scale(scale, scale) })
+            drawPath(path, Color.Black, style = stroke)
+        }
         fun circle(x: Float, y: Float, radius: Float) = drawCircle(
             Color.Black,
             radius * scale,
@@ -517,6 +526,10 @@ private class SymbolPainter(private val symbol: AppSymbol) : androidx.compose.ui
                 circle(12f, 12f, 9f)
                 path(12f, 7f, 12f, 12f, 15.5f, 14f)
             }
+
+            AppSymbol.MOON -> outline("M20 14.5 A8 8 0 1 1 9.5 4 A6.5 6.5 0 0 0 20 14.5 Z")
+
+            AppSymbol.POWER -> outline("M12 3 V11 M7.1 6.3 A7.5 7.5 0 1 0 16.9 6.3")
         }
     }
 }

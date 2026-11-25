@@ -29879,54 +29879,54 @@
         }
       }
     },
-    "This Mac does not go to sleep by itself while Kodosi runs." : {
+    "This Mac does not go to sleep by itself while Kodosi runs. On battery, it stays awake only while agents work." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dieser Mac geht nicht von selbst in den Ruhezustand, solange Kodosi läuft."
+            "value" : "Dieser Mac geht nicht von selbst in den Ruhezustand, solange Kodosi läuft. Im Akkubetrieb bleibt er nur wach, während Agenten arbeiten."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Αυτό το Mac δεν μπαίνει μόνο του σε ύπνο όσο τρέχει το Kodosi."
+            "value" : "Αυτό το Mac δεν μπαίνει μόνο του σε ύπνο όσο τρέχει το Kodosi. Με μπαταρία, μένει ξύπνιο μόνο όσο δουλεύουν agents."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Este Mac no se suspende por sí solo mientras Kodosi está en marcha."
+            "value" : "Este Mac no se suspende por sí solo mientras Kodosi está en marcha. Con batería, solo se mantiene despierto mientras trabajan los agentes."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ce Mac ne se met pas en veille de lui-même tant que Kodosi fonctionne."
+            "value" : "Ce Mac ne se met pas en veille de lui-même tant que Kodosi fonctionne. Sur batterie, il ne reste éveillé que pendant le travail des agents."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Questo Mac non va in sospensione da solo finché Kodosi è in esecuzione."
+            "value" : "Questo Mac non va in sospensione da solo finché Kodosi è in esecuzione. A batteria, resta attivo solo mentre gli agenti lavorano."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi の実行中は、この Mac が自動でスリープすることはありません。"
+            "value" : "Kodosi の実行中は、この Mac が自動でスリープすることはありません。バッテリー駆動中は、エージェントの作業中だけスリープしません。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi가 실행되는 동안에는 이 Mac이 스스로 잠자기로 전환되지 않아요."
+            "value" : "Kodosi가 실행되는 동안에는 이 Mac이 스스로 잠자기로 전환되지 않아요. 배터리로 작동할 때는 에이전트가 작업하는 동안에만 깨어 있어요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi 运行时，这台 Mac 不会自行进入睡眠。"
+            "value" : "Kodosi 运行时，这台 Mac 不会自行进入睡眠。使用电池时，仅在 Agent 工作时保持唤醒。"
           }
         }
       }

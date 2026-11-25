@@ -229,6 +229,10 @@
     <string name="keep_awake_never">Never</string>
     <string name="always_awake">Always awake</string>
     <string name="can_sleep_while_agents_work">Can sleep while agents work</string>
+    <string name="computer_awake_agents">%1$s does not go to sleep by itself while an agent works, or for a few minutes after. An agent that waits for you does not keep it awake.</string>
+    <string name="computer_awake_always">%1$s does not go to sleep by itself while Kodosi runs. On battery, it stays awake only while agents work.</string>
+    <string name="computer_awake_never">%1$s can go to sleep while an agent works. The agent then pauses until it wakes.</string>
+    <string name="change_while_online">You can change this while it is online.</string>
     <string name="wake_computer">Wake</string>
     <string name="waking">Waking…</string>
     <string name="wake_named">Wake %1$s</string>

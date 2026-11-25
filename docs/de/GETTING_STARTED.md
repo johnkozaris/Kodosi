@@ -287,21 +287,24 @@ Ein Computer geht nicht von selbst in den Ruhezustand, während ein Agent in ein
 arbeitet, und er kann einige Minuten nach dem Ende seiner Agenten wieder in den Ruhezustand gehen.
 Ein Agent, der auf deine Antwort wartet, hält ihn nicht wach. Um das zu ändern, wähle auf diesem
 Computer unter **Einstellungen › Allgemein** bei **Wach bleiben** eine Option: **Während Agenten
-arbeiten**, **Immer** oder **Nie**. Du kannst einen Computer weiterhin selbst in den Ruhezustand
-versetzen.
+arbeiten**, **Immer** oder **Nie**. **Immer** hält einen Computer nur wach, solange er am Strom
+hängt; im Akkubetrieb bleibt er wach, während Agenten arbeiten. Du kannst einen Computer weiterhin
+selbst in den Ruhezustand versetzen.
 
-Um einen anderen deiner Computer in den Ruhezustand zu versetzen, öffne die **Einstellungen** und
-klicke unter **Deine Geräte** neben ihm auf **Ruhezustand…** (auf einem Smartphone tippst du zuerst
-auf **⋯**). Seine Terminals pausieren, bis er wieder aufwacht. Mit **Wach bleiben** daneben wählst
-du, wann dieser Computer wach bleibt.
+Um einen anderen deiner Computer in den Ruhezustand zu versetzen, öffne die **Einstellungen**,
+klicke unter **Deine Geräte** neben ihm auf **⋯** und wähle **Ruhezustand…**. Auf einem Smartphone
+tippst du auf den Computer, um seine Seite zu öffnen. Seine Terminals pausieren, bis er wieder
+aufwacht. Wenn ihn danach nichts mehr wecken könnte, sagt Kodosi es dir vorher. Im selben Menü oder
+auf der Seite wählst du, wann dieser Computer wach bleibt.
 
 ### Einen Computer aufwecken
 
-Um einen Computer aus dem Ruhezustand aufzuwecken, klicke in den **Einstellungen** neben ihm, in
-einem seiner Terminals oder in der Computerliste eines neuen Terminals auf **Aufwecken**. Das
-Wecksignal muss aus dem Netzwerk des schlafenden Computers kommen. Kodosi sendet es von dem Gerät,
-das du gerade benutzt, wenn es im selben Netzwerk ist, und sonst von einem anderen deiner Computer
-dort, der wach ist. Ein iPhone oder iPad bittet immer einen deiner Computer darum.
+Um einen Computer aus dem Ruhezustand aufzuwecken, klicke in den **Einstellungen** neben ihm (auf
+einem Smartphone auf seiner Seite), in einem seiner Terminals oder in der Computerliste eines neuen
+Terminals auf **Aufwecken**. Das Wecksignal muss aus dem Netzwerk des schlafenden Computers kommen.
+Kodosi sendet es von dem Gerät, das du gerade benutzt, wenn es im selben Netzwerk ist, und sonst von
+einem anderen deiner Computer dort, der wach ist. Ein iPhone oder iPad bittet immer einen deiner
+Computer darum.
 
 Ein Computer wacht über ein Netzwerkkabel auf, nicht über WLAN, und nur, wenn sein System es
 erlaubt. Die **Einstellungen** zeigen für jeden Computer, was Kodosi erwartet, oder die eine
@@ -314,10 +317,10 @@ Einstellung, die du ändern musst:
 Ein Mac sendet das Wecksignal nur, wenn Kodosi das lokale Netzwerk nutzen darf. Erlaube es in den
 Systemeinstellungen unter **Datenschutz & Sicherheit**.
 
-Um sicherzugehen, klicke neben einem wachen Computer auf **Aufwecken testen…** (auf einem
-Smartphone tippst du zuerst auf **⋯**). Kodosi versetzt ihn in den Ruhezustand, weckt ihn auf und
-merkt sich das Ergebnis. Bleib beim ersten Test in der Nähe des Computers: Wenn er nicht aufwacht,
-wecke ihn von Hand.
+Um sicherzugehen, wähle im Menü eines wachen Computers **Aufwecken testen…** (auf einem Smartphone
+auf seiner Seite). Kodosi versetzt ihn in den Ruhezustand, weckt ihn auf und merkt sich das
+Ergebnis. Bleib beim ersten Test in der Nähe des Computers: Wenn er nicht aufwacht, wecke ihn von
+Hand.
 
 ### Wiederherstellungsschlüssel
 

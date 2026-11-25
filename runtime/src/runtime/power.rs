@@ -1,7 +1,7 @@
-use std::{io, path::Path, time::Duration};
+use std::{io, path::Path, sync::Arc, time::Duration};
 
 use serde::{Deserialize, Serialize};
-use tokio::sync::watch;
+use tokio::{sync::watch, time::Instant};
 
 use super::{Completion, Runtime, saver::Saver};
 use crate::{
@@ -18,13 +18,20 @@ const REASON: &str = "Kodosi keeps this computer awake";
 const ANSWER_LEAVES: Duration = Duration::from_secs(1);
 /// A computer that is still awake after this time did not go to sleep.
 const SLEEP_STARTS: Duration = Duration::from_mins(1);
+/// How often a computer set to stay awake always reads whether it is plugged in.
+const POWER_CHECK: Duration = Duration::from_mins(1);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Wanted {
     Awake,
+    /// Awake while the computer is plugged in. On its battery, as `Idle`.
+    Plugged,
     Idle,
     Off,
 }
+
+type Hold<Held> = Arc<dyn Fn() -> Option<Held> + Send + Sync>;
+type OnBattery = Arc<dyn Fn() -> bool + Send + Sync>;
 
 #[derive(Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -47,23 +54,28 @@ pub(super) struct Power {
 
 impl Power {
     pub(super) fn load(data_root: &Path) -> Self {
-        Self::with(data_root, || {
-            kodosi_os::power::Awake::hold(REASON)
-                .inspect_err(|error| {
-                    tracing::warn!(%error, "this computer can go to sleep by itself");
-                })
-                .ok()
-        })
+        Self::with(
+            data_root,
+            || {
+                kodosi_os::power::Awake::hold(REASON)
+                    .inspect_err(|error| {
+                        tracing::warn!(%error, "this computer can go to sleep by itself");
+                    })
+                    .ok()
+            },
+            kodosi_os::power::on_battery,
+        )
     }
 
     #[cfg(test)]
     pub(super) fn unheld(data_root: &Path) -> Self {
-        Self::with(data_root, || None::<()>)
+        Self::with(data_root, || None::<()>, || false)
     }
 
     fn with<Held: Send + 'static>(
         data_root: &Path,
         hold: impl Fn() -> Option<Held> + Send + Sync + 'static,
+        on_battery: impl Fn() -> bool + Send + Sync + 'static,
     ) -> Self {
         let file = data_root.join("power.json");
         let saved = std::fs::read(&file)
@@ -71,7 +83,7 @@ impl Power {
             .and_then(|bytes| serde_json::from_slice::<Saved>(&bytes).ok())
             .unwrap_or_default();
         let (wanted, changes) = watch::channel(Wanted::Off);
-        tokio::spawn(keep(changes, std::sync::Arc::new(hold)));
+        tokio::spawn(keep(changes, Arc::new(hold), Arc::new(on_battery)));
         let power = Self {
             keep_awake: saved.keep_awake,
             tested: saved.tested,
@@ -130,10 +142,10 @@ impl Power {
 
     fn want(&self) {
         let wanted = match self.keep_awake {
-            KeepAwake::Always => Wanted::Awake,
-            KeepAwake::Agents if self.agents_work => Wanted::Awake,
-            KeepAwake::Agents => Wanted::Idle,
             KeepAwake::Never => Wanted::Off,
+            _ if self.agents_work => Wanted::Awake,
+            KeepAwake::Always => Wanted::Plugged,
+            KeepAwake::Agents => Wanted::Idle,
         };
         self.wanted
             .send_if_modified(|now| std::mem::replace(now, wanted) != wanted);
@@ -201,9 +213,8 @@ impl Runtime {
                 .flatten();
             let slept = match &result {
                 Ok(kodosi_os::power::Sleep::Starts) => {
-                    let until = tokio::time::Instant::now() + SLEEP_STARTS;
-                    while tokio::time::Instant::now() < until && !before.slept_until(Moment::now())
-                    {
+                    let until = Instant::now() + SLEEP_STARTS;
+                    while Instant::now() < until && !before.slept_until(Moment::now()) {
                         tokio::time::sleep(Duration::from_secs(1)).await;
                     }
                     before.slept_until(Moment::now())
@@ -230,38 +241,64 @@ impl Runtime {
 
 async fn keep<Held: Send + 'static>(
     mut wanted: watch::Receiver<Wanted>,
-    hold: std::sync::Arc<dyn Fn() -> Option<Held> + Send + Sync>,
+    hold: Hold<Held>,
+    on_battery: OnBattery,
 ) {
     let mut awake = None;
+    // When the hold ends, once agents stopped or the computer was unplugged.
+    let mut until = None;
     loop {
         let now = *wanted.borrow_and_update();
-        match now {
-            Wanted::Awake if awake.is_none() => {
-                let hold = std::sync::Arc::clone(&hold);
+        let keeps = match now {
+            Wanted::Awake => true,
+            Wanted::Plugged => !runs_on_battery(&on_battery).await,
+            Wanted::Idle | Wanted::Off => false,
+        };
+        if keeps {
+            until = None;
+            if awake.is_none() {
+                let hold = Arc::clone(&hold);
                 awake = tokio::task::spawn_blocking(move || hold())
                     .await
                     .ok()
                     .flatten();
             }
-            Wanted::Idle if awake.is_some() => {
-                tokio::select! {
-                    changed = wanted.changed() => {
-                        if changed.is_err() {
-                            break;
-                        }
-                        continue;
-                    }
-                    () = tokio::time::sleep(AFTER_WORK) => release(&mut awake).await,
+        } else if now == Wanted::Off {
+            until = None;
+            release(&mut awake).await;
+        } else if awake.is_some() && until.is_none() {
+            until = Some(Instant::now() + AFTER_WORK);
+        }
+        if until.is_some_and(|at| at <= Instant::now()) {
+            until = None;
+            release(&mut awake).await;
+        }
+        let check = (now == Wanted::Plugged).then(|| Instant::now() + POWER_CHECK);
+        let next = until.into_iter().chain(check).min();
+        tokio::select! {
+            changed = wanted.changed() => {
+                if changed.is_err() {
+                    break;
                 }
             }
-            Wanted::Off => release(&mut awake).await,
-            Wanted::Awake | Wanted::Idle => {}
-        }
-        if wanted.changed().await.is_err() {
-            break;
+            () = wait_until(next) => {}
         }
     }
     release(&mut awake).await;
+}
+
+async fn runs_on_battery(on_battery: &OnBattery) -> bool {
+    let on_battery = Arc::clone(on_battery);
+    tokio::task::spawn_blocking(move || on_battery())
+        .await
+        .unwrap_or(false)
+}
+
+async fn wait_until(at: Option<Instant>) {
+    match at {
+        Some(at) => tokio::time::sleep_until(at).await,
+        None => std::future::pending().await,
+    }
 }
 
 /// Linux releases with calls on the message bus, which can block.
@@ -273,10 +310,7 @@ async fn release<Held: Send + 'static>(awake: &mut Option<Held>) {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{
-        Arc,
-        atomic::{AtomicUsize, Ordering},
-    };
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
     use super::*;
 
@@ -296,11 +330,20 @@ mod tests {
     }
 
     fn power(folder: &Path, holds: &Arc<AtomicUsize>) -> Power {
+        with_battery(folder, holds, &Arc::new(AtomicBool::new(false)))
+    }
+
+    fn with_battery(folder: &Path, holds: &Arc<AtomicUsize>, battery: &Arc<AtomicBool>) -> Power {
         let holds = Arc::clone(holds);
-        Power::with(folder, move || {
-            holds.fetch_add(1, Ordering::SeqCst);
-            Some(Held(Arc::clone(&holds)))
-        })
+        let battery = Arc::clone(battery);
+        Power::with(
+            folder,
+            move || {
+                holds.fetch_add(1, Ordering::SeqCst);
+                Some(Held(Arc::clone(&holds)))
+            },
+            move || battery.load(Ordering::SeqCst),
+        )
     }
 
     #[tokio::test(start_paused = true)]
@@ -359,6 +402,54 @@ mod tests {
         assert_eq!(again.keeps_awake(), KeepAwake::Always);
         settle().await;
         assert_eq!(holds.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn always_keeps_the_computer_awake_only_while_it_is_plugged_in() {
+        let folder = tempfile::tempdir().unwrap();
+        let holds = Arc::new(AtomicUsize::new(0));
+        let battery = Arc::new(AtomicBool::new(true));
+        let mut power = with_battery(folder.path(), &holds, &battery);
+        assert!(power.keep_awake(KeepAwake::Always));
+        settle().await;
+        assert_eq!(
+            holds.load(Ordering::SeqCst),
+            0,
+            "on its battery, it can sleep"
+        );
+
+        power.agents_work(true);
+        settle().await;
+        assert_eq!(
+            holds.load(Ordering::SeqCst),
+            1,
+            "a working agent keeps it awake"
+        );
+        power.agents_work(false);
+        tokio::time::sleep(AFTER_WORK + POWER_CHECK).await;
+        settle().await;
+        assert_eq!(holds.load(Ordering::SeqCst), 0);
+
+        battery.store(false, Ordering::SeqCst);
+        tokio::time::sleep(POWER_CHECK).await;
+        settle().await;
+        assert_eq!(
+            holds.load(Ordering::SeqCst),
+            1,
+            "plugged in, it stays awake"
+        );
+
+        battery.store(true, Ordering::SeqCst);
+        tokio::time::sleep(POWER_CHECK.mul_f32(0.5)).await;
+        settle().await;
+        assert_eq!(
+            holds.load(Ordering::SeqCst),
+            1,
+            "it does not sleep at once when unplugged"
+        );
+        tokio::time::sleep(POWER_CHECK + AFTER_WORK).await;
+        settle().await;
+        assert_eq!(holds.load(Ordering::SeqCst), 0);
     }
 
     #[tokio::test]

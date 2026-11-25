@@ -21,6 +21,8 @@ public struct ComputerPower: Decodable, Equatable, Sendable {
     public let note: String?
     /// Why the computer does not wake now, with the one thing to do.
     public let problem: String?
+    /// Why Kodosi may not wake the computer after it goes to sleep.
+    public let sleepWarning: String?
     public let canWake: Bool
     public let canTest: Bool
     public let busy: Busy?

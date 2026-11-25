@@ -436,7 +436,8 @@ enum DeviceAction {
         /// The device: its name, its ID or the end of its ID that `kodosi devices list` shows.
         device: String,
     },
-    /// Put one of your computers to sleep. Its terminals pause until it wakes.
+    /// Put one of your computers to sleep. Its terminals pause until it wakes. When Kodosi may not
+    /// wake it again, it says so.
     Sleep {
         /// The computer: its name, its ID or the end of its ID that `kodosi devices list` shows.
         computer: String,
@@ -454,9 +455,9 @@ enum DeviceAction {
         computer: String,
     },
     /// Choose when a computer stays awake: `agents` while an agent works on it and for a few
-    /// minutes after, which is the setting at the start, `always` while Kodosi runs, or `never`.
-    /// An agent that waits for you does not keep it awake. Without a choice, show what this
-    /// computer does.
+    /// minutes after, which is the setting at the start, `always` while it is plugged in and on
+    /// its battery as `agents`, or `never`. An agent that waits for you does not keep it awake.
+    /// Without a choice, show what this computer does.
     KeepAwake {
         #[arg(value_parser = ["agents", "always", "never"])]
         when: Option<String>,
@@ -1019,6 +1020,16 @@ async fn reset_id(client: &mut local_host::Client, context: &mut Context) -> Res
         .ok_or_else(|| Error::Invalid("No device asked to start fresh.".to_owned()))
 }
 
+fn sleep_warning(context: &Context, computer: Option<&str>) -> Option<String> {
+    let computer = computer?;
+    context.latest.get("power.state")?["computers"]
+        .as_array()?
+        .iter()
+        .find(|entry| entry["deviceId"] == computer)?["sleepWarning"]
+        .as_str()
+        .map(str::to_owned)
+}
+
 async fn computer_id(
     client: &mut local_host::Client,
     context: &mut Context,
@@ -1527,6 +1538,9 @@ async fn device_command(
         }
         DeviceAction::Sleep { computer } => {
             let computer = computer_id(client, context, &computer).await?;
+            if let Some(warning) = sleep_warning(context, computer.as_deref()) {
+                drop(writeln!(io::stderr().lock(), "{warning}"));
+            }
             json!({"type":"power.sleep","computer":computer})
         }
         DeviceAction::Wake { computer } => {

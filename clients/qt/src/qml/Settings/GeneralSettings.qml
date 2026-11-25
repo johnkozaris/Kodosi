@@ -205,7 +205,7 @@ ColumnLayout {
             title: qsTr("Stay awake")
             wholeSubtitle: true
             subtitle: Models.Devices.keepAwake === "always"
-                ? qsTr("This computer does not go to sleep by itself while Kodosi runs.")
+                ? qsTr("This computer does not go to sleep by itself while Kodosi runs. On battery, it stays awake only while agents work.")
                 : Models.Devices.keepAwake === "never"
                 ? qsTr("This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.")
                 : qsTr("This computer does not go to sleep by itself while an agent works, or for a few minutes after. An agent that waits for you does not keep it awake.")

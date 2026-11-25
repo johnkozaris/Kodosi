@@ -161,6 +161,26 @@ fn expectation(ability: WakeAbility, details: &WakeDetails, computer: &str) -> O
     })
 }
 
+/// `nobody` is known only once this device has read its own networks.
+fn sleep_warning(ability: WakeAbility, nobody: bool, computer: &str) -> Option<Text> {
+    match ability {
+        WakeAbility::Tested | WakeAbility::Ready => nobody.then(|| {
+            text!(
+                "None of your other devices on the network of {computer} can wake it now. You may have to wake it by hand.",
+                computer = computer
+            )
+        }),
+        WakeAbility::Failed => Some(text!(
+            "{computer} did not wake in its last test. You may have to wake it by hand.",
+            computer = computer
+        )),
+        WakeAbility::Radio | WakeAbility::Fix | WakeAbility::Unknown => Some(text!(
+            "Kodosi cannot wake {computer}. Wake it by hand.",
+            computer = computer
+        )),
+    }
+}
+
 fn did_not_wake(
     roused: &Roused,
     details: &WakeDetails,
@@ -301,6 +321,7 @@ impl Runtime {
                 wake: ability,
                 note: expectation(ability, &details, &label),
                 problem: None,
+                sleep_warning: None,
                 can_wake: false,
                 can_test: false,
                 busy: None,
@@ -327,11 +348,17 @@ impl Runtime {
             let problem = self.wakes.failed.get(device).cloned().or_else(|| {
                 (usable && connected && !online && !sender).then(|| nobody_there(label))
             });
+            let sleep_warning = if online {
+                sleep_warning(ability, connected && !sender, label)
+            } else {
+                None
+            };
             computers.push(ComputerPower {
                 device_id: device.clone(),
                 wake: ability,
                 note: expectation(ability, &known.details, label),
                 problem,
+                sleep_warning,
                 can_wake: sender && !online && busy.is_none(),
                 can_test: sender && online && busy.is_none(),
                 busy,

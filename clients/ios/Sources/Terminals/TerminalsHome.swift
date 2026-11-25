@@ -21,8 +21,9 @@ struct TerminalsHome: View {
         let placeholder = Placeholder(isEmpty: sessions.isEmpty, listed: store.loaded && store.listed, searching: !query.isEmpty)
         List {
             ForEach(computers) { computer in
+                let power = computer.computerId.flatMap { model.power.computers[$0] }
                 ComputerHeader(group: computer, newTerminal: starting(TerminalCatalog.newTerminal(on: computer, online: online)),
-                               power: computer.computerId.flatMap { model.power.computers[$0] })
+                               power: power, open: power.map { power in { openRoute(ComputerRoute(deviceId: power.deviceId)) } })
                 {
                     if let id = computer.computerId {
                         model.power.wake(id)
@@ -61,6 +62,9 @@ struct TerminalsHome: View {
         .refreshable { await store.refresh() }
         .navigationDestination(for: TerminalRoute.self) { route in
             TerminalScreen(sessionId: route.sessionId)
+        }
+        .navigationDestination(for: ComputerRoute.self) { route in
+            ComputerDetailView(deviceId: route.deviceId)
         }
         .terminalPrompts($prompt)
         .newTerminalSheet($newTerminal)
@@ -168,19 +172,18 @@ private struct ComputerHeader: View {
     let group: SessionComputerGroup
     let newTerminal: (() -> Void)?
     let power: ComputerPower?
+    let open: (() -> Void)?
     let wake: () -> Void
 
     var body: some View {
-        let count = group.sessions.count
         HStack(spacing: 7) {
-            HStack(spacing: 7) {
-                ComputerCaption(title: group.title, ownerName: group.owner?.name, ownerKey: group.owner?.userId, away: group.away, size: 18,
-                                style: .subhead)
-                Text(count, format: .number)
-                    .appTextStyle(.caption)
-                    .monospacedDigit()
-                    .foregroundStyle(theme.colors.inkFaint)
-                    .fixedSize()
+            Group {
+                if let open {
+                    Button(action: open) { caption.contentShape(Rectangle()) }
+                        .buttonStyle(PressScaleStyle(scale: 0.97))
+                } else {
+                    caption
+                }
             }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isHeader)
@@ -205,6 +208,23 @@ private struct ComputerHeader: View {
         }
         .foregroundStyle(theme.colors.inkMuted)
         .frame(minHeight: 44)
+    }
+
+    private var caption: some View {
+        HStack(spacing: 7) {
+            ComputerCaption(title: group.title, ownerName: group.owner?.name, ownerKey: group.owner?.userId, away: group.away, size: 18,
+                            style: .subhead)
+            Text(group.sessions.count, format: .number)
+                .appTextStyle(.caption)
+                .monospacedDigit()
+                .foregroundStyle(theme.colors.inkFaint)
+                .fixedSize()
+            if open != nil {
+                Image(systemName: "chevron.right")
+                    .font(scaled: 10, weight: .semibold)
+                    .foregroundStyle(theme.colors.inkFaint)
+            }
+        }
     }
 }
 

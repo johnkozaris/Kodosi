@@ -1412,6 +1412,10 @@
         <translation>Reactivar</translation>
     </message>
     <message>
+        <source>Options for %1</source>
+        <translation>Opciones de %1</translation>
+    </message>
+    <message>
         <source>Stay awake</source>
         <translation>Mantener despierto</translation>
     </message>
@@ -2564,8 +2568,8 @@
         <translation>Mantener despierto</translation>
     </message>
     <message>
-        <source>This computer does not go to sleep by itself while Kodosi runs.</source>
-        <translation>Este ordenador no se suspende por sí solo mientras Kodosi está en marcha.</translation>
+        <source>This computer does not go to sleep by itself while Kodosi runs. On battery, it stays awake only while agents work.</source>
+        <translation>Este ordenador no se suspende por sí solo mientras Kodosi está en marcha. Con batería, solo se mantiene despierto mientras trabajan los agentes.</translation>
     </message>
     <message>
         <source>This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.</source>

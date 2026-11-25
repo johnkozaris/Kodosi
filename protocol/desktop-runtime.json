@@ -16971,6 +16971,16 @@
                     }
                   ]
                 },
+                "sleepWarning": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "wake": {
                   "oneOf": [
                     {

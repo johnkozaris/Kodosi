@@ -251,21 +251,23 @@ permission; if declined, traffic falls back to the relay server.
 ### Sleep and staying awake
 
 A computer doesn't go to sleep by itself while an agent works in one of its terminals, and it can
-sleep again a few minutes after its agents stop. An agent that waits for your answer doesn't keep
-it awake. To change this, choose **Stay awake** in **Settings › General** on that computer:
-**While agents work**, **Always**, or **Never**. You can still put a computer to sleep yourself.
+sleep again a few minutes after its agents stop. An agent that waits for your answer doesn't keep it
+awake. To change this, choose **Stay awake** in **Settings › General** on that computer: **While
+agents work**, **Always**, or **Never**. **Always** keeps a computer awake only while it is plugged
+in; on battery, it stays awake while agents work. You can still put a computer to sleep yourself.
 
-To put another of your computers to sleep, open **Settings** and click **Sleep…** next to it under
-**Your devices** (on a phone, tap **⋯** first). Its terminals pause until it wakes. **Stay awake**
-next to it chooses when that computer stays awake.
+To put another of your computers to sleep, open **Settings**, click **⋯** next to it under **Your
+devices** and choose **Sleep…**. On a phone, tap the computer to open its page. Its terminals pause
+until it wakes. When nothing could wake it again, Kodosi says so first. The same menu, or the page,
+chooses when that computer stays awake.
 
 ### Waking a computer
 
-To wake a sleeping computer, click **Wake** next to it in **Settings**, on one of its terminals, or
-in the computer list of a new terminal. The wake signal must come from inside the network of the
-sleeping computer. Kodosi sends it from the device that you use when that device is on the same
-network, and otherwise from another of your computers there that is awake. An iPhone or iPad always
-asks one of your computers.
+To wake a sleeping computer, click **Wake** next to it in **Settings** (on a phone, on its page), on
+one of its terminals, or in the computer list of a new terminal. The wake signal must come from
+inside the network of the sleeping computer. Kodosi sends it from the device that you use when that
+device is on the same network, and otherwise from another of your computers there that is awake. An
+iPhone or iPad always asks one of your computers.
 
 A computer wakes through a network cable, not through Wi-Fi, and only when its system allows it.
 **Settings** shows for each computer what Kodosi expects, or the one setting to change:
@@ -277,7 +279,7 @@ A computer wakes through a network cable, not through Wi-Fi, and only when its s
 A Mac sends the wake signal only if Kodosi may use the local network. Allow it in System Settings,
 in **Privacy & Security**.
 
-To be sure, click **Test wake…** next to a computer that is awake (on a phone, tap **⋯** first).
+To be sure, choose **Test wake…** in the menu of a computer that is awake (on a phone, on its page).
 Kodosi puts it to sleep, wakes it and keeps the result. Stay near the computer for the first test:
 if it doesn't wake, wake it by hand.
 

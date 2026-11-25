@@ -221,6 +221,10 @@
     <string name="keep_awake_never">Ποτέ</string>
     <string name="always_awake">Πάντα ξύπνιος</string>
     <string name="can_sleep_while_agents_work">Μπορεί να μπει σε ύπνο όσο δουλεύουν οι agents</string>
+    <string name="computer_awake_agents">Ο υπολογιστής %1$s δεν μπαίνει μόνος του σε ύπνο όσο δουλεύει ένας agent, ούτε για λίγα λεπτά μετά. Ένας agent που σας περιμένει δεν τον κρατά ξύπνιο.</string>
+    <string name="computer_awake_always">Ο υπολογιστής %1$s δεν μπαίνει μόνος του σε ύπνο όσο τρέχει το Kodosi. Με μπαταρία, μένει ξύπνιος μόνο όσο δουλεύουν agents.</string>
+    <string name="computer_awake_never">Ο υπολογιστής %1$s μπορεί να μπει σε ύπνο όσο δουλεύει ένας agent. Ο agent τότε σταματά προσωρινά μέχρι να ξυπνήσει ο υπολογιστής.</string>
+    <string name="change_while_online">Μπορείτε να το αλλάξετε όσο είναι συνδεδεμένος.</string>
     <string name="wake_computer">Αφύπνιση</string>
     <string name="waking">Αφύπνιση…</string>
     <string name="wake_named">Αφύπνιση %1$s</string>

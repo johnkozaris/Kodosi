@@ -1393,6 +1393,10 @@
         <translation>スリープ解除</translation>
     </message>
     <message>
+        <source>Options for %1</source>
+        <translation>%1 のオプション</translation>
+    </message>
+    <message>
         <source>Stay awake</source>
         <translation>スリープ防止</translation>
     </message>
@@ -2543,8 +2547,8 @@
         <translation>スリープ防止</translation>
     </message>
     <message>
-        <source>This computer does not go to sleep by itself while Kodosi runs.</source>
-        <translation>Kodosi の実行中は、このコンピュータが自動でスリープすることはありません。</translation>
+        <source>This computer does not go to sleep by itself while Kodosi runs. On battery, it stays awake only while agents work.</source>
+        <translation>Kodosi の実行中は、このコンピュータが自動でスリープすることはありません。バッテリー駆動中は、エージェントの作業中だけスリープしません。</translation>
     </message>
     <message>
         <source>This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.</source>

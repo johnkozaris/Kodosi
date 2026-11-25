@@ -221,6 +221,10 @@
     <string name="keep_awake_never">Mai</string>
     <string name="always_awake">Sempre attivo</string>
     <string name="can_sleep_while_agents_work">Può andare in sospensione mentre gli agenti lavorano</string>
+    <string name="computer_awake_agents">%1$s non va in sospensione da solo mentre un agente lavora, né per qualche minuto dopo. Un agente che ti aspetta non lo tiene attivo.</string>
+    <string name="computer_awake_always">%1$s non va in sospensione da solo finché Kodosi è in esecuzione. A batteria, resta attivo solo mentre gli agenti lavorano.</string>
+    <string name="computer_awake_never">%1$s può andare in sospensione mentre un agente lavora. L\'agente resta in pausa finché non si riattiva.</string>
+    <string name="change_while_online">Puoi cambiarlo mentre è online.</string>
     <string name="wake_computer">Riattiva</string>
     <string name="waking">Riattivazione…</string>
     <string name="wake_named">Riattiva %1$s</string>

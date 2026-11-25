@@ -221,6 +221,10 @@
     <string name="keep_awake_never">永不</string>
     <string name="always_awake">始终保持唤醒</string>
     <string name="can_sleep_while_agents_work">Agent 工作时也可睡眠</string>
+    <string name="computer_awake_agents">Agent 工作时及之后几分钟内，%1$s 不会自行进入睡眠。等待你回复的 Agent 不会让它保持唤醒。</string>
+    <string name="computer_awake_always">Kodosi 运行时，%1$s 不会自行进入睡眠。使用电池时，仅在 Agent 工作时保持唤醒。</string>
+    <string name="computer_awake_never">Agent 工作时，%1$s 仍可能进入睡眠。Agent 会暂停，直到它被唤醒。</string>
+    <string name="change_while_online">它在线时你可以更改此设置。</string>
     <string name="wake_computer">唤醒</string>
     <string name="waking">正在唤醒…</string>
     <string name="wake_named">唤醒 %1$s</string>

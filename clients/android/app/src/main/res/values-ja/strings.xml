@@ -221,6 +221,10 @@
     <string name="keep_awake_never">なし</string>
     <string name="always_awake">常にスリープしない</string>
     <string name="can_sleep_while_agents_work">エージェントの作業中もスリープ可能</string>
+    <string name="computer_awake_agents">エージェントの作業中とその後の数分間は、%1$s が自動でスリープすることはありません。返答を待っているエージェントは、スリープを防ぎません。</string>
+    <string name="computer_awake_always">Kodosi の実行中は、%1$s が自動でスリープすることはありません。バッテリー駆動中は、エージェントの作業中だけスリープしません。</string>
+    <string name="computer_awake_never">エージェントの作業中でも、%1$s はスリープすることがあります。その場合、スリープが解除されるまでエージェントは一時停止します。</string>
+    <string name="change_while_online">オンラインのときに変更できます。</string>
     <string name="wake_computer">スリープ解除</string>
     <string name="waking">スリープ解除中…</string>
     <string name="wake_named">%1$s のスリープを解除</string>

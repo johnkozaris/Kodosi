@@ -1996,6 +1996,10 @@ pub struct ComputerPower {
     /// they show that the computer is offline.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub problem: Option<Text>,
+    /// Why Kodosi may not wake the computer after it goes to sleep. The apps show it before they
+    /// put the computer to sleep.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sleep_warning: Option<Text>,
     /// This device can ask for a wake now: the computer is offline, and a device of the person is
     /// awake on its network.
     pub can_wake: bool,

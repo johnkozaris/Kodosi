@@ -32,6 +32,11 @@ pub enum Sleep {
     Ended,
 }
 
+/// A computer without a battery never runs on it.
+pub fn on_battery() -> bool {
+    imp::on_battery()
+}
+
 pub fn can_sleep() -> io::Result<()> {
     imp::can_sleep()
 }

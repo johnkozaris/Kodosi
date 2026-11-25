@@ -26,6 +26,7 @@ data class ComputerPower(
     val deviceId: String,
     val note: String? = null,
     val problem: String? = null,
+    val sleepWarning: String? = null,
     val canWake: Boolean = false,
     val canTest: Boolean = false,
     val busy: String? = null,

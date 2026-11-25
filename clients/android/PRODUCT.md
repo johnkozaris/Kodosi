@@ -20,7 +20,7 @@ another device always starts inside Kodosi. Connection failures explain the caus
 
 The **Terminals** tab groups terminals by computer and folder (your own computers first, then each
 friend's), displaying each agent's icon and status indicator. The tab badge counts waiting
-terminals you can answer.
+terminals you can answer. Tapping the name of one of your computers opens its page.
 
 Tapping `+` launches a shell or agent on any of your online computers running Kodosi, letting you
 pick account, model, effort, fast mode, permissions, verbosity, folder, and initial prompt. You can
@@ -75,10 +75,11 @@ queue until it returns, and you can stop a turn, cancel a queued message, or sta
 
 ## Settings, notifications, and security
 
-**Settings** covers linked devices, recovery key management, theme, terminal font size, whether
-terminal lists lead with the agent summary before the terminal name, keep-screen-on, document
-viewers, notifications, app lock, language, open-source licenses, legal/support links, sign-out,
-and account deletion.
+**Settings** covers linked devices (each of your computers opens a page to wake it, test its wake,
+put it to sleep and choose when it stays awake), recovery key management, theme, terminal font size,
+whether terminal lists lead with the agent summary before the terminal name, keep-screen-on,
+document viewers, notifications, app lock, language, open-source licenses, legal/support links,
+sign-out, and account deletion.
 
 Push notifications fire when none of your devices are active. Terminal and computer names come
 from a local bounded cache (falling back to generic labels when uncached). Waiting alerts use a

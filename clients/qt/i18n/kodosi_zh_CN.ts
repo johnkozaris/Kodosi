@@ -1393,6 +1393,10 @@
         <translation>唤醒</translation>
     </message>
     <message>
+        <source>Options for %1</source>
+        <translation>%1 的选项</translation>
+    </message>
+    <message>
         <source>Stay awake</source>
         <translation>保持唤醒</translation>
     </message>
@@ -2543,8 +2547,8 @@
         <translation>保持唤醒</translation>
     </message>
     <message>
-        <source>This computer does not go to sleep by itself while Kodosi runs.</source>
-        <translation>Kodosi 运行时，这台电脑不会自行进入睡眠。</translation>
+        <source>This computer does not go to sleep by itself while Kodosi runs. On battery, it stays awake only while agents work.</source>
+        <translation>Kodosi 运行时，这台电脑不会自行进入睡眠。使用电池时，仅在 Agent 工作时保持唤醒。</translation>
     </message>
     <message>
         <source>This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.</source>

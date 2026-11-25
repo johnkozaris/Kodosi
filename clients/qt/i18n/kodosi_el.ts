@@ -1412,6 +1412,10 @@
         <translation>Αφύπνιση</translation>
     </message>
     <message>
+        <source>Options for %1</source>
+        <translation>Επιλογές για %1</translation>
+    </message>
+    <message>
         <source>Stay awake</source>
         <translation>Αποτροπή ύπνου</translation>
     </message>
@@ -2564,8 +2568,8 @@
         <translation>Αποτροπή ύπνου</translation>
     </message>
     <message>
-        <source>This computer does not go to sleep by itself while Kodosi runs.</source>
-        <translation>Αυτός ο υπολογιστής δεν μπαίνει μόνος του σε ύπνο όσο τρέχει το Kodosi.</translation>
+        <source>This computer does not go to sleep by itself while Kodosi runs. On battery, it stays awake only while agents work.</source>
+        <translation>Αυτός ο υπολογιστής δεν μπαίνει μόνος του σε ύπνο όσο τρέχει το Kodosi. Με μπαταρία, μένει ξύπνιος μόνο όσο δουλεύουν agents.</translation>
     </message>
     <message>
         <source>This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.</source>

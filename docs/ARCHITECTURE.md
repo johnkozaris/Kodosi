@@ -33,8 +33,8 @@ re-establishes connections.
 While an agent works in one of its terminals, the host asks the operating system to hold off the
 sleep that starts by itself when nobody uses the computer, and it keeps the request for a short
 time after the last agent stops. An agent that waits for its person doesn't count. Each computer
-has a setting that keeps the request always, or never. The request never stops a sleep that a
-person starts.
+has a setting that keeps the request always while the computer is plugged in, or never. The request
+never stops a sleep that a person starts.
 
 The host persists terminal snapshots as they change. After Quit, the next host instance restores
 them on request with their previous screen contents and the command needed to resume each agent's

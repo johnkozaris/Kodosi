@@ -2635,6 +2635,33 @@ async fn a_sleeping_computer_shows_wake_only_while_an_awake_device_is_on_its_net
 }
 
 #[tokio::test]
+async fn sleep_warns_when_no_device_could_wake_the_computer_again() {
+    let (mut runtime, _root) = registry_fixture();
+    sign_in(&mut runtime, true);
+    runtime.online = true;
+    my_computers(&mut runtime, &["20"]);
+    runtime.complete(wake_answer(&runtime, "20", runtime.wakes_asked(), None));
+    assert_eq!(
+        wake_state(&runtime, "20")["sleepWarning"],
+        Value::Null,
+        "a device that has not read its own cards yet does not know who is on that network"
+    );
+    runtime.own_network_read(crate::wake::OwnNetwork::default(), Some(0));
+    assert_eq!(
+        wake_state(&runtime, "20")["sleepWarning"]["$text"],
+        "None of your other devices on the network of {computer} can wake it now. You may have to wake it by hand."
+    );
+
+    my_computers(&mut runtime, &["20", "30"]);
+    runtime.complete(wake_answer(&runtime, "30", runtime.wakes_asked(), None));
+    assert_eq!(
+        wake_state(&runtime, "20")["sleepWarning"],
+        Value::Null,
+        "the laptop on its network can wake it"
+    );
+}
+
+#[tokio::test]
 async fn the_result_of_a_wake_test_stays_until_the_computer_has_it() {
     use crate::wake::{Roused, Tested};
 

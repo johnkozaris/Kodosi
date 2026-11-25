@@ -280,20 +280,23 @@ Un computer non va in sospensione da solo mentre un agente lavora in uno dei suo
 tornare in sospensione qualche minuto dopo che i suoi agenti si sono fermati. Un agente che aspetta
 la tua risposta non lo tiene attivo. Per cambiarlo, scegli un'opzione per **Resta attivo** in
 **Impostazioni › Generale** su quel computer: **Mentre gli agenti lavorano**, **Sempre** o **Mai**.
-Puoi sempre sospendere un computer tu.
+**Sempre** tiene attivo un computer solo finché è collegato alla corrente; a batteria, resta attivo
+mentre gli agenti lavorano. Puoi sempre sospendere un computer tu.
 
-Per sospendere un altro dei tuoi computer, apri **Impostazioni** e fai clic su **Sospendi…** accanto
-a esso, in **I tuoi dispositivi** (su un telefono, tocca prima **⋯**). I suoi terminali restano in
-pausa finché non si riattiva. Con **Resta attivo** accanto a esso scegli quando quel computer resta
-attivo.
+Per sospendere un altro dei tuoi computer, apri **Impostazioni**, fai clic su **⋯** accanto a esso,
+in **I tuoi dispositivi**, e scegli **Sospendi…**. Su un telefono, tocca il computer per aprire la
+sua pagina. I suoi terminali restano in pausa finché non si riattiva. Se poi niente potesse
+riattivarlo, Kodosi te lo dice prima. Nello stesso menu, o nella pagina, scegli quando quel computer
+resta attivo.
 
 ### Riattivare un computer
 
 Per riattivare un computer in sospensione, fai clic su **Riattiva** accanto a esso in
-**Impostazioni**, in uno dei suoi terminali o nell'elenco dei computer di un nuovo terminale. Il
-segnale di riattivazione deve partire dalla rete del computer in sospensione. Kodosi lo invia dal
-dispositivo che stai usando quando è sulla stessa rete, altrimenti da un altro dei tuoi computer
-attivi su quella rete. Un iPhone o un iPad lo chiede sempre a uno dei tuoi computer.
+**Impostazioni** (su un telefono, nella sua pagina), in uno dei suoi terminali o nell'elenco dei
+computer di un nuovo terminale. Il segnale di riattivazione deve partire dalla rete del computer in
+sospensione. Kodosi lo invia dal dispositivo che stai usando quando è sulla stessa rete, altrimenti
+da un altro dei tuoi computer attivi su quella rete. Un iPhone o un iPad lo chiede sempre a uno dei
+tuoi computer.
 
 Un computer si riattiva tramite cavo di rete, non tramite Wi-Fi, e solo se il suo sistema lo
 consente. **Impostazioni** mostra per ogni computer che cosa si aspetta Kodosi, oppure l'unica
@@ -306,8 +309,8 @@ impostazione da cambiare:
 Un Mac invia il segnale di riattivazione solo se Kodosi può usare la rete locale. Consentilo in
 Impostazioni di Sistema, in **Privacy e sicurezza**.
 
-Per esserne certo, fai clic su **Prova la riattivazione…** accanto a un computer attivo (su un
-telefono, tocca prima **⋯**). Kodosi lo sospende, lo riattiva e conserva il risultato. Resta vicino
+Per esserne certo, scegli **Prova la riattivazione…** nel menu di un computer attivo (su un
+telefono, nella sua pagina). Kodosi lo sospende, lo riattiva e conserva il risultato. Resta vicino
 al computer per la prima prova: se non si riattiva, riattivalo a mano.
 
 ### Chiavi di recupero

@@ -1412,6 +1412,10 @@
         <translation>Riattiva</translation>
     </message>
     <message>
+        <source>Options for %1</source>
+        <translation>Opzioni per %1</translation>
+    </message>
+    <message>
         <source>Stay awake</source>
         <translation>Resta attivo</translation>
     </message>
@@ -2564,8 +2568,8 @@
         <translation>Resta attivo</translation>
     </message>
     <message>
-        <source>This computer does not go to sleep by itself while Kodosi runs.</source>
-        <translation>Questo computer non va in sospensione da solo finché Kodosi è in esecuzione.</translation>
+        <source>This computer does not go to sleep by itself while Kodosi runs. On battery, it stays awake only while agents work.</source>
+        <translation>Questo computer non va in sospensione da solo finché Kodosi è in esecuzione. A batteria, resta attivo solo mentre gli agenti lavorano.</translation>
     </message>
     <message>
         <source>This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.</source>
