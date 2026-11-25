@@ -54,9 +54,9 @@ impl CredentialLocation {
 
 impl Secrets {
     pub fn new(root: PathBuf, service: &str, isolated: bool) -> Self {
-        let place = if isolated || cfg!(target_os = "android") {
+        let place = if isolated {
             Some(Place::Files)
-        } else if cfg!(target_os = "linux") {
+        } else if cfg!(any(target_os = "linux", target_os = "android")) {
             None
         } else {
             Some(Place::System(Arc::new(SecretStore::new(service, &root))))
@@ -127,9 +127,19 @@ impl Secrets {
     fn place(&self) -> Result<Option<Place>> {
         let mut place = self.lock_place()?;
         if place.is_none() {
-            *place = self.remembered()?;
+            *place = if cfg!(target_os = "android") {
+                Some(self.keystore()?)
+            } else {
+                self.remembered()?
+            };
         }
         Ok(place.clone())
+    }
+
+    fn keystore(&self) -> Result<Place> {
+        let system = self.system();
+        move_files_into(&self.root, |label, value| system.store(label, value))?;
+        Ok(Place::System(system))
     }
 
     fn lock_place(&self) -> Result<std::sync::MutexGuard<'_, Option<Place>>> {
@@ -247,6 +257,34 @@ fn remove(path: &Path) -> Result<()> {
     }
 }
 
+/// Android builds before the Keystore kept secrets in private files. Each file moves into `keep`
+/// and is deleted only once `keep` holds its secret, so a failure leaves it for the next attempt.
+fn move_files_into(root: &Path, mut keep: impl FnMut(&str, &str) -> io::Result<()>) -> Result<()> {
+    let entries = match fs::read_dir(root) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error.into()),
+    };
+    for entry in entries {
+        let path = entry?.path();
+        let Some(label) = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .filter(|name| name.starts_with("kodosi."))
+        else {
+            continue;
+        };
+        let Some(bytes) = read_private(&path)? else {
+            continue;
+        };
+        let value = std::str::from_utf8(&bytes)
+            .map_err(|_| invalid("A stored credential is unreadable."))?;
+        keep(label, value).map_err(|error| invalid(error.to_string()))?;
+        remove(&path)?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -335,6 +373,36 @@ mod tests {
         ));
         fs::write(root.join(LOCATION_FILE), "elsewhere").unwrap();
         assert!(store.remembered().is_err());
+    }
+
+    #[test]
+    fn private_files_move_into_the_keystore_and_stay_until_it_holds_them() {
+        let root = tempfile::tempdir().unwrap();
+        write_private(&root.path().join("kodosi.tokens"), b"tokens").unwrap();
+        write_private(&root.path().join("kodosi.alice.device"), b"device").unwrap();
+        fs::write(root.path().join(".tmp1a2b"), "partial").unwrap();
+
+        assert!(move_files_into(root.path(), |_, _| Err(io::Error::other("locked"))).is_err());
+        assert!(root.path().join("kodosi.tokens").exists());
+        assert!(root.path().join("kodosi.alice.device").exists());
+
+        let mut kept = std::collections::BTreeMap::new();
+        move_files_into(root.path(), |label, value| {
+            kept.insert(label.to_owned(), value.to_owned());
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(
+            kept,
+            std::collections::BTreeMap::from([
+                ("kodosi.alice.device".to_owned(), "device".to_owned()),
+                ("kodosi.tokens".to_owned(), "tokens".to_owned()),
+            ])
+        );
+        assert!(!root.path().join("kodosi.tokens").exists());
+        assert!(!root.path().join("kodosi.alice.device").exists());
+        assert!(root.path().join(".tmp1a2b").exists());
+        move_files_into(&root.path().join("missing"), |_, _| unreachable!()).unwrap();
     }
 
     #[test]
