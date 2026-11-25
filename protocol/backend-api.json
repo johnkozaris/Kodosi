@@ -1,5 +1,5 @@
 {
-  "apiContractVersion": 35,
+  "apiContractVersion": 36,
   "oldestApiContractVersion": 35,
   "authContractVersion": 1,
   "compatibility": {
@@ -106,6 +106,10 @@
     "stop": "DELETE /api/me/identity/reset/{requestId} removes it; a link or recovery approval of its device also removes it",
     "complete": "POST /api/me/devices with the device id and signing key of a ready reset revokes every device of the account, removes the device list and friend lists, cancels pending links and registers the device as the first device of a new identity, in one transaction"
   },
+  "friendRequest": {
+    "send": "POST /api/friends/requests takes the person as {username} or {userId} and gives 204; it changes nothing when the two accounts already have a friendship or an open friend request",
+    "check": "with check: true the server makes every test of the request and the name check, sends nothing and gives {userId, handle, displayName}; a device checks a request before its user allows it and then sends it with the userId, so that the user name counts once"
+  },
   "blocking": {
     "block": "PUT /api/friends/blocked/{username} ends the friendship or the open request between the two accounts, as removing a friend does, and keeps the block",
     "effect": "the blocked account cannot send a friend request to the account that blocked it, and that account must unblock before it sends one",
@@ -117,10 +121,10 @@
     "limit": "a note has at most 1000 UTF-8 bytes; 10 reports for each account at once, then 1 each 6 minutes; a refusal is status 429"
   },
   "nameChecks": {
-    "count": "POST /api/friends/requests and PUT /api/friends/blocked/{username} with the user name of no account, or of an account that has no friendship or open friend request with the caller",
+    "count": "POST /api/friends/requests with a username, also with check: true, and PUT /api/friends/blocked/{username}, with the user name of no account, or of an account that has no friendship or open friend request with the caller; a friend request with a userId does not count",
     "limit": "20 for each account at once, then 1 each 30 minutes; a refusal is status 429",
     "ban": "the account is banned when it is refused in each of 10 intervals of 30 minutes in a row; many refusals in one interval count once, and an interval without a refusal starts the count again; the server ends the device sessions and device connections of a banned account and answers each later request of it, also the device connection, with 423; users.BannedAt holds the time of the ban, and the operator removes the ban by setting it to null",
-    "unknown": "a user name of no account gives 404 to a friend request, a block and an accept, and 204 to a reject, a cancel, a remove and an unblock, as an account without a friendship, open friend request or block does"
+    "unknown": "a user name of no account gives 404 to a friend request or its check, a block and an accept, and 204 to a reject, a cancel, a remove and an unblock, as an account without a friendship, open friend request or block does"
   },
   "friendIdentity": {
     "record": "for each friend the user keeps: handle, identity root (absent until the first read), verified",

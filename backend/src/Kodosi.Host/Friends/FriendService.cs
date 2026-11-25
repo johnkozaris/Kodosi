@@ -91,15 +91,14 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
         return new { incoming = requests.Where(x => x.RequestedBy != user).Select(Project), outgoing = requests.Where(x => x.RequestedBy == user).Select(Project) };
     }
 
-    public async Task MutateAsync(Guid userId, string username, string action, CancellationToken ct)
+    public Task MutateAsync(Guid userId, string username, string action, CancellationToken ct) =>
+        MutateAsync(userId, username, null, action, ct);
+
+    public async Task MutateAsync(Guid userId, string? username, Guid? otherId, string action, CancellationToken ct)
     {
-        var handle = Limits.Text(username, "Username", 64).ToLowerInvariant();
-        var other = await db.Users.SingleOrDefaultAsync(x => x.Handle == handle, ct);
-        var reaches = action is "send" or "block";
-        if (reaches && (other is null || !await KnowsAsync(userId, other.Id, ct))) await names.TakeAsync(userId, ct);
+        var other = await PersonAsync(userId, username, otherId, action is "send" or "block", ct);
         if (other is null)
         {
-            if (reaches) throw ApiException.Missing("No Kodosi account has this user name.");
             if (action == "accept") throw ApiException.Missing();
             return;
         }
@@ -114,15 +113,7 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
         {
             case "send":
                 if (link is not null) return;
-                await RequireUnblockedAsync(userId, other.Id, ct);
-                var mine = await plans.LimitsAsync(db, userId, ct);
-                var sent = await OpenRequests(userId).CountAsync(x => x.RequestedBy == userId, ct);
-                if (sent >= mine.SentFriendRequests)
-                    throw ApiException.OverLimit("friendRequests", mine.SentFriendRequests, $"You have {Limits.Count(sent, "open friend request", "open friend requests")}. Wait for an answer, or cancel a request.");
-                await RequireFriendSpaceAsync(userId, other.Id, ct);
-                if ((await plans.LimitsAsync(db, other.Id, ct)).ReceivedFriendRequests is { } received
-                    && await OpenRequests(other.Id).CountAsync(x => x.RequestedBy != other.Id, ct) >= received)
-                    throw ApiException.Forbidden("This person has too many open friend requests. Try again later.");
+                await RequireRoomForRequestAsync(userId, other.Id, ct);
                 db.Friendships.Add(new Friendship { FirstUserId = first, SecondUserId = second, RequestedBy = userId, CreatedAt = clock.GetUtcNow() });
                 break;
             case "accept":
@@ -170,6 +161,30 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
             .Join(db.Users, block => block.BlockedId, person => person.Id, (_, person) => person)
             .OrderBy(x => x.Handle).Select(x => new { userId = x.Id, x.Handle, x.DisplayName }).ToListAsync(ct);
 
+    // A device checks a friend request before its user allows it, so that the user is asked only
+    // about a request that can go. The check counts toward the name checks as the request does, and
+    // the request that follows names the person by account ID, so the user name counts once.
+    public async Task<object> CheckRequestAsync(Guid userId, string? username, Guid? otherId, CancellationToken ct)
+    {
+        var other = await PersonAsync(userId, username, otherId, true, ct) ?? throw ApiException.Missing();
+        if (other.Id == userId) throw ApiException.Invalid("Choose another person.");
+        if (!await KnowsAsync(userId, other.Id, ct)) await RequireRoomForRequestAsync(userId, other.Id, ct);
+        return new { userId = other.Id, other.Handle, other.DisplayName };
+    }
+
+    // A user name reveals whether an account exists, so looking one up counts toward the name checks
+    // unless the two accounts already know each other. Nobody can guess an account ID.
+    private async Task<User?> PersonAsync(Guid userId, string? username, Guid? otherId, bool reaches, CancellationToken ct)
+    {
+        if ((username is null) == (otherId is null)) throw ApiException.Invalid("Name the person by user name or by account ID.");
+        if (otherId is { } id) return await db.Users.SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw ApiException.Missing();
+        var handle = Limits.Text(username, "Username", 64).ToLowerInvariant();
+        var other = await db.Users.SingleOrDefaultAsync(x => x.Handle == handle, ct);
+        if (reaches && (other is null || !await KnowsAsync(userId, other.Id, ct))) await names.TakeAsync(userId, ct);
+        if (other is null && reaches) throw ApiException.Missing("No Kodosi account has this user name.");
+        return other;
+    }
+
     private async Task<List<Session>> EndSharingAsync(Guid userId, Guid otherId, CancellationToken ct)
     {
         var grants = await db.SessionMembers.Where(m =>
@@ -207,6 +222,19 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
             throw ApiException.Forbidden("This person does not take friend requests from you.");
     }
 
+    private async Task RequireRoomForRequestAsync(Guid userId, Guid otherId, CancellationToken ct)
+    {
+        await RequireUnblockedAsync(userId, otherId, ct);
+        var mine = await plans.LimitsAsync(db, userId, ct);
+        var sent = await OpenRequests(userId).CountAsync(x => x.RequestedBy == userId, ct);
+        if (sent >= mine.SentFriendRequests)
+            throw ApiException.OverLimit("friendRequests", mine.SentFriendRequests, $"You have {Limits.Count(sent, "open friend request", "open friend requests")}. Wait for an answer, or cancel a request.");
+        await RequireFriendSpaceAsync(userId, otherId, ct);
+        if ((await plans.LimitsAsync(db, otherId, ct)).ReceivedFriendRequests is { } received
+            && await OpenRequests(otherId).CountAsync(x => x.RequestedBy != otherId, ct) >= received)
+            throw ApiException.Forbidden("This person has too many open friend requests. Try again later.");
+    }
+
     private IQueryable<Friendship> OpenRequests(Guid user) =>
         db.Friendships.Where(x => (x.FirstUserId == user || x.SecondUserId == user) && !x.Accepted);
 }
@@ -222,7 +250,8 @@ internal static class FriendEndpoints
             Results.Ok(await friends.RequestsAsync(caller.User.Id, ct)));
         group.MapPost("/requests", async (FriendRequest body, DeviceCaller caller, FriendService friends, CancellationToken ct) =>
         {
-            await friends.MutateAsync(caller.User.Id, body.Username, "send", ct);
+            if (body.Check) return Results.Ok(await friends.CheckRequestAsync(caller.User.Id, body.Username, body.UserId, ct));
+            await friends.MutateAsync(caller.User.Id, body.Username, body.UserId, "send", ct);
             return Results.NoContent();
         });
         foreach (var action in new[] { "accept", "reject", "cancel" })
@@ -259,5 +288,5 @@ internal static class FriendEndpoints
         });
     }
 
-    private sealed record FriendRequest(string Username);
+    private sealed record FriendRequest(string? Username = null, Guid? UserId = null, bool Check = false);
 }

@@ -1348,23 +1348,36 @@ impl Runtime {
     }
 
     pub(super) fn network_command(&mut self, command: Command) {
-        self.backend_command(command, true);
+        self.backend_command(command, true, None);
     }
 
     pub(super) fn refresh(&mut self, command: Command) {
-        self.backend_command(command, false);
+        self.backend_command(command, false, None);
     }
 
-    fn backend_command(&mut self, command: Command, requested: bool) {
+    /// A friend request goes to the account that this device found before it asked the owner, so
+    /// that the server does not look up its user name again.
+    pub(super) fn request_friend(&mut self, command: Command, account: String) -> Result<()> {
+        self.job_capacity()?;
+        self.backend_command(command, true, Some(account));
+        Ok(())
+    }
+
+    fn backend_command(&mut self, command: Command, requested: bool, account: Option<String>) {
         let network = self.network.clone();
         let generation = self.scope.network_generation;
         self.spawn(async move {
             let result = if network.generation() == generation {
                 match serde_json::to_value(&command) {
-                    Ok(args) => network
-                        .execute(command.operation(), args)
-                        .await
-                        .map_err(Error::from),
+                    Ok(mut args) => {
+                        if let Some(account) = account {
+                            args["userId"] = json!(account);
+                        }
+                        network
+                            .execute(command.operation(), args)
+                            .await
+                            .map_err(Error::from)
+                    }
                     Err(error) => Err(Error::from(error)),
                 }
             } else {
@@ -1659,7 +1672,7 @@ impl Runtime {
                     self.error(&command, &error);
                 }
             }
-            Completion::Checked { held, facts } => self.checked(held, &facts, current),
+            Completion::Checked { held, facts } => self.checked(*held, &facts, current),
             Completion::TerminalFolders {
                 device,
                 asked,

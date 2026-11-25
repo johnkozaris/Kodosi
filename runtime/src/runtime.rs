@@ -761,7 +761,7 @@ enum Completion {
         result: Result<Value>,
     },
     Checked {
-        held: sharing::Held,
+        held: Box<sharing::Held>,
         facts: sharing::Facts,
     },
     TerminalFolders {

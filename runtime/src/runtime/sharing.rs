@@ -64,6 +64,8 @@ pub(super) struct Held {
     command: Command,
     computer: Option<String>,
     requester: Requester,
+    /// The account that a friend request goes to, as this device found it before it asked.
+    account: Option<String>,
 }
 
 impl Held {
@@ -72,6 +74,7 @@ impl Held {
             command: command.clone(),
             computer: computer.map(str::to_owned),
             requester,
+            account: None,
         }
     }
 }
@@ -165,6 +168,8 @@ pub(super) struct Facts {
     pub(super) members: Members,
     /// The device that shows the code of an approval, or why it cannot be approved.
     pub(super) device: Option<std::result::Result<String, Text>>,
+    /// The account that a friend request goes to, or why the request cannot go.
+    pub(super) account: Option<std::result::Result<String, Text>>,
 }
 
 /// The friend list that this account's devices signed, and the friends whose identity changed.
@@ -183,6 +188,14 @@ struct Needs {
     holding: Option<Vec<Uuid>>,
     names: bool,
     code: Option<String>,
+    named: Option<Named>,
+}
+
+/// A person whom a friend request names by user name.
+struct Named {
+    handle: String,
+    /// The account that the server lists with this user name as a friend or in a request.
+    listed: Option<String>,
 }
 
 /// What this device knows of the people of a project.
@@ -222,20 +235,37 @@ struct Directory {
 }
 
 impl Directory {
+    /// Each person with their account, handle and name.
+    fn people(&self) -> impl Iterator<Item = (&str, &str, &str)> {
+        let friends = self.friends.iter().map(|friend| {
+            (
+                friend.user_id.as_str(),
+                friend.handle.as_str(),
+                friend.display_name.as_str(),
+            )
+        });
+        let requests = self.requests.iter().map(|request| {
+            (
+                request.user_id.as_str(),
+                request.handle.as_str(),
+                request.display_name.as_str(),
+            )
+        });
+        friends.chain(requests)
+    }
+
     /// The handle and the name of a person.
     fn about(&self, user: &str) -> Option<(&str, &str)> {
-        let friends = self
-            .friends
-            .iter()
-            .map(|friend| (&friend.user_id, &friend.handle, &friend.display_name));
-        let requests = self
-            .requests
-            .iter()
-            .map(|request| (&request.user_id, &request.handle, &request.display_name));
-        friends
-            .chain(requests)
+        self.people()
             .find(|(id, ..)| *id == user)
-            .map(|(_, handle, name)| (handle.as_str(), name.as_str()))
+            .map(|(_, handle, name)| (handle, name))
+    }
+
+    /// The account of a handle.
+    fn account(&self, handle: &str) -> Option<&str> {
+        self.people()
+            .find(|(_, listed, _)| listed.eq_ignore_ascii_case(handle))
+            .map(|(id, ..)| id)
     }
 }
 
@@ -254,7 +284,7 @@ impl Runtime {
             self.sign_in_origin = Some(requester.origin);
         }
         if requester.origin == Origin::Device || !guarded(command, requester.origin) {
-            return self.carry_out(command, computer, requester);
+            return self.carry_out(command, computer, requester, None);
         }
         let held = Held::new(command, computer, requester);
         if !changes_access(command) {
@@ -366,7 +396,10 @@ impl Runtime {
                 let network = self.network.clone();
                 self.spawn(async move {
                     let facts = read_facts(&network, needs).await;
-                    Completion::Checked { held, facts }
+                    Completion::Checked {
+                        held: Box::new(held),
+                        facts,
+                    }
                 });
                 Ok(())
             }
@@ -446,6 +479,13 @@ impl Runtime {
                 needs.terminals = true;
                 needs.holding = Some(self.local_projects());
                 needs.names = !matches!(command, Command::TrustFriend { .. });
+                if let Command::RequestFriend { username, .. } = command {
+                    let handle = invited(username).0;
+                    needs.named = Some(Named {
+                        listed: self.directory().account(&handle).map(str::to_owned),
+                        handle,
+                    });
+                }
             }
             Command::ApproveDevice { code, .. } if origin == Origin::Command => {
                 needs.code = Some(code.clone());
@@ -476,33 +516,47 @@ impl Runtime {
         }
     }
 
-    fn ask_first(&mut self, held: Held, facts: &Facts) -> Result<()> {
+    fn ask_first(&mut self, mut held: Held, facts: &Facts) -> Result<()> {
+        held.account = facts.account.clone().and_then(std::result::Result::ok);
         match self.gate(&held.command, held.requester.origin, facts)? {
-            Gate::Open => {
-                let Held {
-                    command,
-                    computer,
-                    requester,
-                } = held;
-                self.hold_lane(
-                    command.request_id(),
-                    Instant::now() + answer_time(command.operation()),
-                );
-                self.carry_out(&command, computer.as_deref(), requester)
-            }
+            Gate::Open => self.run_held(held),
             Gate::Ask(question) => self.ask_about(held, question),
         }
     }
 
+    /// Runs a command that waited, as its client sent it.
+    fn run_held(&mut self, held: Held) -> Result<()> {
+        let Held {
+            command,
+            computer,
+            requester,
+            account,
+        } = held;
+        self.hold_lane(
+            command.request_id(),
+            Instant::now() + answer_time(command.operation()),
+        );
+        self.carry_out(&command, computer.as_deref(), requester, account)
+    }
+
+    /// Runs a command here or on its computer. A friend request goes to the account that this
+    /// device found for it before it asked.
     fn carry_out(
         &mut self,
         command: &Command,
         computer: Option<&str>,
         requester: Requester,
+        account: Option<String>,
     ) -> Result<()> {
-        match self.destination(command, computer, requester.origin)? {
-            Some(computer) => self.ask_computer(command, computer),
-            None => self.apply_for_consumer(command, requester.consumer, requester.lifetime),
+        match (
+            self.destination(command, computer, requester.origin)?,
+            account,
+        ) {
+            (Some(computer), _) => self.ask_computer(command, computer),
+            (None, Some(account)) => self.request_friend(command.clone(), account),
+            (None, None) => {
+                self.apply_for_consumer(command, requester.consumer, requester.lifetime)
+            }
         }
     }
 
@@ -573,9 +627,18 @@ impl Runtime {
                 user_id,
                 ..
             } => Ok(Gate::Ask(self.invite_question(project_id, user_id, facts))),
-            Command::RequestFriend { username, .. } | Command::AcceptFriend { username, .. } => Ok(
-                Gate::Ask(self.friend_question(command, me, username, facts)),
-            ),
+            Command::RequestFriend { username, .. } | Command::AcceptFriend { username, .. } => {
+                match &facts.account {
+                    Some(Err(why)) => return Err(Error::Text(why.clone())),
+                    Some(Ok(account)) if account == me => {
+                        return Err(Error::Refused(text!("Choose another person.")));
+                    }
+                    _ => {}
+                }
+                Ok(Gate::Ask(
+                    self.friend_question(command, me, username, facts),
+                ))
+            }
             Command::TrustFriend { username, .. } => Ok(self.trust_gate(username, facts)),
             Command::VerifyFriend {
                 username, invite, ..
@@ -846,10 +909,7 @@ impl Runtime {
         username: &str,
         facts: &Facts,
     ) -> Question {
-        let (handle, root) = parse_invite(username).map_or_else(
-            || (username.trim().to_ascii_lowercase(), None),
-            |(handle, root)| (handle, Some(root)),
-        );
+        let (handle, root) = invited(username);
         let signed = facts.friends.as_ref().map(|friends| &friends.list);
         let stranger = |user: &String| {
             user.as_str() != me && !signed.is_some_and(|list| list.friends.contains_key(user))
@@ -1198,17 +1258,9 @@ impl Runtime {
         let refused = Error::NotAllowed(text!("You did not allow this in Kodosi."));
         match asked {
             Asked::Command(held) => {
-                let Held {
-                    command: asked,
-                    computer,
-                    requester,
-                } = *held;
+                let asked = held.command.clone();
                 let outcome = if *allow {
-                    self.hold_lane(
-                        asked.request_id(),
-                        Instant::now() + answer_time(asked.operation()),
-                    );
-                    self.carry_out(&asked, computer.as_deref(), requester)
+                    self.run_held(*held)
                 } else {
                     Err(refused)
                 };
@@ -1522,11 +1574,50 @@ async fn read_facts(network: &BackendClient, needs: Needs) -> Facts {
         ),
         None => None,
     };
+    let account = match needs.named {
+        Some(named) => Some(account_of(network, named, friends.as_ref(), &members).await),
+        None => None,
+    };
     Facts {
         friends,
         terminals,
         members,
         device,
+        account,
+    }
+}
+
+/// The account that a friend request goes to: that of a person whom this device knows by the user
+/// name, or the one that the server finds when it checks that the request can go. The server counts
+/// the check of a stranger's user name, so a known person goes without one.
+async fn account_of(
+    network: &BackendClient,
+    named: Named,
+    friends: Option<&Friends>,
+    members: &Members,
+) -> std::result::Result<String, Text> {
+    let signed = friends
+        .and_then(|friends| friends.list.by_handle(&named.handle))
+        .map(|(user, _)| user.clone());
+    let member = || {
+        members.values().find_map(|membership| {
+            let verified = membership.verified.as_ref()?;
+            membership
+                .listed
+                .iter()
+                .find(|member| {
+                    member.handle.eq_ignore_ascii_case(&named.handle)
+                        && verified.contains(&member.user_id)
+                })
+                .map(|member| member.user_id.clone())
+        })
+    };
+    match signed.or(named.listed).or_else(member) {
+        Some(user) => Ok(user),
+        None => network
+            .check_friend_request(&named.handle)
+            .await
+            .map_err(|error| Error::from(error).text()),
     }
 }
 
@@ -1605,6 +1696,14 @@ fn identity_in(root: &crate::identity::pins::Root) -> Text {
     text!(
         "The identity in the invite starts with {fingerprint}.",
         fingerprint = fingerprint(root)
+    )
+}
+
+/// The handle that a friend request names, and the identity of its invite when it is one.
+fn invited(username: &str) -> (String, Option<crate::identity::pins::Root>) {
+    parse_invite(username).map_or_else(
+        || (username.trim().to_ascii_lowercase(), None),
+        |(handle, root)| (handle, Some(root)),
     )
 }
 

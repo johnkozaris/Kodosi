@@ -652,39 +652,47 @@ impl BackendClient {
         action: &str,
         handle: &str,
     ) -> Result<()> {
-        let (method, path, body) = match action {
-            "send" => (
-                Method::POST,
-                "api/friends/requests".to_owned(),
-                Some(json!({"username":handle})),
-            ),
+        let (method, path) = match action {
             "remove" => (
                 Method::DELETE,
                 format!("api/friends/{}", path_segment(handle)?),
-                None,
             ),
             "block" => (
                 Method::PUT,
                 format!("api/friends/blocked/{}", path_segment(handle)?),
-                None,
             ),
             "unblock" => (
                 Method::DELETE,
                 format!("api/friends/blocked/{}", path_segment(handle)?),
-                None,
             ),
             action => (
                 Method::POST,
                 format!("api/friends/requests/{}/{action}", path_segment(handle)?),
-                None,
             ),
         };
         let _response: Value = self
             .inner
             .http
-            .device(method, &path, credentials, body)
+            .device(method, &path, credentials, None)
             .await?;
         Ok(())
+    }
+
+    /// The account of a user name, when the server would take a friend request to it. The server
+    /// counts the check as it counts a request, so the request that follows goes to the account.
+    pub(crate) async fn check_friend_request(&self, handle: &str) -> Result<String> {
+        let credentials = self.credentials()?;
+        let person: Value = self
+            .inner
+            .http
+            .device(
+                Method::POST,
+                "api/friends/requests",
+                &credentials,
+                Some(json!({"username":handle,"check":true})),
+            )
+            .await?;
+        Ok(wire::id(&person, "userId")?.to_string())
     }
 
     #[expect(
@@ -731,6 +739,7 @@ impl BackendClient {
                     Some((handle, root)) => (handle, Some(root)),
                     None => (typed.to_owned(), None),
                 };
+                let user = wire::id(args, "userId")?.to_string();
                 let known = self
                     .sync_friends(&credentials)
                     .await?
@@ -744,8 +753,16 @@ impl BackendClient {
                         "This invite is for another identity than the one that Kodosi has for this friend."
                     )));
                 }
-                self.friend_request(&credentials, "send", &handle).await?;
-                let user = self.friend_user(&credentials, &handle).await?;
+                let _response: Value = self
+                    .inner
+                    .http
+                    .device(
+                        Method::POST,
+                        "api/friends/requests",
+                        &credentials,
+                        Some(json!({"userId":user})),
+                    )
+                    .await?;
                 self.change_friends(&credentials, |list| {
                     let mut friend = list.friends.get(&user).cloned().unwrap_or_else(|| Friend {
                         handle: handle.clone(),

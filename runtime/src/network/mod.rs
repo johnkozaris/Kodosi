@@ -646,6 +646,8 @@ pub type PublicationOutput = broadcast::Receiver<PublishedFrame>;
 pub type PublishedMark = tokio::sync::watch::Receiver<Option<crate::terminal::Waiting>>;
 
 #[cfg(test)]
+pub(crate) use http::current_versions;
+#[cfg(test)]
 pub(crate) use terminal_connections::RemoteRequest as TestRemoteRequest;
 pub(crate) use terminal_connections::{
     CONTROL_TIMEOUT, RECONNECT_WAIT, STABLE_CONNECTION, input_not_sent,

@@ -3300,6 +3300,7 @@ async fn the_owner_is_asked_only_when_someone_new_would_get_in() {
             (unchecked, sharing::Membership::default()),
         ]),
         device: None,
+        account: None,
     };
     let listed_release = vec![me.clone(), member(&ana, "ana"), member(&carl, "carl")];
     let all = facts_with(verified(
@@ -3632,6 +3633,7 @@ async fn the_owner_is_asked_while_this_device_cannot_tell_who_would_get_in() {
             (solo, verified(&["owner"], Vec::new())),
         ]),
         device: None,
+        account: None,
     };
     let fresh = facts(Some(vec![terminal.clone()]));
     let generic = "Members of Team who are your friends get full control, and so will friends of yours who join later.";
@@ -3898,11 +3900,12 @@ async fn a_project_choice_asks_when_its_people_cannot_be_verified_and_counts_onl
         terminals: Some(vec![terminal.clone()]),
         members: sharing::Members::from([(team, verified(people, vec![member("owner", "you")]))]),
         device: None,
+        account: None,
     };
     runtime.complete(Job {
         scope: runtime.scope.clone(),
         completion: Completion::Checked {
-            held: sharing::Held::new(&hidden, None, requester),
+            held: Box::new(sharing::Held::new(&hidden, None, requester)),
             facts: facts(&["owner", &ben, &eve]),
         },
     });
@@ -3923,6 +3926,197 @@ async fn a_project_choice_asks_when_its_people_cannot_be_verified_and_counts_onl
         question(&runtime, &facts(&["owner", &eve]), &attach(&terminal, team)),
         None,
         "a friend whom only the server lists gets no terminal, so nobody is asked"
+    );
+}
+
+/// A server for an approved device of the owner that knows only the user name carl, and keeps the
+/// body of each friend request that it gets.
+async fn friend_server(carl: &str) -> (String, Arc<std::sync::Mutex<Vec<Value>>>) {
+    use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+    use tokio::io::{AsyncBufReadExt as _, AsyncReadExt as _, AsyncWriteExt as _};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = format!("http://{}", listener.local_addr().unwrap());
+    let requests = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let (kept, carl) = (Arc::clone(&requests), carl.to_owned());
+    tokio::spawn(async move {
+        while let Ok((stream, _)) = listener.accept().await {
+            let mut reader = tokio::io::BufReader::new(stream);
+            let mut head = String::new();
+            loop {
+                let mut line = String::new();
+                if reader.read_line(&mut line).await.unwrap_or(0) == 0 || line == "\r\n" {
+                    break;
+                }
+                head.push_str(&line);
+            }
+            let length = head
+                .lines()
+                .find_map(|line| {
+                    let line = line.to_ascii_lowercase();
+                    line.strip_prefix("content-length: ")?
+                        .trim()
+                        .parse::<usize>()
+                        .ok()
+                })
+                .unwrap_or(0);
+            let mut body = vec![0; length];
+            reader.read_exact(&mut body).await.unwrap();
+            let request = head.lines().next().unwrap_or_default();
+            let (status, reply) = match request.rsplit_once(' ').map_or("", |(start, _)| start) {
+                "GET /health/ready" => (200, crate::network::current_versions()),
+                "POST /api/me/devices/challenge" => (
+                    200,
+                    json!({"challengeId":Uuid::now_v7(),"challengeBytes":BASE64.encode([7; 32])}),
+                ),
+                "POST /api/me/device-sessions" => (200, json!({"session":"session"})),
+                "GET /api/sessions" => (200, json!([])),
+                "POST /api/friends/requests" => {
+                    let asked: Value = serde_json::from_slice(&body).unwrap();
+                    kept.lock().unwrap().push(asked.clone());
+                    match (asked["check"].as_bool(), asked["username"].as_str()) {
+                        (Some(true), Some("carl")) => (
+                            200,
+                            json!({"userId":carl,"handle":"carl","displayName":"Carl"}),
+                        ),
+                        (Some(true), _) => (
+                            404,
+                            json!({"error":"No Kodosi account has this user name."}),
+                        ),
+                        _ => (204, Value::Null),
+                    }
+                }
+                _ => (404, json!({})),
+            };
+            let body = if reply.is_null() {
+                String::new()
+            } else {
+                reply.to_string()
+            };
+            let response = format!(
+                "HTTP/1.1 {status} Reply\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            drop(reader.into_inner().write_all(response.as_bytes()).await);
+        }
+    });
+    (address, requests)
+}
+
+/// Gives the runtime an approved device of the owner that reaches a server.
+fn reaching(runtime: &mut Runtime, address: &str, storage: &tempfile::TempDir) {
+    let network = BackendClient::new(BackendConfig {
+        api_url: format!("{address}/").parse().unwrap(),
+        issuer: address.to_owned(),
+        client_id: "kodosi-app".into(),
+        scopes: Vec::new(),
+        data_root: storage.path().to_owned(),
+        secret_service: "test".into(),
+        isolated: true,
+    })
+    .unwrap();
+    network.assume_identity(crate::network::Identity {
+        user_id: "owner".to_owned(),
+        device_id: "this-device".to_owned(),
+        display_name: "You".to_owned(),
+        enrolled: true,
+    });
+    runtime.scope.network_generation = network.generation();
+    runtime.network = network;
+}
+
+#[tokio::test]
+async fn a_friend_request_asks_the_owner_only_about_a_user_name_that_can_get_it() {
+    let Sharing {
+        mut runtime,
+        mut events,
+        ..
+    } = sharing_fixture();
+    let carl = Uuid::now_v7().to_string();
+    let (address, sent) = friend_server(&carl).await;
+    let storage = tempfile::tempdir().unwrap();
+    reaching(&mut runtime, &address, &storage);
+    let (app, app_life) = joined(&mut runtime, Origin::App);
+    let (command, command_life) = joined(&mut runtime, Origin::Command);
+    let ask =
+        async |runtime: &mut Runtime, events: &mut broadcast::Receiver<Event>, username: &str| {
+            runtime.command(
+                &as_client(runtime, befriend(username, false)),
+                command,
+                command_life.clone(),
+                Origin::Command,
+            );
+            complete_next_job(runtime).await;
+            heard_by(events)
+        };
+
+    let unknown = ask(&mut runtime, &mut events, "leo").await;
+    assert_eq!(
+        unknown
+            .iter()
+            .map(|(to, event)| (
+                *to,
+                event["type"].as_str(),
+                event["message"].as_str(),
+                event.get("refused")
+            ))
+            .collect::<Vec<_>>(),
+        [(
+            Some(command),
+            Some("friends.error"),
+            Some("No Kodosi account has this user name."),
+            None
+        )],
+        "a user name that cannot get a friend request ends the request at once, without a question"
+    );
+
+    let stranger = ask(&mut runtime, &mut events, "carl").await;
+    let question = stranger
+        .iter()
+        .find(|(to, event)| *to == Some(app) && event["type"] == "sharing.approval")
+        .map(|(_, question)| question.clone())
+        .unwrap();
+    assert_eq!(question["title"], "Add @carl as a friend?");
+    runtime.command(
+        &as_client(&runtime, allow(&question, true)),
+        app,
+        app_life,
+        Origin::App,
+    );
+    complete_next_job(&mut runtime).await;
+    heard_by(&mut events);
+    assert_eq!(
+        *sent.lock().unwrap(),
+        [
+            json!({"username":"leo","check":true}),
+            json!({"username":"carl","check":true}),
+            json!({"userId":carl}),
+        ],
+        "the request that the owner allowed goes to the account of its check, so the server counts the user name once"
+    );
+
+    let known = ask(&mut runtime, &mut events, "ben").await;
+    assert!(
+        known
+            .iter()
+            .any(|(to, event)| *to == Some(app) && event["type"] == "sharing.approval"),
+        "{known:?}"
+    );
+    assert_eq!(
+        sent.lock().unwrap().len(),
+        3,
+        "a person whom this device knows by the user name needs no check"
+    );
+    let mine = sharing::Facts {
+        account: Some(Ok("owner".to_owned())),
+        ..sharing::Facts::default()
+    };
+    assert_eq!(
+        runtime
+            .gate(&befriend("you", false), Origin::Command, &mine)
+            .err()
+            .map(|error| error.to_string()),
+        Some("Choose another person.".to_owned()),
+        "the owner's own user name, which a project of the owner lists, asks nothing"
     );
 }
 
