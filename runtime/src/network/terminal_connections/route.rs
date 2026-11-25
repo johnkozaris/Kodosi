@@ -2,7 +2,12 @@ use std::{collections::VecDeque, net::SocketAddr, sync::atomic::AtomicUsize};
 
 use tokio::sync::watch;
 
-use super::{channel::Transport, peers::Lane, wire::Frame, *};
+use super::{
+    channel::Transport,
+    peers::{Lane, Media},
+    wire::Frame,
+    *,
+};
 
 #[cfg(test)]
 pub(super) mod tests;
@@ -63,6 +68,7 @@ pub(super) struct Route {
 pub(super) struct Paths {
     lanes: mpsc::Sender<Lane>,
     path: watch::Receiver<Path>,
+    link: watch::Receiver<Option<Media>>,
     late: watch::Receiver<bool>,
 }
 
@@ -72,6 +78,7 @@ impl Route {
         let (delivered, incoming) = mpsc::unbounded_channel();
         let (lanes, attached) = mpsc::channel(1);
         let (moved, path) = watch::channel(Path::Relay);
+        let (linked, link) = watch::channel(None);
         let (lateness, late) = watch::channel(false);
         let waiting = Arc::new(AtomicUsize::new(0));
         let now = tokio::time::Instant::now();
@@ -98,6 +105,7 @@ impl Route {
                 incoming: delivered,
                 waiting: Arc::clone(&waiting),
                 path: moved,
+                link: linked,
                 late: lateness,
             }
             .run(),
@@ -108,7 +116,12 @@ impl Route {
                 incoming,
                 waiting,
             },
-            Paths { lanes, path, late },
+            Paths {
+                lanes,
+                path,
+                link,
+                late,
+            },
         )
     }
 }
@@ -141,6 +154,11 @@ impl Paths {
 
     pub(super) fn path(&self) -> watch::Receiver<Path> {
         self.path.clone()
+    }
+
+    /// The QUIC connection under the lane while the route sends on it, for video datagrams.
+    pub(super) fn link(&self) -> watch::Receiver<Option<Media>> {
+        self.link.clone()
     }
 
     async fn went_direct(&mut self) -> bool {
@@ -179,6 +197,7 @@ struct Actor<R> {
     incoming: mpsc::UnboundedSender<Incoming>,
     waiting: Arc<AtomicUsize>,
     path: watch::Sender<Path>,
+    link: watch::Sender<Option<Media>>,
     late: watch::Sender<bool>,
 }
 
@@ -454,13 +473,30 @@ impl<R: Transport> Actor<R> {
     }
 
     fn publish(&self) {
-        let path = match (&self.lane, self.sending, self.held) {
-            (Some(_), Carrier::Lane, false) => Path::Direct,
-            _ => Path::Relay,
+        let lane = match (&self.lane, self.sending, self.held) {
+            (Some(lane), Carrier::Lane, false) => Some(lane),
+            _ => None,
+        };
+        let path = if lane.is_some() {
+            Path::Direct
+        } else {
+            Path::Relay
         };
         self.path.send_if_modified(|current| {
             let changed = *current != path;
             *current = path;
+            changed
+        });
+        let media = lane.and_then(Lane::media);
+        self.link.send_if_modified(|current| {
+            let changed = match (current.as_ref(), media.as_ref()) {
+                (Some(current), Some(media)) => !current.same(media),
+                (None, None) => false,
+                _ => true,
+            };
+            if changed {
+                current.clone_from(&media);
+            }
             changed
         });
     }

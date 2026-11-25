@@ -1,12 +1,14 @@
 use std::collections::{HashMap, VecDeque};
 
 use futures_util::stream::{FuturesOrdered, FuturesUnordered};
-use tokio::task::JoinSet;
+use tokio::{sync::watch, task::JoinSet};
 
 use super::{
     channel::{Channel, Transport},
     link::{HostEvent, Hosted, Pipe},
+    media,
     pacer::Pacer,
+    peers::Media,
     route::{Finder, Role, Route},
     wire::{Accept, ControlResult, End, Frame, PictureOffer, PictureState, PictureStep, Refuse},
     *,
@@ -501,6 +503,7 @@ async fn connect(
     let peers = (user == credentials.user_id)
         .then(|| network.peers(credentials).ok())
         .flatten();
+    let link = paths.link();
     let finder = Finder::host(peers, paths, key, id);
     let (ended, channel) = {
         let mut stream = Stream::new(
@@ -512,6 +515,7 @@ async fn connect(
                 authorization,
             },
             finder,
+            link,
         );
         (stream.serve().await, stream.channel)
     };
@@ -659,6 +663,9 @@ struct Stream<'a, T> {
     controls: Controls,
     pipes: HashMap<Uuid, PipeIn>,
     pipe_parts: VecDeque<Frame>,
+    /// The browser and screen pipes, with their flow of datagrams while the route is direct.
+    videos: HashMap<Uuid, Option<media::Flow>>,
+    link: watch::Receiver<Option<Media>>,
     leaving: mpsc::Receiver<Leaving>,
     leaving_to: mpsc::Sender<Leaving>,
     picture: Option<Receiving>,
@@ -678,6 +685,7 @@ impl<'a, T: Transport> Stream<'a, T> {
         requests: &'a mpsc::Sender<HostRequest>,
         controller: Controller,
         finder: Finder,
+        link: watch::Receiver<Option<Media>>,
     ) -> Self {
         let (leaving_to, leaving) = mpsc::channel(LEAVING_FRAMES);
         Self {
@@ -706,6 +714,8 @@ impl<'a, T: Transport> Stream<'a, T> {
             controls: Controls::new(),
             pipes: HashMap::new(),
             pipe_parts: VecDeque::new(),
+            videos: HashMap::new(),
+            link,
             leaving,
             leaving_to,
             picture: None,
@@ -796,6 +806,7 @@ impl<'a, T: Transport> Stream<'a, T> {
                 Some(left) = self.leaving.recv(), if self.pipe_parts.len() < PIPE_PARTS_WAITING => {
                     self.left(left);
                 }
+                Ok(()) = self.link.changed() => self.relink(),
                 () = async { tokio::time::sleep_until(capture.unwrap_or_else(tokio::time::Instant::now)).await }, if capture.is_some() => {}
                 () = async { tokio::time::sleep_until(exact.unwrap_or_else(tokio::time::Instant::now)).await }, if exact.is_some() => {
                     self.live = false;
@@ -842,9 +853,17 @@ impl<'a, T: Transport> Stream<'a, T> {
         match left {
             Leaving::Closed { pipe } => {
                 self.pipes.remove(&pipe);
+                self.videos.remove(&pipe);
                 self.pipe_parts.push_back(Frame::PipeClose { pipe });
             }
             Leaving::Frame { pipe, frame } => {
+                let frame = match self.videos.get(&pipe) {
+                    Some(Some(flow)) => match flow.take(frame) {
+                        Ok(()) => return,
+                        Err(frame) => frame,
+                    },
+                    _ => frame,
+                };
                 let parts = frame.len().div_ceil(wire::PIPE_PART);
                 for (index, part) in frame.chunks(wire::PIPE_PART).enumerate() {
                     self.pipe_parts.push_back(Frame::PipeData {
@@ -855,6 +874,29 @@ impl<'a, T: Transport> Stream<'a, T> {
                 }
             }
         }
+    }
+
+    /// Sends each video pipe's frames on the connection under the route's lane, or in the
+    /// channel while the route is on the relay.
+    fn relink(&mut self) {
+        let media = self.link.borrow_and_update().clone();
+        let pipes: Vec<Uuid> = self.videos.keys().copied().collect();
+        for pipe in pipes {
+            self.flow(pipe, media.as_ref());
+        }
+    }
+
+    fn flow(&mut self, pipe: Uuid, media: Option<&Media>) {
+        let flow = media
+            .zip(self.pipes.get(&pipe))
+            .and_then(|(media, open)| media::Flow::start(media, open.sender.clone()));
+        if let Some(flow) = &flow {
+            self.pipe_parts.push_back(Frame::MediaOffer {
+                pipe,
+                flow: flow.number,
+            });
+        }
+        self.videos.insert(pipe, flow);
     }
 
     /// Opens the pipe asynchronously so slow opens do not block terminal output; early viewer
@@ -872,6 +914,10 @@ impl<'a, T: Transport> Stream<'a, T> {
                 filling: Vec::new(),
             },
         );
+        if key == crate::canvas::BROWSER_PIPE || key == crate::canvas::SCREEN_PIPE {
+            let media = self.link.borrow().clone();
+            self.flow(pipe, media.as_ref());
+        }
         let requests = self.requests.clone();
         let leaving = self.leaving_to.clone();
         let connection_id = self.controller.connection;
@@ -915,6 +961,7 @@ impl<'a, T: Transport> Stream<'a, T> {
                 .is_err()
         {
             self.pipes.remove(&pipe);
+            self.videos.remove(&pipe);
             self.pipe_parts.push_back(Frame::PipeClose { pipe });
         }
         Ok(())
@@ -1246,6 +1293,7 @@ impl<'a, T: Transport> Stream<'a, T> {
             Frame::PipeData { pipe, more, part } => self.pipe_part(pipe, more, &part)?,
             Frame::PipeClose { pipe } => {
                 self.pipes.remove(&pipe);
+                self.videos.remove(&pipe);
             }
             frame @ Frame::PathOffer { .. } => self.finder.heard(frame),
             Frame::Picture(offer) => self.offered(offer).await?,

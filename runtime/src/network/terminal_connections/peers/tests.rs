@@ -147,23 +147,23 @@ async fn a_viewer_whose_socket_fails_goes_straight_again_with_a_new_socket() {
     );
     let (_arrived, mut reached) = (arrived.unwrap(), reached.unwrap());
 
-    let socket = Arc::clone(&viewer.bind().await.unwrap().socket);
+    let socket = viewer.bind().await.unwrap().socket.clone();
     let free = std::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
         .local_addr()
         .unwrap()
         .port();
-    let refusing = if socket.dual {
+    let refusing = if socket.0.dual {
         SocketAddr::new(IpAddr::V6(Ipv4Addr::LOCALHOST.to_ipv6_mapped()), free)
     } else {
         SocketAddr::from((Ipv4Addr::LOCALHOST, free))
     };
-    socket.inner.io.connect(refusing).await.unwrap();
+    socket.0.io.connect(refusing).await.unwrap();
     // The system answers a datagram to a closed port only within its limit of such answers, which
     // other tests that run at the same time also use.
     let mut ended = None;
     for _ in 0..50 {
-        socket.inner.io.send(&[0]).await.unwrap();
+        socket.0.io.send(&[0]).await.unwrap();
         if let Ok(end) =
             tokio::time::timeout(Duration::from_millis(100), reached.reader.recv()).await
         {
@@ -326,4 +326,45 @@ fn a_private_address_counts_only_on_a_network_of_this_computer() {
             (address("203.0.113.9:1"), false),
         ]
     );
+}
+
+#[cfg(feature = "host")]
+#[tokio::test]
+async fn video_frames_go_as_datagrams_once_the_viewer_takes_the_flow() {
+    let (host_keys, viewer_keys) = (
+        DeviceKeys::generate().unwrap(),
+        DeviceKeys::generate().unwrap(),
+    );
+    let (host, viewer) = (peers_of(&host_keys), peers_of(&viewer_keys));
+    let address = on_this_computer(&host).await;
+    let pipe = Uuid::now_v7();
+    let (arrived, reached) = tokio::join!(
+        host.expect(viewer_keys.signing_public(), pipe).meet(&[]),
+        viewer.reach_at(host_keys.signing_public(), address, pipe),
+    );
+    let (arrived, reached) = (arrived.unwrap(), reached.unwrap());
+    let (document, mut heard) = mpsc::channel(16);
+    let flow = super::super::media::Flow::start(&arrived.media().unwrap(), document).unwrap();
+    let (frames, mut shown) = mpsc::channel(16);
+    let _view =
+        super::super::media::receive(&reached.media().unwrap(), flow.number, frames).unwrap();
+
+    let mut frame = vec![stream::viewer::FRAME, 0, 0, 0, 1, 1, 0];
+    frame.extend((0..20_000_u32).map(|byte| byte.to_be_bytes()[3]));
+    let sent = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if flow.take(frame.clone()).is_ok() {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await;
+    assert!(sent.is_ok(), "the viewer's greeting readies the flow");
+    let shown = tokio::time::timeout(Duration::from_secs(5), shown.recv()).await;
+    assert_eq!(shown.unwrap().unwrap(), frame);
+    let rate = tokio::time::timeout(Duration::from_secs(5), heard.recv()).await;
+    let rate = rate.unwrap().unwrap();
+    assert_eq!(rate.first(), Some(&stream::viewer::JSON));
+    assert!(String::from_utf8_lossy(&rate[1..]).contains("\"rate\""));
 }

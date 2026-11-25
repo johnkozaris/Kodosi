@@ -222,6 +222,11 @@
         "type": 26,
         "direction": "host",
         "body": "a JSON array of at most 16 addresses (ip:port) of the host; an empty array keeps the channel on the relay"
+      },
+      "mediaOffer": {
+        "type": 27,
+        "direction": "host",
+        "body": "pipe (16 bytes), flow:u16be; the video frames of a browser or screen pipe go as datagrams of that flow on the QUIC connection under the channel's lane, as media describes"
       }
     }
   },
@@ -334,5 +339,16 @@
     "lane": "the viewer opens a bidirectional stream and writes the pipe identity (16 bytes); the host writes one byte, 1, when the route of that pipe takes the stream; then each route message goes with its length (u32, network byte order) first",
     "life": "keep-alive each 10 seconds and 25 silent seconds end the connection; a connection that no lane used for 60 seconds ends, and the socket closes 60 seconds after its last connection",
     "access": "the host ends the lane with the access of the viewer, and the service ends it with the relay pipe"
+  },
+  "media": {
+    "purpose": "the video frames of a browser or screen pipe go as QUIC datagrams while the channel runs on a lane, so a lost packet delays only its own frame",
+    "offer": "the host sends mediaOffer for each video pipe when its route moves to a lane, and again on each later lane; the viewer answers with a report of no entries, each 200 ms until a shard comes; the host sends the pipe's frames on the flow only after the first report, and in pipeData before it and whenever the route is on the relay; JSON messages of the pipe always go in pipeData",
+    "flows": "the host numbers its flows on one connection; a datagram's kind tells shards (1, from the host) from reports (2, from the viewer), so the two devices of a connection number their flows apart",
+    "shard": "kind:u8 1, flow:u16, frame:u16 (the flow's frame number), index:u16, originals:u16, recoveries:u16, length:u32 (bytes of the frame), then the shard: indices below originals are parts of the frame in order, the others Reed-Solomon recovery shards over GF(2^16) of equal parts, the last part padded with zeros; numbers in network byte order",
+    "report": "kind:u8 2, flow:u16, count:u8, then count entries of frame:u16, state:u8 (0 arrived, 1 given up, 2 missing), indices:u16 and that many shard indices that the viewer misses; a missing entry without indices asks for the whole frame",
+    "parity": "frames carry no recovery shards until a report tells of a loss, then about twice the share of lost shards, at least one and at most half the parts, until 400 ms pass without a loss",
+    "delivery": "the viewer hands on frames in order; a frame may arrive until its time ends, max(33 ms, 1.5 round trips + 10 ms) from its first shard, and the viewer gives up on it after that; a keyframe or anchor passes the frames still missing before it, which the viewer drops; frames never shown cause the usual keyframe or anchor request of the viewer",
+    "resend": "the viewer reports missing shards when a later frame arrives or 3 ms pass after the frame's last shard, and again after half a round trip; the host sends them again while the frame can still arrive in time, from frames it keeps for 250 ms after their time",
+    "rate": "SCReAMv2 controls the connection; the host splits the bitrate that it finds among its flows on the connection and tells each stream with a JSON message rate {bitrate} in the pipe, as if from the viewer"
   }
 }

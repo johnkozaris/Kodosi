@@ -6,6 +6,7 @@
 mod codec;
 mod flow;
 mod frame;
+pub mod media;
 pub mod viewer;
 
 pub use codec::{Codec, Decoder, Format, Viewing, choose};

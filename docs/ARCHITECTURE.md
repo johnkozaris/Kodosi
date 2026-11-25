@@ -49,6 +49,15 @@ devices and fall back to the relay if the direct path drops, without requiring a
 and without dropping or duplicating frames. The relay pipe stays open so the backend can still
 tear down the channel immediately if access is revoked.
 
+On a direct connection, the video of the canvas browser and screens leaves the ordered channel, so
+that a lost packet delays only its own frame. Frames travel as QUIC datagrams, split into shards
+that each fit one packet. They carry Reed–Solomon parity only after the path lost packets lately,
+and the host sends a missing shard again only while its frame can still arrive in time. The viewer
+hands frames on in order, and a keyframe or anchor passes the frames still missing before it.
+SCReAMv2, a congestion controller made for interactive media, runs the direct connection: it keeps
+the queue that it builds short and tells each stream the bitrate that its share of the path
+carries. The streams' JSON messages, and everything on the relay, stay in the channel.
+
 If typing or another request goes unacknowledged for too long on a remote view, the viewer flags
 the terminal as stalled and displays a reconnecting state while letting the user keep typing. The
 host never replays input whose delivery is uncertain, and a stale view can never control a
@@ -207,7 +216,8 @@ highest-DPI viewer's pixel density within encoder limits, and static pages progr
 until sharp. During resizes, clients hold their previous frame until Chromium finishes painting at
 the new size, hiding Chromium's placeholder flashes.
 
-Encoded frames and pointer/keyboard input travel over the terminal's encrypted channel. The agent
+Encoded frames and pointer/keyboard input travel over the terminal's encrypted channel, the frames
+as datagrams of the direct connection when there is one. The agent
 controls its window via `agent-browser` over a host-managed local port scoped strictly to that
 terminal's tabs. Private terminals share one persistent browser profile; shared terminals each get
 an isolated, ephemeral profile tied to the terminal's lifetime.

@@ -89,6 +89,9 @@ struct Seat {
     least_round: Option<Duration>,
     window_least: Option<Duration>,
     window_at: Instant,
+    /// The bitrate that the transport's congestion control finds for this viewer, when its frames
+    /// go as datagrams.
+    transported: Option<u32>,
 }
 
 impl Seat {
@@ -111,6 +114,7 @@ impl Seat {
             least_round: None,
             window_least: None,
             window_at: now,
+            transported: None,
         }
     }
 
@@ -406,6 +410,14 @@ impl Flow {
         self.ask(now, queued)
     }
 
+    /// Takes the bitrate that the transport carries to a viewer, which then steers the bitrate
+    /// instead of the delay of its acknowledgements; 0 returns the viewer to those.
+    pub fn rate(&mut self, viewer: &str, bitrate: u64) {
+        if let Some(seat) = self.seats.get_mut(viewer) {
+            seat.transported = (bitrate > 0).then(|| u32::try_from(bitrate).unwrap_or(u32::MAX));
+        }
+    }
+
     pub fn keyframe_asked(&mut self, now: Instant) {
         self.keyframe_at = Some(now);
     }
@@ -513,10 +525,15 @@ impl Flow {
         let followed = control.filter(|viewer| self.seats.contains_key(*viewer));
         let mut queue = None;
         let mut carried: Option<u64> = None;
+        let mut transported: Option<u32> = None;
         let mut linked = false;
         for (viewer, seat) in &mut self.seats {
             let fresh = seat.queue.take();
             if seat.local || followed.is_some_and(|followed| viewer.as_str() != followed) {
+                continue;
+            }
+            if let Some(rate) = seat.transported {
+                transported = Some(transported.map_or(rate, |least| least.min(rate)));
                 continue;
             }
             linked = true;
@@ -528,7 +545,7 @@ impl Flow {
             }
         }
         let mut bitrate = if !linked {
-            HIGHEST_BITRATE
+            transported.unwrap_or(HIGHEST_BITRATE)
         } else if queue.is_some_and(|queue| queue > QUEUE_LIMIT) {
             self.bitrate / 5 * 4
         } else if queue.is_some_and(|queue| queue < QUEUE_LIMIT / 2)
@@ -542,6 +559,9 @@ impl Flow {
         };
         if let Some(carried) = carried {
             bitrate = bitrate.min(u32::try_from(carried / 20 * 17).unwrap_or(u32::MAX));
+        }
+        if let Some(transported) = transported {
+            bitrate = bitrate.min(transported);
         }
         let bitrate = bitrate.clamp(LOWEST_BITRATE, HIGHEST_BITRATE);
         if bitrate < self.bitrate {
@@ -655,6 +675,18 @@ mod tests {
         flow.ack("fast", 6, after(now, 900));
         flow.ack("slow", 5, after(now, 950));
         (flow, now)
+    }
+
+    #[test]
+    fn the_bitrate_that_the_transport_carries_to_the_viewer_in_control_steers_the_encoder() {
+        let now = Instant::now();
+        let mut flow = flow_with(&["phone", "mac"], now);
+        flow.rate("phone", 3_000_000);
+        flow.rate("mac", 20_000_000);
+        assert_eq!(flow.steer(Some("phone"), now), Some(3_000_000));
+        flow.rate("phone", 6_000_000);
+        assert_eq!(flow.steer(Some("phone"), after(now, 250)), Some(6_000_000));
+        assert_eq!(flow.steer(None, after(now, 500)), None);
     }
 
     #[test]

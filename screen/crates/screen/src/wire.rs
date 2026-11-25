@@ -44,6 +44,11 @@ pub(crate) enum ToScreen {
         source: Source,
         region: Option<Region>,
     },
+    /// The bitrate that the transport carries to the viewer, from the host's runtime while the
+    /// viewer's frames go as datagrams.
+    Rate {
+        bitrate: u64,
+    },
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]

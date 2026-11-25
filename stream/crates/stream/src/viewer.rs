@@ -12,8 +12,8 @@ use crate::{Codec, FrameKind, Region};
 pub const JSON: u8 = 0;
 pub const FRAME: u8 = 1;
 const FRAME_HEADER: usize = 1 + 4 + 1 + 1;
-const KEY: u8 = 1;
-const ANCHOR: u8 = 2;
+pub(crate) const KEY: u8 = 1;
+pub(crate) const ANCHOR: u8 = 2;
 const REGION: u8 = 4;
 const REGION_BYTES: usize = 4 * 4;
 

@@ -862,6 +862,7 @@ impl Live {
                     self.flow.ack(viewer, frame, now);
                 }
             }
+            ToWindow::Rate { bitrate } => self.flow.rate(viewer, bitrate),
             ToWindow::Keyframe if self.seats.get(viewer).is_some_and(Seat::hosts_layer) => {
                 self.engine.command(ToEngine::Still { window: self.id });
             }

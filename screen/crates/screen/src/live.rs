@@ -289,6 +289,7 @@ impl Live {
                 self.say(&ToHelper::Keyframe);
             }
             ToScreen::Ack { frame } => self.flow.ack(viewer, frame, now),
+            ToScreen::Rate { bitrate } => self.flow.rate(viewer, bitrate),
             ToScreen::Keyframe => {
                 let seats = &self.seats;
                 if let Some(ask) = self.flow.reset(viewer, now, |viewer| queued(seats, viewer)) {

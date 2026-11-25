@@ -84,13 +84,17 @@ accepts direct QUIC connections from a device whose relayed channel is expecting
 records share a single sequence across both transports, switching between relay and direct QUIC
 requires no new handshake.
 
+On a direct connection, the video frames of the canvas browser and screens travel as QUIC datagrams
+of that connection, outside the channel. Its TLS 1.3 layer, which ends at the two devices and
+authenticates them with their device keys, is then their only encryption.
+
 Traffic keys rekey after 2^24 frames or one hour, and reconnections perform a fresh key exchange.
 The viewer verifies the host device's approved public key. The host only admits verified,
 non-recovery devices belonging to authorized accounts, and re-checks authorization whenever sharing
 or device lists change. For project terminals, the host only admits friends of the terminal owner
 whose friend record matches the identity recorded in the project's key state. Live document edits
-and shared browser video/input travel inside this channel, leaving the backend with only timing and
-frame sizes.
+and shared browser input travel inside this channel, as does canvas video on the relay, leaving the
+backend with only timing and frame sizes.
 
 ### Remote host calls
 A device opens the same encrypted channel to another computer on its own account to query agents
