@@ -7,6 +7,7 @@ mod session;
 mod sps;
 
 use std::{
+    ptr::NonNull,
     sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock, PoisonError},
     thread::JoinHandle,
     time::Instant,
@@ -173,15 +174,13 @@ impl Gate {
 
 pub(crate) struct Encoder {
     gate: Arc<Gate>,
+    /// Made with the first BGRA picture, since NV12 pictures need none.
     converter: Option<Converter>,
     worker: Option<JoinHandle<()>>,
 }
 
 impl Encoder {
     pub(crate) fn new(settings: Settings, output: Arc<dyn Output>) -> Self {
-        let converter = Converter::new()
-            .map_err(|problem| output.failed(problem))
-            .ok();
         let gate = Arc::new(Gate {
             slot: Mutex::new(Slot {
                 picture: None,
@@ -207,17 +206,26 @@ impl Encoder {
             .ok();
         Self {
             gate,
-            converter,
+            converter: None,
             worker,
         }
     }
 
     pub(crate) fn encode(&mut self, picture: Picture<'_>) {
-        let Some(converter) = self.converter.as_mut() else {
-            return;
-        };
         let nv12 = match picture {
+            Picture::Nv12(buffer) => {
+                // SAFETY: the caller passes a valid `CVPixelBufferRef`, which this retains.
+                let Some(buffer) = NonNull::new(buffer.cast::<CVPixelBuffer>())
+                    .map(|buffer| unsafe { CFRetained::retain(buffer) })
+                else {
+                    return;
+                };
+                Ok(buffer)
+            }
             Picture::Surface(surface) => {
+                let Some(converter) = self.converter() else {
+                    return;
+                };
                 // SAFETY: the caller passes an `IOSurfaceRef` that is valid during this call.
                 let Some(surface) = (unsafe { surface.cast::<IOSurfaceRef>().as_ref() }) else {
                     return;
@@ -237,6 +245,9 @@ impl Encoder {
                 if even_width < 2 || even_height < 2 {
                     return;
                 }
+                let Some(converter) = self.converter() else {
+                    return;
+                };
                 converter.pixels(bgra, even_width, even_height, width * 4)
             }
         };
@@ -249,6 +260,16 @@ impl Encoder {
             }),
             Err(problem) => self.gate.fail(problem),
         }
+    }
+
+    fn converter(&mut self) -> Option<&mut Converter> {
+        if self.converter.is_none() {
+            match Converter::new() {
+                Ok(converter) => self.converter = Some(converter),
+                Err(problem) => self.gate.fail(problem),
+            }
+        }
+        self.converter.as_mut()
     }
 
     pub(crate) fn want_key(&self) {
@@ -442,6 +463,8 @@ mod tests {
         time::{Duration, Instant},
     };
 
+    use objc2_core_foundation::CFRetained;
+    use objc2_core_video::{CVPixelBufferCreate, kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange};
     use stream::{Codec, Encoded, Format, FrameKind};
 
     use super::Encoder;
@@ -524,6 +547,39 @@ mod tests {
         }
         drop(encoder);
         std::mem::take(&mut *frames.0.lock().unwrap())
+    }
+
+    #[test]
+    fn a_captured_nv12_picture_is_encoded_as_it_is() {
+        let mut raw = std::ptr::null_mut();
+        // SAFETY: the out pointer is valid.
+        let status = unsafe {
+            CVPixelBufferCreate(
+                None,
+                WIDTH,
+                HEIGHT,
+                kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                None,
+                std::ptr::NonNull::from(&mut raw),
+            )
+        };
+        assert_eq!(status, 0);
+        let buffer = std::ptr::NonNull::new(raw).unwrap();
+        // SAFETY: the buffer was just created with a +1 retain count.
+        let buffer = unsafe { CFRetained::from_raw(buffer) };
+        let frames = Arc::new(Frames::default());
+        let mut encoder = Encoder::new(
+            Settings {
+                format: Format::default(),
+                bitrate: 4_000_000,
+            },
+            Arc::clone(&frames) as Arc<dyn Output>,
+        );
+        encoder.encode(Picture::Nv12(CFRetained::as_ptr(&buffer).as_ptr().cast()));
+        wait_for(&frames, 1);
+        let first = frames.0.lock().unwrap()[0].clone();
+        assert_eq!(first.kind, FrameKind::Key);
+        assert!(units(&first.data, Codec::H264).contains(&7));
     }
 
     #[test]

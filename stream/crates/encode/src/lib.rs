@@ -29,6 +29,10 @@ pub enum Picture<'a> {
     /// A BGRA `IOSurfaceRef` that stays valid only during the call.
     #[cfg(target_os = "macos")]
     Surface(*mut std::ffi::c_void),
+    /// A `CVPixelBufferRef` in BT.709 video-range NV12 (`420v`), which the encoder takes as it is
+    /// and holds until it has encoded it.
+    #[cfg(target_os = "macos")]
+    Nv12(*mut std::ffi::c_void),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
