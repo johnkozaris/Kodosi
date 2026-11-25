@@ -23,6 +23,8 @@
 "Close this tab and go back to Kodosi.": "このタブを閉じて Kodosi に戻ってください。",
 "Connect your GitHub account with gh auth login, then try again.": "gh auth login で GitHub アカウントを連携してから、もう一度お試しください。",
 "Connect your Gitea account through Git credentials or KODOSI_GITEA_URL and KODOSI_GITEA_TOKEN, then try again.": "Git の認証情報、または KODOSI_GITEA_URL と KODOSI_GITEA_TOKEN で Gitea アカウントを連携してから、もう一度お試しください。",
+"Copilot CLI has extensions turned off, so it has no chat. Run copilot config extensions.enabled true, then start it again.": "Copilot CLI で拡張機能がオフになっているため、チャットを使えません。copilot config extensions.enabled true を実行してから起動し直してください。",
+"Copilot CLI turned off Kodosi's extension, so it has no chat. Turn it on in /extensions, then start it again.": "Copilot CLI で Kodosi の拡張機能がオフになっているため、チャットを使えません。/extensions でオンにしてから起動し直してください。",
 "Create issues from a computer.": "Issue はコンピュータから作成してください。",
 "Credential deletion is still waiting for the system store.": "資格情報の削除は、システムの資格情報ストアの応答待ちです。",
 "Delete your account on the account page of the sign-in service.": "サインインサービスのアカウントページでアカウントを削除してください。",

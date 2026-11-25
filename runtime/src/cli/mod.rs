@@ -138,6 +138,10 @@ enum Action {
     },
     #[command(hide = true)]
     InternalHost,
+    #[command(hide = true)]
+    InternalTitle,
+    #[command(hide = true)]
+    InternalAgyContext,
 }
 
 const TERMINAL: &str =
@@ -618,12 +622,78 @@ const fn hosted_kind(action: &Action) -> Option<HostKind> {
     }
 }
 
+/// Antigravity CLI skips OSC 2 on empty stdout, so a space clears an earlier title.
+fn internal_title() -> Result<()> {
+    use io::Read as _;
+    const MOST_BYTES: u64 = 64 * 1024;
+    let mut input = Vec::new();
+    io::stdin()
+        .lock()
+        .take(MOST_BYTES)
+        .read_to_end(&mut input)?;
+    let title = antigravity_title(&input);
+    let mut out = io::stdout().lock();
+    out.write_all(title.as_bytes())?;
+    out.flush()?;
+    Ok(())
+}
+
+fn antigravity_title(input: &[u8]) -> String {
+    serde_json::from_slice::<Value>(input)
+        .ok()
+        .and_then(|value| {
+            let raw = value.get("conversation_title")?.as_str()?;
+            let line = raw
+                .split(['\r', '\n'])
+                .map(str::trim)
+                .find(|part| !part.is_empty())?;
+            crate::terminal::title_words(line)
+        })
+        .unwrap_or_else(|| " ".to_owned())
+}
+
+fn internal_agy_context() -> Result<()> {
+    use io::Read as _;
+    const MOST_BYTES: u64 = 64 * 1024;
+    if !io::stdin().is_terminal() {
+        drop(io::copy(
+            &mut io::stdin().lock().take(MOST_BYTES),
+            &mut io::sink(),
+        ));
+    }
+    let reply = agy_session_start(this_terminal().is_some());
+    let mut out = io::stdout().lock();
+    out.write_all(reply.as_bytes())?;
+    out.flush()?;
+    Ok(())
+}
+
+fn agy_session_start(in_kodosi: bool) -> String {
+    if !in_kodosi {
+        return "{}".to_owned();
+    }
+    json!({
+        "injectSteps": [{
+            "systemMessage": {
+                "systemMessage": crate::agents::CONTEXT.trim()
+            }
+        }]
+    })
+    .to_string()
+}
+
 #[expect(
     clippy::future_not_send,
     reason = "terminal attach runs the Ghostty mirror on the main thread"
 )]
 #[expect(clippy::too_many_lines, reason = "one dispatch for every command")]
 async fn dispatch(args: Arguments) -> Result<u8> {
+    if matches!(args.command, Action::InternalTitle) {
+        return internal_title().map(|()| 0);
+    }
+    if matches!(args.command, Action::InternalAgyContext) {
+        return internal_agy_context().map(|()| 0);
+    }
     if let Action::Acp {
         model,
         effort,
@@ -839,6 +909,8 @@ async fn command(
         | Action::Acp { .. }
         | Action::Host { .. }
         | Action::InternalHost
+        | Action::InternalTitle
+        | Action::InternalAgyContext
         | Action::Status => {
             return Err(Error::Invalid("unexpected command".into()));
         }

@@ -10,7 +10,11 @@ pub struct Commands(kodosi_os::ipc::WriteHalf);
 
 impl Client {
     pub async fn connect(root: &Path) -> Result<Self> {
-        let (stream, welcome) = connect(root, None).await?;
+        let (stream, mut welcome) = connect(root, None).await?;
+        let language = crate::text::language();
+        for event in &mut welcome.events {
+            crate::text::render(event, language);
+        }
         let (reader, writer) = stream.into_split();
         Ok(Self {
             events: Events(FrameReader::new(reader)),

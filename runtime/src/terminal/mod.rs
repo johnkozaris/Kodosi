@@ -90,7 +90,7 @@ pub(crate) enum SessionChange {
     #[cfg(feature = "host")]
     Title {
         id: Uuid,
-        title: String,
+        title: Option<String>,
     },
     #[cfg(feature = "host")]
     Bell {

@@ -55,6 +55,8 @@ A quiet Copilot takes its display only from its saved settings, so Kodosi change
 while it runs and puts them back after. Copilot loads Kodosi's extension for the chat
 only with its experimental features, which Copilot then keeps on, and only after a person
 allowed the extension, which Kodosi does for each folder where it starts Copilot.
+Antigravity CLI loads plugins only from its own configuration folder, so Kodosi links its
+plugin there while Kodosi runs and removes it when Kodosi stops.
 
 **The chat is a view of the terminal.** The agent runs in its terminal as before, and the
 chat shows that session. The agent reports its work through the interface that its

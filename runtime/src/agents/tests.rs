@@ -1,4 +1,3 @@
-#[cfg(unix)]
 use std::fs;
 use std::path::Path;
 
@@ -712,6 +711,29 @@ fn cursor_and_opencode_get_the_note_only_in_the_line_that_kodosi_types_where_the
     assert_eq!(major_version("1.19.5\n"), Some(1));
     assert_eq!(major_version("opencode v2.3.0\n"), Some(2));
     assert_eq!(major_version("opencode\n"), None);
+}
+
+#[test]
+fn kodosi_leaves_no_plugin_in_antigravity_s_folder_when_it_stops() {
+    let root = tempfile::tempdir().unwrap();
+    let root = kodosi_os::fs::canonicalize(root.path()).unwrap();
+    let notes = root.join("data").join("agents");
+    write_notes(&notes).unwrap();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+    let target = home.join(".gemini/config/plugins/kodosi");
+
+    mount_antigravity_plugin(&home, &notes, false).unwrap();
+    assert!(
+        !home.join(".gemini").exists(),
+        "a host that starts makes no folder for an Antigravity CLI that is not there"
+    );
+
+    mount_antigravity_plugin(&home, &notes, true).unwrap();
+    assert!(target.join("hooks.json").is_file());
+
+    unmount_antigravity_plugin(&home, &notes).unwrap();
+    assert!(!target.exists());
 }
 
 #[test]
