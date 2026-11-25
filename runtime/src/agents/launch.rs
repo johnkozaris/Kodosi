@@ -286,7 +286,22 @@ impl Launcher {
         } else {
             None
         };
-        let (line, pick) = plan(info, models.as_ref(), &saved, start, &self.shell)?;
+        let antigravity_title = if start.agent == Agent::Antigravity {
+            let home = self.home.clone();
+            tokio::task::spawn_blocking(move || !super::antigravity_has_title(&home))
+                .await
+                .unwrap_or(true)
+        } else {
+            false
+        };
+        let (line, pick) = plan(
+            info,
+            models.as_ref(),
+            &saved,
+            start,
+            &self.shell,
+            antigravity_title,
+        )?;
         let account = info
             .accounts
             .iter()
@@ -526,6 +541,7 @@ pub(super) fn plan(
     saved: &AgentPick,
     start: &AgentStart,
     shell: &Path,
+    antigravity_title: bool,
 ) -> Result<(String, AgentPick), String> {
     let label = info.agent.label();
     let account = match start.account.as_deref() {
@@ -597,7 +613,15 @@ pub(super) fn plan(
     .flatten()
     .collect::<Vec<_>>();
     Ok((
-        start_line(info.agent, &account.command, chosen, &chose, chat, shell),
+        start_line(
+            info.agent,
+            &account.command,
+            chosen,
+            &chose,
+            chat,
+            antigravity_title,
+            shell,
+        ),
         AgentPick {
             agent: info.agent,
             account: Some(account.name.clone()),
@@ -621,6 +645,7 @@ fn start_line(
     chosen: Vec<String>,
     chose: &Modes,
     chat: bool,
+    antigravity_title: bool,
     shell: &Path,
 ) -> String {
     let quoted = |words: &[&str]| {
@@ -642,7 +667,7 @@ fn start_line(
             .chain(quoted(server))
             .collect::<Vec<_>>()
     } else {
-        let modes = chose
+        let mut modes = chose
             .permission_words
             .iter()
             .chain(chose.output_words)
@@ -650,6 +675,9 @@ fn start_line(
             .map(|word| (*word).to_owned())
             .collect::<Vec<_>>();
         let modes = if agent == Agent::Antigravity {
+            if antigravity_title {
+                modes.extend(["--settings".to_owned(), super::ANTIGRAVITY_TITLE.to_owned()]);
+            }
             super::one_settings(modes)
         } else {
             modes

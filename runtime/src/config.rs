@@ -81,6 +81,19 @@ impl Config {
         })
     }
 
+    #[cfg(feature = "host")]
+    pub(crate) fn manages_home(&self) -> bool {
+        if !self.isolated {
+            return true;
+        }
+        let Some(root) = self.data_root.parent() else {
+            return false;
+        };
+        let root = kodosi_os::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+        let home = kodosi_os::fs::canonicalize(&self.home).unwrap_or_else(|_| self.home.clone());
+        home.starts_with(&root)
+    }
+
     #[cfg(test)]
     pub(crate) fn isolated(root: &Path) -> Result<Self> {
         secure_directory(root)?;

@@ -1356,12 +1356,11 @@ impl LocalActor {
         self.publish_canvas();
         self.publish_chat();
         if !titles_look_same(self.title.as_deref(), self.published_title.as_deref())
-            && let Some(title) = &self.title
             && self
                 .changes
                 .try_send(SessionChange::Title {
                     id: self.id,
-                    title: title.clone(),
+                    title: self.title.clone(),
                 })
                 .is_ok()
         {
@@ -1485,8 +1484,10 @@ impl LocalActor {
                     self.set_working_directory(path);
                 }
                 TerminalEffect::Title(title) => {
-                    self.metadata_dirty |= !titles_look_same(self.title.as_deref(), Some(&title));
-                    self.title = Some(title);
+                    let title = (!title.trim().is_empty()).then_some(title);
+                    self.metadata_dirty |=
+                        !titles_look_same(self.title.as_deref(), title.as_deref());
+                    self.title = title;
                 }
                 TerminalEffect::Bell => {
                     drop(self.changes.try_send(SessionChange::Bell { id: self.id }));

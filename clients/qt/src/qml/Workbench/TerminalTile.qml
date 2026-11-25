@@ -732,17 +732,22 @@ Item {
         Item {
             id: outsideNote
 
-            readonly property bool shown: root.session.programOutside === true
+            readonly property bool outside: root.session.programOutside === true
                 && Models.DesktopState.notedOutside.indexOf(root.sessionId) < 0
+            readonly property string noteText: root.session.programNote || ""
+            readonly property bool hasProgramNote: !outside
+                && noteText.length > 0
+                && Models.DesktopState.dismissedNotes[root.sessionId] !== noteText
+            readonly property bool shown: outside || hasProgramNote
 
             Layout.fillWidth: true
             Layout.leftMargin: 5
             Layout.rightMargin: 5
             Layout.bottomMargin: 5
-            implicitHeight: Math.max(34, outsideRow.implicitHeight + 8)
+            implicitHeight: Math.max(34, outsideRow.implicitHeight + 12)
             visible: shown
             opacity: shown ? 1 : 0
-            objectName: root.objectName + ".outside"
+            objectName: root.objectName + (outside ? ".outside" : ".note")
 
             Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade; easing.type: Easing.OutCubic } }
 
@@ -763,12 +768,14 @@ Item {
                     Layout.fillWidth: true
                     objectName: outsideNote.objectName + ".text"
                     Accessible.id: objectName
-                    text: qsTr("%1 started by hand doesn't see Kodosi. Start it from Kodosi next time.")
-                        .arg(Models.DesktopSettings.agentLabel(root.session.program || ""))
+                    text: outsideNote.outside
+                        ? qsTr("%1 started by hand doesn't see Kodosi. Start it from Kodosi next time.")
+                            .arg(Models.DesktopSettings.agentLabel(root.session.program || ""))
+                        : outsideNote.noteText
                     color: root.look.inkMuted
                     font.pixelSize: KodosiTheme.fontFootnote
                     wrapMode: Text.WordWrap
-                    maximumLineCount: 2
+                    maximumLineCount: outsideNote.outside ? 2 : 3
                     elide: Text.ElideRight
                 }
                 KIconButton {
@@ -778,7 +785,9 @@ Item {
                     glyph: "close"
                     size: 22
                     terminalLook: root.look
-                    onClicked: Models.DesktopState.noteOutside(root.sessionId)
+                    onClicked: outsideNote.outside
+                        ? Models.DesktopState.noteOutside(root.sessionId)
+                        : Models.DesktopState.dismissNote(root.sessionId, outsideNote.noteText)
                 }
             }
         }

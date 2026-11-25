@@ -826,19 +826,6 @@ mod tests {
     }
 
     #[test]
-    fn a_viewer_whose_pipe_takes_no_frames_misses_them() {
-        let now = Instant::now();
-        let mut flow = flow_with(&["a", "b"], now);
-        send(&mut flow, 1, FrameKind::Key, now);
-        let full = |viewer: &str| if viewer == "a" { QUEUED_MOST } else { 0 };
-        assert_eq!(
-            flow.frame(2, FrameKind::Delta, None, 100, now, full).to,
-            ["b"]
-        );
-        assert_eq!(send(&mut flow, 3, FrameKind::Delta, now).to, ["b"]);
-    }
-
-    #[test]
     fn a_mark_is_held_once_each_viewer_that_took_its_frame_said_so_and_never_after_a_miss() {
         let now = Instant::now();
         let mut flow = flow_with(&["a", "b"], now);

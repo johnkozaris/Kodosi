@@ -6,6 +6,7 @@ import com.kodosi.mobile.runtime.RuntimeJson
 import com.kodosi.mobile.runtime.Words
 import com.kodosi.mobile.runtime.fields
 import com.kodosi.mobile.runtime.value
+import java.text.Collator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -45,8 +46,14 @@ data class AccountState(
     val computers: List<Device> get() = devices.filter {
         it.deviceId in onlineHosts && it.deviceId != selfDeviceId &&
             !it.recoveryKey
+    }.sortedWith(byName(Device::label, Device::deviceId))
+}
+
+internal fun <T> byName(name: (T) -> String, id: (T) -> String): Comparator<T> {
+    val collator = Collator.getInstance().apply { strength = Collator.SECONDARY }
+    return Comparator { left, right ->
+        collator.compare(name(left), name(right)).takeIf { it != 0 } ?: id(left).compareTo(id(right))
     }
-        .sortedBy { it.label.lowercase() }
 }
 
 class AccountStore(private val commands: CommandSink, private val words: Words, private val language: () -> String) {

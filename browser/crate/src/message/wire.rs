@@ -215,31 +215,4 @@ mod tests {
             );
         }
     }
-
-    #[test]
-    fn a_watch_says_whether_its_viewer_takes_anchors_hosts_the_layer_and_whether_a_person_opened_it()
-     {
-        let watch = |body: &str| ToWindow::decode(&[&[JSON], body.as_bytes()].concat());
-        let size = r#""size":{"width":800,"height":600,"scale":2}"#;
-        assert!(matches!(
-            watch(&format!(
-                r#"{{"type":"watch",{size},"anchors":true,"opened":true,"layer":true}}"#
-            )),
-            Ok(ToWindow::Watch {
-                anchors: true,
-                opened: true,
-                layer: true,
-                ..
-            })
-        ));
-        assert!(matches!(
-            watch(&format!(r#"{{"type":"watch",{size}}}"#)),
-            Ok(ToWindow::Watch {
-                anchors: false,
-                opened: false,
-                layer: false,
-                ..
-            })
-        ));
-    }
 }

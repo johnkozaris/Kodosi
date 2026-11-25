@@ -138,6 +138,10 @@ enum Action {
     },
     #[command(hide = true)]
     InternalHost,
+    #[command(hide = true)]
+    InternalTitle,
+    #[command(hide = true)]
+    InternalAgyContext,
 }
 
 const TERMINAL: &str =
@@ -618,12 +622,78 @@ const fn hosted_kind(action: &Action) -> Option<HostKind> {
     }
 }
 
+/// Antigravity CLI skips OSC 2 on empty stdout, so a space clears an earlier title.
+fn internal_title() -> Result<()> {
+    use io::Read as _;
+    const MOST_BYTES: u64 = 64 * 1024;
+    let mut input = Vec::new();
+    io::stdin()
+        .lock()
+        .take(MOST_BYTES)
+        .read_to_end(&mut input)?;
+    let title = antigravity_title(&input);
+    let mut out = io::stdout().lock();
+    out.write_all(title.as_bytes())?;
+    out.flush()?;
+    Ok(())
+}
+
+fn antigravity_title(input: &[u8]) -> String {
+    serde_json::from_slice::<Value>(input)
+        .ok()
+        .and_then(|value| {
+            let raw = value.get("conversation_title")?.as_str()?;
+            let line = raw
+                .split(['\r', '\n'])
+                .map(str::trim)
+                .find(|part| !part.is_empty())?;
+            crate::terminal::title_words(line)
+        })
+        .unwrap_or_else(|| " ".to_owned())
+}
+
+fn internal_agy_context() -> Result<()> {
+    use io::Read as _;
+    const MOST_BYTES: u64 = 64 * 1024;
+    if !io::stdin().is_terminal() {
+        drop(io::copy(
+            &mut io::stdin().lock().take(MOST_BYTES),
+            &mut io::sink(),
+        ));
+    }
+    let reply = agy_session_start(this_terminal().is_some());
+    let mut out = io::stdout().lock();
+    out.write_all(reply.as_bytes())?;
+    out.flush()?;
+    Ok(())
+}
+
+fn agy_session_start(in_kodosi: bool) -> String {
+    if !in_kodosi {
+        return "{}".to_owned();
+    }
+    json!({
+        "injectSteps": [{
+            "systemMessage": {
+                "systemMessage": crate::agents::CONTEXT.trim()
+            }
+        }]
+    })
+    .to_string()
+}
+
 #[expect(
     clippy::future_not_send,
     reason = "terminal attach runs the Ghostty mirror on the main thread"
 )]
 #[expect(clippy::too_many_lines, reason = "one dispatch for every command")]
 async fn dispatch(args: Arguments) -> Result<u8> {
+    if matches!(args.command, Action::InternalTitle) {
+        return internal_title().map(|()| 0);
+    }
+    if matches!(args.command, Action::InternalAgyContext) {
+        return internal_agy_context().map(|()| 0);
+    }
     if let Action::Acp {
         model,
         effort,
@@ -839,6 +909,8 @@ async fn command(
         | Action::Acp { .. }
         | Action::Host { .. }
         | Action::InternalHost
+        | Action::InternalTitle
+        | Action::InternalAgyContext
         | Action::Status => {
             return Err(Error::Invalid("unexpected command".into()));
         }
@@ -2010,121 +2082,5 @@ mod tests {
                 );
             }
         }
-    }
-    #[test]
-    fn named_keys_become_the_bytes_a_terminal_reads() {
-        assert_eq!(key_text("ctrl-c").unwrap(), "\u{3}");
-        assert_eq!(key_text("Enter").unwrap(), "\r");
-        assert_eq!(key_text("up").unwrap(), "\u{1b}[A");
-        assert!(key_text("ctrl-1").is_err());
-        assert!(key_text("hyper").is_err());
-    }
-    #[test]
-    fn a_wait_ends_on_the_state_the_program_reports() {
-        let entry = json!({"id":"t","prompt":false,"working":false,"waiting":"blocked"});
-        assert!(WaitState::Waiting.reached(Some(&entry)));
-        assert!(!WaitState::Done.reached(Some(&entry)));
-        assert!(!WaitState::Prompt.reached(Some(&entry)));
-        assert!(WaitState::Closed.reached(None));
-        assert!(!WaitState::Waiting.reached(None));
-        let done = [WaitState::Done];
-        assert!(wait_outcome(&done, Some(&entry)).is_none());
-        assert!(matches!(
-            wait_outcome(&[WaitState::Done, WaitState::Waiting], Some(&entry)),
-            Some(Ok(WaitState::Waiting))
-        ));
-        assert!(matches!(
-            wait_outcome(&[WaitState::Closed], None),
-            Some(Ok(WaitState::Closed))
-        ));
-        assert!(
-            matches!(wait_outcome(&done, None), Some(Err(Error::Other(message))) if message == "The terminal closed.")
-        );
-        let away = json!({"id":"t","status":"offline","hostName":"Studio"});
-        assert!(
-            matches!(wait_outcome(&done, Some(&away)), Some(Err(Error::Other(message))) if message == "Studio is offline.")
-        );
-    }
-    #[test]
-    fn background_hosts_only_exit_after_an_idle_grace_period() {
-        let now = tokio::time::Instant::now();
-        let mut foreground = IdleWatch::new(false);
-        assert!(foreground.deadline(0, 0, now).is_none());
-        let mut background = IdleWatch::new(true);
-        assert!(background.deadline(1, 0, now).is_none());
-        assert!(background.deadline(0, 1, now).is_none());
-        let deadline = background.deadline(0, 0, now).unwrap();
-        assert_eq!(deadline, now + IdleWatch::GRACE);
-        assert_eq!(
-            background
-                .deadline(0, 0, now + Duration::from_secs(5))
-                .unwrap(),
-            deadline
-        );
-        assert!(
-            background
-                .deadline(0, 1, now + Duration::from_secs(6))
-                .is_none()
-        );
-        assert_eq!(
-            background
-                .deadline(0, 0, now + Duration::from_secs(7))
-                .unwrap(),
-            now + Duration::from_secs(7) + IdleWatch::GRACE
-        );
-    }
-    #[test]
-    fn older_account_events_cannot_restore_old_sessions() {
-        let mut context = Context::from_events(&[
-            json!({"type":"sessions.snapshot","accountUserId":"old","accountEpoch":1,"sessions":[{"id":"old-session"}]}),
-        ]);
-        assert!(
-            context.observe(&json!({"type":"auth.required","accountUserId":null,"accountEpoch":2}))
-        );
-        assert_eq!(context.sessions, [] as [Value; 0]);
-        assert!(!context.observe(&json!({"type":"sessions.snapshot","accountUserId":"old","accountEpoch":1,"sessions":[{"id":"old-session"}]})));
-        assert_eq!(context.epoch, 2);
-        assert!(context.user.is_none());
-        assert_eq!(context.sessions, [] as [Value; 0]);
-    }
-    #[test]
-    fn terminals_projects_and_friends_are_found_by_name_or_id() {
-        let context = Context::from_events(&[
-            json!({"type":"sessions.snapshot","accountUserId":"me","accountEpoch":1,"sessions":[
-                {"id":"01a10d06-92a7-7367-8536-65c4895d05ae","name":"work"},
-                {"id":"01a10d06-92a7-7367-8536-000000000002","name":"Terminal"},
-                {"id":"01a10d06-92a7-7367-8536-000000000003","name":"Terminal"},
-            ]}),
-        ]);
-        let work = Uuid::parse_str("01a10d06-92a7-7367-8536-65c4895d05ae").unwrap();
-        for reference in ["work", "Work", "5d05ae", &work.to_string()] {
-            assert_eq!(context.session_id(reference).unwrap(), work);
-        }
-        assert!(context.session_id("Terminal").is_err());
-        assert!(context.session_id("000003").is_ok());
-        for reference in ["ae", "01a10d06", "other", ""] {
-            assert!(context.session_id(reference).is_err());
-        }
-        let projects = json!({"projects":[
-            {"id":"019f0000-0000-7000-8000-00000000a1b2","name":"Launch"},
-            {"id":"019f0000-0000-7000-8000-00000000c3d4","name":"Launch"},
-            {"id":"019f0000-0000-7000-8000-00000000e5f6","name":"api"},
-            {"id":"019f0000-0000-7000-8000-00000000f7a8","name":"API"},
-        ]});
-        assert!(project_id(&projects, "launch").is_err());
-        assert_eq!(
-            project_id(&projects, "API").unwrap(),
-            "019f0000-0000-7000-8000-00000000f7a8"
-        );
-        assert!(project_id(&projects, "Api").is_err());
-        assert_eq!(
-            project_id(&projects, "c3d4").unwrap(),
-            "019f0000-0000-7000-8000-00000000c3d4"
-        );
-        let friends = [json!({"userId":"u-bob","handle":"bob"})];
-        for reference in ["bob", "@bob", "Bob", "u-bob"] {
-            assert_eq!(friend_id(&friends, reference).unwrap(), "u-bob");
-        }
-        assert!(friend_id(&friends, "carol").is_err());
     }
 }

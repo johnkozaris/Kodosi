@@ -184,10 +184,7 @@ fn a_redaction_leaves_the_words_nowhere_and_seals() {
         }],
     )
     .unwrap();
-    let Change::Group { changes } = &change else {
-        panic!("{change:?}");
-    };
-    assert!(Pdf::seals(&changes[0]));
+    assert!(Pdf::seals(&change));
     let new_file = saved(&model, &file);
     assert!(!contains_bytes(&new_file, b"secret number"));
     assert!(!text_of(&new_file, 1).contains("secret"));

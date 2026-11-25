@@ -117,7 +117,7 @@ Claude Code의 터미널은 채팅으로도 보여요. Kodosi가 시작한 Codex
 앱을 보여 주고, 나와 함께 쓰는 브라우저를 쓸 수 있어요. 터미널을 보고 있으면 에이전트가 보여
 주는 것으로 캔버스가 열려요. 캔버스의 파일이나 브라우저가 바뀌어도 열리지만, 직접 닫았다면
 열리지 않아요. 직접 열 때만 열리게 하려면 설정 › 일반에서 캔버스 자동으로 열기를 끄세요. Claude
-Code와 Copilot CLI는 직접 시작해도 방법을 알고, Kodosi가 시작한 Codex, Cursor,
+Code, Copilot CLI, Antigravity CLI는 직접 시작해도 방법을 알고, Kodosi가 시작한 Codex, Cursor,
 OpenCode도 알아요(OpenCode는 Mac과 Linux에서). 다른
 에이전트에게는 `kodosi skill canvas`를 읽으라고 하세요. 캔버스에 무언가 있으면 터미널 헤더에
 파일 버튼과 브라우저 버튼이 나오고, 새 소식이 있으면 구리색 점이 붙어요. 하나를 고르면 터미널
@@ -224,8 +224,8 @@ iPhone이나 iPad에서는 터미널의 +나 내 컴퓨터 옆의 +를 선택하
   바꿔요. GitHub는 `gh` 로그인이나 Git credential helper를, Gitea는 credential helper나
   `KODOSI_GITEA_URL` 서버용 `KODOSI_GITEA_TOKEN`을 써요. 자격 증명은 내 컴퓨터에 남아요.
 - 채팅에 `@`와 터미널 이름을 쓰면, Kodosi가 내 이름과 프로젝트를 붙여 그 터미널의 에이전트에게
-  메시지를 전달해요. 무엇을 할지는 에이전트가 정해요. Kodosi 터미널의 Claude Code와 Copilot CLI,
-  그리고 Kodosi가 시작한 Codex, Cursor, OpenCode(OpenCode는 Mac과 Linux에서)는
+  메시지를 전달해요. 무엇을 할지는 에이전트가 정해요. Kodosi 터미널의 Claude Code, Copilot CLI,
+  Antigravity CLI와 Kodosi가 시작한 Codex, Cursor, OpenCode(OpenCode는 Mac과 Linux에서)는
   Kodosi 안에서 실행된다는 걸 알고, `kodosi skill`은 에이전트가
   참여하는 데 필요한 [skill](../../runtime/skills/kodosi/SKILL.md)을 출력해요. Kodosi
   터미널에서는 명령이 프로젝트를 찾아요. 다른 곳에서는 `--project <name>`을 붙이세요.

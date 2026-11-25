@@ -216,7 +216,6 @@ impl RemoteTerminal {
             let subscription = subscribing.await?;
             let policy = ghostty_vt::TerminalPolicy {
                 console: subscription.checkpoint.console,
-                ..ghostty_vt::TerminalPolicy::default()
             };
             let text =
                 ghostty_vt::Terminal::from_snapshot(subscription.checkpoint.snapshot(), policy)
@@ -1031,15 +1030,12 @@ impl RemoteActor {
         }
     }
 
-    fn queue(&mut self, queued: QueuedControl) -> Result<()> {
+    fn queue(&mut self, queued: QueuedControl) {
         if self.queued.len() >= CONTROL_CAPACITY {
             if let Some(reply) = queued.reply {
                 drop(reply.send(Err(Error::Busy)));
-                return Ok(());
             }
-            return Err(Error::Text(text!(
-                "Remote input exceeded its connection buffer, and Kodosi did not send it again."
-            )));
+            return;
         }
         match (queued.connection, &queued.control) {
             (Some(id), TerminalControl::Input { .. }) => {
@@ -1052,7 +1048,7 @@ impl RemoteActor {
                 let (focused, returning) = (*focused, queued.returning);
                 self.queued.push_back(queued);
                 self.view_focused(id, focused, returning);
-                return Ok(());
+                return;
             }
             (None, TerminalControl::Input { .. })
                 if self.typed_at.is_some_and(|at| at.elapsed() < super::TYPING) =>
@@ -1060,12 +1056,11 @@ impl RemoteActor {
                 if let Some(reply) = queued.reply {
                     drop(reply.send(Err(Error::Text(super::someone_typing()))));
                 }
-                return Ok(());
+                return;
             }
             _ => {}
         }
         self.queued.push_back(queued);
-        Ok(())
     }
 
     fn view_focused(&mut self, id: Uuid, focused: bool, returning: bool) {
@@ -1683,7 +1678,10 @@ impl RemoteActor {
                     }
                     Ok(())
                 }
-                Some(Request::Control(queued)) => self.queue(queued),
+                Some(Request::Control(queued)) => {
+                    self.queue(queued);
+                    Ok(())
+                }
                 Some(request @ (Request::Canvas { .. } | Request::Document { .. })) if self.lost_too_long() => {
                     reject(request, Error::Text(reconnecting()));
                     Ok(())

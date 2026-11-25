@@ -44,9 +44,6 @@ use instance::{Instance, caught, code, handles, instance, payload, text};
 use subscriptions::{SubscriptionState, Subscriptions};
 pub use terminal_bridge::*;
 
-#[cfg(test)]
-use instance::Completion;
-
 pub const KODOSI_FFI_ABI_VERSION: u32 = 11;
 pub const KODOSI_MAX_FRAME_BYTES: usize = 8_388_608;
 pub const KODOSI_TERMINAL_SNAPSHOT_MAX_BYTES: usize = 281_018_368;

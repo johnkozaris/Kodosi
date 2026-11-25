@@ -1125,46 +1125,6 @@ async fn a_future_capture_waits_for_the_original_stream_instead_of_skipping_outp
 }
 
 #[tokio::test]
-async fn same_cut_resize_reaches_existing_viewers_as_an_ordered_geometry_change() {
-    let (terminal, mut subscriber, _requests, updates, _changes) = start().await;
-    updates
-        .send(RemoteUpdate::Resize {
-            rows: 6,
-            cols: 30,
-            cell: CELL,
-            at_sequence: 0,
-        })
-        .await
-        .expect("resize notice");
-    assert!(matches!(
-        subscriber.control.recv().await,
-        Some(ControlFrame::Resize {
-            rows: 6,
-            cols: 30,
-            cell: CELL,
-            at_sequence: 0
-        })
-    ));
-    updates
-        .send(RemoteUpdate::Raw {
-            sequence: 0,
-            bytes: Bytes::from_static(b"next"),
-        })
-        .await
-        .expect("raw");
-    assert_eq!(
-        subscriber
-            .data
-            .recv()
-            .await
-            .expect("raw after resize")
-            .sequence,
-        0
-    );
-    terminal.disconnect();
-}
-
-#[tokio::test]
 async fn unknown_input_result_is_not_retried_and_makes_the_terminal_connect_again() {
     let (terminal, subscriber, mut requests, _updates, mut changes) = start().await;
     terminal

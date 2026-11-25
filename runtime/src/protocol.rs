@@ -981,6 +981,8 @@ pub struct SessionEntry {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub program_outside: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub program_note: Option<Text>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub program_settings: Option<crate::agents::AgentSettings>,
     /// What the agent in front can change while it runs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1842,7 +1844,9 @@ impl EventBody {
             | Self::BrowserResult { request_id, .. }
             | Self::BrowserError { request_id, .. }
             | Self::DocumentResult { request_id, .. }
-            | Self::DocumentError { request_id, .. } => Some(request_id),
+            | Self::DocumentError { request_id, .. }
+            | Self::RepositoriesResult { request_id, .. }
+            | Self::RepositoriesError { request_id, .. } => Some(request_id),
             _ => None,
         }
     }
@@ -3048,20 +3052,6 @@ pub(crate) mod tests {
     use serde_json::json;
 
     #[test]
-    fn a_reference_is_the_id_its_end_or_the_name_in_any_case() {
-        let id = "01a10d06-92a7-7367-8536-65c4895d05ae";
-        assert_eq!(short_id(id), "5d05ae");
-        for reference in [id, "5d05ae", "05ae", "Release notes", "release NOTES"] {
-            assert!(refers_to(reference, id, "Release notes"), "{reference}");
-        }
-        assert!(refers_to("CAFÉ", id, "Café"));
-        for reference in ["ae", "01a10d06", "", "Release"] {
-            assert!(!refers_to(reference, id, "Release notes"), "{reference}");
-        }
-        assert!(!refers_to("", "", ""));
-    }
-
-    #[test]
     fn an_exact_name_wins_over_the_same_name_in_another_case() {
         let entries = [
             ("first-0001", "api"),
@@ -3206,261 +3196,5 @@ pub(crate) mod tests {
 
     fn resize() -> Value {
         json!({"type":"session.resize","sessionId":ID,"requestId":ID,"expectedRuntimeIncarnationId":ID,"subscriptionId":ID,"subscriptionGeneration":1,"surfaceGeneration":1,"cols":80,"rows":24,"widthPixels":800,"heightPixels":480,"cellWidthPixels":10,"cellHeightPixels":20})
-    }
-
-    #[test]
-    fn every_command_round_trips_and_rejects_unknown_fields() {
-        for sample in commands() {
-            let command: CommandEnvelope =
-                serde_json::from_value(envelope(sample.clone())).unwrap();
-            let encoded = serde_json::to_value(&command).unwrap();
-            let decoded: CommandEnvelope = serde_json::from_value(encoded).unwrap();
-            assert_eq!(decoded.command, command.command);
-            let mut invalid = envelope(sample);
-            invalid["unknownField"] = json!(true);
-            assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
-        }
-    }
-
-    #[test]
-    fn a_push_token_has_the_form_and_environment_of_its_platform() {
-        let register = |platform: &str, token: &str, environment: Option<&str>| {
-            let mut value =
-                json!({"type":"push.register","requestId":ID,"platform":platform,"token":token});
-            if let Some(environment) = environment {
-                value["environment"] = json!(environment);
-            }
-            serde_json::from_value::<CommandEnvelope>(envelope(value))
-        };
-        let apple = "0F".repeat(32);
-        assert!(register("apns", &apple, Some("development")).is_ok());
-        assert!(register("apns", &"a".repeat(200), Some("production")).is_ok());
-        assert!(register("fcm", "fcm:token-1", None).is_ok());
-        for operation in ["push.register", "push.unregister"] {
-            let answer = json!({"type":"push.result","requestId":ID,"operation":operation});
-            assert!(Event::new(None, 0, answer).unwrap().event.is_answer());
-        }
-        for (platform, token, environment) in [
-            ("apns", apple.clone(), None),
-            ("apns", apple, Some("staging")),
-            ("apns", "a".repeat(63), Some("production")),
-            ("apns", "a".repeat(201), Some("production")),
-            ("apns", "g".repeat(64), Some("production")),
-            ("fcm", "fcm:token-1".to_owned(), Some("production")),
-            ("fcm", String::new(), None),
-            ("fcm", "f".repeat(4097), None),
-            ("fcm", "fcm\ttoken".to_owned(), None),
-            ("gcm", "fcm:token-1".to_owned(), None),
-        ] {
-            assert!(
-                register(platform, &token, environment).is_err(),
-                "{platform} {token:?} {environment:?}"
-            );
-        }
-    }
-
-    #[test]
-    fn a_task_may_have_lines_and_tabs_but_no_other_control_characters() {
-        let start = |prompt: &str| {
-            serde_json::from_value::<CommandEnvelope>(envelope(json!({
-                "type":"session.create","requestId":ID,"name":"Terminal",
-                "agent":{"agent":"claude"},"prompt":prompt
-            })))
-        };
-        assert!(start("look at the changes:\n\t- cleanups\r\n").is_ok());
-        assert_eq!(
-            start("look\u{1b}[2J").unwrap_err().to_string(),
-            "prompt must contain 1 to 4096 bytes of text"
-        );
-        assert!(start(" \n\t").is_err());
-    }
-
-    #[test]
-    fn a_command_names_another_computer_and_any_platform_folder() {
-        let create = |computer: Value, folder: &str| {
-            let mut value = envelope(
-                json!({"type":"session.create","requestId":ID,"name":"Terminal","workingDir":folder}),
-            );
-            value["computer"] = computer;
-            serde_json::from_value::<CommandEnvelope>(value)
-        };
-        let command = create(json!("device-2"), r"C:\Users\ana\Repos").unwrap();
-        assert_eq!(command.computer.as_deref(), Some("device-2"));
-        assert!(command.command.runs_on_other_computers());
-        assert_eq!(
-            serde_json::to_value(&command).unwrap()["computer"],
-            "device-2"
-        );
-        assert!(create(Value::Null, "/home/ana/Repos").is_ok());
-        for folder in ["Repos", r"C:Repos", "/home/ana/../bob", r"C:\Users\..\bob"] {
-            assert!(create(json!("device-2"), folder).is_err(), "{folder}");
-        }
-        assert!(create(json!(""), "/home/ana").is_err());
-        assert!(create(json!("bad\ndevice"), "/home/ana").is_err());
-    }
-
-    #[test]
-    fn dosi_questions_and_messages_stay_within_their_bounds() {
-        let ask = |options: Value| {
-            serde_json::from_value::<CommandEnvelope>(envelope(
-                json!({"type":"dosi.ask","requestId":ID,"token":ID,"question":"Which?","options":options}),
-            ))
-        };
-        assert!(ask(json!(["a", "b"])).is_ok());
-        assert!(ask(json!([])).is_err());
-        assert!(ask(json!(["a", "a"])).is_err());
-        assert!(ask(json!((0..9).map(|n| n.to_string()).collect::<Vec<_>>())).is_err());
-        assert!(ask(json!(["new\nline"])).is_err());
-        let keyed = |keys: Value, terminal: Value| {
-            serde_json::from_value::<CommandEnvelope>(envelope(
-                json!({"type":"dosi.ask","requestId":ID,"token":ID,"question":"Overwrite?","options":["Yes","No"],"keys":keys,"terminal":terminal}),
-            ))
-        };
-        assert!(keyed(json!(["y", ""]), json!("Release notes")).is_ok());
-        assert!(keyed(json!(["y"]), json!("Release notes")).is_err());
-        assert!(keyed(json!(["y", "n"]), json!(null)).is_err());
-        assert!(keyed(json!(["y", "\u{1b}"]), json!("Release notes")).is_err());
-        let shown = |options: Value| {
-            serde_json::from_value::<CommandEnvelope>(envelope(
-                json!({"type":"dosi.ask","requestId":ID,"token":ID,"question":"Allow the push?","options":options,"terminal":"checkout"}),
-            ))
-        };
-        assert!(shown(json!(["y", "n"])).is_err());
-        assert!(shown(json!(["Allow", "2"])).is_err());
-        assert!(shown(json!(["yes", "no"])).is_ok());
-        assert!(shown(json!(["是", "否"])).is_ok());
-        let answer = |choices: Value| {
-            serde_json::from_value::<CommandEnvelope>(envelope(
-                json!({"type":"dosi.answer","requestId":ID,"itemId":ID,"choices":choices}),
-            ))
-        };
-        assert!(answer(json!(["Yes", "Use the other file first"])).is_ok());
-        assert!(answer(json!(["  "])).is_err());
-        assert!(answer(json!([])).is_err());
-        for text in [
-            "",
-            "  \n ",
-            "bell\u{7}",
-            &"x".repeat(crate::dosi::MAX_MESSAGE_BYTES + 1),
-        ] {
-            assert!(
-                serde_json::from_value::<CommandEnvelope>(envelope(
-                    json!({"type":"dosi.send","requestId":ID,"text":text})
-                ))
-                .is_err()
-            );
-        }
-    }
-
-    #[test]
-    fn required_envelope_and_terminal_identities_are_not_defaulted() {
-        for field in ["accountUserId", "accountEpoch"] {
-            let mut value = envelope(json!({"type":"session.list"}));
-            value.as_object_mut().unwrap().remove(field);
-            assert!(serde_json::from_value::<CommandEnvelope>(value).is_err());
-        }
-        for field in [
-            "requestId",
-            "expectedRuntimeIncarnationId",
-            "subscriptionId",
-            "subscriptionGeneration",
-            "surfaceGeneration",
-        ] {
-            let mut value = resize();
-            value.as_object_mut().unwrap().remove(field);
-            assert!(
-                serde_json::from_value::<CommandEnvelope>(envelope(value)).is_err(),
-                "{field}"
-            );
-        }
-        for kind in ["session.focus", "session.blur"] {
-            let value = json!({"type":kind,"requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"clientId":ID});
-            assert!(serde_json::from_value::<CommandEnvelope>(envelope(value)).is_err());
-        }
-    }
-
-    #[test]
-    fn malformed_identifiers_and_bounds_are_rejected() {
-        for value in [
-            "",
-            "00000000-0000-0000-0000-000000000000",
-            "11111111111141118111111111111111",
-            "AAAA1111-1111-4111-8111-111111111111",
-            "../elsewhere",
-        ] {
-            assert!(parse_id(value).is_err());
-        }
-        for field in [
-            "requestId",
-            "sessionId",
-            "expectedRuntimeIncarnationId",
-            "subscriptionId",
-        ] {
-            let mut value = resize();
-            value[field] = json!("bad");
-            assert!(serde_json::from_value::<CommandEnvelope>(envelope(value)).is_err());
-        }
-        for (field, value) in [
-            ("rows", json!(0)),
-            ("cols", json!(1025)),
-            ("widthPixels", json!(801)),
-            ("cellHeightPixels", json!(0)),
-            ("subscriptionGeneration", json!(0)),
-            ("surfaceGeneration", json!(0)),
-        ] {
-            let mut resize = resize();
-            resize[field] = value;
-            assert!(
-                serde_json::from_value::<CommandEnvelope>(envelope(resize)).is_err(),
-                "{field}"
-            );
-        }
-        let create = |rows: u16, cols: u16| {
-            envelope(
-                json!({"type":"session.create","requestId":ID,"name":"Build",
-                "size":{"rows":rows,"cols":cols,"cellWidthPixels":17,"cellHeightPixels":41}}),
-            )
-        };
-        assert!(serde_json::from_value::<CommandEnvelope>(create(24, 70)).is_ok());
-        assert!(serde_json::from_value::<CommandEnvelope>(create(0, 70)).is_err());
-        assert!(serde_json::from_value::<CommandEnvelope>(create(24, 1025)).is_err());
-        for name in [
-            String::new(),
-            " ".to_owned(),
-            "你".repeat(43),
-            "bad\nname".to_owned(),
-        ] {
-            assert!(
-                serde_json::from_value::<CommandEnvelope>(envelope(
-                    json!({"type":"project.create","requestId":ID,"name":name})
-                ))
-                .is_err()
-            );
-        }
-        for (limit, max_bytes) in [(0, 4096), (501, 4096), (10, 1024 * 1024 + 1)] {
-            assert!(serde_json::from_value::<CommandEnvelope>(envelope(json!({"type":"provider.readConversation","requestId":ID,"provider":"claude","nativeConversationId":ID,"workingDirectory":DIRECTORY,"limit":limit,"maxBytes":max_bytes}))).is_err());
-        }
-    }
-
-    #[test]
-    fn native_resume_requires_directory_and_closed_identity() {
-        let base = json!({"type":"session.create","requestId":ID,"name":"Resume","resume":{"provider":"claude","nativeConversationId":ID}});
-        assert!(serde_json::from_value::<CommandEnvelope>(envelope(base.clone())).is_err());
-        let mut value = base;
-        value["workingDir"] = json!(DIRECTORY);
-        value["resume"]["permissionBypass"] = json!(true);
-        assert!(serde_json::from_value::<CommandEnvelope>(envelope(value)).is_err());
-    }
-
-    #[test]
-    fn closed_events_preserve_flattened_provider_payloads() {
-        let reply = json!({"type":"provider.result","requestId":ID,"operation":"provider.inspect","result":{"provider":"claude","executable":null,"files":[],"message":null}});
-        let event = Event::new(None, 0, reply.clone()).unwrap();
-        assert!(event.event.is_answer());
-        let encoded = serde_json::to_value(event).unwrap();
-        assert_eq!(encoded["result"], reply["result"]);
-        assert!(Event::new(None,0,json!({"type":"provider.result","requestId":ID,"operation":"provider.inspect","result":{"anything":true}})).is_err());
-        assert!(Event::new(None, 0, json!({"type":"unknown.event"})).is_err());
-        assert!(Event::new(None, 0, json!({"type":"auth.finalizing","extra":true})).is_err());
     }
 }

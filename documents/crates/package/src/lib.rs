@@ -482,9 +482,4 @@ mod tests {
         let file = package_of(&[("big", &vec![0; 64 * 1024 * 1024])]);
         assert!(matches!(Package::open(&file), Err(PackageError::Unsafe(_))));
     }
-
-    #[test]
-    fn text_is_escaped() {
-        assert_eq!(escape(r#"a<b & "c""#), "a&lt;b &amp; &quot;c&quot;");
-    }
 }

@@ -290,7 +290,6 @@ impl SessionTerminal {
             rows,
             TerminalPolicy {
                 console: kodosi_pty::CONSOLE_HOST,
-                ..TerminalPolicy::default()
             },
         )
         .map_err(terminal_error)?;

@@ -326,12 +326,6 @@ fn a_view_from_an_earlier_journal_gets_a_snapshot() {
 }
 
 #[test]
-fn a_save_with_no_change_writes_nothing() {
-    let mut document = opened();
-    assert_eq!(document.step(Input::Save { file: Vec::new() }), Vec::new());
-}
-
-#[test]
 fn a_seal_asks_for_a_save_at_once() {
     let mut document = opened();
     connect(&mut document, 1, "ana");

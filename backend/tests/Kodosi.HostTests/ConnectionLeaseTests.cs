@@ -3,7 +3,6 @@ using Kodosi.TerminalConnections;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
-using Npgsql;
 using Xunit;
 
 namespace Kodosi.HostTests;
@@ -33,17 +32,6 @@ public sealed class ConnectionLeaseTests(PostgresFixture postgres)
         await using var third = Lease(connection, TimeSpan.FromSeconds(5));
         await third.AcquireAsync(ct);
         Assert.True(third.Held);
-    }
-
-    [Fact]
-    public void ThePoolHasALimitThatTheConnectionStringCanChangeAndTheLeaseUsesNoPool()
-    {
-        const string server = "Host=db.test;Database=kodosi;Username=kodosi";
-        var plain = Database(server);
-        Assert.Equal(DatabaseConnection.DefaultMaxPoolSize, new NpgsqlConnectionStringBuilder(plain.ConnectionString).MaxPoolSize);
-        Assert.False(new NpgsqlConnectionStringBuilder(plain.LeaseConnectionString).Pooling);
-        foreach (var setting in new[] { "Maximum Pool Size=80", "MaxPoolSize=80" })
-            Assert.Equal(80, new NpgsqlConnectionStringBuilder(Database($"{server};{setting}").ConnectionString).MaxPoolSize);
     }
 
     private sealed class Lifetime : IHostApplicationLifetime

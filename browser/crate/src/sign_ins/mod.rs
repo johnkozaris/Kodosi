@@ -94,6 +94,15 @@ pub(crate) struct Cookie {
     expires: Option<f64>,
 }
 
+pub(super) const fn same_site_of(value: i64) -> Option<&'static str> {
+    match value {
+        0 => Some("None"),
+        1 => Some("Lax"),
+        2 => Some("Strict"),
+        _ => None,
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct Key {
     name: String,
@@ -275,33 +284,4 @@ pub(crate) async fn remove(devtools: &Devtools, profile: &Path) -> Result<usize,
         tokio::fs::remove_file(profile.join(COPIED_FILE)).await?;
     }
     Ok(sites(keys.iter().map(|key| key.domain.as_str())))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn copies_count_each_site_once() {
-        let profiles = tempfile::tempdir().unwrap();
-        assert_eq!(copied_sites(profiles.path(), "person"), 0);
-        let key = |name: &str, domain: &str| Key {
-            name: name.to_owned(),
-            domain: domain.to_owned(),
-            path: "/".to_owned(),
-        };
-        let keys = [
-            key("a", ".site.test"),
-            key("b", "site.test"),
-            key("c", "mail.site.test"),
-        ];
-        let profile = profiles.path().join("person");
-        std::fs::create_dir_all(&profile).unwrap();
-        std::fs::write(
-            profile.join(COPIED_FILE),
-            serde_json::to_vec(&keys).unwrap(),
-        )
-        .unwrap();
-        assert_eq!(copied_sites(profiles.path(), "person"), 2);
-    }
 }

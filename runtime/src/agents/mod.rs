@@ -388,9 +388,8 @@ impl Agent {
     /// a plugin only from its command line. `OpenCode` reads instructions only from its
     /// configuration, and `OpenCode` 2 reads that in its shared background server unless it runs
     /// with `--standalone`, so the configuration goes only to the program that Kodosi starts.
-    /// Antigravity CLI loads a plugin only from its own folders or from a folder that its line adds
-    /// to its workspace, and it takes the first folder there as the one where it works, so it gets
-    /// no note.
+    /// Antigravity CLI discovers plugins only in `~/.gemini/config/plugins/`, so Kodosi mounts
+    /// its plugin there while Kodosi runs and gates its `SessionStart` hook on `KODOSI_SESSION_ID`.
     #[cfg(feature = "host")]
     pub(crate) fn with_context(self, command: &str, notes: &Notes) -> String {
         let shell = &notes.shell;
@@ -542,6 +541,10 @@ const ANTIGRAVITY_QUIET: &str =
     r#"{"verbosity":"low","showTips":false,"showFeedbackSurvey":false}"#;
 #[cfg(feature = "host")]
 const ANTIGRAVITY_DETAILED: &str = r#"{"verbosity":"high","showThinking":true}"#;
+/// Antigravity CLI does not set a terminal title unless a `title` command is configured.
+#[cfg(feature = "host")]
+pub(super) const ANTIGRAVITY_TITLE: &str =
+    r#"{"title":{"command":"kodosi internal-title","type":"command"}}"#;
 /// Kodosi starts no agent in a chat session of its own: Google's FAQ says that agy inside
 /// another application is not supported on personal plans, and no check with a signed-in
 /// account showed yet that Google takes it.
@@ -561,6 +564,8 @@ const PLUGIN: &str = "plugin";
 const CURSOR_PLUGIN: &str = "cursor";
 #[cfg(feature = "host")]
 const COPILOT_PLUGIN: &str = "copilot";
+#[cfg(feature = "host")]
+const ANTIGRAVITY_PLUGIN: &str = "antigravity";
 /// Copilot names an extension of a plugin by the plugin's name and the extension's folder.
 #[cfg(feature = "host")]
 const COPILOT_EXTENSION: &str = "plugin:kodosi:kodosi";
@@ -615,6 +620,34 @@ const CLAUDE_HOOKS: &str = r#"{
 }
 "#;
 
+/// Outside a Kodosi terminal, the shell guard answers `{}` without looking up `kodosi` on `PATH`.
+#[cfg(all(feature = "host", unix))]
+const ANTIGRAVITY_HOOKS: &str = r#"{
+  "kodosi": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "if [ -n \"$KODOSI_SESSION_ID\" ]; then kodosi internal-agy-context; else printf '{}'; fi"
+      }
+    ]
+  }
+}
+"#;
+
+/// Outside a Kodosi terminal, the shell guard answers `{}` without looking up `kodosi` on `PATH`.
+#[cfg(all(feature = "host", not(unix)))]
+const ANTIGRAVITY_HOOKS: &str = r#"{
+  "kodosi": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "if defined KODOSI_SESSION_ID (kodosi internal-agy-context) else (echo {})"
+      }
+    ]
+  }
+}
+"#;
+
 #[cfg(feature = "host")]
 pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
     let plugin = folder.join(PLUGIN);
@@ -623,6 +656,7 @@ pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
         crate::PRODUCT_VERSION
     );
     let cursor = folder.join(CURSOR_PLUGIN);
+    let antigravity = folder.join(ANTIGRAVITY_PLUGIN);
     let skills = |plugin: &Path| {
         let skills = plugin.join("skills");
         [
@@ -669,7 +703,10 @@ pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
             cursor.join(".cursor-plugin").join("plugin.json"),
             manifest.clone(),
         ),
-        (folder.join(COPILOT_PLUGIN).join("plugin.json"), manifest),
+        (
+            folder.join(COPILOT_PLUGIN).join("plugin.json"),
+            manifest.clone(),
+        ),
         (
             folder
                 .join(COPILOT_PLUGIN)
@@ -682,10 +719,13 @@ pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
             cursor.join("rules").join("kodosi.mdc"),
             format!("---\nalwaysApply: true\n---\n\n{}\n", CONTEXT.trim()),
         ),
+        (antigravity.join("plugin.json"), manifest),
+        (antigravity.join("hooks.json"), ANTIGRAVITY_HOOKS.to_owned()),
     ]
     .into_iter()
     .chain(skills(&plugin))
-    .chain(skills(&cursor));
+    .chain(skills(&cursor))
+    .chain(skills(&antigravity));
     for (file, text) in files {
         if std::fs::read_to_string(&file).is_ok_and(|current| current == text) {
             continue;
@@ -792,6 +832,232 @@ pub(crate) fn allow_copilot_link(home: &Path, folder: &Path) -> std::io::Result<
     let mut text = serde_json::to_vec_pretty(&approvals)?;
     text.push(b'\n');
     kodosi_os::fs::replace_keeping_permissions(&file, &text)
+}
+
+#[cfg(feature = "host")]
+fn read_json(file: &Path) -> Option<serde_json::Value> {
+    use std::io::Read as _;
+    const MOST_BYTES: u64 = 1024 * 1024;
+    if !std::fs::metadata(file).ok()?.is_file() {
+        return None;
+    }
+    let mut bytes = Vec::new();
+    std::fs::File::open(file)
+        .ok()?
+        .take(MOST_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .ok()?;
+    if bytes.len() as u64 > MOST_BYTES {
+        return None;
+    }
+    serde_json::from_slice(&bytes).ok()
+}
+
+#[cfg(feature = "host")]
+pub(crate) fn antigravity_has_title(home: &Path) -> bool {
+    let settings = home
+        .join(".gemini")
+        .join("antigravity-cli")
+        .join("settings.json");
+    read_json(&settings)
+        .and_then(|value| {
+            value
+                .get("title")?
+                .get("command")?
+                .as_str()
+                .map(|command| !command.trim().is_empty())
+        })
+        .unwrap_or(false)
+}
+
+#[cfg(feature = "host")]
+fn antigravity_plugin_paths(home: &Path, notes: &Path) -> (std::path::PathBuf, std::path::PathBuf) {
+    let source = notes.join(ANTIGRAVITY_PLUGIN);
+    let source = kodosi_os::fs::canonicalize(&source).unwrap_or(source);
+    let target = home
+        .join(".gemini")
+        .join("config")
+        .join("plugins")
+        .join(PLUGIN_NAME);
+    (source, target)
+}
+
+#[cfg(all(feature = "host", not(unix)))]
+const ANTIGRAVITY_MARKER: &str = ".kodosi-managed";
+
+#[cfg(all(feature = "host", not(unix)))]
+fn managed_antigravity_dir(target: &Path, source: &Path) -> bool {
+    std::fs::read_to_string(target.join(ANTIGRAVITY_MARKER))
+        .is_ok_and(|owner| owner.trim() == source.to_string_lossy().as_ref())
+}
+
+/// Windows directory symlinks need Developer Mode or elevation, so Kodosi mirrors the plugin
+/// directory and marks it with its source path.
+#[cfg(all(feature = "host", not(unix)))]
+fn sync_tree(source: &Path, target: &Path, keep_marker: bool) -> std::io::Result<()> {
+    for entry in std::fs::read_dir(target)? {
+        let entry = entry?;
+        let name = entry.file_name();
+        if keep_marker && name == ANTIGRAVITY_MARKER {
+            continue;
+        }
+        if !source.join(&name).exists() {
+            let path = entry.path();
+            if entry.file_type()?.is_dir() {
+                std::fs::remove_dir_all(path)?;
+            } else {
+                std::fs::remove_file(path)?;
+            }
+        }
+    }
+    for entry in std::fs::read_dir(source)? {
+        let entry = entry?;
+        let from = entry.path();
+        let to = target.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            std::fs::create_dir_all(&to)?;
+            sync_tree(&from, &to, false)?;
+        } else {
+            let bytes = std::fs::read(&from)?;
+            if std::fs::read(&to).ok().as_deref() != Some(bytes.as_slice()) {
+                kodosi_os::fs::write_private(&to, &bytes)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+#[cfg(feature = "host")]
+pub(crate) fn mount_antigravity_plugin(
+    home: &Path,
+    notes: &Path,
+    create_root: bool,
+) -> std::io::Result<()> {
+    let source = notes.join(ANTIGRAVITY_PLUGIN);
+    if !source.join("plugin.json").is_file() {
+        return Ok(());
+    }
+    let gemini = home.join(".gemini");
+    if !create_root && !gemini.is_dir() {
+        return Ok(());
+    }
+    let (source, target) = antigravity_plugin_paths(home, notes);
+    #[cfg(unix)]
+    {
+        match std::fs::symlink_metadata(&target) {
+            Ok(_) => Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                if let Some(parent) = target.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+                match std::os::unix::fs::symlink(&source, &target) {
+                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => Ok(()),
+                    result => result,
+                }
+            }
+            Err(error) => Err(error),
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        match std::fs::symlink_metadata(&target) {
+            Ok(metadata)
+                if metadata.file_type().is_dir() && managed_antigravity_dir(&target, &source) =>
+            {
+                sync_tree(&source, &target, true)
+            }
+            Ok(_) => Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                if let Some(parent) = target.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+                match std::fs::create_dir(&target) {
+                    Ok(()) => {}
+                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                        return Ok(());
+                    }
+                    Err(error) => return Err(error),
+                }
+                let result = kodosi_os::fs::write_private(
+                    &target.join(ANTIGRAVITY_MARKER),
+                    source.to_string_lossy().as_bytes(),
+                )
+                .and_then(|()| sync_tree(&source, &target, true));
+                if result.is_err() {
+                    drop(std::fs::remove_dir_all(&target));
+                }
+                result
+            }
+            Err(error) => Err(error),
+        }
+    }
+}
+
+#[cfg(feature = "host")]
+pub(crate) fn unmount_antigravity_plugin(home: &Path, notes: &Path) -> std::io::Result<()> {
+    let (source, target) = antigravity_plugin_paths(home, notes);
+    #[cfg(unix)]
+    {
+        match std::fs::symlink_metadata(&target) {
+            Ok(metadata)
+                if metadata.file_type().is_symlink()
+                    && std::fs::read_link(&target).ok().as_deref() == Some(source.as_path()) =>
+            {
+                std::fs::remove_file(&target)
+            }
+            Ok(_) => Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(error),
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        match std::fs::symlink_metadata(&target) {
+            Ok(metadata)
+                if metadata.file_type().is_dir() && managed_antigravity_dir(&target, &source) =>
+            {
+                std::fs::remove_dir_all(&target)
+            }
+            Ok(_) => Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(error),
+        }
+    }
+}
+
+#[cfg(feature = "host")]
+pub(crate) fn copilot_chat_note(home: &Path) -> Option<crate::text::Text> {
+    let value = read_json(&home.join("settings.json"))?;
+    let extensions = value.get("extensions")?.as_object()?;
+    let disabled_all = extensions
+        .get("enabled")
+        .and_then(serde_json::Value::as_bool)
+        .map_or_else(
+            || {
+                matches!(
+                    extensions.get("mode").and_then(serde_json::Value::as_str),
+                    Some("disabled" | "load_only")
+                )
+            },
+            |enabled| !enabled,
+        );
+    if disabled_all {
+        return Some(crate::text!(
+            "Copilot CLI has extensions turned off, so it has no chat. Run copilot config extensions.enabled true, then start it again."
+        ));
+    }
+    let disabled_kodosi = extensions
+        .get("disabledExtensions")
+        .and_then(serde_json::Value::as_array)
+        .is_some_and(|list| {
+            list.iter()
+                .any(|item| item.as_str() == Some(COPILOT_EXTENSION))
+        });
+    disabled_kodosi.then(|| {
+        crate::text!(
+            "Copilot CLI turned off Kodosi's extension, so it has no chat. Turn it on in /extensions, then start it again."
+        )
+    })
 }
 
 #[cfg(feature = "host")]

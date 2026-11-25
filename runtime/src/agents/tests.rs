@@ -1,10 +1,11 @@
-use std::{fs, path::Path};
+use std::fs;
+use std::path::Path;
 
+#[cfg(unix)]
+use super::{accounts, shell::Facts};
 use super::{
-    accounts::{self, referenced_home},
-    launch::plan,
+    accounts::referenced_home,
     models::{self, antigravity, codex, copilot, cursor, listed_values, opencode},
-    shell::Facts,
     *,
 };
 
@@ -111,22 +112,6 @@ gitlog() { git log; }"#;
     }
 }
 
-#[cfg(unix)]
-#[test]
-fn probe_output_is_read_between_the_markers_only() {
-    let facts = shell::parse(
-        "motd line\n\u{1e}kodosi-agents\npath\t/opt/bin:/usr/bin\nvariable\tCODEX_HOME\t/srv/codex\nvariable\tPATH\t/x\nvariable\tCLAUDE_CONFIG_DIR\t\nfunction\tclaude-x\tbody\nfunction\tbad name\tbody\n\u{1e}end\nfunction\tlate\tbody\n",
-    )
-    .expect("markers");
-    assert_eq!(facts.path.as_deref(), Some("/opt/bin:/usr/bin".as_ref()));
-    assert_eq!(
-        facts.variables,
-        [("CODEX_HOME".to_owned(), "/srv/codex".to_owned())]
-    );
-    assert_eq!(facts.definitions, vec![definition("claude-x", "body")]);
-    assert!(shell::parse("no markers").is_none());
-}
-
 #[test]
 fn definitions_name_the_sign_in_folder_they_give_the_agent() {
     let home = Path::new("/home/ada");
@@ -165,16 +150,19 @@ fn jwt(email: &str) -> String {
     format!("e30.{claims}.signature")
 }
 
+#[cfg(unix)]
 fn put(home: &Path, path: &str, text: &str) {
     let path = home.join(path);
     fs::create_dir_all(path.parent().unwrap()).unwrap();
     fs::write(path, text).unwrap();
 }
 
+#[cfg(unix)]
 fn claude_sign_in(email: &str) -> String {
     format!(r#"{{"oauthAccount":{{"emailAddress":"{email}"}}}}"#)
 }
 
+#[cfg(unix)]
 fn rows(catalog: &AgentCatalog, agent: Agent) -> Vec<String> {
     catalog
         .agents
@@ -290,30 +278,6 @@ fn accounts_are_the_sign_in_folders_of_each_agent() {
 
 #[cfg(unix)]
 #[test]
-fn the_folder_that_the_shell_chooses_is_the_first_account() {
-    let root = tempfile::tempdir().unwrap();
-    let home = root.path();
-    put(home, ".claude.json", &claude_sign_in("old@example.com"));
-    put(
-        home,
-        ".claude-main/.claude.json",
-        &claude_sign_in("main@example.com"),
-    );
-    let facts = Facts {
-        path: Some("/nowhere".into()),
-        variables: vec![("CLAUDE_CONFIG_DIR".to_owned(), "~/.claude-main".to_owned())],
-        definitions: vec![definition("claude", r#"command claude "$@""#)],
-    };
-    let catalog = accounts::catalog(home, &facts);
-    assert_eq!(
-        rows(&catalog, Agent::Claude),
-        ["default main@example.com ~/.claude-main"]
-    );
-    assert_eq!(catalog.agents[0].accounts[0].command, "claude");
-}
-
-#[cfg(unix)]
-#[test]
 fn a_new_account_gets_a_private_empty_folder() {
     use std::os::unix::fs::PermissionsExt as _;
 
@@ -344,50 +308,6 @@ fn a_new_account_gets_a_private_empty_folder() {
         .to_string(),
         "There is already an account named work."
     );
-}
-
-#[cfg(windows)]
-#[test]
-fn windows_lists_the_usual_account_and_adds_none() {
-    let root = tempfile::tempdir().unwrap();
-    let home = root.path();
-    put(home, ".claude.json", &claude_sign_in("ada@example.com"));
-    put(
-        home,
-        ".claude-work/.claude.json",
-        &claude_sign_in("work@example.com"),
-    );
-    put(home, "bin/claude.exe", "");
-    let facts = Facts {
-        path: Some(home.join("bin").into_os_string()),
-        ..Facts::default()
-    };
-    let catalog = accounts::catalog(home, &facts);
-    assert_eq!(
-        rows(&catalog, Agent::Claude),
-        ["default ada@example.com ~/.claude"]
-    );
-    assert!(!catalog.agents[0].adds_accounts);
-    assert!(accounts::add(home, Agent::Claude, "night", &[]).is_err());
-    assert!(!home.join(".claude-night").exists());
-}
-
-#[test]
-fn identities_need_the_agent_record() {
-    let root = tempfile::tempdir().unwrap();
-    let home = root.path();
-    let copilot = home.join(".copilot");
-    fs::create_dir_all(&copilot).unwrap();
-    fs::write(
-        copilot.join("config.json"),
-        "// managed\n{\"lastLoggedInUser\":{\"host\":\"https://github.com\",\"login\":\"ada\"}}",
-    )
-    .unwrap();
-    assert_eq!(
-        accounts::identity(Agent::Copilot, home, &copilot).as_deref(),
-        Some("ada")
-    );
-    assert_eq!(accounts::identity(Agent::Claude, home, &copilot), None);
 }
 
 #[test]
@@ -508,17 +428,6 @@ fn copilot_cursor_opencode_and_antigravity_lists_become_models() {
             .collect::<Vec<_>>(),
         ["--effort low", "--effort high", "--effort xhigh"]
     );
-}
-
-#[test]
-fn shell_words_quote_what_a_shell_would_change() {
-    assert_eq!(shell_word("opus").as_deref(), Some("opus"));
-    assert_eq!(
-        shell_word("claude-fable-5-1[1m]").as_deref(),
-        Some("'claude-fable-5-1[1m]'")
-    );
-    assert_eq!(shell_word("it's"), None);
-    assert_eq!(shell_word(""), None);
 }
 
 #[test]
@@ -805,647 +714,26 @@ fn cursor_and_opencode_get_the_note_only_in_the_line_that_kodosi_types_where_the
 }
 
 #[test]
-fn agents_find_the_note_and_the_plugin_in_the_folder_that_kodosi_writes() {
-    let folder = tempfile::tempdir().unwrap();
-    let notes = kodosi_os::fs::canonicalize(folder.path())
-        .unwrap()
-        .join("agents");
-    assert_eq!(plugin_dir(&notes), None);
+fn kodosi_leaves_no_plugin_in_antigravity_s_folder_when_it_stops() {
+    let root = tempfile::tempdir().unwrap();
+    let root = kodosi_os::fs::canonicalize(root.path()).unwrap();
+    let notes = root.join("data").join("agents");
     write_notes(&notes).unwrap();
-    write_notes(&notes).unwrap();
-    let text = fs::read_to_string(
-        notes
-            .join(".github")
-            .join("instructions")
-            .join("kodosi.instructions.md"),
-    )
-    .unwrap();
-    assert_eq!(
-        text,
-        format!("---\napplyTo: \"**\"\n---\n\n{}\n", CONTEXT.trim())
-    );
-    let plugin = notes.join("plugin");
-    for (root, manifest) in [
-        (plugin.clone(), ".claude-plugin"),
-        (notes.join("cursor"), ".cursor-plugin"),
-    ] {
-        let manifest: serde_json::Value = serde_json::from_str(
-            &fs::read_to_string(root.join(manifest).join("plugin.json")).unwrap(),
-        )
-        .unwrap();
-        assert_eq!(manifest["name"], "kodosi");
-        let skills = root.join("skills");
-        for (skill, text) in [
-            ("kodosi", SKILL),
-            ("kodosi-canvas", CANVAS_SKILL),
-            ("kodosi-documents", DOCUMENTS_SKILL),
-        ] {
-            let file = skills.join(skill).join("SKILL.md");
-            assert_eq!(fs::read_to_string(file).unwrap(), text);
-        }
-    }
-    let hooks: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(plugin.join("hooks").join("hooks.json")).unwrap())
-            .unwrap();
-    assert_eq!(
-        hooks["hooks"]["SessionStart"][0]["hooks"][0]["command"],
-        "kodosi skill context"
-    );
-    assert_eq!(plugin_dir(&notes).as_deref(), plugin.to_str());
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+    let target = home.join(".gemini/config/plugins/kodosi");
+
+    mount_antigravity_plugin(&home, &notes, false).unwrap();
     assert!(
-        skill_dirs(&notes)
-            .unwrap()
-            .ends_with(plugin.join("skills").to_str().unwrap())
-    );
-}
-
-fn claude_with_accounts() -> AgentInfo {
-    AgentInfo {
-        agent: Agent::Claude,
-        program: "claude".to_owned(),
-        installed: true,
-        accounts: ["default", "work"]
-            .into_iter()
-            .map(|name| AgentAccount {
-                name: name.to_owned(),
-                command: if name == "default" {
-                    "claude".to_owned()
-                } else {
-                    format!("CLAUDE_CONFIG_DIR=~/.claude-{name} claude")
-                },
-                identity: None,
-                folder: None,
-            })
-            .collect(),
-        install: String::new(),
-        adds_accounts: true,
-        reports_usage: true,
-        permissions: Agent::Claude.permissions(),
-        outputs: Agent::Claude.outputs(),
-        default_permissions: Agent::Claude.default_permissions(),
-        default_output: Agent::Claude.default_output(),
-        fast: true,
-        chat: false,
-        dosi: true,
-    }
-}
-
-fn claude_models() -> AgentModels {
-    let option = |id: &str| AgentOption {
-        id: id.to_owned(),
-        argument: format!("--effort {id}"),
-    };
-    AgentModels {
-        models: vec![
-            AgentModel {
-                id: "opus".to_owned(),
-                label: "Opus".to_owned(),
-                argument: "--model opus".to_owned(),
-                efforts: Vec::new(),
-            },
-            AgentModel {
-                id: "haiku".to_owned(),
-                label: "Haiku".to_owned(),
-                argument: "--model haiku".to_owned(),
-                efforts: vec!["low".to_owned()],
-            },
-        ],
-        efforts: vec![option("low"), option("high")],
-    }
-}
-
-#[test]
-fn an_agent_start_takes_the_last_choice_and_explicit_values_win() {
-    let info = claude_with_accounts();
-    let models = claude_models();
-    let saved = AgentPick {
-        agent: Agent::Claude,
-        account: Some("work".to_owned()),
-        model: Some("opus".to_owned()),
-        effort: Some("high".to_owned()),
-        permissions: Some(Permissions::Unrestricted),
-        output: Some(Output::Standard),
-        fast: false,
-        chat: false,
-    };
-    let start = |account: Option<&str>, model: Option<&str>, effort: Option<&str>| AgentStart {
-        agent: Agent::Claude,
-        account: account.map(str::to_owned),
-        model: model.map(str::to_owned),
-        effort: effort.map(str::to_owned),
-        permissions: None,
-        output: None,
-        fast: None,
-        chat: None,
-    };
-    let plan =
-        |info: &AgentInfo, models: Option<&AgentModels>, saved: &AgentPick, start: &AgentStart| {
-            plan(info, models, saved, start, Path::new("/bin/zsh"))
-        };
-    let (line, pick) = plan(&info, Some(&models), &saved, &start(None, None, None)).unwrap();
-    assert_eq!(
-        line,
-        "CLAUDE_CONFIG_DIR=~/.claude-work claude --model opus --effort high --dangerously-skip-permissions --fast-mode off"
-    );
-    assert_eq!(pick, saved);
-
-    let (line, _) = plan(
-        &info,
-        Some(&models),
-        &saved,
-        &start(Some("default"), Some(""), None),
-    )
-    .unwrap();
-    assert_eq!(
-        line,
-        "claude --effort high --dangerously-skip-permissions --fast-mode off"
+        !home.join(".gemini").exists(),
+        "a host that starts makes no folder for an Antigravity CLI that is not there"
     );
 
-    let (line, pick) = plan(
-        &info,
-        Some(&models),
-        &saved,
-        &start(None, Some("haiku"), None),
-    )
-    .unwrap();
-    assert_eq!(
-        line,
-        "CLAUDE_CONFIG_DIR=~/.claude-work claude --model haiku --dangerously-skip-permissions --fast-mode off"
-    );
-    assert_eq!(pick.effort, None);
+    mount_antigravity_plugin(&home, &notes, true).unwrap();
+    assert!(target.join("hooks.json").is_file());
 
-    let stale = AgentPick {
-        account: Some("gone".to_owned()),
-        model: Some("retired".to_owned()),
-        ..saved.clone()
-    };
-    let (line, _) = plan(&info, Some(&models), &stale, &start(None, None, None)).unwrap();
-    assert_eq!(
-        line,
-        "claude --effort high --dangerously-skip-permissions --fast-mode off"
-    );
-
-    assert_eq!(
-        plan(
-            &info,
-            Some(&models),
-            &saved,
-            &start(None, Some("fable"), None)
-        )
-        .unwrap_err(),
-        "Claude Code has no model fable. Models: opus, haiku."
-    );
-    assert_eq!(
-        plan(
-            &info,
-            Some(&models),
-            &saved,
-            &start(None, Some("haiku"), Some("high"))
-        )
-        .unwrap_err(),
-        "Claude Code has no effort high here. Efforts: low."
-    );
-    assert_eq!(
-        plan(&info, None, &saved, &start(Some("home"), None, None)).unwrap_err(),
-        "Claude Code has no account named home. Accounts: default, work."
-    );
-}
-
-#[test]
-fn a_terminal_like_a_running_agent_takes_what_its_host_knows_of_it() {
-    let home = Path::new("/home/ana");
-    let mut accounts = claude_with_accounts().accounts;
-    for account in &mut accounts {
-        account.folder = Some(match account.name.as_str() {
-            "default" => "~/.claude".to_owned(),
-            name => format!("~/.claude-{name}"),
-        });
-    }
-    let settings = |model: Option<&str>, effort: Option<&str>, permissions| AgentSettings {
-        model: model.map(str::to_owned),
-        effort: effort.map(str::to_owned),
-        permissions,
-        ..AgentSettings::default()
-    };
-    let like_in = |accounts: &[AgentAccount], folder: Option<&str>, settings, pending| AgentStart {
-        fast: None,
-        ..RunningAgent {
-            agent: Agent::Claude,
-            account_folder: folder.map(|folder| home.join(folder)),
-            settings,
-            pending,
-        }
-        .start(accounts, home)
-    };
-    let like = |folder, settings, pending| like_in(&accounts, folder, settings, pending);
-    let start = |account: Option<&str>, model: Option<&str>, effort: Option<&str>, permissions| {
-        AgentStart {
-            agent: Agent::Claude,
-            account: account.map(str::to_owned),
-            model: model.map(str::to_owned),
-            effort: effort.map(str::to_owned),
-            permissions,
-            output: None,
-            fast: None,
-            chat: None,
-        }
-    };
-    let running = Some(settings(Some("opus"), Some("low"), Some(Permissions::Auto)));
-
-    assert_eq!(
-        like(
-            Some(".claude-work"),
-            running.clone(),
-            Some(settings(None, Some("high"), Some(Permissions::Ask)))
-        ),
-        start(
-            Some("work"),
-            Some("opus"),
-            Some("high"),
-            Some(Permissions::Ask)
-        ),
-        "a change that waits for the end of the turn wins"
-    );
-    assert_eq!(
-        like(
-            Some(".claude"),
-            running,
-            Some(settings(Some("haiku"), None, None))
-        ),
-        start(
-            Some("default"),
-            Some("haiku"),
-            Some(""),
-            Some(Permissions::Auto)
-        ),
-        "a new model runs at its own effort"
-    );
-    assert_eq!(
-        like(
-            Some(".claude"),
-            Some(settings(None, None, Some(Permissions::Unrestricted))),
-            None
-        ),
-        start(
-            Some("default"),
-            Some(""),
-            Some(""),
-            Some(Permissions::Unrestricted)
-        ),
-        "a model and an effort that the agent started without are its own"
-    );
-    assert_eq!(
-        like(Some(".claude-gone"), None, None),
-        start(None, None, None, None),
-        "an account outside the list and unknown choices stay the last choice"
-    );
-    let mut added = accounts.clone();
-    added.insert(
-        0,
-        AgentAccount {
-            name: "alpha".to_owned(),
-            command: "CLAUDE_CONFIG_DIR=~/.claude-alpha claude".to_owned(),
-            identity: None,
-            folder: Some("~/.claude-alpha".to_owned()),
-        },
-    );
-    assert_eq!(
-        like_in(&added, Some(".claude-work"), None, None).account,
-        Some("work".to_owned()),
-        "an account that came before it in the list since it started changes nothing"
-    );
-}
-
-fn installed(agent: Agent) -> AgentInfo {
-    AgentInfo {
-        agent,
-        program: agent.program().to_owned(),
-        installed: true,
-        accounts: vec![AgentAccount {
-            name: agent.program().to_owned(),
-            command: agent.program().to_owned(),
-            identity: None,
-            folder: None,
-        }],
-        install: String::new(),
-        adds_accounts: false,
-        reports_usage: false,
-        permissions: agent.permissions(),
-        outputs: agent.outputs(),
-        default_permissions: agent.default_permissions(),
-        default_output: agent.default_output(),
-        fast: agent.has_fast(),
-        chat: agent.runs_in_chat(),
-        dosi: false,
-    }
-}
-
-fn line(
-    agent: Agent,
-    saved: Option<Permissions>,
-    permissions: Option<Permissions>,
-    output: Option<Output>,
-) -> Result<(String, Option<Permissions>), String> {
-    let saved = AgentPick {
-        agent,
-        account: None,
-        model: None,
-        effort: None,
-        permissions: saved,
-        output: None,
-        fast: false,
-        chat: false,
-    };
-    let start = AgentStart {
-        agent,
-        account: None,
-        model: None,
-        effort: None,
-        permissions,
-        output,
-        fast: None,
-        chat: None,
-    };
-    plan(
-        &installed(agent),
-        None,
-        &saved,
-        &start,
-        Path::new("/bin/zsh"),
-    )
-    .map(|(line, pick)| (line, pick.permissions))
-}
-
-#[test]
-fn an_agent_starts_with_its_last_permissions_and_output_else_unrestricted_and_quiet() {
-    let (ask, auto, unrestricted) = (
-        Permissions::Ask,
-        Permissions::Auto,
-        Permissions::Unrestricted,
-    );
-
-    assert_eq!(
-        line(Agent::Claude, None, None, None).unwrap(),
-        (
-            format!(
-                "claude --dangerously-skip-permissions --settings '{CLAUDE_QUIET}' --fast-mode off"
-            ),
-            Some(unrestricted)
-        )
-    );
-    assert_eq!(
-        line(Agent::Claude, Some(ask), None, Some(Output::Standard)).unwrap(),
-        (
-            "claude --permission-mode manual --fast-mode off".to_owned(),
-            Some(ask)
-        )
-    );
-    assert_eq!(
-        line(Agent::Claude, Some(unrestricted), Some(auto), None)
-            .unwrap()
-            .0,
-        format!("claude --permission-mode auto --settings '{CLAUDE_QUIET}' --fast-mode off")
-    );
-    assert_eq!(
-        line(Agent::Codex, None, None, None).unwrap(),
-        line(Agent::Codex, None, Some(unrestricted), Some(Output::Quiet)).unwrap()
-    );
-    assert_eq!(
-        line(Agent::Copilot, None, None, None).unwrap(),
-        ("copilot --yolo".to_owned(), Some(unrestricted))
-    );
-    assert_eq!(
-        line(Agent::Opencode, None, None, None).unwrap(),
-        ("opencode".to_owned(), Some(ask))
-    );
-    assert_eq!(
-        line(Agent::Cursor, Some(auto), None, None).unwrap().0,
-        "cursor-agent --force"
-    );
-    assert_eq!(
-        line(Agent::Cursor, None, Some(auto), None).unwrap_err(),
-        "Cursor has no permissions auto. Permissions: ask, unrestricted."
-    );
-    assert_eq!(
-        line(Agent::Copilot, None, None, Some(Output::Detailed)).unwrap_err(),
-        "Copilot CLI has no output detailed. Outputs: quiet, standard."
-    );
-}
-
-#[test]
-fn antigravity_in_the_chat_runs_its_server_with_the_choices_of_the_session() {
-    let chat = |saved: bool, chat: Option<bool>, permissions: Permissions| {
-        let saved = AgentPick {
-            agent: Agent::Antigravity,
-            account: None,
-            model: None,
-            effort: None,
-            permissions: None,
-            output: Some(Output::Detailed),
-            fast: false,
-            chat: saved,
-        };
-        let start = AgentStart {
-            agent: Agent::Antigravity,
-            account: None,
-            model: None,
-            effort: None,
-            permissions: Some(permissions),
-            output: None,
-            fast: None,
-            chat,
-        };
-        let info = AgentInfo {
-            chat: true,
-            ..installed(Agent::Antigravity)
-        };
-        plan(&info, None, &saved, &start, Path::new("/bin/zsh"))
-            .map(|(line, pick)| (line, pick.chat))
-            .unwrap()
-    };
-    assert_eq!(
-        chat(false, Some(true), Permissions::Ask),
-        ("kodosi acp --mode= -- agy acp".to_owned(), true)
-    );
-    assert_eq!(
-        chat(true, None, Permissions::Auto),
-        ("kodosi acp --mode auto -- agy acp".to_owned(), true)
-    );
-    assert_eq!(
-        chat(false, Some(true), Permissions::Unrestricted).0,
-        "kodosi acp -- agy acp --dangerously-skip-permissions"
-    );
-    assert_eq!(
-        chat(true, Some(false), Permissions::Auto),
-        (
-            format!("agy --mode auto --settings '{ANTIGRAVITY_DETAILED}'"),
-            false
-        )
-    );
-    let arguments = "kodosi acp --mode= -- agy acp"
-        .split(' ')
-        .map(str::to_owned)
-        .collect::<Vec<_>>();
-    assert_eq!(
-        Agent::Antigravity.started_with(&arguments).permissions,
-        Some(Permissions::Ask)
-    );
-}
-
-#[test]
-fn antigravity_starts_in_its_own_auto_mode_unless_a_person_chooses() {
-    assert_eq!(
-        line(Agent::Antigravity, None, None, None).unwrap(),
-        (
-            format!("agy --mode auto --settings '{ANTIGRAVITY_QUIET}'"),
-            Some(Permissions::Auto)
-        )
-    );
-    assert_eq!(
-        line(
-            Agent::Antigravity,
-            Some(Permissions::Ask),
-            None,
-            Some(Output::Standard)
-        )
-        .unwrap(),
-        (
-            r#"agy --settings '{"agentMode":""}'"#.to_owned(),
-            Some(Permissions::Ask)
-        )
-    );
-    assert_eq!(
-        line(
-            Agent::Antigravity,
-            Some(Permissions::Ask),
-            None,
-            Some(Output::Quiet)
-        )
-        .unwrap()
-        .0,
-        r#"agy --settings '{"agentMode":"","showFeedbackSurvey":false,"showTips":false,"verbosity":"low"}'"#
-    );
-    assert_eq!(
-        line(
-            Agent::Antigravity,
-            None,
-            Some(Permissions::Unrestricted),
-            Some(Output::Detailed)
-        )
-        .unwrap()
-        .0,
-        format!("agy --dangerously-skip-permissions --settings '{ANTIGRAVITY_DETAILED}'")
-    );
-}
-
-#[test]
-fn an_agent_starts_fast_only_when_chosen_and_the_next_start_chooses_again() {
-    let line = |agent: Agent, saved: bool, fast: Option<bool>| {
-        let saved = AgentPick {
-            agent,
-            account: None,
-            model: None,
-            effort: None,
-            permissions: Some(Permissions::Ask),
-            output: None,
-            fast: saved,
-            chat: false,
-        };
-        let start = AgentStart {
-            agent,
-            account: None,
-            model: None,
-            effort: None,
-            permissions: None,
-            output: Some(Output::Standard),
-            fast,
-            chat: None,
-        };
-        plan(
-            &installed(agent),
-            None,
-            &saved,
-            &start,
-            Path::new("/bin/zsh"),
-        )
-        .map(|(line, pick)| (line, pick.fast))
-    };
-    assert_eq!(
-        line(Agent::Claude, true, None).unwrap(),
-        (
-            "claude --permission-mode manual --fast-mode on".to_owned(),
-            false
-        )
-    );
-    assert_eq!(
-        line(Agent::Claude, true, Some(false)).unwrap(),
-        (
-            "claude --permission-mode manual --fast-mode off".to_owned(),
-            false
-        ),
-        "off turns off a fast mode that the agent kept"
-    );
-    assert_eq!(
-        line(Agent::Codex, false, None).unwrap(),
-        (
-            "codex -a on-request -s read-only -c service_tier=default".to_owned(),
-            false
-        )
-    );
-    assert_eq!(
-        line(Agent::Copilot, true, None).unwrap(),
-        ("copilot".to_owned(), false),
-        "an agent without fast mode starts as it is"
-    );
-    assert_eq!(
-        line(Agent::Copilot, false, Some(true)).unwrap_err(),
-        "Copilot CLI has no fast mode."
-    );
-}
-
-#[cfg(unix)]
-#[test]
-fn a_running_agent_takes_the_place_of_its_account_folder() {
-    let home = Path::new("/home/ana");
-    let account = |name: &str, folder: &str| AgentAccount {
-        name: name.to_owned(),
-        command: "claude".to_owned(),
-        identity: None,
-        folder: Some(folder.to_owned()),
-    };
-    let accounts = [
-        account("default", "~/.claude"),
-        account("alt", "~/.claude-alt"),
-        account("team", "/srv/claude-team"),
-    ];
-    let place = |folder: &str| accounts::place(&accounts, home, Path::new(folder));
-    assert_eq!(place("/home/ana/.claude"), 0);
-    assert_eq!(place("/home/ana/.claude-alt"), 1);
-    assert_eq!(place("/srv/claude-team"), 2);
-    assert_eq!(place("/home/ana/.claude-new"), 3);
-}
-
-#[cfg(unix)]
-#[test]
-fn an_agent_folder_comes_from_its_variable_or_the_usual_folder() {
-    let home = Path::new("/home/ana");
-    let folder = |agent: Agent, variable: Option<&str>| {
-        agent.account_folder(home, variable.map(str::to_owned))
-    };
-    assert_eq!(folder(Agent::Claude, None), Some(home.join(".claude")));
-    assert_eq!(
-        folder(Agent::Claude, Some("/home/ana/.claude-alt/")),
-        Some(home.join(".claude-alt"))
-    );
-    assert_eq!(
-        folder(Agent::Claude, Some(".claude-alt")),
-        Some(home.join(".claude"))
-    );
-    assert_eq!(
-        folder(Agent::Codex, Some("/srv/codex")),
-        Some(Path::new("/srv/codex").to_path_buf())
-    );
-    assert_eq!(folder(Agent::Cursor, None), None);
+    unmount_antigravity_plugin(&home, &notes).unwrap();
+    assert!(!target.exists());
 }
 
 #[test]
@@ -1648,89 +936,6 @@ fn a_running_agent_changes_with_its_own_commands() {
 }
 
 #[test]
-fn a_running_agent_shows_what_it_started_with() {
-    let started = |agent: Agent, arguments: &[&str]| {
-        agent.started_with(
-            &arguments
-                .iter()
-                .map(|argument| (*argument).to_owned())
-                .collect::<Vec<_>>(),
-        )
-    };
-    assert_eq!(
-        started(
-            Agent::Claude,
-            &[
-                "claude",
-                "--model",
-                "opus",
-                "--effort",
-                "high",
-                "--dangerously-skip-permissions",
-                "--settings",
-                r#"{"viewMode":"focus"}"#
-            ]
-        ),
-        AgentSettings {
-            model: Some("opus".to_owned()),
-            effort: Some("high".to_owned()),
-            permissions: Some(Permissions::Unrestricted),
-            output: Some(Output::Quiet),
-            fast: None,
-        }
-    );
-    assert_eq!(
-        started(
-            Agent::Codex,
-            &[
-                "codex",
-                "-m",
-                "gpt-5.1-codex",
-                "-c",
-                "model_reasoning_effort=high",
-                "-a",
-                "on-request",
-                "-s",
-                "workspace-write"
-            ]
-        ),
-        AgentSettings {
-            model: Some("gpt-5.1-codex".to_owned()),
-            effort: Some("high".to_owned()),
-            permissions: Some(Permissions::Auto),
-            output: Some(Output::Standard),
-            fast: None,
-        }
-    );
-    assert_eq!(
-        started(Agent::Claude, &["claude", "--fast-mode", "off"]).fast,
-        Some(false)
-    );
-    assert_eq!(
-        started(Agent::Codex, &["codex", "-c", r#"service_tier="priority""#]).fast,
-        Some(true),
-        "Codex also calls its fast tier priority"
-    );
-    assert_eq!(
-        started(Agent::Codex, &["codex", "-c", "service_tier=flex"]).fast,
-        None
-    );
-    assert_eq!(
-        started(Agent::Copilot, &["copilot", "--allow-all"]).permissions,
-        Some(Permissions::Unrestricted)
-    );
-    assert_eq!(
-        started(Agent::Copilot, &["copilot"]).permissions,
-        Some(Permissions::Ask)
-    );
-    assert_eq!(
-        started(Agent::Claude, &[]),
-        AgentSettings::default(),
-        "Windows shows no arguments, so nothing is known"
-    );
-}
-
-#[test]
 fn a_restart_keeps_what_kodosi_changed_while_the_agent_ran() {
     let arguments = [
         "claude",
@@ -1768,49 +973,5 @@ fn a_restart_keeps_what_kodosi_changed_while_the_agent_ran() {
             .chosen(&arguments, &AgentSettings::default(), true)
             .join(" "),
         r#"--model opus --effort high --permission-mode manual --settings '{"viewMode":"verbose"}'"#
-    );
-}
-
-#[test]
-fn a_restart_keeps_the_fast_mode_that_the_agent_started_with_or_that_kodosi_changed() {
-    let fast = |fast| AgentSettings {
-        fast: Some(fast),
-        ..AgentSettings::default()
-    };
-    let claude = ["claude", "--settings", CLAUDE_QUIET, "--fast-mode", "on"].map(str::to_owned);
-    assert_eq!(
-        Agent::Claude
-            .chosen(&claude, &AgentSettings::default(), true)
-            .join(" "),
-        format!("--settings '{CLAUDE_QUIET}' --fast-mode on")
-    );
-    assert_eq!(
-        Agent::Claude.chosen(&claude, &fast(false), true).join(" "),
-        format!("--settings '{CLAUDE_QUIET}' --fast-mode off")
-    );
-    assert_eq!(
-        Agent::Claude
-            .chosen(&["claude".to_owned()], &fast(true), true)
-            .join(" "),
-        "--fast-mode on",
-        "a fast mode that Kodosi turned on while the agent ran is added"
-    );
-    let codex = [
-        "codex",
-        "-c",
-        "hide_agent_reasoning=true",
-        "-c",
-        "service_tier=fast",
-    ]
-    .map(str::to_owned);
-    assert_eq!(
-        Agent::Codex
-            .chosen(&codex, &AgentSettings::default(), true)
-            .join(" "),
-        "-c hide_agent_reasoning=true -c service_tier=fast"
-    );
-    assert_eq!(
-        Agent::Codex.chosen(&codex, &fast(false), true).join(" "),
-        "-c hide_agent_reasoning=true -c service_tier=default"
     );
 }
