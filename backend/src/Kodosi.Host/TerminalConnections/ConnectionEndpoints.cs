@@ -29,7 +29,7 @@ internal static partial class ConnectionEndpoints
         app.MapGet("/ws/device", RunAsync).RequireAuthorization().RequireRateLimiting(RateLimits.Socket);
 
     private static async Task RunAsync(HttpContext context, IServiceScopeFactory scopes, ConnectionDirectory directory, DeviceSessions deviceSessions,
-        ServerMetrics metrics, TimeProvider clock, ILoggerFactory loggers)
+        RelaySettings relay, ServerMetrics metrics, TimeProvider clock, ILoggerFactory loggers)
     {
         if (!context.WebSockets.IsWebSocketRequest) { context.Response.StatusCode = StatusCodes.Status400BadRequest; return; }
         var logger = loggers.CreateLogger("TerminalConnections");
@@ -56,10 +56,10 @@ internal static partial class ConnectionEndpoints
                 directory.Register(connection);
                 await RequireApprovedAsync(scopes, user.Id, deviceId, handshake.Token);
             }
-            connection.Send(Wire.Ready);
+            connection.Send(Wire.Encode(new ReadyNotice(relay.Place)));
             directory.Ready(connection);
             using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, connection.Stopped, connection.Expired);
-            await ListenAsync(connection, reader, directory, scopes, metrics, clock, logger, lifetime.Token);
+            await ListenAsync(connection, reader, directory, scopes, relay, metrics, clock, logger, lifetime.Token);
         }
         catch (Exception error) when (error is ApiException or JsonException or InvalidOperationException or KeyNotFoundException or FormatException
                                       or WebSocketException or OperationCanceledException or IOException or TimeoutException)
@@ -109,7 +109,7 @@ internal static partial class ConnectionEndpoints
     }
 
     private static async Task ListenAsync(DeviceConnection connection, MessageReader reader, ConnectionDirectory directory, IServiceScopeFactory scopes,
-        ServerMetrics metrics, TimeProvider clock, ILogger logger, CancellationToken ct)
+        RelaySettings relay, ServerMetrics metrics, TimeProvider clock, ILogger logger, CancellationToken ct)
     {
         var messages = new TokenBucket(MessageBurst, MessagesEachSecond, clock);
         var statuses = new TokenBucket(StatusBurst, StatusesEachSecond, clock);
@@ -197,6 +197,9 @@ internal static partial class ConnectionEndpoints
                 }
                 case CloseMessage close:
                     directory.Close(connection, close.Pipe);
+                    break;
+                case RelayMessage relayed when relay.Address is not null:
+                    directory.RelayBetween(connection, relayed.Pipe);
                     break;
             }
         }

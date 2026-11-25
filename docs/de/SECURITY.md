@@ -70,8 +70,8 @@ Wenn sich zwei deiner eigenen Geräte direkt erreichen können, im selben lokale
 NAT-Traversal, läuft der Terminal-Datenverkehr mit derselben Ende-zu-Ende-Verschlüsselung direkt
 zwischen ihnen statt über den Relay-Server. Beide Geräte sehen dabei gegenseitig ihre IP-Adressen.
 
-Um die eigene öffentliche Adresse zu ermitteln, fragt Kodosi einen STUN-Server von Cloudflare ab,
-der diese IP-Adresse sieht. Solange ein Gerät eine direkte Verbindung sucht oder hält (sowie eine
+Um die eigene öffentliche Adresse zu ermitteln, fragt Kodosi den Kodosi-Server ab,
+der diese IP-Adresse ohnehin sieht. Solange ein Gerät eine direkte Verbindung sucht oder hält (sowie eine
 Minute danach), hält es einen einzelnen UDP-Port offen und akzeptiert dort ausschließlich
 Verbindungen von deinen eigenen freigegebenen Geräten. Terminals, die mit anderen Personen geteilt
 sind, laufen immer über den Relay-Server, sodass andere Nutzer deine IP-Adressen nie sehen.

@@ -43,6 +43,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__Kodosi: Host=postgres;Port=5432;Database=kodosi;Username=kodosi;Password=kodosi-local
+      Relay__Address: 127.0.0.1
     healthcheck:
       test:
         [
@@ -59,6 +60,7 @@ services:
       start_interval: 1s
     ports:
       - "127.0.0.1:5180:8080"
+      - "127.0.0.1:3478:3478/udp"
     restart: unless-stopped
 
 volumes:

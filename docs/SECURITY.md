@@ -65,7 +65,7 @@ When two of your own devices can reach each other directly, on the same LAN or t
 traversal, terminal traffic travels directly between them with the same end-to-end encryption
 instead of going through the relay server. Both devices see each other's IP addresses.
 
-To discover its public address, Kodosi queries a Cloudflare STUN server, which observes that IP.
+To discover its public address, Kodosi asks the Kodosi server, which sees that IP anyway.
 While searching for or holding a direct connection (and for one minute afterward), the device
 keeps a single UDP port open and only accepts connections from your own approved devices.
 Terminals shared with other people always go through the relay server, so other users never see

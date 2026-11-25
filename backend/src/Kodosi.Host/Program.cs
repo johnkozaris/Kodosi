@@ -25,12 +25,16 @@ builder.Services.AddSingleton(services => PushSettings.From(services.GetRequired
 builder.Services.AddSingleton<AccountGate>();
 builder.Services.AddSingleton<DeviceSessions>();
 builder.Services.AddSingleton<ConnectionDirectory>();
+builder.Services.AddSingleton(services => RelaySettings.From(services.GetRequiredService<IConfiguration>()));
+builder.Services.AddSingleton(services => services.GetRequiredService<ConnectionDirectory>().Allocations);
 builder.Services.AddSingleton<ServerMetrics>();
 builder.Services.AddSingleton<ConnectionLease>();
 builder.Services.AddHostedService(services => services.GetRequiredService<ConnectionLease>());
 builder.Services.AddHostedService<ConnectionWatchdog>();
 builder.Services.AddHostedService<PresenceExpiry>();
 builder.Services.AddHostedService<ConnectionMaintenance>();
+builder.Services.AddHostedService<RelaySweep>();
+builder.Services.AddHostedService<UdpRelay>();
 builder.Services.AddHostedService<TerminalPresence>();
 builder.Services.AddHostedService<DataCleanup>();
 builder.Services.AddHostedService<ServerReport>();
@@ -68,6 +72,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 var app = builder.Build();
 app.Services.GetRequiredService<PlanCatalog>();
 app.Services.GetRequiredService<PushSettings>();
+app.Services.GetRequiredService<RelaySettings>();
 if (args is ["migrate"])
 {
     await using var migration = app.Services.CreateAsyncScope();

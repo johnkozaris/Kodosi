@@ -36,7 +36,6 @@ use super::{
 #[cfg(test)]
 mod tests;
 
-const STUN_SERVER: &str = "stun.cloudflare.com:3478";
 const STUN_WAIT: Duration = Duration::from_millis(800);
 const STUN_KEPT: Duration = Duration::from_secs(30);
 const STUN_COOKIE: [u8; 4] = [0x21, 0x12, 0xA4, 0x42];
@@ -74,7 +73,9 @@ const FIRST_RTT: Duration = Duration::from_millis(50);
 pub(crate) struct Peers {
     keys: Arc<ChannelKeys>,
     networks: fn() -> Vec<Network>,
-    stun: Option<&'static str>,
+    /// The Kodosi server's UDP relay, `host:port`, which also answers STUN; the server names it
+    /// when the device connects.
+    relay: Locked<Option<String>>,
     bound: Mutex<Option<Arc<Bound>>>,
     dialed: Locked<HashMap<Vec<u8>, Arc<Joined>>>,
     dialing: Locked<HashMap<Vec<u8>, Arc<Mutex<()>>>>,
@@ -400,7 +401,7 @@ async fn read_message(receive: &mut noq::RecvStream) -> Option<Vec<u8>> {
 
 impl Peers {
     pub(crate) fn new(keys: Arc<ChannelKeys>) -> Arc<Self> {
-        Self::with(keys, own_networks, Some(STUN_SERVER))
+        Self::with(keys, own_networks)
     }
 
     #[cfg(all(test, feature = "host"))]
@@ -411,18 +412,14 @@ impl Peers {
                 mask: IpAddr::V4(Ipv4Addr::new(255, 0, 0, 0)),
             }]
         };
-        Self::with(keys, loopback, None)
+        Self::with(keys, loopback)
     }
 
-    fn with(
-        keys: Arc<ChannelKeys>,
-        networks: fn() -> Vec<Network>,
-        stun: Option<&'static str>,
-    ) -> Arc<Self> {
+    fn with(keys: Arc<ChannelKeys>, networks: fn() -> Vec<Network>) -> Arc<Self> {
         Arc::new(Self {
             keys,
             networks,
-            stun,
+            relay: Locked::new(None),
             bound: Mutex::new(None),
             dialed: Locked::new(HashMap::new()),
             dialing: Locked::new(HashMap::new()),
@@ -437,6 +434,13 @@ impl Peers {
 
     pub(crate) fn uses(&self, keys: &Arc<ChannelKeys>) -> bool {
         Arc::ptr_eq(&self.keys, keys)
+    }
+
+    /// Takes the relay that the Kodosi server named when the device connected, or none.
+    pub(crate) fn relay_at(&self, relay: Option<String>) {
+        if let Ok(mut kept) = self.relay.lock() {
+            *kept = relay;
+        }
     }
 
     pub(super) async fn addresses(self: &Arc<Self>) -> Vec<SocketAddr> {
@@ -661,10 +665,10 @@ impl Peers {
         {
             return addresses.clone();
         }
-        let Some(server) = self.stun else {
+        let Some(server) = self.relay.lock().ok().and_then(|relay| relay.clone()) else {
             return Vec::new();
         };
-        let servers = tokio::time::timeout(STUN_WAIT, tokio::net::lookup_host(server))
+        let servers = tokio::time::timeout(STUN_WAIT, tokio::net::lookup_host(server.as_str()))
             .await
             .ok()
             .and_then(std::result::Result::ok)

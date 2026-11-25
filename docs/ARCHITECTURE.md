@@ -115,7 +115,10 @@ it like another client and accepts calls only from the user's own approved devic
 ## Backend and projects
 
 A single ASP.NET Core service handles the HTTP API and WebSocket relays, storing metadata and
-ciphertext in PostgreSQL. Terminal streams are relayed in memory and never stored.
+ciphertext in PostgreSQL. Terminal streams are relayed in memory and never stored. On one UDP port
+the service answers STUN, so devices learn their public addresses, and relays QUIC packets between
+the two devices of an allocation that it gives to both ends of a pipe; it forwards the packets
+unchanged, as QUIC encrypts them end to end.
 
 Client devices encrypt and sign project messages, tasks, and repository links. The backend stores
 the ciphertext, assigns sequence numbers, and notifies project members when something changes so

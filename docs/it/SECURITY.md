@@ -73,8 +73,8 @@ attraversamento NAT, il traffico del terminale viaggia direttamente tra loro con
 crittografia end-to-end anziché passare dal server relay. Entrambi i dispositivi vedono gli
 indirizzi IP dell'altro.
 
-Per rilevare il proprio indirizzo pubblico, Kodosi interroga un server STUN di Cloudflare, che
-osserva quell'IP. Mentre cerca o mantiene una connessione diretta (e per il minuto successivo), il
+Per rilevare il proprio indirizzo pubblico, Kodosi interroga il server Kodosi, che
+vede comunque quell'IP. Mentre cerca o mantiene una connessione diretta (e per il minuto successivo), il
 dispositivo tiene aperta una sola porta UDP e accetta connessioni unicamente dai tuoi dispositivi
 approvati. I terminali condivisi con altre persone passano sempre dal server relay, quindi gli
 altri utenti non vedono mai i tuoi indirizzi IP.

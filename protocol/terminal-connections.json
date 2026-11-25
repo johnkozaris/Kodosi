@@ -22,6 +22,7 @@
       "deviceSession",
       "hosts"
     ],
+    "ready": "relay: the address and the port of the server's UDP relay, which also answers STUN, when the server has one",
     "hosts": "true when the device hosts terminals and takes calls from the other devices of its person, and false for a viewer",
     "proof": "the device session of the device; refused with reason deviceSession when the server does not hold it, and the device then opens a new session and connects again",
     "admission": "the server registers the connection and then checks the device again, so a removal that is made at the same time refuses the connection",
@@ -34,7 +35,8 @@
       "open": "pipe, sessionId, incarnationId: open a pipe to the host of a terminal; the device makes the pipe identity and sends channel data at once; a refusal is closed with status and message",
       "call": "pipe, deviceId: open a pipe to another connected device of the same person that hosts; the device makes the pipe identity and sends channel data at once; a refusal is closed with status and message",
       "close": "pipe",
-      "ping": "the answer is pong"
+      "ping": "the answer is pong",
+      "relay": "pipe: ask for the UDP relay between the two devices of the pipe, only when ready named a relay; both ends then hear relayed"
     },
     "serverMessages": {
       "changed": "surface (devices, friends, sessions, projects, projectContent): the device reads that list again",
@@ -45,7 +47,8 @@
       "presence": "kodosi, here: each true when another connected device of the person has that state; after ready and after each change",
       "accessChanged": "sessionId: to the host, after a change of the people or devices that can use the terminal",
       "closed": "pipe, status, message: the pipe ended; status 0 when the other device closed it",
-      "pong": "the answer to ping"
+      "pong": "the answer to ping",
+      "relayed": "pipe, allocation, slot, secret: to both ends of a pipe after relay; the allocation (7 bytes, base64) of the two devices, this device's slot (0 or 1) in it and the slot's secret (32 bytes, base64) that signs its binds; the same until no pipe has joined the two devices for graceSeconds"
     },
     "authorization": "host: the hosting device of the publication; open: an approved device of the owner or of an explicit current member, checked before and after the pipe is registered; call: a device of the same person, to another of its devices that hosts",
     "silence": "the device sends ping each 20 seconds and the WebSocket keep-alive runs each 30 seconds; the server ends a connection that sent no message for 90 seconds, that did not take one message in 30 seconds, or that kept more than 12582912 bytes waiting for 30 seconds; the device ends a connection that received no message for 45 seconds; each 60 seconds the server checks that each connected device is still approved",
@@ -331,7 +334,7 @@
   "direct": {
     "who": "only the devices of one person: the viewer offers for a terminal of its own person, and a host answers a viewer of another person with no addresses",
     "offer": "the viewer sends pathOffer after accept, and the host answers with pathAnswer; when no lane comes, the viewer offers again after 30 seconds, 2 minutes and then each 10 minutes, and 5 seconds after a lane ended; an empty answer ends its offers",
-    "addresses": "the addresses of the device's networks that are up, without loopback and link-local ones, and the public addresses of its UDP socket that a STUN server (stun.cloudflare.com:3478) sees, at most 16; a side tries a private address of the other only on one of its own networks",
+    "addresses": "the addresses of the device's networks that are up, without loopback and link-local ones, and the public addresses of its UDP socket that the server's UDP relay sees (relay.stun), at most 16; a side tries a private address of the other only on one of its own networks",
     "transport": "QUIC on one UDP socket of the runtime, on the first free port from 47360 to 47379 (the range that the Windows package opens on private networks) or another when they are taken, which also carries the STUN questions; ALPN kodosi-direct/<channelProtocolVersion>; TLS 1.3 with the keys, the key exchange and the cipher suite of the channel",
     "viewerCheck": "the host key must equal the key of the hosting device, as on the channel",
     "hostCheck": "the host takes a connection only from a device whose key a route of the host waits for",
@@ -350,5 +353,15 @@
     "delivery": "the viewer hands on frames in order; a frame may arrive until its time ends, max(33 ms, 1.5 round trips + 10 ms) from its first shard, and the viewer gives up on it after that; a keyframe or anchor passes the frames still missing before it, which the viewer drops; frames never shown cause the usual keyframe or anchor request of the viewer",
     "resend": "the viewer reports missing shards when a later frame arrives or 3 ms pass after the frame's last shard, and again after half a round trip; the host sends them again while the frame can still arrive in time, from frames it keeps for 250 ms after their time",
     "rate": "SCReAMv2 controls the connection; the host splits the bitrate that it finds among its flows on the connection and tells each stream with a JSON message rate {bitrate} in the pipe, as if from the viewer"
+  },
+  "relay": {
+    "purpose": "the server relays QUIC between two devices that reach no direct path, without seeing inside: QUIC encrypts it end to end",
+    "transport": "UDP on the port that ready names; the first byte tells STUN (0x00), data (0x10), bind (0x11) and bound (0x12) apart from QUIC",
+    "stun": "an RFC 8489 Binding request is answered with a Binding success response that carries XOR-MAPPED-ADDRESS",
+    "bind": "0x11, allocation (7 bytes), slot (1 byte), time (unix milliseconds, i64, network byte order), then the first 16 bytes of HMAC-SHA256 with the slot's secret over the bytes before it; the server takes it only within 60 seconds of its own time and later than the slot's last bind, binds the slot to the address it came from and answers bound",
+    "bound": "0x12, allocation, slot: the first 9 bytes of the bind",
+    "data": "0x10, allocation (7 bytes), then a QUIC packet; the server forwards it unchanged from the address of one bound slot to the address of the other, and drops it from any other address",
+    "limits": "10 MB each second for an allocation in bursts of 2 MB; 10000 STUN answers and binds each second for all devices",
+    "graceSeconds": 30
   }
 }

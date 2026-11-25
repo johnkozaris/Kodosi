@@ -73,7 +73,7 @@ par traversée de NAT, le trafic des terminaux circule directement entre eux ave
 chiffrement de bout en bout au lieu de passer par le serveur relais. Les deux appareils voient
 alors leurs adresses IP respectives.
 
-Pour déterminer son adresse publique, Kodosi interroge un serveur STUN de Cloudflare, qui voit cette
+Pour déterminer son adresse publique, Kodosi interroge le serveur Kodosi, qui voit de toute façon cette
 adresse IP. Lorsqu'un appareil recherche ou maintient une connexion directe (et pendant une minute
 ensuite), il garde un unique port UDP ouvert et n'accepte de connexions que de vos propres
 appareils approuvés. Les terminaux partagés avec d'autres personnes passent toujours par le serveur
