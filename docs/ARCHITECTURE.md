@@ -225,7 +225,8 @@ while its source encodes it and every viewer decodes it in hardware, since decod
 software costs more than the bits it saves; otherwise it uses H.264, which every viewer decodes.
 When the viewers change, the encoder restarts in the new codec with a keyframe, and every frame
 names its codec. Pictures are BT.709 limited range, tagged in the stream and converted the same
-way by every client.
+way by every client. A frame that shows only a part of its source names that part, so a viewer
+places each frame right while the part changes.
 
 Slow viewers skip frames and recover on the next keyframe. When every viewer supports them, the
 encoder also marks long-term references, and a viewer that missed frames recovers from an anchor:

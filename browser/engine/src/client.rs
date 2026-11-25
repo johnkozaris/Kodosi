@@ -192,11 +192,14 @@ wrap_render_handler! {
             if let Some(capture) = capture.as_mut().filter(|capture| capture.tab == tab)
                 && capture.takes(width, height, Painting::Memory)
             {
-                capture.encoder.encode(Picture::Pixels {
-                    bgra: pixels,
-                    width,
-                    height,
-                });
+                capture.encoder.encode(
+                    Picture::Pixels {
+                        bgra: pixels,
+                        width,
+                        height,
+                    },
+                    None,
+                );
                 drawn(capture, dirty_rects, &self.shared);
             }
         }
@@ -229,7 +232,7 @@ wrap_render_handler! {
                 if let Some(capture) = capture.as_mut().filter(|capture| capture.tab == tab)
                     && capture.takes(width, height, Painting::Surface)
                 {
-                    capture.encoder.encode(Picture::Surface(surface));
+                    capture.encoder.encode(Picture::Surface(surface), None);
                     drawn(capture, dirty_rects, &self.shared);
                 }
             }

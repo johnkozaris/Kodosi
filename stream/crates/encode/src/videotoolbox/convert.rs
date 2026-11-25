@@ -71,6 +71,14 @@ struct Pool {
     height: usize,
 }
 
+#[expect(
+    clippy::non_send_fields_in_send_ty,
+    reason = "Core Foundation types are thread safe, but objc2 marks them all as !Send"
+)]
+// SAFETY: Core Video retains and releases pools atomically, and the converter that owns a pool
+// uses it from one thread at a time.
+unsafe impl Send for Pool {}
+
 impl Pool {
     fn new(format: u32, width: usize, height: usize) -> Result<Self, String> {
         let number = |value: usize| CFNumber::new_i64(i64::try_from(value).unwrap_or(i64::MAX));

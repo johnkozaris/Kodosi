@@ -340,7 +340,8 @@ impl Layer {
         }
         if let (Some(_), Some(shown)) = (self.tab, &self.shown) {
             self.encoder.want_key();
-            self.encoder.encode(Picture::Surface(shown.raw.mutable()));
+            self.encoder
+                .encode(Picture::Surface(shown.raw.mutable()), None);
             self.stills.made(now);
         }
     }

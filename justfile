@@ -187,6 +187,13 @@ stream-check:
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path stream/Cargo.toml --locked --workspace --all-targets -- {{ test_lints }}
     cargo test --manifest-path stream/Cargo.toml --locked --workspace
 
+# Lint and test the screen crates: the host side of screen sharing and the "Kodosi Screen" helper.
+[group('rust')]
+screen-check:
+    cargo fmt --manifest-path screen/Cargo.toml --all -- --check
+    CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path screen/Cargo.toml --locked --workspace --all-targets -- {{ test_lints }}
+    cargo test --manifest-path screen/Cargo.toml --locked --workspace
+
 # Install the backend packages in locked mode.
 [group('backend')]
 backend-packages-install:
@@ -236,7 +243,7 @@ backend-sdk-check:
 backend-check: backend-sdk-check backend-test
 
 # Run the Rust, documents, browser, stream, backend and translation checks.
-check-all: rust-check documents-check browser-check stream-check backend-check translations-check
+check-all: rust-check documents-check browser-check stream-check screen-check backend-check translations-check
 
 # Check that every user-facing string is translated into all supported languages.
 [group('translations')]

@@ -1,0 +1,277 @@
+//! The host side: starts the helper when the first viewer comes and gives each viewer a pipe.
+
+use std::{
+    fmt,
+    fmt::Write as _,
+    io,
+    path::PathBuf,
+    sync::{
+        Arc, PoisonError,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::Duration,
+};
+
+use bytes::Bytes;
+use stream::viewer::{self, Viewer};
+use tokio::{
+    net::UnixListener,
+    process::Command,
+    sync::{Mutex, mpsc},
+};
+
+use crate::{
+    link::{self, FromHelper, Message, Notice, VERSION},
+    live::{Calls, Event, Live, Mailbox, Wanted},
+    wire::ToScreen,
+};
+
+const EVENTS: usize = 1024;
+const VIEWER_QUEUE: usize = 1024;
+const CONNECT_LIMIT: Duration = Duration::from_secs(30);
+const HELLO_LIMIT: Duration = Duration::from_secs(5);
+/// Join number, so that a closing pipe only removes its own seat and not a reconnected one.
+static SEATS: AtomicU64 = AtomicU64::new(1);
+
+pub struct Settings {
+    /// The `Kodosi Screen` app.
+    pub helper: PathBuf,
+    /// A private folder with a short path, for the helper's socket.
+    pub sockets: PathBuf,
+    /// Tells the person at the computer who watches.
+    pub notice: Arc<dyn Fn(&[String]) -> Notice + Send + Sync>,
+    /// Called when the person at the computer stops the sharing there.
+    pub stopped: Arc<dyn Fn() + Send + Sync>,
+}
+
+#[derive(Debug)]
+pub enum Error {
+    Helper(String),
+    Stopped,
+    Malformed,
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Helper(problem) => write!(formatter, "the screen helper failed: {problem}"),
+            Self::Stopped => formatter.write_str("the screen stopped"),
+            Self::Malformed => formatter.write_str("a message that does not read"),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
+
+impl From<io::Error> for Error {
+    fn from(error: io::Error) -> Self {
+        Self::Helper(error.to_string())
+    }
+}
+
+/// The computer's screen for every terminal on it: one helper and one capture, which all
+/// viewers share.
+#[derive(Clone)]
+pub struct Screens {
+    shared: Arc<Shared>,
+}
+
+struct Shared {
+    settings: Settings,
+    live: Mutex<Option<mpsc::Sender<Event>>>,
+    wanted: std::sync::Mutex<Wanted>,
+}
+
+impl Screens {
+    pub fn new(settings: Settings) -> Self {
+        Self {
+            shared: Arc::new(Shared {
+                settings,
+                live: Mutex::new(None),
+                wanted: std::sync::Mutex::new(Wanted::Screen),
+            }),
+        }
+    }
+
+    pub async fn watch(&self, viewer: Viewer) -> Result<Pipe, Error> {
+        let events = self.live().await?;
+        let (outgoing, incoming) = mpsc::channel(VIEWER_QUEUE);
+        let mailbox = Arc::new(Mailbox::default());
+        let seat = SEATS.fetch_add(1, Ordering::Relaxed);
+        let id = viewer.id.clone();
+        events
+            .send(Event::Join {
+                viewer,
+                seat,
+                outgoing,
+                mailbox: Arc::clone(&mailbox),
+            })
+            .await
+            .map_err(|_| Error::Stopped)?;
+        Ok(Pipe {
+            viewer: id,
+            seat,
+            incoming,
+            mailbox,
+            events,
+        })
+    }
+
+    /// Shows a window whose app or title holds `wanted`'s words on every view, or the main
+    /// display.
+    pub async fn show(&self, wanted: Wanted) {
+        *self
+            .shared
+            .wanted
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = wanted.clone();
+        let live = self.shared.live.lock().await.clone();
+        if let Some(live) = live {
+            drop(live.send(Event::Show(wanted)).await);
+        }
+    }
+
+    /// Ends every view and quits the helper.
+    pub async fn stop(&self) {
+        let live = self.shared.live.lock().await.take();
+        if let Some(live) = live {
+            drop(live.send(Event::Stop).await);
+        }
+    }
+
+    async fn live(&self) -> Result<mpsc::Sender<Event>, Error> {
+        let mut live = self.shared.live.lock().await;
+        if let Some(events) = live.as_ref().filter(|events| !events.is_closed()) {
+            return Ok(events.clone());
+        }
+        let started = start(&self.shared.settings).await?;
+        let (events, receiver) = mpsc::channel(EVENTS);
+        let wanted = self
+            .shared
+            .wanted
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone();
+        let calls = Calls {
+            notice: Arc::clone(&self.shared.settings.notice),
+            stopped: Arc::clone(&self.shared.settings.stopped),
+        };
+        let (session, reader) = Live::new(started, wanted, calls);
+        tokio::spawn(session.run(reader, receiver));
+        *live = Some(events.clone());
+        drop(live);
+        Ok(events)
+    }
+}
+
+/// A connected helper and what it said first.
+pub(crate) struct Started {
+    pub(crate) reader: tokio::net::unix::OwnedReadHalf,
+    pub(crate) writer: tokio::net::unix::OwnedWriteHalf,
+    pub(crate) encodable: Vec<stream::Codec>,
+    pub(crate) access: link::Access,
+}
+
+/// Opens the helper through Launch Services, so that macOS asks for its permissions in its own
+/// name rather than in the name of the app that started the host.
+async fn start(settings: &Settings) -> Result<Started, Error> {
+    let token = token()?;
+    tokio::fs::create_dir_all(&settings.sockets).await?;
+    let path = settings
+        .sockets
+        .join(format!("screen-{}.sock", &token[..12]));
+    drop(tokio::fs::remove_file(&path).await);
+    let listener = UnixListener::bind(&path)?;
+    let opened = Command::new("/usr/bin/open")
+        .args(["-g", "-n", "-a"])
+        .arg(&settings.helper)
+        .arg("--args")
+        .arg("--link")
+        .arg(&path)
+        .arg("--token")
+        .arg(&token)
+        .status()
+        .await;
+    let accepted = match opened {
+        Ok(status) if status.success() => tokio::time::timeout(CONNECT_LIMIT, listener.accept())
+            .await
+            .map_err(|_| Error::Helper("it did not connect".to_owned()))
+            .and_then(|accepted| accepted.map_err(Error::from)),
+        Ok(status) => Err(Error::Helper(format!("it did not open: {status}"))),
+        Err(error) => Err(error.into()),
+    };
+    drop(listener);
+    drop(tokio::fs::remove_file(&path).await);
+    let (mut reader, writer) = accepted?.0.into_split();
+    let hello = tokio::time::timeout(HELLO_LIMIT, link::read::<FromHelper>(&mut reader))
+        .await
+        .map_err(|_| Error::Helper("it said nothing".to_owned()))??;
+    match hello {
+        Some(Message::Said(FromHelper::Hello {
+            token: said,
+            version,
+            encodable,
+            access,
+        })) if said == token && version == VERSION => Ok(Started {
+            reader,
+            writer,
+            encodable,
+            access,
+        }),
+        _ => Err(Error::Helper("it is another version".to_owned())),
+    }
+}
+
+fn token() -> io::Result<String> {
+    let mut bytes = [0_u8; 32];
+    getrandom::fill(&mut bytes)?;
+    let mut text = String::with_capacity(64);
+    for byte in bytes {
+        write!(text, "{byte:02x}").map_err(io::Error::other)?;
+    }
+    Ok(text)
+}
+
+pub struct Pipe {
+    viewer: String,
+    seat: u64,
+    incoming: mpsc::Receiver<Bytes>,
+    mailbox: Arc<Mailbox>,
+    events: mpsc::Sender<Event>,
+}
+
+impl Pipe {
+    pub async fn send(&self, message: &[u8]) -> Result<(), Error> {
+        let message = viewer::from_json::<ToScreen>(message).ok_or(Error::Malformed)?;
+        self.events
+            .send(Event::Message {
+                viewer: self.viewer.clone(),
+                message,
+            })
+            .await
+            .map_err(|_| Error::Stopped)
+    }
+
+    /// Returns the next message for the viewer, the newest state before waiting frames.
+    pub async fn receive(&mut self) -> Option<Bytes> {
+        loop {
+            if let Some(state) = self.mailbox.take() {
+                return Some(viewer::json(&state));
+            }
+            tokio::select! {
+                biased;
+                () = self.mailbox.ready.notified() => {}
+                picture = self.incoming.recv() => return picture,
+            }
+        }
+    }
+}
+
+impl Drop for Pipe {
+    fn drop(&mut self) {
+        drop(self.events.try_send(Event::Leave {
+            viewer: self.viewer.clone(),
+            seat: self.seat,
+        }));
+    }
+}

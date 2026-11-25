@@ -19,7 +19,7 @@ use crate::{
 const CONNECT_LIMIT: Duration = Duration::from_secs(30);
 const HANDSHAKE_LIMIT: Duration = Duration::from_secs(5);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Report {
     Said(FromEngine),
     Frame(EncodedFrame),
@@ -181,6 +181,7 @@ mod tests {
                 codec: Codec::Hevc,
                 kind: FrameKind::Key,
                 mark: Some(9),
+                region: None,
                 data: Bytes::from_static(b"\0\0\0\x01x"),
             },
         };

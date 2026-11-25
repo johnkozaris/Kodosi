@@ -9,6 +9,11 @@ pub enum Codec {
 }
 
 impl Codec {
+    /// Every viewer decodes H.264, the codec a stream falls back to.
+    pub fn decoded_by(self, decoders: &[Decoder]) -> bool {
+        self == Self::H264 || decoders.iter().any(|decoder| decoder.codec == self)
+    }
+
     pub const fn wire(self) -> u8 {
         match self {
             Self::H264 => 0,

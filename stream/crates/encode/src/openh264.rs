@@ -22,7 +22,7 @@ use openh264_sys2::{
     ENCODER_OPTION_SVC_ENCODE_PARAM_EXT, LAYER_NUM, SBitrateInfo, SEncParamExt, SPATIAL_LAYER_0,
     SPATIAL_LAYER_ALL, cmResultSuccess,
 };
-use stream::{Codec, Encoded, Format, FrameKind};
+use stream::{Codec, Encoded, Format, FrameKind, Region};
 
 use crate::{
     Output, Picture, Settings,
@@ -38,6 +38,7 @@ struct Pixels {
     bgra: Vec<u8>,
     width: usize,
     height: usize,
+    region: Option<Region>,
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
@@ -111,7 +112,7 @@ impl Encoder {
     }
 
     /// Copies outside the lock so the worker is not blocked while the rows are cloned.
-    pub(crate) fn encode(&self, picture: Picture<'_>) {
+    pub(crate) fn encode(&self, picture: Picture<'_>, region: Option<Region>) {
         let Picture::Pixels {
             bgra,
             width,
@@ -138,6 +139,7 @@ impl Encoder {
                 bgra: kept,
                 width: even_width,
                 height: even_height,
+                region,
             });
             slot.refinement = Refinement::Idle;
         });
@@ -304,6 +306,7 @@ fn work(bitrate: u32, output: &dyn Output, shared: &Shared) {
         shared,
         bitrate,
         running: None,
+        region: None,
         lost: false,
         missing: false,
         again: None,
@@ -328,6 +331,8 @@ struct Worker<'a> {
     shared: &'a Shared,
     bitrate: u32,
     running: Option<Running>,
+    /// What the picture in the encoder shows of the source.
+    region: Option<Region>,
     lost: bool,
     /// Set until the latest picture has been sent and taken.
     missing: bool,
@@ -425,6 +430,7 @@ impl Worker<'_> {
             }
         }
         self.running.as_mut()?.planes.read(&picture.bgra);
+        self.region = picture.region;
         {
             let mut slot = lock(self.shared);
             slot.spare = picture.bgra;
@@ -468,6 +474,7 @@ impl Worker<'_> {
                 FrameKind::Delta
             },
             mark: None,
+            region: self.region,
             data: Bytes::from(data),
         });
         self.lost = !taken;

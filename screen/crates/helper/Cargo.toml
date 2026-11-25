@@ -1,0 +1,33 @@
+[package]
+name = "screen-helper"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[[bin]]
+name = "kodosi-screen"
+path = "src/main.rs"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+base64 = { workspace = true }
+block2 = "0.6.2"
+bytes = { workspace = true }
+dispatch2 = { version = "0.3.1", default-features = false, features = ["std", "block2", "objc2"] }
+objc2 = "0.6.5"
+objc2-application-services = { version = "0.3.2", default-features = false, features = ["std", "AXError", "AXUIElement", "AXValue", "HIServices", "libc"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSApplication", "NSBitmapImageRep", "NSButton", "NSButtonCell", "NSCell", "NSControl", "NSCursor", "NSGraphicsContext", "NSImage", "NSImageRep", "NSMenu", "NSMenuItem", "NSResponder", "NSRunningApplication", "NSStatusBar", "NSStatusBarButton", "NSStatusItem", "NSView", "objc2-core-foundation", "objc2-core-graphics"] }
+objc2-core-foundation = { version = "0.3.2", default-features = false, features = ["std", "CFArray", "CFCGTypes", "CFData", "CFDictionary", "CFNumber", "CFString"] }
+objc2-core-graphics = { version = "0.3.2", default-features = false, features = ["std", "CGColorSpace", "CGDataProvider", "CGDirectDisplay", "CGDisplayStream", "CGEvent", "CGEventSource", "CGEventTypes", "CGGeometry", "CGImage", "CGRemoteOperation", "CGWindow"] }
+objc2-core-media = { version = "0.3.2", default-features = false, features = ["std", "CMBase", "CMSampleBuffer", "CMTime", "objc2-core-video"] }
+objc2-core-video = { version = "0.3.2", default-features = false, features = ["std", "CVBase", "CVBuffer", "CVImageBuffer", "CVPixelBuffer"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSArray", "NSData", "NSDate", "NSDictionary", "NSError", "NSGeometry", "NSObject", "NSString", "NSTimer", "block2"] }
+objc2-screen-capture-kit = { version = "0.3.2", default-features = false, features = ["std", "SCShareableContent", "SCStream", "block2", "dispatch2", "objc2-core-foundation", "objc2-core-graphics", "objc2-core-media"] }
+screen = { workspace = true }
+stream = { workspace = true }
+stream-encode = { workspace = true }
+tokio = { workspace = true }
+
+[lints]
+workspace = true

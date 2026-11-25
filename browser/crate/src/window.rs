@@ -11,7 +11,7 @@ use std::{
 use bytes::Bytes;
 use serde_json::json;
 use stream::{
-    Ask, Codec, Decoder, Encoded, Flow, Format, FrameKind, HOPELESS, Size, Viewing,
+    Ask, Decoder, Encoded, Flow, Format, FrameKind, HOPELESS, Size, Viewing,
     viewer::{self, Frame, KeyAction, MouseAction, MouseButton},
 };
 use tokio::sync::{Notify, mpsc, oneshot, watch};
@@ -370,11 +370,6 @@ struct Seat {
 impl Seat {
     fn hosts_layer(&self) -> bool {
         self.watching == Some(Watching::Layer)
-    }
-
-    /// Every viewer decodes H.264, the codec a stream falls back to.
-    fn decodes(&self, codec: Codec) -> bool {
-        codec == Codec::H264 || self.decoders.iter().any(|decoder| decoder.codec == codec)
     }
 
     fn viewing(&self) -> Option<Viewing<'_>> {
@@ -909,6 +904,7 @@ impl Live {
                 id,
                 codec,
                 kind: picture.kind,
+                region: picture.region,
                 data: picture.data,
             })
             .encode();
@@ -916,7 +912,8 @@ impl Live {
             // keyframe in its own.
             for viewer in &delivery.to {
                 let sent = self.seats.get(viewer).is_some_and(|seat| {
-                    seat.decodes(codec) && seat.outgoing.try_send(message.clone()).is_ok()
+                    codec.decoded_by(&seat.decoders)
+                        && seat.outgoing.try_send(message.clone()).is_ok()
                 });
                 if !sent {
                     self.flow.lost(viewer, id, now);
@@ -935,6 +932,7 @@ impl Live {
             id: self.next_frame,
             codec: picture.codec,
             kind: FrameKind::Key,
+            region: picture.region,
             data: picture.data,
         })
         .encode();
@@ -1678,6 +1676,8 @@ async fn free_name(folder: &Path, name: &str) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
+    use stream::Codec;
+
     use super::*;
 
     fn seat(number: u64) -> Seat {
@@ -2043,6 +2043,7 @@ mod tests {
             codec: Codec::H264,
             kind,
             mark: None,
+            region: None,
             data: Bytes::from_static(data),
         }
     }

@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-pub use stream::{Codec, Encoded, Format, FrameKind};
+pub use stream::{Codec, Encoded, Format, FrameKind, Region};
 
 #[cfg(not(target_os = "macos"))]
 mod openh264;
@@ -68,12 +68,13 @@ impl Encoder {
         return Self(Backend::OpenH264(openh264::Encoder::new(settings, output)));
     }
 
-    pub fn encode(&mut self, picture: Picture<'_>) {
+    /// Encodes a picture of `region` of the source, or of all of it.
+    pub fn encode(&mut self, picture: Picture<'_>, region: Option<Region>) {
         match &mut self.0 {
             #[cfg(target_os = "macos")]
-            Backend::VideoToolbox(encoder) => encoder.encode(picture),
+            Backend::VideoToolbox(encoder) => encoder.encode(picture, region),
             #[cfg(not(target_os = "macos"))]
-            Backend::OpenH264(encoder) => encoder.encode(picture),
+            Backend::OpenH264(encoder) => encoder.encode(picture, region),
         }
     }
 

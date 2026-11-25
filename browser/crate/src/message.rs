@@ -8,16 +8,7 @@ mod wire;
 #[cfg(feature = "host")]
 pub(crate) use wire::{Act, Input, ToViewer, ToWindow};
 
-/// Authenticated viewer supplied by the host. `id` identifies a single view; multiple views
-/// belonging to the same user share `person`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Viewer {
-    pub id: String,
-    pub person: String,
-    pub name: String,
-    /// True when the viewer runs on the same machine as the browser engine.
-    pub local: bool,
-}
+pub use stream::viewer::Viewer;
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]

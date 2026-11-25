@@ -7,6 +7,7 @@ mod session;
 mod sps;
 
 use std::{
+    collections::VecDeque,
     ptr::NonNull,
     sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock, PoisonError},
     thread::JoinHandle,
@@ -16,7 +17,7 @@ use std::{
 use objc2_core_foundation::CFRetained;
 use objc2_core_video::{CVPixelBuffer, CVPixelBufferGetHeight, CVPixelBufferGetWidth};
 use objc2_io_surface::IOSurfaceRef;
-use stream::{Codec, Encoded, Format, FrameKind};
+use stream::{Codec, Encoded, Format, FrameKind, Region};
 
 use self::{
     convert::Converter,
@@ -29,17 +30,22 @@ use crate::{
 
 /// Pictures in the encoder at once; more only add latency.
 const MOST_WAITING: usize = 2;
+/// A marker's low bits hold `REFINEMENT` and `RECOVERY`; the bits above number the picture.
+const NUMBER_SHIFT: u32 = 2;
 
-/// An NV12 picture that Metal filled.
+/// An NV12 picture and the part of the source that it shows.
 #[derive(Clone)]
-struct Buffer(CFRetained<CVPixelBuffer>);
+struct Buffer {
+    picture: CFRetained<CVPixelBuffer>,
+    region: Option<Region>,
+}
 
 #[expect(
     clippy::non_send_fields_in_send_ty,
     reason = "Core Foundation types are thread safe, but objc2 marks them all as !Send"
 )]
 // SAFETY: Core Video retains and releases pixel buffers atomically, and nothing writes to a
-// picture after Metal filled it.
+// picture once the encoder has it.
 unsafe impl Send for Buffer {}
 
 pub(crate) fn encodable() -> Vec<Codec> {
@@ -74,6 +80,8 @@ enum Refinement {
 
 struct Slot {
     picture: Option<Buffer>,
+    /// What each picture in the encoder shows, by its number.
+    regions: VecDeque<(usize, Option<Region>)>,
     repair: Repair,
     held: Vec<u64>,
     format: Format,
@@ -123,6 +131,7 @@ impl Gate {
     ) {
         let refinement = marker & REFINEMENT != 0;
         let recovery = marker & RECOVERY != 0;
+        let region = self.region(marker >> NUMBER_SHIFT);
         let sent = sample.map(|coded| {
             let size = coded.data.len();
             let kind = if coded.key {
@@ -136,6 +145,7 @@ impl Gate {
                 codec,
                 kind,
                 mark: coded.mark,
+                region,
                 data: coded.data,
             });
             (taken, size)
@@ -170,6 +180,16 @@ impl Gate {
         drop(slot);
         self.ready.notify_one();
     }
+
+    /// Takes the region of an encoded picture, and those of earlier pictures the encoder skipped.
+    fn region(&self, number: usize) -> Option<Region> {
+        let mut slot = self.lock();
+        let at = slot.regions.iter().position(|(each, _)| *each == number)?;
+        slot.regions
+            .drain(..=at)
+            .next_back()
+            .and_then(|(_, region)| region)
+    }
 }
 
 pub(crate) struct Encoder {
@@ -184,6 +204,7 @@ impl Encoder {
         let gate = Arc::new(Gate {
             slot: Mutex::new(Slot {
                 picture: None,
+                regions: VecDeque::new(),
                 repair: Repair::Key,
                 held: Vec::new(),
                 format: settings.format,
@@ -211,7 +232,7 @@ impl Encoder {
         }
     }
 
-    pub(crate) fn encode(&mut self, picture: Picture<'_>) {
+    pub(crate) fn encode(&mut self, picture: Picture<'_>, region: Option<Region>) {
         let nv12 = match picture {
             Picture::Nv12(buffer) => {
                 // SAFETY: the caller passes a valid `CVPixelBufferRef`, which this retains.
@@ -253,7 +274,7 @@ impl Encoder {
         };
         match nv12 {
             Ok(picture) => self.gate.change(|slot| {
-                slot.picture = Some(Buffer(picture));
+                slot.picture = Some(Buffer { picture, region });
                 slot.retry_at = None;
                 slot.refinement = Refinement::Idle;
                 slot.sharpening = Convergence::default();
@@ -394,10 +415,11 @@ fn work(gate: &Arc<Gate>) {
     let started = Instant::now();
     let mut session: Option<Session> = None;
     let mut last: Option<Buffer> = None;
+    let mut submitted: usize = 0;
     while let Some(submission) = next(gate, last.as_ref()) {
-        let (Buffer(picture), marker) = match &submission.job {
-            Job::Encode(picture) | Job::Again(picture) => (picture, 0),
-            Job::Refine(picture) => (picture, REFINEMENT),
+        let (Buffer { picture, region }, marker) = match &submission.job {
+            Job::Encode(buffer) | Job::Again(buffer) => (buffer, 0),
+            Job::Refine(buffer) => (buffer, REFINEMENT),
         };
         let (width, height) = (
             CVPixelBufferGetWidth(picture),
@@ -425,8 +447,13 @@ fn work(gate: &Arc<Gate>) {
             continue;
         };
         let recover = submission.recover && !key;
-        let marker = marker | if recover { RECOVERY } else { 0 };
-        gate.change(|slot| slot.waiting += 1);
+        submitted = submitted.wrapping_add(1) & (usize::MAX >> NUMBER_SHIFT);
+        let number = submitted;
+        let marker = number << NUMBER_SHIFT | marker | if recover { RECOVERY } else { 0 };
+        gate.change(|slot| {
+            slot.waiting += 1;
+            slot.regions.push_back((number, *region));
+        });
         let status = session.encode(
             picture,
             started.elapsed(),
@@ -438,6 +465,7 @@ fn work(gate: &Arc<Gate>) {
         if status != 0 {
             gate.change(|slot| {
                 slot.waiting = slot.waiting.saturating_sub(1);
+                slot.regions.retain(|(each, _)| *each != number);
                 let undone = if key {
                     Repair::Key
                 } else if recover {
@@ -465,7 +493,7 @@ mod tests {
 
     use objc2_core_foundation::CFRetained;
     use objc2_core_video::{CVPixelBufferCreate, kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange};
-    use stream::{Codec, Encoded, Format, FrameKind};
+    use stream::{Codec, Encoded, Format, FrameKind, Region};
 
     use super::Encoder;
     use crate::{Output, Picture, Settings};
@@ -538,11 +566,14 @@ mod tests {
         );
         for index in 0..pictures {
             before(&encoder, &frames.0.lock().unwrap());
-            encoder.encode(Picture::Pixels {
-                bgra: &picture(index * 8),
-                width: WIDTH,
-                height: HEIGHT,
-            });
+            encoder.encode(
+                Picture::Pixels {
+                    bgra: &picture(index * 8),
+                    width: WIDTH,
+                    height: HEIGHT,
+                },
+                None,
+            );
             wait_for(&frames, index + 1);
         }
         drop(encoder);
@@ -550,7 +581,7 @@ mod tests {
     }
 
     #[test]
-    fn a_captured_nv12_picture_is_encoded_as_it_is() {
+    fn a_captured_nv12_picture_is_encoded_as_it_is_with_the_region_it_shows() {
         let mut raw = std::ptr::null_mut();
         // SAFETY: the out pointer is valid.
         let status = unsafe {
@@ -575,11 +606,21 @@ mod tests {
             },
             Arc::clone(&frames) as Arc<dyn Output>,
         );
-        encoder.encode(Picture::Nv12(CFRetained::as_ptr(&buffer).as_ptr().cast()));
+        let region = Region {
+            x: 100.0,
+            y: 50.0,
+            width: 160.0,
+            height: 120.0,
+        };
+        encoder.encode(
+            Picture::Nv12(CFRetained::as_ptr(&buffer).as_ptr().cast()),
+            Some(region),
+        );
         wait_for(&frames, 1);
         let first = frames.0.lock().unwrap()[0].clone();
         assert_eq!(first.kind, FrameKind::Key);
         assert!(units(&first.data, Codec::H264).contains(&7));
+        assert_eq!(first.region, Some(region));
     }
 
     #[test]

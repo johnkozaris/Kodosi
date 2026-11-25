@@ -227,7 +227,7 @@ pub enum FromEngine {
 }
 
 /// A picture from a window's encoder.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct EncodedFrame {
     pub window: i64,
     /// Standalone keyframe snapshot for layer-hosting views to display while the layer is
@@ -278,6 +278,7 @@ impl EncodedFrame {
                 mark: (flags & MARKED != 0)
                     .then(|| header[10..].try_into().ok().map(u64::from_be_bytes))
                     .flatten(),
+                region: None,
                 data: message.slice(FRAME_HEADER..),
             },
         })

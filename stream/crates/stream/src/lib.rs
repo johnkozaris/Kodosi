@@ -10,5 +10,5 @@ pub mod viewer;
 
 pub use codec::{Codec, Decoder, Format, Viewing, choose};
 pub use flow::{Ask, Delivery, Flow, HOPELESS};
-pub use frame::{Encoded, FrameKind};
+pub use frame::{Encoded, FrameKind, Region};
 pub use viewer::Size;
