@@ -187,13 +187,36 @@ struct SessionTileView: View {
                 .background(theme.colors.cautionSoft, in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
                 .padding(.top, 5)
             }
-            if session.programOutside == true, session.kind == .local, !deps.workbench.notedOutside.contains(session.id) {
-                OutsideNote(session: session) { deps.workbench.notedOutside.insert(session.id) }
-                    .padding(.top, 5)
-                    .transition(.opacity)
+            let outside = session.programOutside == true && session.kind == .local && !deps.workbench.notedOutside.contains(session.id)
+            let programNote = !outside && session.kind == .local && session.face == nil
+                ? session.programNote.flatMap { deps.workbench.dismissedNotes[session.id] != $0 ? $0 : nil }
+                : nil
+            if outside {
+                TerminalNote(
+                    text: Text("\(session.agent.label) started by hand doesn't see Kodosi. Start it from Kodosi next time."),
+                    identifier: "\(AccessibilityIdentifier.stageSession(session.id)).outside",
+                    lineLimit: 2,
+                    selectable: false,
+                ) {
+                    deps.workbench.notedOutside.insert(session.id)
+                }
+                .padding(.top, 5)
+                .transition(.opacity)
+            } else if let note = programNote {
+                TerminalNote(
+                    text: Text(verbatim: note),
+                    identifier: "\(AccessibilityIdentifier.stageSession(session.id)).note",
+                    lineLimit: 3,
+                    selectable: true,
+                ) {
+                    deps.workbench.dismissedNotes[session.id] = note
+                }
+                .padding(.top, 5)
+                .transition(.opacity)
             }
         }
-        .animation(theme.motion.soft, value: session.programOutside)
+        .animation(theme.motion.soft, value: session.programOutside == true && !deps.workbench.notedOutside.contains(session.id))
+        .animation(theme.motion.soft, value: session.programNote.map { deps.workbench.dismissedNotes[session.id] != $0 })
     }
 
     private func surface(manager: TerminalSessionManager, managed: ManagedTerminalSession, state: TerminalRenderState) -> some View {
@@ -334,22 +357,29 @@ private struct JoinCard: View {
     }
 }
 
-private struct OutsideNote: View {
+private struct TerminalNote: View {
     @Environment(\.theme) private var theme
-    let session: RuntimeSession
+    let text: Text
+    let identifier: String
+    let lineLimit: Int
+    let selectable: Bool
     let dismiss: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
-            Text("\(session.agent.label) started by hand doesn't see Kodosi. Start it from Kodosi next time.")
-                .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).lineLimit(2)
+            if selectable {
+                text.appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).lineLimit(lineLimit)
+                    .textSelection(.enabled)
+            } else {
+                text.appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).lineLimit(lineLimit)
+            }
             Spacer(minLength: 4)
-            IconButton(title: "Dismiss", symbol: "xmark", identifier: "\(AccessibilityIdentifier.stageSession(session.id)).outside.dismiss",
+            IconButton(title: "Dismiss", symbol: "xmark", identifier: "\(identifier).dismiss",
                        size: 22, action: dismiss)
         }
-        .padding(.leading, 12).padding(.trailing, 6).frame(minHeight: 34)
+        .padding(.leading, 12).padding(.trailing, 6).padding(.vertical, 6).frame(minHeight: 34)
         .background(theme.colors.raised, in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("\(AccessibilityIdentifier.stageSession(session.id)).outside")
+        .accessibilityIdentifier(identifier)
     }
 }

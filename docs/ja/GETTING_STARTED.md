@@ -92,7 +92,7 @@ Claude Code を実行中のターミナルや、Kodosi から起動した Codex�
 
 エージェントは HTML ページ、Markdown、画像、PDF、Office ドキュメント、スプレッドシート、プレゼンテーション、実行中のウェブアプリをターミナル横の **キャンバス** に表示したり、共有ブラウザを操作したりできます。デフォルトでは、そのターミナルを見ている間にエージェントが何かを表示・更新すると自動でキャンバスが開きます（手動で閉じた場合を除く）。自分で開くときだけにするには、**設定 › 一般** で **キャンバスを自動で開く** をオフにします。
 
-Claude Code と Copilot CLI は手動で起動してもキャンバスの使い方を知っています。Codex、Cursor、OpenCode は Kodosi から起動した場合に使い方を知っています（OpenCode は macOS と Linux のみ）。そのほかのエージェントには、`kodosi skill canvas` を実行するよう伝えてください。
+Claude Code、Copilot CLI、Antigravity CLI は手動で起動してもキャンバスの使い方を知っています。Codex、Cursor、OpenCode は Kodosi から起動した場合に使い方を知っています（OpenCode は macOS と Linux のみ）。そのほかのエージェントには、`kodosi skill canvas` を実行するよう伝えてください。
 
 キャンバスにコンテンツがあると、ターミナルのヘッダーに **ファイル** と **ブラウザ** のボタンが追加され、新着があるときは銅色の点が付きます。
 
@@ -168,7 +168,7 @@ Dosi の顔の横にあるステータス行には、作業中、返信あり、
 - メンバー全員が共有ターミナルを使え、自分のターミナルを共有することもできます。後から参加した人も、プロジェクト内のターミナルとこれまでのチャット履歴をすべて見られます。ファイル自体は各ターミナルのホストコンピュータに残ります。
 - 担当者のいないタスクを作成し、引き受けたり、手放したり、まとめのメモを添えて完了にしたり、再オープンしたりできます。
 - GitHub や Gitea のリポジトリをリンクすると、Issue とタスクを同期できます。リンク済みのタスクを更新すると、元の Issue も更新されます。GitHub は `gh` のログイン情報または Git credential helper を、Gitea は Git credential helper または `KODOSI_GITEA_URL` と組み合わせた `KODOSI_GITEA_TOKEN` を使います。認証情報があなたのコンピュータの外に出ることはありません。
-- チャットで `@<terminal-name>` のようにターミナルをメンションすると、あなたの名前とプロジェクト名を添えたメッセージがそのターミナルのエージェントへ直接届き、エージェントがどう応答するかを判断します。Kodosi 内の Claude Code と Copilot CLI（および Kodosi から起動した Codex、Cursor、OpenCode。OpenCode は macOS と Linux のみ）は、Kodosi 内で動いていることを自動で認識します。ほかのエージェントには `kodosi skill` を実行して [skill](../../runtime/skills/kodosi/SKILL.md) を出力してください。Kodosi のターミナル内ではプロジェクトコマンドが現在のプロジェクトを自動検出し、外から実行する場合は `--project <name>` を指定します。
+- チャットで `@<terminal-name>` のようにターミナルをメンションすると、あなたの名前とプロジェクト名を添えたメッセージがそのターミナルのエージェントへ直接届き、エージェントがどう応答するかを判断します。Kodosi 内の Claude Code、Copilot CLI、Antigravity CLI（および Kodosi から起動した Codex、Cursor、OpenCode。OpenCode は macOS と Linux のみ）は、Kodosi 内で動いていることを自動で認識します。ほかのエージェントには `kodosi skill` を実行して [skill](../../runtime/skills/kodosi/SKILL.md) を出力してください。Kodosi のターミナル内ではプロジェクトコマンドが現在のプロジェクトを自動検出し、外から実行する場合は `--project <name>` を指定します。
 - 自分または自分のエージェントが投稿したメッセージを削除すると、全員の画面で削除済みのプレースホルダーに置き換わります。**チャットを消去** を選ぶと、その時点までの履歴が自分のすべてのデバイスで非表示になりますが、ほかのメンバー側には残ります。
 
 ## 8. コマンドラインを使う

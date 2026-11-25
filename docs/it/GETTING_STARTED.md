@@ -170,9 +170,9 @@ quando l'agente mostra o aggiorna qualcosa mentre stai guardando quel terminale 
 lo abbia chiuso). Per aprirlo solo tu, disattiva **Apri il canvas automaticamente** in
 **Impostazioni › Generale**.
 
-Claude Code e Copilot CLI sanno usare il canvas anche se avviati manualmente, mentre Codex, Cursor
-e OpenCode lo sanno fare quando vengono avviati da Kodosi (OpenCode su macOS e Linux). Per qualsiasi
-altro agente, chiedigli di eseguire `kodosi skill canvas`.
+Claude Code, Copilot CLI e Antigravity CLI sanno usare il canvas anche se avviati manualmente,
+mentre Codex, Cursor e OpenCode lo sanno fare quando vengono avviati da Kodosi (OpenCode su macOS e
+Linux). Per qualsiasi altro agente, chiedigli di eseguire `kodosi skill canvas`.
 
 Quando il canvas contiene qualcosa, nell'intestazione del terminale compaiono i pulsanti **File** e
 **Browser**, con un pallino color rame ogni volta che c'è una novità:
@@ -317,11 +317,12 @@ pronto.
   insieme a `KODOSI_GITEA_URL`. Le credenziali non lasciano mai il tuo computer.
 - Menziona un terminale in chat con `@<terminal-name>` per recapitare il messaggio (accompagnato
   dal tuo nome e dal progetto) direttamente all'agente in esecuzione lì; sarà l'agente a decidere
-  come rispondere. Claude Code e Copilot CLI dentro Kodosi (oltre a Codex, Cursor e OpenCode quando
-  avviati da Kodosi, con OpenCode su macOS e Linux) sanno automaticamente di trovarsi in Kodosi.
-  Esegui `kodosi skill` per stampare la [skill](../../runtime/skills/kodosi/SKILL.md) per qualsiasi
-  altro agente. Dentro un terminale di Kodosi, i comandi di progetto rilevano automaticamente il
-  progetto corrente; all'esterno, passa `--project <name>`.
+  come rispondere. Claude Code, Copilot CLI e Antigravity CLI dentro Kodosi (oltre a Codex, Cursor
+  e OpenCode quando avviati da Kodosi, con OpenCode su macOS e Linux) sanno automaticamente di
+  trovarsi in Kodosi. Esegui `kodosi skill` per stampare la
+  [skill](../../runtime/skills/kodosi/SKILL.md) per qualsiasi altro agente. Dentro un terminale di
+  Kodosi, i comandi di progetto rilevano automaticamente il progetto corrente; all'esterno, passa
+  `--project <name>`.
 - Eliminando un messaggio inviato da te o dal tuo agente, al suo posto tutti vedono un segnaposto
   di messaggio eliminato. **Svuota chat** nasconde la cronologia fino a quel momento su tutti i tuoi
   dispositivi, lasciandola intatta per gli altri membri.

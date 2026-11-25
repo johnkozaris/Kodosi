@@ -64,6 +64,7 @@ final class WorkbenchState {
     /// The terminals where the person dismissed the note that their agent, started by hand,
     /// does not see Kodosi.
     var notedOutside: Set<String> = []
+    var dismissedNotes: [String: String] = [:]
     /// The faces that the person picked for terminals.
     var faces: [String: FacePick] = [:]
     var approvalNoticeDismissed = false
@@ -310,6 +311,7 @@ final class WorkbenchState {
         dismissedDeviceRequests = []
         dismissedReset = nil
         notedOutside = []
+        dismissedNotes = [:]
         faces = [:]
         approvalNoticeDismissed = false
         focusesDeviceCode = false
@@ -344,6 +346,7 @@ final class WorkbenchState {
             }
         }
         notedOutside.formIntersection(current.keys)
+        dismissedNotes = dismissedNotes.filter { current[$0.key] != nil }
         faces = faces.filter { id, pick in current[id]?.keeps(pick) == true }
         canvasesLeftOpen.formIntersection(current.keys)
         closing.formIntersection(current.keys)

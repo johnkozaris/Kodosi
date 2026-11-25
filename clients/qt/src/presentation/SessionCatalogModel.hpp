@@ -31,6 +31,7 @@ public:
         QString program;
         int programAccount = -1;
         bool programOutside = false;
+        QString programNote;
         QVariantMap programSettings;
         QVariantMap programLive;
         QVariantMap programPending;

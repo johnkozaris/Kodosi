@@ -150,9 +150,9 @@ Claude Code를 실행 중인 터미널이나 Kodosi로 시작한 Codex 및 Copil
 보고 있을 때 에이전트가 새 항목을 보여 주거나 업데이트하면 캔버스가 자동으로 열려요(직접 닫아 둔
 경우는 제외). 직접 열 때만 열리게 하려면 **설정 › 일반**에서 **캔버스 자동으로 열기**를 끄세요.
 
-Claude Code와 Copilot CLI는 수동으로 실행해도 캔버스 사용법을 자동으로 알고, Codex, Cursor,
-OpenCode(macOS 및 Linux)는 Kodosi로 시작했을 때 사용법을 알아요. 그 밖의 에이전트에는
-`kodosi skill canvas`를 실행하라고 안내하세요.
+Claude Code, Copilot CLI, Antigravity CLI는 수동으로 실행해도 캔버스 사용법을 자동으로 알고,
+Codex, Cursor, OpenCode(macOS 및 Linux)는 Kodosi로 시작했을 때 사용법을 알아요. 그 밖의
+에이전트에는 `kodosi skill canvas`를 실행하라고 안내하세요.
 
 캔버스에 콘텐츠가 올라오면 터미널 헤더에 **파일** 버튼과 **브라우저** 버튼이 생기며, 새로운 항목이
 있을 때는 구리색 점이 표시돼요.
@@ -284,7 +284,7 @@ Kodosi가 열려 있거나 터미널에서 `kodosi host`가 실행 중이어야 
   증명은 내 컴퓨터 밖으로 나가지 않아요.
 - 채팅에서 `@<terminal-name>`처럼 터미널을 멘션하면 내 이름과 프로젝트 정보가 붙은 메시지가 해당
   터미널에서 실행 중인 에이전트에게 바로 전달되며, 어떻게 응답할지는 에이전트가 판단해요. Kodosi
-  안에서 실행되는 Claude Code와 Copilot CLI, 그리고 Kodosi로 시작한 Codex, Cursor,
+  안에서 실행되는 Claude Code, Copilot CLI, Antigravity CLI와 Kodosi로 시작한 Codex, Cursor,
   OpenCode(macOS 및 Linux)는 자신이 Kodosi 안에 있다는 것을 자동으로 인식해요. 그 밖의 에이전트에는
   `kodosi skill`을 실행해 [skill](../../runtime/skills/kodosi/SKILL.md)(영어)을 출력해 주세요.
   Kodosi 터미널 안에서는 프로젝트 명령이 현재 프로젝트를 자동으로 감지하고, 외부에서는

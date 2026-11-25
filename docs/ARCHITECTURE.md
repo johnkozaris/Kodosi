@@ -120,8 +120,10 @@ using their own Git or CLI credentials. See [Security](SECURITY.md) and the
 
 Kodosi integrates with agents solely through their public CLI interfaces. Each terminal sets
 environment variables pointing to Kodosi's context note and skills stored inside Kodosi's own data
-directory. Apart from the Copilot CLI settings that [PRODUCT.md](../PRODUCT.md) describes, Kodosi
-leaves agent home directories untouched, so agents running outside Kodosi are unaffected.
+directory. Kodosi leaves nothing behind in an agent's own folders: whatever it changes there while
+it runs, such as the Copilot CLI settings that [PRODUCT.md](../PRODUCT.md) describes or the link to
+its plugin that Antigravity CLI loads only from its own folder, it restores when it stops, and a
+host that starts after a crash takes over whatever the previous one left.
 
 When a project chat message mentions a terminal by name, the host types it into the agent running
 there; `kodosi` CLI commands can similarly message agents on any computer. Live changes to a

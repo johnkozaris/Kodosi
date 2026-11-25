@@ -641,6 +641,7 @@ enum Completion {
         folder: Option<PathBuf>,
         agent: crate::agents::Agent,
         outside: bool,
+        note: Option<crate::text::Text>,
         settings: crate::agents::AgentSettings,
     },
     #[cfg(feature = "host")]
@@ -1272,9 +1273,16 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         &commands::shell(&config),
     ));
     #[cfg(feature = "host")]
-    if let Err(error) = crate::agents::write_notes(&crate::agents::notes_folder(&config.data_root))
     {
-        tracing::warn!(%error, "the note for agents was not written");
+        let notes = crate::agents::notes_folder(&config.data_root);
+        if let Err(error) = crate::agents::write_notes(&notes) {
+            tracing::warn!(%error, "the note for agents was not written");
+        }
+        if config.manages_home()
+            && let Err(error) = crate::agents::mount_antigravity_plugin(&config.home, &notes, false)
+        {
+            tracing::warn!(%error, "Kodosi's plugin for Antigravity CLI was not linked");
+        }
     }
     #[cfg(feature = "host")]
     let restore = restore::Restore::load(&config.data_root);
@@ -1898,6 +1906,17 @@ impl Runtime {
             );
             let settings = agent.started_with(&foreground.arguments);
             let folder = agent.account_folder(&home, foreground.variable);
+            let note = if agent == crate::agents::Agent::Copilot {
+                folder.as_deref().and_then(|folder| {
+                    let note = crate::agents::copilot_chat_note(folder);
+                    if let Some(note) = &note {
+                        tracing::warn!(%id, folder = %folder.display(), %note, "Copilot CLI chat cannot open");
+                    }
+                    note
+                })
+            } else {
+                None
+            };
             let account = match &folder {
                 Some(folder) => launcher.account_of(agent, folder).await,
                 None => None,
@@ -1909,6 +1928,7 @@ impl Runtime {
                 folder,
                 agent,
                 outside,
+                note,
                 settings,
             }
         });
@@ -2089,6 +2109,15 @@ impl Runtime {
         self.stop_locals().await;
         #[cfg(feature = "host")]
         self.launcher.release_all_quiet().await;
+        #[cfg(feature = "host")]
+        if self.config.manages_home()
+            && let Err(error) = crate::agents::unmount_antigravity_plugin(
+                &self.config.home,
+                &crate::agents::notes_folder(&self.config.data_root),
+            )
+        {
+            tracing::warn!(%error, "Kodosi's plugin for Antigravity CLI was not removed");
+        }
         #[cfg(feature = "host")]
         self.services.close().await;
         #[cfg(feature = "host")]
@@ -3569,6 +3598,7 @@ impl Runtime {
                 shared.and_then(|status| status.account)
             },
             program_outside: false,
+            program_note: None,
             prompt: false,
             repository: false,
             title: previous.and_then(|entry| entry.title.clone()),
@@ -3718,6 +3748,7 @@ impl Runtime {
                     local.entry.program_account = None;
                     local.account_folder = None;
                     local.entry.program_outside = false;
+                    local.entry.program_note = None;
                     local.entry.program_settings = None;
                     local.entry.program_live = crate::agents::live_of(program.as_deref());
                     local.entry.program_pending = None;
@@ -3768,7 +3799,7 @@ impl Runtime {
             #[cfg(feature = "host")]
             SessionChange::Title { id, title } => {
                 if let Some(local) = self.local.get_mut(&id) {
-                    local.entry.title = Some(title);
+                    local.entry.title = title;
                     self.publish_catalog();
                 }
             }
@@ -3815,6 +3846,9 @@ impl Runtime {
                 {
                     local.entry.face = face;
                     local.entry.helpers = helpers;
+                    if face.is_some() {
+                        local.entry.program_note = None;
+                    }
                     self.publish_catalog();
                 }
             }

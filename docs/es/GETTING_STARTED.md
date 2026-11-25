@@ -170,9 +170,9 @@ controlar un navegador compartido. Por defecto, el lienzo se abre automáticamen
 muestra o actualiza algo mientras estás viendo ese terminal (salvo que lo hayas cerrado). Para
 abrirlo solo tú, desactiva **Abrir el lienzo automáticamente** en **Ajustes › General**.
 
-Claude Code y Copilot CLI saben usar el lienzo incluso cuando se inician manualmente, y Codex,
-Cursor y OpenCode lo saben cuando los inicia Kodosi (OpenCode en macOS y Linux). Con cualquier otro
-agente, dile que ejecute `kodosi skill canvas`.
+Claude Code, Copilot CLI y Antigravity CLI saben usar el lienzo incluso cuando se inician
+manualmente, y Codex, Cursor y OpenCode lo saben cuando los inicia Kodosi (OpenCode en macOS y
+Linux). Con cualquier otro agente, dile que ejecute `kodosi skill canvas`.
 
 En cuanto el lienzo tiene contenido, la cabecera del terminal añade los botones **Archivos** y
 **Navegador**, con un punto cobrizo siempre que haya novedades:
@@ -318,7 +318,7 @@ comparte en él terminales que ya tengas abiertos) e invita a tus amigos cuando 
   `KODOSI_GITEA_TOKEN` junto con `KODOSI_GITEA_URL`. Las credenciales nunca salen de tu ordenador.
 - Menciona un terminal en el chat con `@<terminal-name>` para entregar tu mensaje (etiquetado con
   tu nombre y el proyecto) directamente al agente que se ejecuta ahí; el agente decide cómo
-  responder. Claude Code y Copilot CLI dentro de Kodosi (además de Codex, Cursor y
+  responder. Claude Code, Copilot CLI y Antigravity CLI dentro de Kodosi (además de Codex, Cursor y
   OpenCode cuando los inicia Kodosi, con OpenCode en macOS y Linux) saben automáticamente que están
   en Kodosi. Ejecuta `kodosi skill` para imprimir la [skill](../../runtime/skills/kodosi/SKILL.md)
   para cualquier otro agente. Dentro de un terminal de Kodosi, los comandos de proyecto detectan el

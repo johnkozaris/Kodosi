@@ -356,17 +356,12 @@ impl Browser {
                 "Kodosi runs the browser of this terminal, so {refused} is not available here. Use the other commands."
             )));
         }
-        let command = arguments
-            .iter()
-            .find(|word| !word.starts_with('-'))
-            .cloned()
-            .unwrap_or_default();
+        let command = asked(&arguments);
         let _one = self.commands.lock().await;
         let window = self.window().await?;
         window.driven().await;
         let driver = window.driver().clone();
-        let acting =
-            !(LOOKS.contains(&command.as_str()) || (command == "tab" && arguments.len() == 1));
+        let acting = !(LOOKS.contains(&command) || (command == "tab" && arguments.len() == 1));
         let used = self.activity(|activity| {
             let used = window
                 .used_at()
@@ -378,7 +373,7 @@ impl Browser {
         });
         let agent = agent.unwrap_or_else(|| "The agent".to_owned());
         if let Some((kind, target)) = doing(&arguments) {
-            let point = match target {
+            let point = match target.filter(|_| window.is_watched()) {
                 Some(target) => self.point(&folder, &driver, &target).await,
                 None => None,
             };
@@ -575,13 +570,17 @@ impl Browser {
         }
         prepare(&self.places).await?;
         let mut command = agent_browser_command(&self.places.binary, &self.places.sockets);
-        // Pass CDP credentials via env vars so other local users cannot read them from `ps`.
+        // Pass the CDP credentials in the environment, which other local users can't read
+        // (unlike the command line, visible in `ps`). The address goes on the command line:
+        // agent-browser takes an address from the environment only for a session that has none
+        // yet, and each new window of the terminal gets a new address.
         command
-            .env("AGENT_BROWSER_CDP", driver.address())
             .env(
                 "AGENT_BROWSER_CDP_HEADERS",
                 serde_json::json!({ "Authorization": driver.authorization() }).to_string(),
             )
+            .arg("--cdp")
+            .arg(driver.address())
             .arg("--session")
             .arg(self.terminal.id.simple().to_string())
             .arg("--config")
@@ -644,10 +643,7 @@ pub(super) fn kept_address(tabs: &[shared_browser::Tab]) -> Option<&str> {
 /// Rejects disallowed flags and subcommands, and `close --all`, which would close other
 /// terminals' browsers.
 pub(super) fn refused(arguments: &[String]) -> Option<&str> {
-    let closing = arguments
-        .iter()
-        .find(|word| !word.starts_with('-'))
-        .is_some_and(|command| matches!(command.as_str(), "close" | "quit" | "exit"));
+    let closing = matches!(asked(arguments), "close" | "quit" | "exit");
     arguments
         .iter()
         .find(|word| {
@@ -659,30 +655,64 @@ pub(super) fn refused(arguments: &[String]) -> Option<&str> {
         .map(String::as_str)
 }
 
-/// Commands `agent-browser` can answer directly without an active terminal or browser window.
-pub(crate) fn answers_alone(arguments: &[String]) -> bool {
-    let command = arguments
+fn asked(arguments: &[String]) -> &str {
+    arguments
         .iter()
         .find(|word| !word.starts_with('-'))
-        .map_or("", String::as_str);
-    matches!(command, "" | "help" | "skills")
+        .map_or("", String::as_str)
+}
+
+/// Commands that Kodosi or agent-browser answers without a browser or a terminal.
+pub(crate) fn answers_alone(arguments: &[String]) -> bool {
+    matches!(asked(arguments), "" | "help" | "skills")
         || arguments
             .iter()
             .any(|word| matches!(word.as_str(), "--help" | "-h" | "--version" | "-V"))
 }
 
+/// agent-browser's guides do not come with Kodosi, so its skills are Kodosi's guide.
 pub(crate) async fn answer_alone(
     data_root: &Path,
     arguments: &[String],
 ) -> Result<(String, i32), Text> {
+    let asked = asked(arguments);
+    if asked == "skills" {
+        return Ok((crate::agents::CANVAS_SKILL.to_owned(), 0));
+    }
     let binary = agent_browser();
     if !binary.is_file() {
         return Err(no_agent_browser());
     }
     let mut command = agent_browser_command(&binary, &sockets(data_root));
-    command.args(arguments);
+    if asked == "help" {
+        command
+            .args(arguments.iter().filter(|word| *word != "help"))
+            .arg("--help");
+    } else {
+        command.args(arguments);
+    }
     let run = finished(command, QUICK_LIMIT).await?;
-    Ok((run.output, run.code))
+    if arguments
+        .iter()
+        .any(|word| matches!(word.as_str(), "--version" | "-V"))
+    {
+        return Ok((run.output, run.code));
+    }
+    Ok((
+        format!("{}\n\n{}", help_in_kodosi(), run.output.trim_start()),
+        run.code,
+    ))
+}
+
+/// agent-browser's help names itself, its guides and the options that Kodosi keeps.
+fn help_in_kodosi() -> String {
+    format!(
+        "In Kodosi:\n\
+         - Write `kodosi browser` where this help writes `agent-browser`.\n\
+         - `kodosi browser skills` gives Kodosi's guide to this browser, as `kodosi skill canvas` does.\n\
+         - Kodosi runs the browser of this terminal, so these are not available here: {}, close --all.",
+        NOT_HERE.join(", ")
+    )
 }
 
 /// Caps retained bytes at `MOST_READ` while draining the rest to avoid deadlocking the child on

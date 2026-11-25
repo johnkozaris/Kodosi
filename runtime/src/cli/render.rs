@@ -34,6 +34,7 @@ pub(super) fn session(session: &Value, context: &Context) -> String {
         ["Where".to_owned(), place(session)],
         ["State".to_owned(), state(session)],
         ["Message".to_owned(), text(session, "activity")],
+        ["Note".to_owned(), text(session, "programNote")],
         ["Folder".to_owned(), text(session, "workingDir")],
         ["Project".to_owned(), text(session, "projectName")],
         [

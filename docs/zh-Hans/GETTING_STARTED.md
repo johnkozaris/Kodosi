@@ -92,7 +92,7 @@
 
 Agent 可以在终端旁的 **画布** 上展示 HTML 页面、Markdown、图片、PDF、Office 文档、电子表格、演示文稿或运行中的网页应用，还可以操作共享浏览器。默认情况下，当你正在查看该终端时，只要 Agent 展示或更新了内容，画布就会自动打开（除非你已手动将其关闭）。若只想自己打开画布，请在 **设置 › 常规** 中关闭 **自动打开画布**。
 
-Claude Code 和 Copilot CLI 即使由你手动启动也了解如何使用画布；Codex、Cursor 和 OpenCode 则在通过 Kodosi 启动时知道如何使用（OpenCode 限 macOS 和 Linux）。对于其他 Agent，让它运行 `kodosi skill canvas` 即可。
+Claude Code、Copilot CLI 和 Antigravity CLI 即使由你手动启动也了解如何使用画布；Codex、Cursor 和 OpenCode 则在通过 Kodosi 启动时知道如何使用（OpenCode 限 macOS 和 Linux）。对于其他 Agent，让它运行 `kodosi skill canvas` 即可。
 
 画布上有内容后，终端标题栏会出现 **文件** 和 **浏览器** 按钮，有新内容时还会显示铜色圆点：
 
@@ -168,7 +168,7 @@ Dosi 头像旁的状态栏会提示它是在工作中、已回复还是在等待
 - 每位成员都可以使用共享终端，也可以共享自己的终端。后加入的成员会立即看到项目中的终端以及完整的聊天记录。所有文件依然保存在各自终端所在的宿主机上。
 - 你可以创建待认领的任务，进行认领、释放，附带总结说明关闭任务，或重新打开任务。
 - 关联 GitHub 或 Gitea 仓库可将 Issue 与任务双向同步：更新关联任务会同步更新对应的 Issue。GitHub 使用你本机的 `gh` 登录状态或 Git 凭据助手；Gitea 使用 Git 凭据助手，或配合 `KODOSI_GITEA_URL` 使用 `KODOSI_GITEA_TOKEN`。你的凭据绝不会离开本机。
-- 在聊天中使用 `@<terminal-name>` 提及某个终端，消息就会连同你的名称和所属项目直接送达该终端中运行的 Agent，并由 Agent 决定如何回应。在 Kodosi 内运行的 Claude Code 和 Copilot CLI，以及通过 Kodosi 启动的 Codex、Cursor 和 OpenCode（OpenCode 限 macOS 和 Linux），都会自动感知自己身处 Kodosi 之中。对于其他 Agent，可运行 `kodosi skill` 输出对应的协作 [skill](../../runtime/skills/kodosi/SKILL.md)。在 Kodosi 终端内执行项目命令时会自动识别当前项目；在外部终端中则需传入 `--project <name>`。
+- 在聊天中使用 `@<terminal-name>` 提及某个终端，消息就会连同你的名称和所属项目直接送达该终端中运行的 Agent，并由 Agent 决定如何回应。在 Kodosi 内运行的 Claude Code、Copilot CLI 和 Antigravity CLI，以及通过 Kodosi 启动的 Codex、Cursor 和 OpenCode（OpenCode 限 macOS 和 Linux），都会自动感知自己身处 Kodosi 之中。对于其他 Agent，可运行 `kodosi skill` 输出对应的协作 [skill](../../runtime/skills/kodosi/SKILL.md)。在 Kodosi 终端内执行项目命令时会自动识别当前项目；在外部终端中则需传入 `--project <name>`。
 - 删除你或你的 Agent 发送的消息后，所有成员都会在该位置看到一条已删除的占位提示。**清空聊天** 会在你的所有设备上隐藏截至当前的历史记录，但不会影响其他成员的聊天记录。
 
 ## 8. 使用命令行

@@ -70,7 +70,8 @@ Copilot CLI is the one exception for settings. It only reads quiet output mode f
 config file, so Kodosi temporarily updates that setting while Copilot runs and restores it
 afterward. Copilot also requires experimental features enabled to load Kodosi's chat extension
 (which Copilot leaves enabled) and per-folder extension approval (which Kodosi grants for each
-folder where it launches Copilot).
+folder where it launches Copilot). Antigravity CLI loads plugins only from its own configuration
+folder, so Kodosi links its plugin there while Kodosi runs and removes it when Kodosi stops.
 
 ### Chat is a view of the terminal
 The agent still runs inside its terminal as usual; the chat is simply a structured view of that

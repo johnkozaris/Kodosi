@@ -35,6 +35,7 @@ class DesktopStateModel final : public QObject {
     // The terminals where the person dismissed the note that their agent, started by hand, does
     // not see Kodosi.
     Q_PROPERTY(QStringList notedOutside READ notedOutside NOTIFY notedOutsideChanged FINAL)
+    Q_PROPERTY(QVariantMap dismissedNotes READ dismissedNotes NOTIFY dismissedNotesChanged FINAL)
     Q_PROPERTY(QVariantMap faces READ faces NOTIFY facesChanged FINAL)
     Q_PROPERTY(QString launcherPrompt READ launcherPrompt WRITE setLauncherPrompt NOTIFY launcherDraftChanged FINAL)
     Q_PROPERTY(QString launcherFolder READ launcherFolder WRITE setLauncherFolder NOTIFY launcherDraftChanged FINAL)
@@ -89,6 +90,8 @@ public:
     Q_INVOKABLE void clearError();
     QStringList notedOutside() const { return m_notedOutside; }
     Q_INVOKABLE void noteOutside(const QString& id);
+    QVariantMap dismissedNotes() const { return m_dismissedNotes; }
+    Q_INVOKABLE void dismissNote(const QString& id, const QString& note);
     // The face of a terminal that the person picked: its screen or its chat.
     QVariantMap faces() const;
     // A pick holds until the terminal's agent reports another face, so a terminal whose agent goes
@@ -120,6 +123,7 @@ signals:
     void modalOpenChanged();
     void dialogsDismissed();
     void notedOutsideChanged();
+    void dismissedNotesChanged();
     void facesChanged();
     void launcherDraftChanged();
     void restored(const QStringList& sessionIds);
@@ -166,6 +170,7 @@ private:
     QList<Departure> m_departures;
     QSet<QString> m_closing;
     QStringList m_notedOutside;
+    QVariantMap m_dismissedNotes;
     struct FacePick {
         QString face;
         QString over;

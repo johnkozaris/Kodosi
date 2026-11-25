@@ -173,9 +173,10 @@ que l'agent affiche ou met à jour un élément pendant que vous regardez ce ter
 l'avez fermé). Pour ne l'ouvrir que vous-même, désactivez **Ouvrir le canvas automatiquement**
 dans **Réglages › Général**.
 
-Claude Code et Copilot CLI savent utiliser le canvas même lorsque vous les lancez manuellement,
-tandis que Codex, Cursor et OpenCode savent le faire lorsqu'ils sont lancés par Kodosi (OpenCode
-sous macOS et Linux). Pour tout autre agent, demandez-lui d'exécuter `kodosi skill canvas`.
+Claude Code, Copilot CLI et Antigravity CLI savent utiliser le canvas même lorsque vous les lancez
+manuellement, tandis que Codex, Cursor et OpenCode savent le faire lorsqu'ils sont lancés par
+Kodosi (OpenCode sous macOS et Linux). Pour tout autre agent, demandez-lui d'exécuter
+`kodosi skill canvas`.
 
 Dès que le canvas contient un élément, l'en-tête du terminal ajoute les boutons **Fichiers** et
 **Navigateur**, accompagnés d'un point cuivré en cas de nouveauté :
@@ -324,7 +325,7 @@ prêt.
   avec `KODOSI_GITEA_URL`. Vos identifiants ne quittent jamais votre machine.
 - Mentionnez un terminal dans le chat avec `@<terminal-name>` pour transmettre votre message
   (accompagné de votre nom et du projet) directement à l'agent qui y tourne ; l'agent décide comment
-  répondre. Claude Code et Copilot CLI dans Kodosi (ainsi que Codex, Cursor et
+  répondre. Claude Code, Copilot CLI et Antigravity CLI dans Kodosi (ainsi que Codex, Cursor et
   OpenCode lorsqu'ils sont lancés par Kodosi, OpenCode étant pris en charge sous macOS et Linux)
   savent automatiquement qu'ils tournent dans Kodosi. Exécutez `kodosi skill` pour afficher le
   [skill](../../runtime/skills/kodosi/SKILL.md) destiné à tout autre agent. Dans un terminal

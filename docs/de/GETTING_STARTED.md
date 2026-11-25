@@ -172,9 +172,10 @@ steuern. Standardmäßig öffnet sich das Canvas automatisch, sobald der Agent e
 aktualisiert, während du das Terminal ansiehst (außer du hast es geschlossen). Um es nur selbst zu
 öffnen, schalte **Canvas automatisch öffnen** unter **Einstellungen › Allgemein** aus.
 
-Claude Code und Copilot CLI wissen auch dann, wie sie das Canvas nutzen, wenn du sie manuell
-startest, und Codex, Cursor und OpenCode wissen es, wenn Kodosi sie startet (OpenCode unter macOS
-und Linux). Jedem anderen Agent kannst du sagen, dass er `kodosi skill canvas` ausführen soll.
+Claude Code, Copilot CLI und Antigravity CLI wissen auch dann, wie sie das Canvas nutzen, wenn du
+sie manuell startest, und Codex, Cursor und OpenCode wissen es, wenn Kodosi sie startet (OpenCode
+unter macOS und Linux). Jedem anderen Agent kannst du sagen, dass er `kodosi skill canvas`
+ausführen soll.
 
 Sobald das Canvas Inhalte hat, erscheinen in der Kopfzeile des Terminals Buttons für **Dateien**
 und **Browser**, jeweils mit einem kupferfarbenen Punkt bei neuen Inhalten:
@@ -324,7 +325,7 @@ direkt im Projekt (oder teile bestehende hinein) und lade Freunde ein, sobald du
   Computer.
 - Erwähne ein Terminal im Chat mit `@<terminal-name>`, um deine Nachricht (versehen mit deinem
   Namen und dem Projekt) direkt an den dort laufenden Agent zuzustellen; der Agent entscheidet
-  selbst, wie er reagiert. Claude Code und Copilot CLI in Kodosi (sowie Codex,
+  selbst, wie er reagiert. Claude Code, Copilot CLI und Antigravity CLI in Kodosi (sowie Codex,
   Cursor und OpenCode, wenn sie von Kodosi gestartet wurden, wobei OpenCode unter macOS und Linux
   unterstützt wird) wissen automatisch, dass sie in Kodosi laufen. Mit `kodosi skill` gibst du den
   [Skill](../../runtime/skills/kodosi/SKILL.md) für jeden anderen Agent aus. In einem
