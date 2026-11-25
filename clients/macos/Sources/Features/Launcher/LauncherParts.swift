@@ -17,19 +17,19 @@ struct LauncherCommandLine<Folder: View, Choices: View>: View {
             folder()
             Text(verbatim: "❯")
                 .foregroundStyle(theme.colors.accent)
-                .frame(height: 26)
+                .controlHeight(PromptTextView.rowHeight)
             if let info {
                 if info.installed {
                     Text(verbatim: info.program)
                         .foregroundStyle(info.kind.commandInk(in: theme))
-                        .frame(height: 26)
+                        .controlHeight(PromptTextView.rowHeight)
                     choices()
                 } else {
                     Text(verbatim: info.install)
                         .foregroundStyle(theme.colors.inkMuted)
-                        .frame(height: 26)
+                        .controlHeight(PromptTextView.rowHeight)
                     PromptCursor(line: info.install)
-                        .frame(height: 26)
+                        .controlHeight(PromptTextView.rowHeight)
                 }
             }
             if info?.installed ?? true {
@@ -38,11 +38,11 @@ struct LauncherCommandLine<Folder: View, Choices: View>: View {
                     label: info == nil ? String(localized: "Command") : String(localized: "First prompt"),
                     focus: focus, submit: submit,
                 )
-                .layoutValue(key: FillsRow.self, value: info == nil ? max(120, PromptTextView.width(hint: hint, size: theme.scaled(13))) : .infinity)
+                .layoutValue(key: FillsRow.self, value: info == nil ? max(120, PromptTextView.width(hint: hint, theme: theme)) : .infinity)
                 .accessibilityIdentifier("launcher.prompt")
             }
         }
-        .font(scaled: 13, weight: .medium, design: .monospaced)
+        .font(Font(PromptTextView.font(theme) as CTFont))
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

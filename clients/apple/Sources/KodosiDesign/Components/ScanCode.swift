@@ -1,3 +1,4 @@
+import KodosiBridge
 import SwiftUI
 
 /// Forces a light surface even in dark mode so cameras can reliably scan the dark QR modules.
@@ -16,7 +17,7 @@ public struct ScanCodeCard<Content: View>: View {
         }
         .aspectRatio(1, contentMode: .fit)
         .raised(Radius.xl, fill: AppTheme.Colors.light.raised)
-        .environment(\.theme, AppTheme.light.reducingMotion(theme.motion.reduced).scalingText(theme.textScale))
+        .environment(\.theme, theme.looking(.light))
         .environment(\.colorScheme, .light)
     }
 }

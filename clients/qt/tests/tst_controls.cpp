@@ -209,6 +209,7 @@ private slots:
     void terminalTilesAskBeforeAClipboardReadOnlyInAnotherPersonsTerminal();
     void leavingTerminalsLeavesNoDeferredWork();
     void messageTextKeepsSpacesEscapesMarkupAndSkipsYourself();
+    void aChosenTextSizeGrowsTheThemeAndStaysAfterARestart();
     void theSharedBrowserAcknowledgesWithoutTheGuiThreadAndComesBackWithoutThePage();
     void aPersonWhoChoosesAWatchedBrowserGivesThePageToItAtOnce();
     void aPersonWhoLeavesTheBrowserLeavesNoChoiceForALaterView();
@@ -291,6 +292,41 @@ void ControlsTest::aCanvasOpensAPipeToItsBrowserOnlyWhenItGoesToTheBrowser()
     rig.canvas.show(test::id(1), QStringLiteral("browser"));
     QCOMPARE(rig.opensAndCloses(),
         (QStringList { QStringLiteral("document.open"), QStringLiteral("document.close"), QStringLiteral("document.open") }));
+}
+
+void ControlsTest::aChosenTextSizeGrowsTheThemeAndStaysAfterARestart()
+{
+    QTemporaryDir directory;
+    const auto path = directory.filePath(QStringLiteral("appearance.ini"));
+    const kodosi::AppearanceModel::StyleHooks hooks {
+        [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} };
+    {
+        kodosi::AppearanceModel appearance(std::make_unique<QSettings>(path, QSettings::IniFormat), hooks);
+        QQmlEngine engine;
+        kodosi::qml::provide<kodosi::qml::AppearanceModelForeign>(engine, appearance);
+        QQmlComponent component(&engine);
+        component.setData(R"(
+            import QtQuick
+            import Kodosi 1.0
+            QtObject {
+                readonly property int body: KodosiTheme.fontBody
+                readonly property real control: KodosiTheme.controlHeight
+                readonly property int symbol: KodosiTheme.scaled(13)
+            }
+        )", {});
+        std::unique_ptr<QObject> sizes(component.create());
+        QVERIFY2(sizes, qPrintable(component.errorString()));
+        const auto body = sizes->property("body").toInt();
+        const auto control = sizes->property("control").toReal();
+        const auto symbol = sizes->property("symbol").toInt();
+
+        QVERIFY(appearance.setTextSize(static_cast<int>(kodosi::AppearanceModel::TextSize::Larger)));
+        QVERIFY(sizes->property("body").toInt() > body);
+        QVERIFY(sizes->property("control").toReal() > control);
+        QVERIFY(sizes->property("symbol").toInt() > symbol);
+    }
+    kodosi::AppearanceModel restarted(std::make_unique<QSettings>(path, QSettings::IniFormat), hooks);
+    QCOMPARE(restarted.textSize(), kodosi::AppearanceModel::TextSize::Larger);
 }
 
 void ControlsTest::messageTextKeepsSpacesEscapesMarkupAndSkipsYourself()

@@ -59,8 +59,6 @@ public:
     [[nodiscard]] bool systemReducesMotion() const noexcept;
     [[nodiscard]] bool summaryFirst() const noexcept;
     [[nodiscard]] TextSize textSize() const noexcept;
-    /// How much larger than normal the words and the controls around them are: about one point a
-    /// step at the size of the conversation.
     [[nodiscard]] qreal textScale() const noexcept;
     [[nodiscard]] QString settingsError() const;
 

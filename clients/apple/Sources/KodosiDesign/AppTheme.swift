@@ -5,8 +5,6 @@ public struct AppTheme: Sendable {
     public let colors: Colors
     public let motion: Motion
     public let isDark: Bool
-    /// How much larger than normal the words and the controls around them are, from the person's text
-    /// size on a Mac.
     public let textScale: CGFloat
 
     public init(colors: Colors, motion: Motion, isDark: Bool, textScale: CGFloat = 1) {
@@ -34,7 +32,11 @@ public struct AppTheme: Sendable {
         AppTheme(colors: colors, motion: motion, isDark: isDark, textScale: scale)
     }
 
-    /// `points` at the person's text size, on the half point.
+    public func looking(_ look: TerminalLook) -> AppTheme {
+        let colored = AppTheme(look: look)
+        return AppTheme(colors: colored.colors, motion: motion, isDark: colored.isDark, textScale: textScale)
+    }
+
     public func scaled(_ points: CGFloat) -> CGFloat {
         (points * textScale * 2).rounded() / 2
     }

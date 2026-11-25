@@ -22,7 +22,6 @@ struct PromptField: NSViewRepresentable {
         view.drawsBackground = false
         view.isHorizontallyResizable = false
         view.isVerticallyResizable = false
-        view.textContainerInset = NSSize(width: 0, height: 4.5)
         view.textContainer?.lineFragmentPadding = 0
         view.textContainer?.widthTracksTextView = false
         view.allowsUndo = true
@@ -34,8 +33,6 @@ struct PromptField: NSViewRepresentable {
         view.isGrammarCheckingEnabled = false
         view.smartInsertDeleteEnabled = false
         view.insertionPointColor = .clear
-        view.font = view.promptFont
-        view.typingAttributes = [.font: view.promptFont]
         return view
     }
 
@@ -44,7 +41,7 @@ struct PromptField: NSViewRepresentable {
         if view.string != text {
             view.string = text
         }
-        view.promptFont = PromptTextView.font(size: theme.scaled(13))
+        view.fit(theme)
         view.textColor = NSColor(theme.colors.ink)
         view.selectedTextAttributes = [.backgroundColor: NSColor(theme.colors.accent.opacity(0.32))]
         view.caretColor = NSColor(theme.colors.accent)
@@ -103,18 +100,26 @@ struct PromptField: NSViewRepresentable {
 }
 
 final class PromptTextView: NSTextView {
-    static func font(size: CGFloat) -> NSFont {
-        NSFont.monospacedSystemFont(ofSize: size, weight: .medium)
+    static let rowHeight: CGFloat = 26
+
+    static func font(_ theme: AppTheme) -> NSFont {
+        NSFont.monospacedSystemFont(ofSize: theme.scaled(13), weight: .medium)
     }
 
-    var promptFont = PromptTextView.font(size: 13) {
-        didSet {
-            if promptFont != oldValue {
-                font = promptFont
-                typingAttributes = [.font: promptFont]
-                needsDisplay = true
-            }
-        }
+    private(set) var promptFont = PromptTextView.font(.dark)
+
+    /// The launcher centers the words of its command line in `rowHeight`, so the field centers its
+    /// first line in the same height, at each text size.
+    func fit(_ theme: AppTheme) {
+        let fitted = Self.font(theme)
+        let line = layoutManager?.defaultLineHeight(for: fitted) ?? fitted.pointSize
+        let inset = NSSize(width: 0, height: max(0, (theme.scaled(Self.rowHeight) - line) / 2))
+        guard fitted != promptFont || inset != textContainerInset else { return }
+        promptFont = fitted
+        font = fitted
+        typingAttributes = [.font: fitted]
+        textContainerInset = inset
+        needsDisplay = true
     }
 
     var caretColor = NSColor.systemOrange
@@ -144,8 +149,8 @@ final class PromptTextView: NSTextView {
                height: layoutManager?.defaultLineHeight(for: promptFont) ?? 17)
     }
 
-    static func width(hint: String, size: CGFloat) -> CGFloat {
-        ceil(((hint + "M") as NSString).size(withAttributes: [.font: font(size: size)]).width)
+    static func width(hint: String, theme: AppTheme) -> CGFloat {
+        ceil(((hint + "M") as NSString).size(withAttributes: [.font: font(theme)]).width)
     }
 
     private var focused: Bool {

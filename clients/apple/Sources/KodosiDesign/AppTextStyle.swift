@@ -38,7 +38,6 @@ public enum AppTextStyle: Sendable {
             }
         }
     #else
-        /// The size at the Normal text size.
         private var points: CGFloat {
             switch self {
             case .large: 28
@@ -89,7 +88,6 @@ private struct AppTextStyleFont: ViewModifier {
     }
 }
 
-/// A size of words or symbols that the person's text size scales on a Mac.
 private struct ScaledFont: ViewModifier {
     @Environment(\.theme) private var theme
     let size: CGFloat
