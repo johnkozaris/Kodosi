@@ -353,6 +353,7 @@ struct SidebarTerminalRow: View {
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
         .animation(theme.motion.snappy, value: deps.sign(of: session))
+        .animation(theme.motion.snappy, value: session.workingHelpers > 0)
         .help(session.isConnected && !troubled ? (staged ? String(localized: "Open") : String(localized: "Minimized")) : deps.statusLabel(of: session))
         .contextMenu { menu }
         .terminalDrag(session)
@@ -447,6 +448,9 @@ struct SidebarTerminalRow: View {
                 let viewers = deps.viewers(of: session)
                 if !viewers.isEmpty {
                     AvatarStack(people: viewers, size: 15, limit: 2, ring: selected ? theme.colors.raised : theme.colors.ground)
+                }
+                if session.workingHelpers > 0 {
+                    HelperMarks(session: session).transition(AnyTransition.pop)
                 }
                 if let sign = deps.sign(of: session) {
                     StatusSign(form: sign).transition(AnyTransition.pop)

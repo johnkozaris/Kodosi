@@ -821,6 +821,34 @@
         <translation>完成</translation>
     </message>
     <message>
+        <source>Hide the helpers</source>
+        <translation>隐藏助手</translation>
+    </message>
+    <message>
+        <source>Show the helpers</source>
+        <translation>显示助手</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n helpers work</source>
+        <translation>
+            <numerusform>%n 个助手正在工作</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n steps</source>
+        <translation>
+            <numerusform>%n 个步骤</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Hide what the helper said</source>
+        <translation>隐藏助手说的话</translation>
+    </message>
+    <message>
+        <source>Show what the helper said</source>
+        <translation>显示助手说的话</translation>
+    </message>
+    <message>
         <source>Remove</source>
         <translation>移除</translation>
     </message>
@@ -890,12 +918,6 @@
     <message>
         <source>This conversation</source>
         <translation>此对话</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n helpers work</source>
-        <translation>
-            <numerusform>%n 个助手正在工作</numerusform>
-        </translation>
     </message>
     <message numerus="yes">
         <source>%n commands run in the background</source>
@@ -2542,6 +2564,15 @@
     <message>
         <source>The terminals on this computer keep running. You cannot undo this.</source>
         <translation>这台电脑上的终端会继续运行。此操作无法撤销。</translation>
+    </message>
+</context>
+<context>
+    <name>HelperMarks</name>
+    <message numerus="yes">
+        <source>%n helpers work</source>
+        <translation>
+            <numerusform>%n 个助手正在工作</numerusform>
+        </translation>
     </message>
 </context>
 <context>

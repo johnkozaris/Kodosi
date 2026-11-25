@@ -46,6 +46,9 @@ struct TerminalTitle: View {
                     } else {
                         name
                     }
+                    if session.workingHelpers > 0 {
+                        HelperMarks(session: session).transition(AnyTransition.pop)
+                    }
                     if let sign {
                         StatusSign(form: sign).transition(AnyTransition.pop)
                     }
@@ -61,6 +64,7 @@ struct TerminalTitle: View {
         }
         .animation(theme.motion.soft, value: session.name)
         .animation(theme.motion.snappy, value: sign)
+        .animation(theme.motion.snappy, value: session.workingHelpers > 0)
         .animation(theme.motion.fade, value: captionKind)
     }
 

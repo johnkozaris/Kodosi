@@ -64,6 +64,15 @@ QJsonObject tool(const QString& id, const QString& kind, const QString& state, c
                                                       { QStringLiteral("state"), state }, { QStringLiteral("target"), target } } } });
 }
 
+QJsonObject helper(const QString& id, const QString& state, const QString& task, const QJsonObject& detail = {})
+{
+    QJsonObject call { { QStringLiteral("name"), QStringLiteral("Task") }, { QStringLiteral("kind"), QStringLiteral("agent") },
+        { QStringLiteral("state"), state }, { QStringLiteral("target"), task } };
+    if (!detail.isEmpty())
+        call.insert(QStringLiteral("detail"), detail);
+    return item(id, { { QStringLiteral("kind"), QStringLiteral("tool") }, { QStringLiteral("tool"), call } });
+}
+
 QJsonObject turnEnd(const QString& id, const QString& end, qint64 ms)
 {
     return item(id, { { QStringLiteral("kind"), QStringLiteral("turn") }, { QStringLiteral("end"), end }, { QStringLiteral("ms"), ms } });
@@ -246,6 +255,48 @@ private slots:
                                     { QStringLiteral("asks"), QJsonArray { permission(QStringLiteral("a1"), QStringLiteral("npm test")) } } } }));
         QCOMPARE(kinds(chat.lines()), QStringList({ QStringLiteral("person"), QStringLiteral("work") }));
         QCOMPARE(chat.ask().value(QStringLiteral("title")).toString(), QStringLiteral("npm test"));
+    }
+
+    void onlyTheHelpersThatRunShowInTheOrderThatTheAgentStartedThem()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasDocuments documents(commands, commands, sessions);
+        kodosi::TerminalChat chat(documents, test::id(1));
+        chat.watch();
+        const QJsonObject explore { { QStringLiteral("kind"), QStringLiteral("agent") }, { QStringLiteral("name"), QStringLiteral("Explore") },
+            { QStringLiteral("steps"), 4 },
+            { QStringLiteral("doing"), QJsonObject { { QStringLiteral("kind"), QStringLiteral("read") }, { QStringLiteral("target"), QStringLiteral("src/tax.ts") } } },
+            { QStringLiteral("said"), QStringLiteral("Found the rate") } };
+        chat.receive(snapshot(1, QStringLiteral("working"),
+            { person(QStringLiteral("p1"), QStringLiteral("Fix the tax")),
+                helper(QStringLiteral("h1"), QStringLiteral("running"), QStringLiteral("Find the tax code"), explore),
+                helper(QStringLiteral("h2"), QStringLiteral("done"), QStringLiteral("Read the docs"), explore),
+                helper(QStringLiteral("h3"), QStringLiteral("preparing"), QStringLiteral("Check the cart")),
+                tool(QStringLiteral("c1"), QStringLiteral("command"), QStringLiteral("running"), QStringLiteral("npm test")),
+                helper(QStringLiteral("h4"), QStringLiteral("running"), QStringLiteral("Check the tests")) }));
+        auto helpers = chat.helpers();
+        QCOMPARE(helpers.size(), 2);
+        const auto explorer = helpers.at(0).toMap();
+        QCOMPARE(explorer.value(QStringLiteral("id")).toString(), QStringLiteral("h1"));
+        QCOMPARE(explorer.value(QStringLiteral("kind")).toString(), QStringLiteral("Explore"));
+        QCOMPARE(explorer.value(QStringLiteral("task")).toString(), QStringLiteral("Find the tax code"));
+        QCOMPARE(explorer.value(QStringLiteral("steps")).toInt(), 4);
+        QCOMPARE(explorer.value(QStringLiteral("said")).toString(), QStringLiteral("Found the rate"));
+        const auto doing = explorer.value(QStringLiteral("doing")).toMap();
+        QCOMPARE(doing.value(QStringLiteral("target")).toString(), QStringLiteral("src/tax.ts"));
+        QCOMPARE(doing.value(QStringLiteral("icon")).toString(), kodosi::ChatWords::icon(QStringLiteral("read")));
+        const auto bare = helpers.at(1).toMap();
+        QCOMPARE(bare.value(QStringLiteral("id")).toString(), QStringLiteral("h4"));
+        QCOMPARE(bare.value(QStringLiteral("kind")).toString(), QString {});
+        QCOMPARE(bare.value(QStringLiteral("steps")).toInt(), 0);
+        QVERIFY(!bare.contains(QStringLiteral("doing")));
+
+        chat.receive(update(2, { QJsonObject { { QStringLiteral("change"), QStringLiteral("item") },
+                                    { QStringLiteral("item"), helper(QStringLiteral("h1"), QStringLiteral("done"), QStringLiteral("Find the tax code"), explore) } } }));
+        helpers = chat.helpers();
+        QCOMPARE(helpers.size(), 1);
+        QCOMPARE(helpers.at(0).toMap().value(QStringLiteral("id")).toString(), QStringLiteral("h4"));
     }
 
     void wordsTypedWhileAQuestionWaitsAnswerItAndEachQuestionTakesOneAnswer()

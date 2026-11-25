@@ -18,7 +18,7 @@ use super::{
 };
 use crate::{
     canvas::{PIPE_QUEUE, PipeEnds},
-    terminal::TerminalFace,
+    terminal::ChatAgent,
     text::Text,
 };
 
@@ -86,7 +86,7 @@ pub(super) enum Asked {
 #[derive(Clone)]
 pub(crate) struct ChatHandle {
     jobs: mpsc::Sender<Job>,
-    linked: watch::Receiver<Option<TerminalFace>>,
+    linked: watch::Receiver<Option<ChatAgent>>,
 }
 
 impl ChatHandle {
@@ -126,8 +126,8 @@ impl ChatHandle {
         self.jobs.downgrade()
     }
 
-    /// Where the agent that reports to the chat works, while one does.
-    pub(crate) fn linked(&self) -> watch::Receiver<Option<TerminalFace>> {
+    /// The agent that reports to the chat, while one does.
+    pub(crate) fn linked(&self) -> watch::Receiver<Option<ChatAgent>> {
         self.linked.clone()
     }
 
@@ -176,7 +176,7 @@ struct Viewer {
 struct Room {
     jobs: mpsc::Receiver<Job>,
     own: mpsc::WeakSender<Job>,
-    linked: watch::Sender<Option<TerminalFace>>,
+    linked: watch::Sender<Option<ChatAgent>>,
     chat: Chat,
     /// The adapter of the agent whose link the chat follows.
     agent: Option<Box<dyn Agent>>,
@@ -498,7 +498,10 @@ impl Room {
             .agent
             .as_ref()
             .filter(|agent| agent.is_linked())
-            .map(|agent| agent.works_in());
+            .map(|agent| ChatAgent {
+                face: agent.works_in(),
+                helpers: self.chat.helpers(),
+            });
         self.linked.send_if_modified(|current| {
             let changed = *current != linked;
             *current = linked;

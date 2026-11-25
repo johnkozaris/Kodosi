@@ -448,6 +448,10 @@
     <string name="chat_context_used">Πλαίσιο: %1$d%% σε χρήση</string>
     <string name="chat_show_tasks">Εμφάνιση εργασιών</string>
     <string name="chat_hide_tasks">Απόκρυψη εργασιών</string>
+    <string name="chat_show_helpers">Εμφάνιση βοηθών</string>
+    <string name="chat_hide_helpers">Απόκρυψη βοηθών</string>
+    <string name="chat_show_helper_said">Εμφάνιση όσων είπε ο βοηθός</string>
+    <string name="chat_hide_helper_said">Απόκρυψη όσων είπε ο βοηθός</string>
     <string name="chat_takes_next">Ο agent δέχεται το επόμενο μήνυμα στο τερματικό του.</string>
     <string name="chat_in_background">στο παρασκήνιο</string>
     <plurals name="chat_helpers">

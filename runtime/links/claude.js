@@ -512,7 +512,7 @@ export function register(on) {
 
   on('classic.Stop', async ($, e, next) => {
     newMode($, e.permission_mode, undefined, {
-      background: (e.background_tasks || []).filter(task => task.status === 'running').length,
+      background: (e.background_tasks || []).filter(task => task.type === 'shell' && task.status === 'running').length,
     })
     return next(e)
   })

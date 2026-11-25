@@ -73,6 +73,8 @@ data class RuntimeSession(
     val canvas: Canvas? = null,
     /** Where the agent that reports to the terminal's chat works, while one does. */
     val face: TerminalFace? = null,
+    /** The helpers of the terminal's agent that work now. */
+    val helpers: Int = 0,
     /** The terminal's computer chooses it for everyone who sees the terminal. */
     val look: TerminalLook = TerminalLook.DARK
 ) {

@@ -1,7 +1,7 @@
 use super::{
     ChatAsk, ChatBody, ChatChange, ChatCommand, ChatFacts, ChatItem, ChatNow, ChatPerson,
     ChatQueued, ChatSnapshot, ChatState, ChatTask, ChatTool, ChatUpdate, MOST_ASKS, MOST_COMMANDS,
-    MOST_ITEMS, MOST_QUEUED, MOST_TARGET, MOST_TASKS, MOST_TEXT,
+    MOST_ITEMS, MOST_QUEUED, MOST_TARGET, MOST_TASKS, MOST_TEXT, ToolKind, ToolState,
 };
 
 /// The chat of one terminal, and the changes since they were last taken.
@@ -189,6 +189,20 @@ impl Chat {
 
     pub(super) fn items(&self) -> &[ChatItem] {
         &self.items
+    }
+
+    /// The helpers of the agent that work now: the calls of helpers that run, also after the turn
+    /// that started them.
+    pub(super) fn helpers(&self) -> u8 {
+        let working = self
+            .items
+            .iter()
+            .filter(|item| {
+                matches!(&item.body, ChatBody::Tool { tool }
+                    if tool.kind == ToolKind::Agent && tool.state == ToolState::Running)
+            })
+            .count();
+        u8::try_from(working).unwrap_or(u8::MAX)
     }
 
     pub(super) fn asks(&self) -> &[ChatAsk] {

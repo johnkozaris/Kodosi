@@ -822,6 +822,36 @@
         <translation>Τέλος</translation>
     </message>
     <message>
+        <source>Hide the helpers</source>
+        <translation>Απόκρυψη βοηθών</translation>
+    </message>
+    <message>
+        <source>Show the helpers</source>
+        <translation>Εμφάνιση βοηθών</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n helpers work</source>
+        <translation>
+            <numerusform>%n βοηθός δουλεύει</numerusform>
+            <numerusform>%n βοηθοί δουλεύουν</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n steps</source>
+        <translation>
+            <numerusform>%n βήμα</numerusform>
+            <numerusform>%n βήματα</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Hide what the helper said</source>
+        <translation>Απόκρυψη όσων είπε ο βοηθός</translation>
+    </message>
+    <message>
+        <source>Show what the helper said</source>
+        <translation>Εμφάνιση όσων είπε ο βοηθός</translation>
+    </message>
+    <message>
         <source>Remove</source>
         <translation>Αφαίρεση</translation>
     </message>
@@ -891,13 +921,6 @@
     <message>
         <source>This conversation</source>
         <translation>Αυτή η συνομιλία</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n helpers work</source>
-        <translation>
-            <numerusform>%n βοηθός δουλεύει</numerusform>
-            <numerusform>%n βοηθοί δουλεύουν</numerusform>
-        </translation>
     </message>
     <message numerus="yes">
         <source>%n commands run in the background</source>
@@ -2562,6 +2585,16 @@
     <message>
         <source>The terminals on this computer keep running. You cannot undo this.</source>
         <translation>Τα τερματικά σε αυτόν τον υπολογιστή συνεχίζουν να τρέχουν. Δεν μπορείτε να το αναιρέσετε.</translation>
+    </message>
+</context>
+<context>
+    <name>HelperMarks</name>
+    <message numerus="yes">
+        <source>%n helpers work</source>
+        <translation>
+            <numerusform>%n βοηθός δουλεύει</numerusform>
+            <numerusform>%n βοηθοί δουλεύουν</numerusform>
+        </translation>
     </message>
 </context>
 <context>

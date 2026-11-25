@@ -53,6 +53,7 @@ import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
 import com.kodosi.mobile.ui.DarkColors
 import com.kodosi.mobile.ui.Glyph
+import com.kodosi.mobile.ui.HelperMarks
 import com.kodosi.mobile.ui.KodosiCard
 import com.kodosi.mobile.ui.KodosiField
 import com.kodosi.mobile.ui.KodosiSpinner
@@ -275,9 +276,12 @@ fun TerminalCard(
                 TerminalCaption(session, online, detail, showsFolder)
             }
             Spacer(Modifier.width(8.dp))
-            when {
-                sign != null -> StatusSign(sign, 13.dp)
-                session.isTroubled -> Box(Modifier.size(6.dp).background(colors.caution, CircleShape))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (session.helpers > 0) HelperMarks(session.agent, session.helpers, account = session.programAccount)
+                when {
+                    sign != null -> StatusSign(sign, 13.dp)
+                    session.isTroubled -> Box(Modifier.size(6.dp).background(colors.caution, CircleShape))
+                }
             }
         }
     }

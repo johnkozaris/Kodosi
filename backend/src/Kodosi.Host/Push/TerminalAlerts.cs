@@ -51,6 +51,7 @@ internal sealed partial class TerminalAlerts(ConnectionDirectory directory, Time
         var status = report.Status;
         lock (sync)
         {
+            var waited = waiting.GetValueOrDefault(report.SessionId);
             waiting.Remove(report.SessionId);
             unconfirmed.Remove(report.SessionId);
             var push = pushed.GetValueOrDefault(report.OwnerId)?.GetValueOrDefault(report.SessionId);
@@ -61,7 +62,9 @@ internal sealed partial class TerminalAlerts(ConnectionDirectory directory, Time
                 push = null;
             }
             if (status is { Attention: true } && push is null && waiting.Count < ConnectionDirectory.MaximumHostedTerminals)
-                waiting[report.SessionId] = new Waiting(report.OwnerId, status, clock.GetUtcNow() + Delay, "its status waited while the person was away");
+                waiting[report.SessionId] = waited is not null && waited.Status with { Helpers = null } == status with { Helpers = null }
+                    ? waited with { Status = status }
+                    : new Waiting(report.OwnerId, status, clock.GetUtcNow() + Delay, "its status waited while the person was away");
         }
     }
 

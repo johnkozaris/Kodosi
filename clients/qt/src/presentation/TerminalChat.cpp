@@ -739,7 +739,6 @@ QVariantMap TerminalChat::shapedFacts() const
     const auto& facts = m_chat->facts;
     QVariantMap shaped { { QStringLiteral("agent"), text(facts, "agent") }, { QStringLiteral("model"), text(facts, "model") },
         { QStringLiteral("effort"), text(facts, "effort") },
-        { QStringLiteral("helpers"), facts.value(QStringLiteral("helpers")).toInt() },
         { QStringLiteral("background"), facts.value(QStringLiteral("background")).toInt() } };
     const auto mode = text(facts, "mode");
     shaped.insert({ { QStringLiteral("mode"), mode }, { QStringLiteral("modeLabel"), ChatWords::mode(mode) },
@@ -886,6 +885,26 @@ void TerminalChat::shape()
     if (tasks != m_tasks) {
         m_tasks = tasks;
         emit tasksChanged();
+    }
+    QVariantList helpers;
+    for (const auto& item : m_chat->items) {
+        const auto tool = toolOf(item);
+        if (kindOf(item) != QStringLiteral("tool") || text(tool, "kind") != QStringLiteral("agent")
+            || text(tool, "state") != QStringLiteral("running"))
+            continue;
+        const auto detail = detailKind(tool) == QStringLiteral("agent") ? tool.value(QStringLiteral("detail")).toObject() : QJsonObject {};
+        QVariantMap helper { { QStringLiteral("id"), text(item, "id") }, { QStringLiteral("kind"), text(detail, "name") },
+            { QStringLiteral("task"), text(tool, "target") }, { QStringLiteral("steps"), detail.value(QStringLiteral("steps")).toInt() },
+            { QStringLiteral("said"), text(detail, "said") } };
+        const auto doing = detail.value(QStringLiteral("doing")).toObject();
+        if (!doing.isEmpty())
+            helper.insert(QStringLiteral("doing"), QVariantMap { { QStringLiteral("kind"), text(doing, "kind") },
+                { QStringLiteral("target"), text(doing, "target") }, { QStringLiteral("icon"), ChatWords::icon(text(doing, "kind")) } });
+        helpers.append(helper);
+    }
+    if (helpers != m_helpers) {
+        m_helpers = helpers;
+        emit helpersChanged();
     }
     const auto facts = shapedFacts();
     if (facts != m_facts) {

@@ -391,18 +391,15 @@ public struct ChatFacts: Decodable, Equatable, Sendable {
     public var limits: [UsageLimit]
     /// What the agent estimates that the conversation cost, in US dollars.
     public var cost: Double?
-    /// Helpers that work now.
-    public var helpers: Int
     /// Commands that run on after their calls ended.
     public var background: Int
 
     private enum Key: String, CodingKey {
-        case agent, model, folder, effort, mode, context, limits, cost, helpers, background
+        case agent, model, folder, effort, mode, context, limits, cost, background
     }
 
     public init() {
         limits = []
-        helpers = 0
         background = 0
     }
 
@@ -416,7 +413,6 @@ public struct ChatFacts: Decodable, Equatable, Sendable {
         context = try fields.decodeIfPresent(ChatContext.self, forKey: .context)
         limits = try fields.decodeIfPresent([UsageLimit].self, forKey: .limits) ?? []
         cost = try fields.decodeIfPresent(Double.self, forKey: .cost)
-        helpers = try fields.decodeIfPresent(Int.self, forKey: .helpers) ?? 0
         background = try fields.decodeIfPresent(Int.self, forKey: .background) ?? 0
     }
 }
