@@ -307,10 +307,11 @@ public sealed class ConnectionDirectory
         Span<byte> id = stackalloc byte[sizeof(ulong)];
         BinaryPrimitives.WriteUInt64BigEndian(id, allocation.Id);
         var named = Convert.ToBase64String(id[(sizeof(ulong) - RelayAllocations.IdBytes)..]);
+        var now = clock.GetUtcNow().ToUnixTimeMilliseconds();
         foreach (var end in (DeviceConnection[])[pipe.Viewer, pipe.Host])
         {
             var slot = pair.SlotOf(end);
-            end.Send(Wire.Encode(new RelayedNotice(pipeId, named, slot, Convert.ToBase64String(allocation.Secrets[slot]))));
+            end.Send(Wire.Encode(new RelayedNotice(pipeId, named, slot, Convert.ToBase64String(allocation.Secrets[slot]), now)));
         }
     }
 

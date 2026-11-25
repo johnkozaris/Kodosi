@@ -70,10 +70,11 @@ compartir** allí, termina todas las vistas.
 Cuando dos de tus propios dispositivos pueden comunicarse directamente entre sí, en la misma red
 local o mediante NAT traversal, el tráfico del terminal viaja directamente entre ambos con el mismo
 cifrado de extremo a extremo en lugar de pasar por el servidor de retransmisión. Ambos dispositivos
-ven las direcciones IP del otro.
+ven las direcciones IP del otro. Cuando no pueden, el tráfico pasa por UDP a través del servidor de
+retransmisión con el mismo cifrado, y ninguno de los dos ve la dirección IP del otro.
 
 Para descubrir su dirección pública, Kodosi consulta el servidor de Kodosi, que
-ya ve esa IP. Mientras busca o mantiene una conexión directa (y durante un minuto después), el
+ya ve esa IP. Mientras busca o mantiene cualquiera de estas conexiones (y durante un minuto después), el
 dispositivo mantiene abierto un único puerto UDP y solo acepta conexiones procedentes de tus
 propios dispositivos aprobados. Los terminales compartidos con otras personas pasan siempre por el
 servidor de retransmisión, de modo que otros usuarios nunca ven tus direcciones IP.

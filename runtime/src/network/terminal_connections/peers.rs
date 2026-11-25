@@ -33,8 +33,11 @@ use super::{
     scream, *,
 };
 
+mod relay;
 #[cfg(test)]
 mod tests;
+
+pub(super) use relay::Grant;
 
 const STUN_WAIT: Duration = Duration::from_millis(800);
 const STUN_KEPT: Duration = Duration::from_secs(30);
@@ -76,6 +79,8 @@ pub(crate) struct Peers {
     /// The Kodosi server's UDP relay, `host:port`, which also answers STUN; the server names it
     /// when the device connects.
     relay: Locked<Option<String>>,
+    /// The relay's allocations that the server gave for the devices of each pipe.
+    grants: Locked<HashMap<Uuid, Grant>>,
     bound: Mutex<Option<Arc<Bound>>>,
     dialed: Locked<HashMap<Vec<u8>, Arc<Joined>>>,
     dialing: Locked<HashMap<Vec<u8>, Arc<Mutex<()>>>>,
@@ -420,6 +425,7 @@ impl Peers {
             keys,
             networks,
             relay: Locked::new(None),
+            grants: Locked::new(HashMap::new()),
             bound: Mutex::new(None),
             dialed: Locked::new(HashMap::new()),
             dialing: Locked::new(HashMap::new()),
@@ -477,15 +483,21 @@ impl Peers {
         addresses
     }
 
+    /// Connects straight to the host, or through the relay when no straight path comes.
     pub(super) async fn reach(
         self: &Arc<Self>,
         host_key: &[u8],
         theirs: &[SocketAddr],
         pipe: Uuid,
     ) -> Option<Lane> {
-        let dual = self.bind().await.ok()?.socket.local_addr().ok()?.is_ipv6();
+        let bound = self.bind().await.ok()?;
+        let dual = bound.socket.local_addr().ok()?.is_ipv6();
         let candidates = usable(theirs, &(self.networks)(), dual);
-        self.reach_at(host_key, candidates, pipe).await
+        if let Some(lane) = self.reach_at(host_key, candidates, pipe).await {
+            return Some(lane);
+        }
+        let stand_in = self.through_relay(pipe, &bound).await?;
+        self.reach_at(host_key, vec![(stand_in, false)], pipe).await
     }
 
     async fn reach_at(
@@ -540,18 +552,22 @@ impl Peers {
                         .await
                         .ok()?;
                     (identity(&connection).ok()?.as_slice() == host_key)
-                        .then_some((connection, lan))
+                        .then_some((connection, lan, address))
                 }
             })
             .collect::<FuturesUnordered<_>>();
-        let (connection, lan) = tokio::time::timeout(DIAL, first(attempts))
+        let (connection, lan, address) = tokio::time::timeout(DIAL, first(attempts))
             .await
             .ok()
             .flatten()?;
-        tracing::info!(
-            lan,
-            "this device reached another device of its person straight"
-        );
+        if bound.socket.relays(address) {
+            tracing::info!("this device reached another device of its person through the relay");
+        } else {
+            tracing::info!(
+                lan,
+                "this device reached another device of its person straight"
+            );
+        }
         let joined = Joined::new(connection);
         self.dialed
             .lock()
@@ -788,6 +804,10 @@ impl Expected {
             .get(&self.key.0)
             .is_some_and(|joined| joined.open());
         let targets = usable(theirs, &(self.peers.networks)(), dual);
+        let relay = async {
+            self.peers.relay_route(self.key.1, &bound).await;
+            std::future::pending::<()>().await;
+        };
         let punch = async {
             if !joined {
                 let until = tokio::time::Instant::now() + DIAL;
@@ -803,6 +823,7 @@ impl Expected {
         tokio::select! {
             lane = tokio::time::timeout(ARRIVAL, &mut self.lane) => lane.ok()?.ok(),
             () = punch => None,
+            () = relay => None,
         }
     }
 }
@@ -1055,6 +1076,8 @@ struct Shared {
     state: UdpSocketState,
     dual: bool,
     asked: Locked<HashMap<[u8; 12], oneshot::Sender<SocketAddr>>>,
+    relays: Locked<relay::Routes>,
+    leftover: Locked<Option<relay::Leftover>>,
     broken: AtomicBool,
     resets: AtomicU32,
 }
@@ -1066,6 +1089,8 @@ impl Demux {
             state: UdpSocketState::new((&socket).into())?,
             io: tokio::net::UdpSocket::from_std(socket)?,
             asked: Locked::new(HashMap::new()),
+            relays: Locked::new(relay::Routes::default()),
+            leftover: Locked::new(None),
             broken: AtomicBool::new(false),
             resets: AtomicU32::new(0),
         })))
@@ -1107,6 +1132,37 @@ impl Demux {
         None
     }
 
+    /// Whether noq reaches `address` through the relay.
+    fn relays(&self, address: SocketAddr) -> bool {
+        self.0
+            .relays
+            .lock()
+            .is_ok_and(|routes| routes.bound(address).is_some())
+    }
+
+    /// Hands relayed segments on as from the stand-in of the device that sent them.
+    fn relayed(&self, buffer: &mut [u8], details: &mut RecvMeta) -> bool {
+        let Ok(mut routes) = self.0.relays.lock() else {
+            return false;
+        };
+        let (handed, leftover) =
+            routes.unwrap(&mut buffer[..details.len], details.addr, details.stride);
+        drop(routes);
+        if let Some(leftover) = leftover
+            && let Ok(mut kept) = self.0.leftover.lock()
+        {
+            *kept = Some(leftover);
+        }
+        let Some((stand_in, length, stride)) = handed else {
+            return false;
+        };
+        details.addr = stand_in;
+        details.len = length;
+        details.stride = stride;
+        details.ecn = None;
+        true
+    }
+
     fn absorbed(&self, datagram: &[u8]) -> bool {
         if datagram.first().is_none_or(|first| first & 0x40 != 0) {
             return false;
@@ -1127,8 +1183,32 @@ impl Demux {
 
 impl Shared {
     fn try_send(&self, transmit: &Transmit<'_>) -> io::Result<()> {
+        let relayed = self
+            .relays
+            .lock()
+            .ok()
+            .and_then(|routes| routes.wrap(transmit.destination));
+        let Some((server, header)) = relayed else {
+            return self.io.try_io(Interest::WRITABLE, || {
+                self.state.try_send((&self.io).into(), transmit)
+            });
+        };
+        let packet = relay::wrapped(header, transmit.contents, transmit.segment_size);
+        let destination = match server {
+            SocketAddr::V4(address) if self.dual => {
+                SocketAddr::new(IpAddr::V6(address.ip().to_ipv6_mapped()), address.port())
+            }
+            server => server,
+        };
+        let wrapped = Transmit {
+            destination,
+            ecn: None,
+            contents: &packet,
+            segment_size: relay::wrapped_segment(transmit.segment_size),
+            src_ip: None,
+        };
         self.io.try_io(Interest::WRITABLE, || {
-            self.state.try_send((&self.io).into(), transmit)
+            self.state.try_send((&self.io).into(), &wrapped)
         })
     }
 }
@@ -1152,6 +1232,19 @@ impl AsyncUdpSocket for Demux {
         };
         let shared = &self.0;
         loop {
+            let leftover = shared
+                .leftover
+                .lock()
+                .ok()
+                .and_then(|mut leftover| leftover.take())
+                .and_then(|leftover| leftover.into_buffer(buffer));
+            if let Some((from, length, stride)) = leftover {
+                (details.addr, details.len, details.stride) = (from, length, stride);
+                if self.relayed(buffer, details) {
+                    return Poll::Ready(Ok(1));
+                }
+                continue;
+            }
             ready!(shared.io.poll_recv_ready(cx))?;
             let read = shared.io.try_io(Interest::READABLE, || {
                 shared.state.recv(
@@ -1165,6 +1258,12 @@ impl AsyncUdpSocket for Demux {
                 Ok(0) => return Poll::Ready(Ok(0)),
                 Ok(_) => {
                     shared.resets.store(0, Ordering::Relaxed);
+                    if matches!(buffer.first(), Some(&(relay::DATA | relay::BOUND))) {
+                        if self.relayed(buffer, details) {
+                            return Poll::Ready(Ok(1));
+                        }
+                        continue;
+                    }
                     if details.len == details.stride && self.absorbed(&buffer[..details.len]) {
                         continue;
                     }

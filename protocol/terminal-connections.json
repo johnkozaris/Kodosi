@@ -1,6 +1,6 @@
 {
-  "terminalConnectionProtocolVersion": 27,
-  "oldestTerminalConnectionProtocolVersion": 27,
+  "terminalConnectionProtocolVersion": 28,
+  "oldestTerminalConnectionProtocolVersion": 28,
   "channelProtocolVersion": 19,
   "compatibilityPolicy": {
     "deviceConnection": "the server admits each device whose hello protocolVersion is from oldestTerminalConnectionProtocolVersion to terminalConnectionProtocolVersion; it refuses others with refused, reason version",
@@ -48,7 +48,7 @@
       "accessChanged": "sessionId: to the host, after a change of the people or devices that can use the terminal",
       "closed": "pipe, status, message: the pipe ended; status 0 when the other device closed it",
       "pong": "the answer to ping",
-      "relayed": "pipe, allocation, slot, secret: to both ends of a pipe after relay; the allocation (7 bytes, base64) of the two devices, this device's slot (0 or 1) in it and the slot's secret (32 bytes, base64) that signs its binds; the same until no pipe has joined the two devices for graceSeconds"
+      "relayed": "pipe, allocation, slot, secret, now: to both ends of a pipe after relay; the allocation (7 bytes, base64) of the two devices, this device's slot (0 or 1) in it, the slot's secret (32 bytes, base64) that signs its binds, and the server's time (unix milliseconds) from which the device times its binds; the same allocation until no pipe has joined the two devices for graceSeconds"
     },
     "authorization": "host: the hosting device of the publication; open: an approved device of the owner or of an explicit current member, checked before and after the pipe is registered; call: a device of the same person, to another of its devices that hosts",
     "silence": "the device sends ping each 20 seconds and the WebSocket keep-alive runs each 30 seconds; the server ends a connection that sent no message for 90 seconds, that did not take one message in 30 seconds, or that kept more than 12582912 bytes waiting for 30 seconds; the device ends a connection that received no message for 45 seconds; each 60 seconds the server checks that each connected device is still approved",
@@ -333,12 +333,12 @@
   },
   "direct": {
     "who": "only the devices of one person: the viewer offers for a terminal of its own person, and a host answers a viewer of another person with no addresses",
-    "offer": "the viewer sends pathOffer after accept, and the host answers with pathAnswer; when no lane comes, the viewer offers again after 30 seconds, 2 minutes and then each 10 minutes, and 5 seconds after a lane ended; an empty answer ends its offers",
+    "offer": "the viewer asks the server for the relay of the pipe (relay) when ready named one, and sends pathOffer, after accept; the host answers with pathAnswer; when no lane comes, the viewer offers again after 30 seconds, 2 minutes and then each 10 minutes, and 5 seconds after a lane ended; an empty answer ends its offers",
     "addresses": "the addresses of the device's networks that are up, without loopback and link-local ones, and the public addresses of its UDP socket that the server's UDP relay sees (relay.stun), at most 16; a side tries a private address of the other only on one of its own networks",
     "transport": "QUIC on one UDP socket of the runtime, on the first free port from 47360 to 47379 (the range that the Windows package opens on private networks) or another when they are taken, which also carries the STUN questions; ALPN kodosi-direct/<channelProtocolVersion>; TLS 1.3 with the keys, the key exchange and the cipher suite of the channel",
     "viewerCheck": "the host key must equal the key of the hosting device, as on the channel",
     "hostCheck": "the host takes a connection only from a device whose key a route of the host waits for",
-    "meeting": "the viewer connects to the host's addresses, one each 40 ms, for 3 seconds; until the two devices have a connection, the host sends one byte to each address of the viewer each 100 ms so that its router lets the viewer in; one connection of two devices carries all their lanes",
+    "meeting": "the viewer connects to the host's addresses, one each 40 ms, for 3 seconds, and then through the relay once the relay holds its slot, for 3 more seconds; until the two devices have a connection, the host sends one byte to each address of the viewer each 100 ms so that its router lets the viewer in; one connection of two devices carries all their lanes",
     "lane": "the viewer opens a bidirectional stream and writes the pipe identity (16 bytes); the host writes one byte, 1, when the route of that pipe takes the stream; then each route message goes with its length (u32, network byte order) first",
     "life": "keep-alive each 10 seconds and 25 silent seconds end the connection; a connection that no lane used for 60 seconds ends, and the socket closes 60 seconds after its last connection",
     "access": "the host ends the lane with the access of the viewer, and the service ends it with the relay pipe"
@@ -360,8 +360,17 @@
     "stun": "an RFC 8489 Binding request is answered with a Binding success response that carries XOR-MAPPED-ADDRESS",
     "bind": "0x11, allocation (7 bytes), slot (1 byte), time (unix milliseconds, i64, network byte order), then the first 16 bytes of HMAC-SHA256 with the slot's secret over the bytes before it; the server takes it only within 60 seconds of its own time and later than the slot's last bind, binds the slot to the address it came from and answers bound",
     "bound": "0x12, allocation, slot: the first 9 bytes of the bind",
+    "binding": "the host binds its slot when it answers an offer and the viewer before it connects through the relay; a device binds again each second until the relay answers, at most 5 times, and then each 15 seconds while its socket lives; each bind is timed by the now of relayed and the time since the device heard it",
+    "standIn": "the device's QUIC sees the other device at an address of its own for the allocation (in fd6b:6f64:6f73:6900::/64, or in 240.0.0.0/8 on an IPv4 socket); the socket wraps the packets for that address in the relay's header, and hands on relayed packets as from it, one allocation at a time when several arrive together",
     "data": "0x10, allocation (7 bytes), then a QUIC packet; the server forwards it unchanged from the address of one bound slot to the address of the other, and drops it from any other address",
     "limits": "10 MB each second for an allocation in bursts of 2 MB; 10000 STUN answers and binds each second for all devices",
-    "graceSeconds": 30
+    "graceSeconds": 30,
+    "bindVector": {
+      "allocationHex": "01020304050607",
+      "slot": 1,
+      "secretHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "time": 1764100000123,
+      "bindHex": "1101020304050607010000019abc8dc97b56a76654691bf8de5b16a9600c7f0cda"
+    }
   }
 }

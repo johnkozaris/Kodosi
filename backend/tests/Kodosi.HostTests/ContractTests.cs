@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -80,6 +81,19 @@ public sealed partial class ContractTests(PostgresFixture postgres)
         var bytes = Proofs.TerminalProject(Id("ownerId"), Id("terminalId"), Id("incarnationId"), Id("projectId"),
             vector.GetProperty("history").GetString()!, vector.GetProperty("sequence").GetInt64(), vector.GetProperty("deviceId").GetString()!);
         Assert.Equal(vector.GetProperty("preimageHex").GetString(), Convert.ToHexStringLower(bytes));
+    }
+
+    [Fact]
+    public void ARelayBindHasTheBytesOfTheSharedVector()
+    {
+        var vector = Contract("terminal-connections.json").GetProperty("relay").GetProperty("bindVector");
+        var bind = Convert.FromHexString(vector.GetProperty("bindHex").GetString()!);
+        Assert.Equal(UdpRelay.BindBytes, bind.Length);
+        Assert.Equal(UdpRelay.Bind, bind[0]);
+        Assert.Equal(Convert.ToUInt64(vector.GetProperty("allocationHex").GetString(), 16), UdpRelay.Id(bind));
+        Assert.Equal(vector.GetProperty("slot").GetInt32(), bind[UdpRelay.HeaderBytes]);
+        Assert.Equal(vector.GetProperty("time").GetInt64(), BinaryPrimitives.ReadInt64BigEndian(bind.AsSpan(UdpRelay.HeaderBytes + 1)));
+        Assert.True(UdpRelay.Signed(bind, Convert.FromHexString(vector.GetProperty("secretHex").GetString()!)));
     }
 
     [Fact]

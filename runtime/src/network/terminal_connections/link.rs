@@ -266,6 +266,19 @@ impl Link {
         )
     }
 
+    /// Asks the server for its UDP relay between this device and the other end of `pipe`.
+    pub(super) fn relay(&self, pipe: Uuid) {
+        if let Ok(shared) = self.shared.lock()
+            && let Some(outgoing) = &shared.outgoing
+        {
+            drop(
+                outgoing
+                    .control
+                    .send(text(&json!({"type":"relay","pipe":pipe}))),
+            );
+        }
+    }
+
     pub(crate) async fn call(self: &Arc<Self>, device: &str) -> Result<Pipe> {
         self.until_connected().await;
         self.request(|id| json!({"type":"call","pipe":id,"deviceId":device}))
@@ -798,7 +811,13 @@ pub(crate) async fn run(
                             if message.len() > 16 * 1024 {
                                 return Err(invalid("Device connection message exceeds its size limit."));
                             }
-                            if let Some(notice) = link.message(&serde_json::from_str(&message)?)? {
+                            let value: Value = serde_json::from_str(&message)?;
+                            if value.get("type").and_then(Value::as_str) == Some("relayed") {
+                                let (pipe, grant) = peers::Grant::read(&value)?;
+                                if let Ok(peers) = network.peers(credentials) {
+                                    peers.relayed(pipe, grant);
+                                }
+                            } else if let Some(notice) = link.message(&value)? {
                                 drop(notices.send(notice));
                             }
                         }

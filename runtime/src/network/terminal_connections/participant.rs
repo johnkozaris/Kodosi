@@ -182,7 +182,13 @@ pub(super) async fn connect(
         .then(|| network.peers(&credentials).ok())
         .flatten();
     let (late, path, link) = (paths.late(), paths.path(), paths.link());
-    let finder = Finder::viewer(peers, paths, public.clone(), pipe);
+    let finder = Finder::viewer(
+        peers,
+        paths,
+        public.clone(),
+        pipe,
+        Arc::clone(&network.inner.link),
+    );
     tokio::spawn(async move {
         let mut viewer = Viewer::new(
             channel,

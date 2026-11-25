@@ -69,9 +69,11 @@ oder dort auf **Teilen beenden** klickst, endet jede Ansicht.
 Wenn sich zwei deiner eigenen Geräte direkt erreichen können, im selben lokalen Netzwerk oder per
 NAT-Traversal, läuft der Terminal-Datenverkehr mit derselben Ende-zu-Ende-Verschlüsselung direkt
 zwischen ihnen statt über den Relay-Server. Beide Geräte sehen dabei gegenseitig ihre IP-Adressen.
+Können sie sich nicht erreichen, läuft der Datenverkehr mit derselben Verschlüsselung per UDP über
+den Relay-Server, und keines der Geräte sieht die IP-Adresse des anderen.
 
 Um die eigene öffentliche Adresse zu ermitteln, fragt Kodosi den Kodosi-Server ab,
-der diese IP-Adresse ohnehin sieht. Solange ein Gerät eine direkte Verbindung sucht oder hält (sowie eine
+der diese IP-Adresse ohnehin sieht. Solange ein Gerät eine dieser Verbindungen sucht oder hält (sowie eine
 Minute danach), hält es einen einzelnen UDP-Port offen und akzeptiert dort ausschließlich
 Verbindungen von deinen eigenen freigegebenen Geräten. Terminals, die mit anderen Personen geteilt
 sind, laufen immer über den Relay-Server, sodass andere Nutzer deine IP-Adressen nie sehen.

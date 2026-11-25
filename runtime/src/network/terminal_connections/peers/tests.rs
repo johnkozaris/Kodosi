@@ -234,6 +234,77 @@ fn stun_answer_for(id: [u8; 12], seen: SocketAddr) -> Vec<u8> {
     answer
 }
 
+/// Forwards between the two addresses that bound the slots of an allocation, as the Kodosi
+/// server's relay does, without checking the binds' signatures.
+#[cfg(feature = "host")]
+async fn relay_for_tests() -> SocketAddr {
+    let socket = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))
+        .await
+        .unwrap();
+    let address = socket.local_addr().unwrap();
+    tokio::spawn(async move {
+        let mut slots = [None, None];
+        let mut packet = [0; 2048];
+        loop {
+            let (size, from) = socket.recv_from(&mut packet).await.unwrap();
+            match packet[0] {
+                0x11 => {
+                    slots[usize::from(packet[8])] = Some(from);
+                    packet[0] = 0x12;
+                    socket.send_to(&packet[..9], from).await.unwrap();
+                }
+                0x10 => {
+                    let to = match slots {
+                        [Some(first), second] if first == from => second,
+                        [first, Some(second)] if second == from => first,
+                        _ => None,
+                    };
+                    if let Some(to) = to {
+                        socket.send_to(&packet[..size], to).await.unwrap();
+                    }
+                }
+                _ => {}
+            }
+        }
+    });
+    address
+}
+
+#[cfg(feature = "host")]
+#[tokio::test]
+async fn devices_that_find_no_straight_path_meet_through_the_relay() {
+    let (host_keys, viewer_keys) = (
+        DeviceKeys::generate().unwrap(),
+        DeviceKeys::generate().unwrap(),
+    );
+    let (host, viewer) = (peers_of(&host_keys), peers_of(&viewer_keys));
+    let relay = relay_for_tests().await;
+    let pipe = Uuid::now_v7();
+    for (peers, slot) in [(&host, 1), (&viewer, 0)] {
+        peers.relay_at(Some(relay.to_string()));
+        let (pipe, grant) = Grant::read(&serde_json::json!({
+            "type": "relayed",
+            "pipe": pipe,
+            "allocation": "AQIDBAUGBw==",
+            "slot": slot,
+            "secret": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+            "now": 0,
+        }))
+        .unwrap();
+        peers.relayed(pipe, grant);
+    }
+    let expected = host.expect(viewer_keys.signing_public(), pipe);
+    let (arrived, reached) = tokio::join!(
+        expected.meet(&[]),
+        viewer.reach(host_keys.signing_public(), &[], pipe),
+    );
+    let (mut arrived, mut reached) = (arrived.unwrap(), reached.unwrap());
+    reached.write(b"through the relay").await.unwrap();
+    assert_eq!(arrived.reader.recv().await.unwrap(), b"through the relay");
+    arrived.write(b"back").await.unwrap();
+    assert_eq!(reached.reader.recv().await.unwrap(), b"back");
+}
+
 #[tokio::test]
 async fn the_quic_socket_learns_how_a_stun_server_sees_it() {
     let server = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))

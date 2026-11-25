@@ -373,6 +373,7 @@ async fn two_finders_take_a_view_straight_and_its_channel_goes_on_over_the_lane(
         viewer_paths.clone(),
         host_keys.signing_public().to_vec(),
         pipe,
+        Arc::new(Link::default()),
     );
     let mut host_finder = Finder::host(
         Some(Peers::on_loopback(hosting)),

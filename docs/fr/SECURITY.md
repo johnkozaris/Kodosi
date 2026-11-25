@@ -71,10 +71,11 @@ cliquer sur **Arrêter le partage** à cet endroit, met fin à chaque affichage.
 Lorsque deux de vos propres appareils peuvent se joindre directement, sur le même réseau local ou
 par traversée de NAT, le trafic des terminaux circule directement entre eux avec le même
 chiffrement de bout en bout au lieu de passer par le serveur relais. Les deux appareils voient
-alors leurs adresses IP respectives.
+alors leurs adresses IP respectives. Lorsqu'ils ne le peuvent pas, le trafic passe en UDP par le
+serveur relais avec le même chiffrement, et aucun des deux appareils ne voit l'adresse IP de l'autre.
 
 Pour déterminer son adresse publique, Kodosi interroge le serveur Kodosi, qui voit de toute façon cette
-adresse IP. Lorsqu'un appareil recherche ou maintient une connexion directe (et pendant une minute
+adresse IP. Lorsqu'un appareil recherche ou maintient l'une de ces connexions (et pendant une minute
 ensuite), il garde un unique port UDP ouvert et n'accepte de connexions que de vos propres
 appareils approuvés. Les terminaux partagés avec d'autres personnes passent toujours par le serveur
 relais, de sorte que les autres utilisateurs ne voient jamais vos adresses IP.

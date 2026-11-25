@@ -91,7 +91,7 @@ internal sealed record AccessChangedNotice(Guid SessionId) : ServerMessage;
 
 internal sealed record ClosedNotice(Guid Pipe, int Status, string Message) : ServerMessage;
 
-internal sealed record RelayedNotice(Guid Pipe, string Allocation, int Slot, string Secret) : ServerMessage;
+internal sealed record RelayedNotice(Guid Pipe, string Allocation, int Slot, string Secret, long Now) : ServerMessage;
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web, AllowDuplicateProperties = false, AllowOutOfOrderMetadataProperties = true,
     RespectNullableAnnotations = true, RespectRequiredConstructorParameters = true, MaxDepth = 32)]

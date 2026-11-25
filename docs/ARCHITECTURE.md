@@ -43,18 +43,19 @@ The computer that starts a terminal owns its process, state, and output ordering
 view receives an initial checkpoint followed by ordered updates with bounded buffering. Remote
 views receive updates over per-view end-to-end encrypted channels relayed through the backend.
 
-When a viewer and host belong to the same user and can reach each other (on the same LAN or
-through NAT traversal), encrypted frames move onto a direct QUIC connection between the two
-devices and fall back to the relay if the direct path drops, without requiring a new checkpoint
-and without dropping or duplicating frames. The relay pipe stays open so the backend can still
-tear down the channel immediately if access is revoked.
+When a viewer and host belong to the same user, encrypted frames move onto a QUIC connection
+between the two devices: a direct one when they can reach each other (on the same LAN or through
+NAT traversal), and otherwise one through the backend's UDP relay, which forwards its packets
+unchanged. Frames fall back to the relay pipe if the connection drops, without requiring a new
+checkpoint and without dropping or duplicating frames. The relay pipe stays open so the backend can
+still tear down the channel immediately if access is revoked.
 
-On a direct connection, the video of the canvas browser and screens leaves the ordered channel, so
+On a QUIC connection, the video of the canvas browser and screens leaves the ordered channel, so
 that a lost packet delays only its own frame. Frames travel as QUIC datagrams, split into shards
 that each fit one packet. They carry Reed–Solomon parity only after the path lost packets lately,
 and the host sends a missing shard again only while its frame can still arrive in time. The viewer
 hands frames on in order, and a keyframe or anchor passes the frames still missing before it.
-SCReAMv2, a congestion controller made for interactive media, runs the direct connection: it keeps
+SCReAMv2, a congestion controller made for interactive media, runs the QUIC connection: it keeps
 the queue that it builds short and tells each stream the bitrate that its share of the path
 carries. The streams' JSON messages, and everything on the relay, stay in the channel.
 

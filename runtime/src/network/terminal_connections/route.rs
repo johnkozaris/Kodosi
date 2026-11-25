@@ -550,6 +550,8 @@ fn number(rest: &[u8]) -> Result<u64> {
 pub(super) struct Finder {
     frames: mpsc::Receiver<Frame>,
     side: Side,
+    /// The pipe whose relay allocation the finder holds until it ends.
+    relayed: Option<(Arc<Peers>, Uuid)>,
     stop: CancellationToken,
 }
 
@@ -581,6 +583,7 @@ impl Finder {
         paths: Paths,
         host_key: Vec<u8>,
         pipe: Uuid,
+        link: Arc<Link>,
     ) -> Self {
         let Some(peers) = peers else {
             return Self::relay();
@@ -588,13 +591,18 @@ impl Finder {
         let (frames, outgoing) = mpsc::channel(4);
         let stop = CancellationToken::new();
         let (answers, answered) = mpsc::channel(1);
-        tokio::spawn(
-            stop.clone()
-                .run_until_cancelled_owned(look(peers, paths, host_key, pipe, frames, answered)),
-        );
+        let relayed = Some((Arc::clone(&peers), pipe));
+        tokio::spawn(stop.clone().run_until_cancelled_owned(look(
+            peers,
+            paths,
+            (host_key, pipe, link),
+            frames,
+            answered,
+        )));
         Self {
             frames: outgoing,
             side: Side::Viewer { answers },
+            relayed,
             stop,
         }
     }
@@ -604,6 +612,7 @@ impl Finder {
         Self {
             frames: outgoing,
             side: Side::Relay { frames },
+            relayed: None,
             stop: CancellationToken::new(),
         }
     }
@@ -621,6 +630,7 @@ impl Finder {
         let (frames, outgoing) = mpsc::channel(4);
         Self {
             frames: outgoing,
+            relayed: Some((Arc::clone(&peers), pipe)),
             side: Side::Host {
                 peers,
                 paths,
@@ -683,6 +693,9 @@ impl Finder {
 impl Drop for Finder {
     fn drop(&mut self) {
         self.stop.cancel();
+        if let Some((peers, pipe)) = self.relayed.take() {
+            peers.forget_relayed(pipe);
+        }
         #[cfg(feature = "host")]
         if let Side::Host {
             answering: Some(answering),
@@ -694,11 +707,12 @@ impl Drop for Finder {
     }
 }
 
+/// Offers this device's addresses to the host and connects to its answer, straight or through
+/// the relay, again after each loss of the connection.
 async fn look(
     peers: Arc<Peers>,
     mut paths: Paths,
-    host_key: Vec<u8>,
-    pipe: Uuid,
+    (host_key, pipe, link): (Vec<u8>, Uuid, Arc<Link>),
     frames: mpsc::Sender<Frame>,
     mut answers: mpsc::Receiver<Vec<SocketAddr>>,
 ) {
@@ -714,6 +728,9 @@ async fn look(
             }
             failures = 0;
             continue;
+        }
+        if peers.relays() {
+            link.relay(pipe);
         }
         if frames.send(Frame::PathOffer { addresses }).await.is_err() {
             return;

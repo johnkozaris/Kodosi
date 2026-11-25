@@ -117,12 +117,17 @@ internal sealed partial class UdpRelay(RelaySettings settings, RelayAllocations 
         var time = BinaryPrimitives.ReadInt64BigEndian(packet[(HeaderBytes + 1)..]);
         var now = clock.GetUtcNow().ToUnixTimeMilliseconds();
         var skew = (long)BindSkew.TotalMilliseconds;
-        if (time < now - skew || time > now + skew) return;
-        Span<byte> mac = stackalloc byte[HMACSHA256.HashSizeInBytes];
-        HMACSHA256.HashData(allocation.Secrets[slot], packet[..^MacBytes], mac);
-        if (!CryptographicOperations.FixedTimeEquals(mac[..MacBytes], packet[^MacBytes..]) || !allocation.Bind(slot, time, from)) return;
+        if (time < now - skew || time > now + skew || !Signed(packet, allocation.Secrets[slot]) || !allocation.Bind(slot, time, from)) return;
         packet[0] = Bound;
         Send(socket, packet[..BoundBytes], from);
+    }
+
+    /// <summary>Whether a bind carries the signature of the slot's secret.</summary>
+    internal static bool Signed(ReadOnlySpan<byte> bind, byte[] secret)
+    {
+        Span<byte> mac = stackalloc byte[HMACSHA256.HashSizeInBytes];
+        HMACSHA256.HashData(secret, bind[..^MacBytes], mac);
+        return CryptographicOperations.FixedTimeEquals(mac[..MacBytes], bind[^MacBytes..]);
     }
 
     /// <summary>Answers an RFC 8489 Binding request with the address it came from.</summary>
@@ -148,7 +153,7 @@ internal sealed partial class UdpRelay(RelaySettings settings, RelayAllocations 
         Send(socket, answer[..(StunHeaderBytes + attributeBytes)], from);
     }
 
-    private static ulong Id(ReadOnlySpan<byte> packet)
+    internal static ulong Id(ReadOnlySpan<byte> packet)
     {
         Span<byte> id = stackalloc byte[sizeof(ulong)];
         id[0] = 0;

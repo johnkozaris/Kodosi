@@ -71,10 +71,11 @@ chiude ogni visualizzazione.
 Quando due dei tuoi dispositivi possono raggiungersi direttamente, sulla stessa LAN o tramite
 attraversamento NAT, il traffico del terminale viaggia direttamente tra loro con la stessa
 crittografia end-to-end anziché passare dal server relay. Entrambi i dispositivi vedono gli
-indirizzi IP dell'altro.
+indirizzi IP dell'altro. Quando non possono, il traffico passa via UDP dal server relay con la stessa
+crittografia, e nessuno dei due dispositivi vede l'indirizzo IP dell'altro.
 
 Per rilevare il proprio indirizzo pubblico, Kodosi interroga il server Kodosi, che
-vede comunque quell'IP. Mentre cerca o mantiene una connessione diretta (e per il minuto successivo), il
+vede comunque quell'IP. Mentre cerca o mantiene una di queste connessioni (e per il minuto successivo), il
 dispositivo tiene aperta una sola porta UDP e accetta connessioni unicamente dai tuoi dispositivi
 approvati. I terminali condivisi con altre persone passano sempre dal server relay, quindi gli
 altri utenti non vedono mai i tuoi indirizzi IP.

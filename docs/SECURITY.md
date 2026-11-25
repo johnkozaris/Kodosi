@@ -63,10 +63,12 @@ off, or **Stop sharing** there, ends every view.
 
 When two of your own devices can reach each other directly, on the same LAN or through NAT
 traversal, terminal traffic travels directly between them with the same end-to-end encryption
-instead of going through the relay server. Both devices see each other's IP addresses.
+instead of going through the relay server. Both devices see each other's IP addresses. When they
+cannot, the traffic goes through the relay server over UDP with the same encryption, and neither
+device sees the other's IP address.
 
 To discover its public address, Kodosi asks the Kodosi server, which sees that IP anyway.
-While searching for or holding a direct connection (and for one minute afterward), the device
+While searching for or holding either connection (and for one minute afterward), the device
 keeps a single UDP port open and only accepts connections from your own approved devices.
 Terminals shared with other people always go through the relay server, so other users never see
 your IP addresses.
