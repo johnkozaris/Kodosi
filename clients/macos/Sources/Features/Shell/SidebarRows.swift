@@ -53,7 +53,7 @@ struct SidebarNavRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: symbol).font(.system(size: 13, weight: .medium))
+                Image(systemName: symbol).font(scaled: 13, weight: .medium)
                     .foregroundStyle(tint ?? (selected ? theme.colors.accentStrong : theme.colors.inkMuted)).frame(width: 22)
                 Text(title).appTextStyle(.body).fontWeight(selected ? .medium : .regular).foregroundStyle(theme.colors.ink)
                 Spacer(minLength: 0)
@@ -179,7 +179,7 @@ struct SidebarFolderHeader: View {
             Button(action: toggle) {
                 HStack(spacing: 6) {
                     Image(systemName: "folder.fill")
-                        .font(.system(size: 10, weight: .medium)).foregroundStyle(theme.colors.inkFaint).frame(width: 13)
+                        .font(scaled: 10, weight: .medium).foregroundStyle(theme.colors.inkFaint).frame(width: 13)
                     Text(group.name)
                         .appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted).lineLimit(1).layoutPriority(1)
                     FoldTriangle(collapsed: collapsed, sessions: group.sessions)
@@ -243,7 +243,7 @@ struct SidebarPinnedHeader: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: "pin.fill").font(.system(size: 9, weight: .semibold))
+            Image(systemName: "pin.fill").font(scaled: 9, weight: .semibold)
                 .foregroundStyle(theme.colors.inkFaint).frame(width: 13)
             Text("Pinned").appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted)
             Spacer(minLength: 0)
@@ -291,7 +291,7 @@ struct FoldTriangle: View {
     let sessions: [RuntimeSession]
 
     var body: some View {
-        Image(systemName: "arrowtriangle.right.fill").font(.system(size: 7, weight: .bold))
+        Image(systemName: "arrowtriangle.right.fill").font(scaled: 7, weight: .bold)
             .rotationEffect(.degrees(collapsed ? 0 : 90))
             .foregroundStyle(theme.colors.inkFaint).frame(width: 9, height: 9)
             .accessibilityHidden(true)
@@ -407,7 +407,7 @@ struct SidebarTerminalRow: View {
                 } else if session.place != nil || active {
                     HStack(spacing: 4) {
                         if let place = session.place {
-                            SessionPlace(place: place, glyphFont: .system(size: 9, weight: .semibold)).layoutPriority(1)
+                            SessionPlace(place: place, glyphFont: .system(size: theme.scaled(9), weight: .semibold)).layoutPriority(1)
                                 .help(session.placeLabel ?? "")
                         }
                         if active {

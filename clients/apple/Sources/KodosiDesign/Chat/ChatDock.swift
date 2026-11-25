@@ -616,7 +616,7 @@ private struct ChatUsageKey: View {
                     Text(verbatim: ChatWords.cost(cost)).monospacedDigit()
                 }
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 8, weight: .bold))
+                    .font(scaled: 8, weight: .bold)
                     .foregroundStyle(open ? theme.colors.accentStrong : theme.colors.inkFaint)
                     .rotationEffect(.degrees(open ? 180 : 0))
                     .accessibilityHidden(true)
@@ -725,7 +725,7 @@ public struct ChatModelFace: View {
                 ChatModeLabel(mode: mode, named: !short)
             }
             if opens {
-                Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold))
+                Image(systemName: "chevron.down").font(scaled: 8, weight: .bold)
                     .foregroundStyle(open ? theme.colors.accentStrong : theme.colors.inkFaint)
                     .rotationEffect(.degrees(open ? 180 : 0))
                     .accessibilityHidden(true)

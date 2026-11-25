@@ -21,8 +21,8 @@ Rectangle {
         : KodosiTheme.inkMuted
 
     implicitWidth: row.implicitWidth + 16
-    implicitHeight: 20
-    radius: 10
+    implicitHeight: KodosiTheme.scaled(20)
+    radius: height / 2
     color: tone === Tag.Accent ? KodosiTheme.accentSoft
         : tone === Tag.Ready ? KodosiTheme.readySoft
         : tone === Tag.Caution ? KodosiTheme.cautionSoft
@@ -35,8 +35,8 @@ Rectangle {
 
         KIcon {
             visible: root.iconName.length > 0
-            Layout.preferredWidth: 10
-            Layout.preferredHeight: 10
+            Layout.preferredWidth: KodosiTheme.scaled(10)
+            Layout.preferredHeight: KodosiTheme.scaled(10)
             name: root.iconName
             color: root.ink
             strokeWidth: 2.2

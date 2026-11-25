@@ -337,8 +337,8 @@ Item {
                 }
                 KIcon {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 8
-                    height: 8
+                    width: KodosiTheme.scaled(8)
+                    height: KodosiTheme.scaled(8)
                     name: "chevron-down"
                     strokeWidth: 2.6
                     color: moreButton.ink

@@ -592,7 +592,7 @@ ColumnLayout {
                     contentItem: Row {
                         spacing: 5
 
-                        KIcon { anchors.verticalCenter: parent.verticalCenter; width: 13; height: 13; name: "laptop"; strokeWidth: 1.9; color: root.look.inkMuted }
+                        KIcon { anchors.verticalCenter: parent.verticalCenter; width: KodosiTheme.scaled(13); height: KodosiTheme.scaled(13); name: "laptop"; strokeWidth: 1.9; color: root.look.inkMuted }
                         PlainLabel {
                             anchors.verticalCenter: parent.verticalCenter
                             width: Math.min(implicitWidth, 150)
@@ -603,8 +603,8 @@ ColumnLayout {
                         }
                         KIcon {
                             anchors.verticalCenter: parent.verticalCenter
-                            width: 9
-                            height: 9
+                            width: KodosiTheme.scaled(9)
+                            height: KodosiTheme.scaled(9)
                             name: "chevron-down"
                             strokeWidth: 2.4
                             color: computerKey.open ? root.look.accent : root.look.inkMuted
@@ -625,8 +625,8 @@ ColumnLayout {
                 KIcon {
                     anchors.verticalCenter: parent.verticalCenter
                     visible: root.computers.length === 0
-                    width: 13
-                    height: 13
+                    width: KodosiTheme.scaled(13)
+                    height: KodosiTheme.scaled(13)
                     name: "laptop"
                     strokeWidth: 1.9
                     color: root.look.inkMuted
@@ -1186,8 +1186,8 @@ ColumnLayout {
                     spacing: 10
 
                     KIcon {
-                        Layout.preferredWidth: 13
-                        Layout.preferredHeight: 13
+                        Layout.preferredWidth: KodosiTheme.scaled(13)
+                        Layout.preferredHeight: KodosiTheme.scaled(13)
                         name: "bolt"
                         filled: true
                         strokeWidth: 1

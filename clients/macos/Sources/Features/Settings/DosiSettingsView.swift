@@ -212,7 +212,7 @@ struct DosiSettingsView: View {
             }
             if editing {
                 TextEditor(text: $draft)
-                    .font(.system(size: 12, design: .monospaced)).foregroundStyle(theme.colors.ink)
+                    .font(scaled: 12, design: .monospaced).foregroundStyle(theme.colors.ink)
                     .scrollContentBackground(.hidden)
                     .frame(minHeight: 240, maxHeight: 420)
                     .padding(10)

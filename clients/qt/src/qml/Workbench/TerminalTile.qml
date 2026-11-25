@@ -270,8 +270,8 @@ Item {
 
                     HoverHandler { id: locationHover }
                     KIcon {
-                        Layout.preferredWidth: 11
-                        Layout.preferredHeight: 11
+                        Layout.preferredWidth: KodosiTheme.scaled(11)
+                        Layout.preferredHeight: KodosiTheme.scaled(11)
                         visible: location.host.length > 0
                         name: "laptop"
                         strokeWidth: 2.2
@@ -285,8 +285,8 @@ Item {
                         font.weight: Font.Medium
                     }
                     KIcon {
-                        Layout.preferredWidth: 13
-                        Layout.preferredHeight: 13
+                        Layout.preferredWidth: KodosiTheme.scaled(13)
+                        Layout.preferredHeight: KodosiTheme.scaled(13)
                         Layout.leftMargin: -2
                         Layout.rightMargin: -2
                         visible: location.host.length > 0 && location.place.length > 0
@@ -295,8 +295,8 @@ Item {
                         color: root.look.inkFaint
                     }
                     KIcon {
-                        Layout.preferredWidth: 11
-                        Layout.preferredHeight: 11
+                        Layout.preferredWidth: KodosiTheme.scaled(11)
+                        Layout.preferredHeight: KodosiTheme.scaled(11)
                         visible: location.place.length > 0
                         name: location.placeGlyph
                         strokeWidth: 2.2

@@ -92,8 +92,8 @@ Column {
             }
             KIcon {
                 anchors.verticalCenter: parent.verticalCenter
-                width: 9
-                height: 9
+                width: KodosiTheme.scaled(9)
+                height: KodosiTheme.scaled(9)
                 name: "chevron-down"
                 rotation: root.shown ? 0 : -90
                 strokeWidth: 2.6

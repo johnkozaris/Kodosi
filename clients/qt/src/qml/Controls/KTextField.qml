@@ -7,7 +7,7 @@ TextField {
 
     property bool compact: false
 
-    implicitHeight: compact ? 26 : KodosiTheme.fieldHeight
+    implicitHeight: compact ? KodosiTheme.scaled(26) : KodosiTheme.fieldHeight
     leftPadding: compact ? 10 : 12
     rightPadding: compact ? 10 : 12
     topPadding: compact ? 4 : 7

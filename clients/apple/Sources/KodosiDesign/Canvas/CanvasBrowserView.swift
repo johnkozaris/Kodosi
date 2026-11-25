@@ -183,7 +183,7 @@ public struct CanvasBrowserView: View {
                             .frame(width: 14, height: 14)
                             .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
                     } else {
-                        Image(systemName: "globe").font(.system(size: 10, weight: .semibold))
+                        Image(systemName: "globe").font(scaled: 10, weight: .semibold)
                     }
                 }
                 .foregroundStyle(tab.active ? theme.colors.accentStrong : theme.colors.inkFaint)
@@ -253,7 +253,7 @@ public struct CanvasBrowserView: View {
     private var addressField: some View {
         let suggestions = suggestions
         return HStack(spacing: 6) {
-            Image(systemName: editing ? "magnifyingglass" : secure ? "lock.fill" : "globe").font(.system(size: 9.5, weight: .semibold))
+            Image(systemName: editing ? "magnifyingglass" : secure ? "lock.fill" : "globe").font(scaled: 9.5, weight: .semibold)
                 .foregroundStyle(theme.colors.inkFaint)
             TextField(String(localized: "Search or enter an address", bundle: .module), text: $address)
                 .textFieldStyle(.plain).appTextStyle(.footnote).foregroundStyle(theme.colors.ink)
@@ -339,7 +339,7 @@ public struct CanvasBrowserView: View {
             switch suggestion {
             case let .words(words):
                 let searches = Self.searches(words)
-                Image(systemName: searches ? "magnifyingglass" : "globe").font(.system(size: 10.5, weight: .semibold))
+                Image(systemName: searches ? "magnifyingglass" : "globe").font(scaled: 10.5, weight: .semibold)
                     .foregroundStyle(theme.colors.inkFaint).frame(width: 14)
                 Text(words).foregroundStyle(theme.colors.ink).lineLimit(1).truncationMode(.middle)
                 if searches {
@@ -348,7 +348,7 @@ public struct CanvasBrowserView: View {
                 }
             case let .page(page):
                 let bare = BrowserHistory.bare(page.address)
-                Image(systemName: "clock.arrow.circlepath").font(.system(size: 10.5, weight: .semibold))
+                Image(systemName: "clock.arrow.circlepath").font(scaled: 10.5, weight: .semibold)
                     .foregroundStyle(theme.colors.inkFaint).frame(width: 14)
                 Text(page.title.isEmpty ? bare : page.title).foregroundStyle(theme.colors.ink).lineLimit(1)
                 Text(bare).foregroundStyle(theme.colors.inkFaint).lineLimit(1).truncationMode(.middle).layoutPriority(-1)
@@ -412,7 +412,7 @@ public struct CanvasBrowserView: View {
         case .asleep:
             Button { Task { await feed.wake() } } label: {
                 HStack(spacing: 7) {
-                    Image(systemName: "moon.zzz.fill").font(.system(size: 12, weight: .semibold))
+                    Image(systemName: "moon.zzz.fill").font(scaled: 12, weight: .semibold)
                         .foregroundStyle(theme.colors.inkMuted)
                     Text("Wake", bundle: .module).appTextStyle(.footnote).fontWeight(.semibold).foregroundStyle(theme.colors.ink)
                 }

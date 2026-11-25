@@ -4423,6 +4423,26 @@
         <translation>ダーク</translation>
     </message>
     <message>
+        <source>Text size</source>
+        <translation>テキストサイズ</translation>
+    </message>
+    <message>
+        <source>Small</source>
+        <translation>小</translation>
+    </message>
+    <message>
+        <source>Normal</source>
+        <translation>標準</translation>
+    </message>
+    <message>
+        <source>Large</source>
+        <translation>大</translation>
+    </message>
+    <message>
+        <source>Larger</source>
+        <translation>特大</translation>
+    </message>
+    <message>
         <source>Keep terminals dark</source>
         <translation>ターミナルを常にダークにする</translation>
     </message>
@@ -4882,6 +4902,10 @@
     <message>
         <source>Motion settings could not be written. The previous choice remains active.</source>
         <translation>動きの設定を保存できませんでした。以前の設定のままです。</translation>
+    </message>
+    <message>
+        <source>Text size settings could not be written. The previous choice remains active.</source>
+        <translation>テキストサイズの設定を保存できませんでした。以前の設定のままです。</translation>
     </message>
     <message>
         <source>Title settings could not be written. The previous choice remains active.</source>

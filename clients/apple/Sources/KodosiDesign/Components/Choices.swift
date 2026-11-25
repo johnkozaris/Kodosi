@@ -17,7 +17,7 @@ public struct ProjectChoice: View {
             ProjectSigil(key: key, size: 18)
             Text(name).appTextStyle(.footnote).fontWeight(.medium).lineLimit(1)
             if selected {
-                Image(systemName: "checkmark").font(.system(size: 9, weight: .bold))
+                Image(systemName: "checkmark").font(scaled: 9, weight: .bold)
                     .foregroundStyle(theme.colors.accentStrong).transition(AnyTransition.pop)
             }
         }

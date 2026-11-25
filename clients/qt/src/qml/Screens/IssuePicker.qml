@@ -60,7 +60,7 @@ ColumnLayout {
             anchors.rightMargin: 12
             spacing: 8
 
-            KIcon { Layout.preferredWidth: 13; Layout.preferredHeight: 13; name: "search"; color: KodosiTheme.inkFaint }
+            KIcon { Layout.preferredWidth: KodosiTheme.scaled(13); Layout.preferredHeight: KodosiTheme.scaled(13); name: "search"; color: KodosiTheme.inkFaint }
             TextInput {
                 id: search
                 Layout.fillWidth: true
@@ -122,8 +122,8 @@ ColumnLayout {
                 KIcon {
                     visible: !row.modelData.header
                     Layout.rightMargin: 8
-                    Layout.preferredWidth: 12
-                    Layout.preferredHeight: 12
+                    Layout.preferredWidth: KodosiTheme.scaled(12)
+                    Layout.preferredHeight: KodosiTheme.scaled(12)
                     name: row.imported ? "check" : "plus"
                     color: row.imported ? KodosiTheme.ready : KodosiTheme.inkMuted
                 }

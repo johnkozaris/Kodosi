@@ -9,7 +9,7 @@ Item {
     property Look look: KodosiTheme.look
 
     implicitWidth: row.implicitWidth + 26
-    implicitHeight: 34
+    implicitHeight: KodosiTheme.scaled(34)
     opacity: shown ? 1 : 0
     visible: opacity > 0
     Accessible.id: objectName

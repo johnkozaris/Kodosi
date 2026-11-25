@@ -25,7 +25,7 @@ struct VerificationCode: View {
             HStack(spacing: 8) {
                 ForEach(groups.enumerated(), id: \.offset) { index, group in
                     Text(group)
-                        .font(.system(size: 26, weight: .semibold, design: .monospaced))
+                        .font(scaled: 26, weight: .semibold, design: .monospaced)
                         .minimumScaleFactor(0.6)
                         .lineLimit(1)
                         .foregroundStyle(theme.colors.ink)

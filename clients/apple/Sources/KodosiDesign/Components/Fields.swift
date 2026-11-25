@@ -133,7 +133,7 @@ public struct MenuRow: View {
     public var body: some View {
         HStack(spacing: 10) {
             if let symbol {
-                Image(systemName: symbol).font(.system(size: 12, weight: .semibold))
+                Image(systemName: symbol).font(scaled: 12, weight: .semibold)
                     .foregroundStyle(destructive ? theme.colors.danger : theme.colors.inkMuted).frame(width: 18)
             }
             Text(title).appTextStyle(.body).foregroundStyle(destructive ? theme.colors.danger : theme.colors.ink).lineLimit(1)
@@ -142,7 +142,7 @@ public struct MenuRow: View {
                 Text(detail).appTextStyle(.footnote).foregroundStyle(theme.colors.inkFaint).lineLimit(1)
             }
             if selected {
-                Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(theme.colors.accentStrong)
+                Image(systemName: "checkmark").font(scaled: 11, weight: .bold).foregroundStyle(theme.colors.accentStrong)
                     .transition(AnyTransition.pop)
             }
         }
@@ -215,7 +215,7 @@ public struct MenuPicker<Value: Hashable>: View {
     private var face: some View {
         HStack(spacing: 8) {
             Text(label(selection)).lineLimit(1)
-            Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(theme.colors.inkFaint)
+            Image(systemName: "chevron.up.chevron.down").font(scaled: 9, weight: .bold).foregroundStyle(theme.colors.inkFaint)
         }
     }
 }

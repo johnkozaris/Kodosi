@@ -38,11 +38,11 @@ struct LauncherCommandLine<Folder: View, Choices: View>: View {
                     label: info == nil ? String(localized: "Command") : String(localized: "First prompt"),
                     focus: focus, submit: submit,
                 )
-                .layoutValue(key: FillsRow.self, value: info == nil ? max(120, PromptTextView.width(hint: hint)) : .infinity)
+                .layoutValue(key: FillsRow.self, value: info == nil ? max(120, PromptTextView.width(hint: hint, size: theme.scaled(13))) : .infinity)
                 .accessibilityIdentifier("launcher.prompt")
             }
         }
-        .font(.system(size: 13, weight: .medium, design: .monospaced))
+        .font(scaled: 13, weight: .medium, design: .monospaced)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
@@ -147,7 +147,7 @@ struct ComputerKey: View {
                 DeviceGlyph(label: name).squash(trigger: name)
                 Text(verbatim: name).lineLimit(1).contentTransition(.interpolate)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 8, weight: .bold))
+                    .font(scaled: 8, weight: .bold)
                     .rotationEffect(.degrees(open ? 180 : 0))
             }
             .padding(.horizontal, -3)

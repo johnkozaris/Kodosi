@@ -102,7 +102,7 @@ private struct ProjectTerminals: View {
                                     open(session)
                                 } detail: {
                                     HStack(spacing: 4) {
-                                        DeviceGlyph(label: session.hostLabel).font(.system(size: 9, weight: .medium))
+                                        DeviceGlyph(label: session.hostLabel).font(scaled: 9, weight: .medium)
                                         SessionActivityText(session: session, fallback: session.hostLabel,
                                                             naming: session.leadingSummary(summaryFirst) != nil)
                                     }

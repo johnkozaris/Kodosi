@@ -137,7 +137,7 @@ public struct ProjectDoneTasksKey: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: chevron, weight: .bold))
+                    .font(scaled: chevron, weight: .bold)
                     .rotationEffect(.degrees(state.showsDone ? 90 : 0))
                 Text("Done", bundle: .module).appTextStyle(.subhead)
                 Text(count, format: .number).appTextStyle(.footnote).monospacedDigit()

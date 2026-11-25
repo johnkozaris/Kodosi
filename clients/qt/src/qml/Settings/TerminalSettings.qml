@@ -81,6 +81,24 @@ ColumnLayout {
             }
         }
         ListRow {
+            iconName: "text-size"
+            tint: "#54433a"
+            title: qsTr("Text size")
+
+            SegmentedPill {
+                compact: true
+                identifier: "settings.textSize"
+                options: [
+                    { value: Models.Appearance.Small, label: qsTr("Small") },
+                    { value: Models.Appearance.Normal, label: qsTr("Normal") },
+                    { value: Models.Appearance.Large, label: qsTr("Large") },
+                    { value: Models.Appearance.Larger, label: qsTr("Larger") }
+                ]
+                currentValue: Models.Appearance.textSize
+                onActivated: value => Models.Appearance.setTextSize(value)
+            }
+        }
+        ListRow {
             iconName: "moon"
             tint: "#8a6fc2"
             title: qsTr("Keep terminals dark")

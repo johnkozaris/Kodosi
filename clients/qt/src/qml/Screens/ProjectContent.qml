@@ -123,7 +123,7 @@ Item {
                     RowLayout {
                         spacing: 5
                         visible: !root.renaming
-                        KIcon { Layout.preferredWidth: 10; Layout.preferredHeight: 10; name: "lock"; strokeWidth: 2.4; color: KodosiTheme.inkFaint }
+                        KIcon { Layout.preferredWidth: KodosiTheme.scaled(10); Layout.preferredHeight: KodosiTheme.scaled(10); name: "lock"; strokeWidth: 2.4; color: KodosiTheme.inkFaint }
                         RollingText {
                             Layout.fillWidth: true
                             text: qsTr("%n people", "", root.members.length) + " · " + qsTr("%n terminals", "", root.sessionIds.length)
@@ -711,7 +711,7 @@ Item {
                                                         PlainLabel { Layout.fillWidth: true; text: card.summary || card.session.name || ""; font.weight: Font.DemiBold; elide: Text.ElideRight }
                                                         RowLayout {
                                                             spacing: 5
-                                                            KIcon { Layout.preferredWidth: 11; Layout.preferredHeight: 11; name: "laptop"; color: KodosiTheme.inkFaint }
+                                                            KIcon { Layout.preferredWidth: KodosiTheme.scaled(11); Layout.preferredHeight: KodosiTheme.scaled(11); name: "laptop"; color: KodosiTheme.inkFaint }
                                                             ActivityLine {
                                                                 Layout.fillWidth: true
                                                                 session: card.session

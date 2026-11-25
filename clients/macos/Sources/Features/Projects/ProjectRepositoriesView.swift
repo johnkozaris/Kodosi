@@ -85,7 +85,7 @@ struct ProjectRepositoriesView: View {
         let active = workspace.selectedRepository == repository.id
         return Button { withAnimation(theme.motion.snappy) { select(repository) } } label: {
             HStack(spacing: 6) {
-                Image(systemName: "shippingbox").font(.system(size: 10, weight: .semibold))
+                Image(systemName: "shippingbox").font(scaled: 10, weight: .semibold)
                 Text(repository.name).lineLimit(1)
             }
             .appTextStyle(.footnote).fontWeight(.medium)
@@ -112,7 +112,7 @@ struct ProjectRepositoriesView: View {
                     let imported = deps.projects.snapshots[projectId]?.tasks.contains { $0.issue?.url == issue.url } == true
                     HStack(alignment: .center, spacing: 12) {
                         Image(systemName: issue.closed ? "checkmark.circle.fill" : "smallcircle.filled.circle")
-                            .font(.system(size: 15)).foregroundStyle(issue.closed ? theme.colors.inkFaint : theme.colors.ready)
+                            .font(scaled: 15).foregroundStyle(issue.closed ? theme.colors.inkFaint : theme.colors.ready)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(issue.title).appTextStyle(.body).fontWeight(.medium).foregroundStyle(theme.colors.ink).lineLimit(2)
                             Text(verbatim: "#\(issue.number)" + (issue.assignees.isEmpty ? "" : " · " + issue.assignees.joined(separator: ", ")))

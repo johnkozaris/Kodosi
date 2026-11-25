@@ -64,7 +64,7 @@ public struct ProjectWelcome: View {
                     .foregroundStyle(step.done ? theme.colors.inkMuted : theme.colors.ink)
                 Spacer(minLength: 4)
                 Image(systemName: step.done ? "checkmark.circle.fill" : "chevron.right")
-                    .font(.system(size: step.done ? 17 : 12, weight: .semibold))
+                    .font(scaled: step.done ? 17 : 12, weight: .semibold)
                     .foregroundStyle(step.done ? theme.colors.ready : theme.colors.inkFaint)
                     .contentTransition(.symbolEffect(.replace))
             }

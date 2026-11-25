@@ -61,7 +61,7 @@ struct ProjectTasksView: View {
     private var composer: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
-                Image(systemName: "plus").font(.system(size: 12, weight: .bold))
+                Image(systemName: "plus").font(scaled: 12, weight: .bold)
                     .foregroundStyle(adding ? theme.colors.accentStrong : theme.colors.inkFaint)
                 TextField("Add a task", text: $workspace.taskTitle)
                     .textFieldStyle(.plain).appTextStyle(.callout).focused($adding)
@@ -187,7 +187,7 @@ private struct ProjectTaskCard: View {
             HStack(alignment: .top, spacing: 12) {
                 Button { update(task.closed ? .reopen : .close) } label: {
                     Image(systemName: task.closed ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 19, weight: .regular))
+                        .font(scaled: 19, weight: .regular)
                         .foregroundStyle(task.closed ? theme.colors.ready : hovered ? theme.colors.accent : theme.colors.inkFaint)
                         .contentTransition(.symbolEffect(.replace))
                 }

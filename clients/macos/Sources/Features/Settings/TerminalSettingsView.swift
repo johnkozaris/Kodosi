@@ -10,6 +10,7 @@ struct TerminalSettingsView: View {
     @State private var families: [String] = []
     @AppStorage(ThemePreference.storageKey) private var themePreference = ThemePreference.system.rawValue
     @AppStorage(MotionPreference.storageKey) private var reducesMotion = false
+    @AppStorage(TextSize.storageKey) private var textSize = TextSize.normal.rawValue
     @AppStorage(SummaryFirst.storageKey) private var summaryFirst = false
     @Environment(\.accessibilityReduceMotion) private var systemReducesMotion
 
@@ -35,6 +36,11 @@ struct TerminalSettingsView: View {
                         SegmentOption(value: ThemePreference.light.rawValue, title: String(localized: "Light"), symbol: "sun.max"),
                         SegmentOption(value: ThemePreference.dark.rawValue, title: String(localized: "Dark"), symbol: "moon"),
                     ], compact: true, identifier: "settings.appearance")
+                }
+                ListRow(String(localized: "Text size"), symbol: "textformat.size.larger", tint: TileTint.graphite) {
+                    SegmentedPill(selection: $textSize, options: TextSize.allCases.map {
+                        SegmentOption(value: $0.rawValue, title: $0.label)
+                    }, compact: true, identifier: "settings.textSize")
                 }
                 Toggle(isOn: $settings.keepsTerminalsDark) {
                     HStack(spacing: 12) {
@@ -154,6 +160,17 @@ private extension DesktopSettings.CursorStyle {
         case .block: .block
         case .bar: .bar
         case .underline: .underline
+        }
+    }
+}
+
+private extension TextSize {
+    var label: String {
+        switch self {
+        case .small: String(localized: "Small")
+        case .normal: String(localized: "Normal")
+        case .large: String(localized: "Large")
+        case .larger: String(localized: "Larger")
         }
     }
 }

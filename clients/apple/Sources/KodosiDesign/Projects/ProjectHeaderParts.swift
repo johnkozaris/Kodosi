@@ -14,7 +14,7 @@ public struct ProjectFacts: View {
 
     public var body: some View {
         HStack(spacing: 5) {
-            Image(systemName: "lock.fill").font(.system(size: lock, weight: .semibold))
+            Image(systemName: "lock.fill").font(scaled: lock, weight: .semibold)
             Text(verbatim: [people.map(Counted.people), Counted.terminals(terminals)].compactMap(\.self).joined(separator: " · "))
         }
         .appTextStyle(.caption)

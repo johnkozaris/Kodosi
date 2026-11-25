@@ -76,6 +76,8 @@ Copper `accent` means "act here" or "selected", and nothing else. `glowAmber` fl
 ## Typography
 Use `AppTextStyle`: `large` for page titles, `title` for sheets, `headline` for object names, `body` for conversation and rows, `footnote` and `caption` for facts, monospace for code and paths. Labels use sentence case. The wordmark is a picture.
 
+A person picks the text size in Settings: Small, Normal, Large or Larger, about one point a step at the size of the conversation. It scales the text styles, the other sizes of words and of the symbols beside them (`font(scaled:)`), and the heights of the controls that hold words, so a key keeps its text centered. Marks, avatars, pictures, icon-only keys and spacing keep their size. The terminal has its own font size, and a document on the canvas its own zoom.
+
 ## Layout
 The window has no title bar. The source list can shrink to a rail of marks or widen for Dosi; one inset frame holds the work, and pages are one centered column. When chrome moves or a tile comes or goes, each terminal takes its final size at once.
 

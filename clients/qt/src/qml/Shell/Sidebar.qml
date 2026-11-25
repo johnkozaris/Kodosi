@@ -192,8 +192,8 @@ Item {
         spacing: 5
 
         KIcon {
-            Layout.preferredWidth: 8
-            Layout.preferredHeight: 8
+            Layout.preferredWidth: KodosiTheme.scaled(8)
+            Layout.preferredHeight: KodosiTheme.scaled(8)
             name: "disclosure"
             filled: true
             strokeWidth: 1.4
@@ -594,11 +594,11 @@ Item {
                     id: newTerminalRow
                     spacing: 8
                     opacity: newSpot.hidden ? 0 : 1
-                    KIcon { Layout.leftMargin: 14; Layout.preferredWidth: 13; Layout.preferredHeight: 13; name: "plus"; color: KodosiTheme.accentInk; strokeWidth: 2.6 }
+                    KIcon { Layout.leftMargin: 14; Layout.preferredWidth: KodosiTheme.scaled(13); Layout.preferredHeight: KodosiTheme.scaled(13); name: "plus"; color: KodosiTheme.accentInk; strokeWidth: 2.6 }
                     PlainLabel { id: newTerminalTitle; Layout.fillWidth: true; text: qsTr("New terminal"); color: KodosiTheme.accentInk; font.weight: Font.DemiBold; elide: Text.ElideRight }
                     PlainLabel {
                         Layout.rightMargin: 12
-                        visible: 14 + 13 + 2 * newTerminalRow.spacing + newTerminalTitle.implicitWidth + implicitWidth + 12 <= newTerminalRow.width
+                        visible: 14 + KodosiTheme.scaled(13) + 2 * newTerminalRow.spacing + newTerminalTitle.implicitWidth + implicitWidth + 12 <= newTerminalRow.width
                         text: Models.Shortcuts.hints.newTerminal
                         color: KodosiTheme.alpha(KodosiTheme.accentInk, 0.6)
                         font.pixelSize: KodosiTheme.fontCaption
@@ -920,8 +920,8 @@ Item {
                                 }
                                 KIcon {
                                     visible: !folder.group.owner
-                                    Layout.preferredWidth: 12
-                                    Layout.preferredHeight: 12
+                                    Layout.preferredWidth: KodosiTheme.scaled(12)
+                                    Layout.preferredHeight: KodosiTheme.scaled(12)
                                     name: "laptop"
                                     color: KodosiTheme.inkFaint
                                 }
@@ -936,8 +936,8 @@ Item {
                                 }
                                 KIcon {
                                     visible: folder.group.computerOffline === true
-                                    Layout.preferredWidth: 10
-                                    Layout.preferredHeight: 10
+                                    Layout.preferredWidth: KodosiTheme.scaled(10)
+                                    Layout.preferredHeight: KodosiTheme.scaled(10)
                                     name: "offline"
                                     color: KodosiTheme.inkFaint
                                 }
@@ -961,8 +961,8 @@ Item {
                                 spacing: 6
                                 KIcon {
                                     Layout.leftMargin: 10
-                                    Layout.preferredWidth: 12
-                                    Layout.preferredHeight: 12
+                                    Layout.preferredWidth: KodosiTheme.scaled(12)
+                                    Layout.preferredHeight: KodosiTheme.scaled(12)
                                     name: folder.group.pinned ? "pin" : "folder"
                                     color: KodosiTheme.inkFaint
                                 }
@@ -1478,7 +1478,7 @@ Item {
             RowLayout {
                 spacing: 8
 
-                KIcon { Layout.preferredWidth: 15; Layout.preferredHeight: 15; name: "branch"; color: KodosiTheme.inkMuted; strokeWidth: 2 }
+                KIcon { Layout.preferredWidth: KodosiTheme.scaled(15); Layout.preferredHeight: KodosiTheme.scaled(15); name: "branch"; color: KodosiTheme.inkMuted; strokeWidth: 2 }
                 PlainLabel { text: qsTr("New branch"); color: KodosiTheme.ink; font.pixelSize: KodosiTheme.fontHeadline; font.weight: Font.DemiBold }
             }
             KTextField {

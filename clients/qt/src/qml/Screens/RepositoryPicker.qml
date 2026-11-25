@@ -48,7 +48,7 @@ ColumnLayout {
             anchors.rightMargin: 12
             spacing: 8
 
-            KIcon { Layout.preferredWidth: 13; Layout.preferredHeight: 13; name: "search"; color: KodosiTheme.inkFaint }
+            KIcon { Layout.preferredWidth: KodosiTheme.scaled(13); Layout.preferredHeight: KodosiTheme.scaled(13); name: "search"; color: KodosiTheme.inkFaint }
             TextInput {
                 id: search
                 Layout.fillWidth: true
@@ -81,7 +81,7 @@ ColumnLayout {
             anchors.rightMargin: 6
             spacing: 10
 
-            KIcon { Layout.preferredWidth: 14; Layout.preferredHeight: 14; name: "people"; color: KodosiTheme.accentStrong }
+            KIcon { Layout.preferredWidth: KodosiTheme.scaled(14); Layout.preferredHeight: KodosiTheme.scaled(14); name: "people"; color: KodosiTheme.accentStrong }
             PlainLabel {
                 Layout.fillWidth: true
                 text: root.choices.github === "missing" ? qsTr("Install GitHub CLI to see your repositories") : qsTr("Connect GitHub to see your repositories")
@@ -148,8 +148,8 @@ ColumnLayout {
                         elide: Text.ElideMiddle
                     }
                 }
-                KIcon { visible: row.modelData.private === true; Layout.preferredWidth: 11; Layout.preferredHeight: 11; name: "lock"; color: KodosiTheme.inkFaint }
-                KIcon { visible: row.done; Layout.rightMargin: 8; Layout.preferredWidth: 12; Layout.preferredHeight: 12; name: "check"; color: KodosiTheme.ready }
+                KIcon { visible: row.modelData.private === true; Layout.preferredWidth: KodosiTheme.scaled(11); Layout.preferredHeight: KodosiTheme.scaled(11); name: "lock"; color: KodosiTheme.inkFaint }
+                KIcon { visible: row.done; Layout.rightMargin: 8; Layout.preferredWidth: KodosiTheme.scaled(12); Layout.preferredHeight: KodosiTheme.scaled(12); name: "check"; color: KodosiTheme.ready }
             }
             background: Rectangle {
                 radius: KodosiTheme.radiusMd

@@ -96,7 +96,7 @@ KPopover {
                 }
                 RowLayout {
                     spacing: 5
-                    KIcon { Layout.preferredWidth: 11; Layout.preferredHeight: 11; name: "lock"; strokeWidth: 2.2 }
+                    KIcon { Layout.preferredWidth: KodosiTheme.scaled(11); Layout.preferredHeight: KodosiTheme.scaled(11); name: "lock"; strokeWidth: 2.2 }
                     PlainLabel { text: qsTr("Encrypted end to end"); color: KodosiTheme.inkMuted; font.pixelSize: KodosiTheme.fontCaption; font.weight: Font.Medium }
                 }
             }
@@ -161,7 +161,7 @@ KPopover {
                                 spacing: 7
                                 ProjectSigil { key: chip.modelData.id; size: 18 }
                                 PlainLabel { text: chip.modelData.name; color: chip.selected ? KodosiTheme.ink : KodosiTheme.inkMuted; font.pixelSize: KodosiTheme.fontFootnote; font.weight: Font.Medium }
-                                KIcon { visible: chip.selected; Layout.preferredWidth: 10; Layout.preferredHeight: 10; name: "check"; strokeWidth: 2.8; color: KodosiTheme.accentStrong }
+                                KIcon { visible: chip.selected; Layout.preferredWidth: KodosiTheme.scaled(10); Layout.preferredHeight: KodosiTheme.scaled(10); name: "check"; strokeWidth: 2.8; color: KodosiTheme.accentStrong }
                             }
                         }
                         background: Item {

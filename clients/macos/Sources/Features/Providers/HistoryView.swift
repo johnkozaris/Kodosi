@@ -114,7 +114,7 @@ struct HistoryView: View {
                                 .appTextStyle(.body).fontWeight(.medium).foregroundStyle(theme.colors.ink).lineLimit(2)
                                 .multilineTextAlignment(.leading)
                             HStack(spacing: 6) {
-                                Image(systemName: "folder").font(.system(size: 9))
+                                Image(systemName: "folder").font(scaled: 9)
                                 Text(HostPath.folderName(conversation.workingDirectory)).lineLimit(1)
                                 if let updated = conversation.updatedAt {
                                     Text(verbatim: "·")
