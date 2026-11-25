@@ -43,11 +43,12 @@ The computer that starts a terminal owns its process, state, and output ordering
 view receives an initial checkpoint followed by ordered updates with bounded buffering. Remote
 views receive updates over per-view end-to-end encrypted channels relayed through the backend.
 
-When a viewer and host belong to the same user, encrypted frames move onto a QUIC connection
-between the two devices: a direct one when they can reach each other (on the same LAN or through
+Encrypted frames move onto a QUIC connection between the viewer's and the host's devices: a
+direct one when they belong to the same user and can reach each other (on the same LAN or through
 NAT traversal), and otherwise one through the backend's UDP relay, which forwards its packets
-unchanged. Frames fall back to the relay pipe if the connection drops, without requiring a new
-checkpoint and without dropping or duplicating frames. The relay pipe stays open so the backend can
+unchanged. The devices of two people meet only through the UDP relay and trade no addresses, so
+neither learns the other's. Frames fall back to the relay pipe if the connection drops, without
+requiring a new checkpoint and without dropping or duplicating frames. The relay pipe stays open so the backend can
 still tear down the channel immediately if access is revoked.
 
 On a QUIC connection, the video of the canvas browser and screens leaves the ordered channel, so

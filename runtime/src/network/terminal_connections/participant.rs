@@ -178,15 +178,13 @@ pub(super) async fn connect(
     }
     let session = dto.clone().into();
     let cancel = cancellation.clone();
-    let peers = (dto.owner_user_id == credentials.user_id)
-        .then(|| network.peers(&credentials).ok())
-        .flatten();
+    let peers = network.peers(&credentials).ok();
+    let own = dto.owner_user_id == credentials.user_id;
     let (late, path, link) = (paths.late(), paths.path(), paths.link());
     let finder = Finder::viewer(
         peers,
         paths,
-        public.clone(),
-        pipe,
+        (public.clone(), pipe, own),
         Arc::clone(&network.inner.link),
     );
     tokio::spawn(async move {

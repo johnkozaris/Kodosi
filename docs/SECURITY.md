@@ -69,7 +69,8 @@ device sees the other's IP address.
 
 To discover its public address, Kodosi asks the Kodosi server, which sees that IP anyway.
 While searching for or holding either connection (and for one minute afterward), the device
-keeps a single UDP port open and only accepts connections from your own approved devices.
+keeps a single UDP port open and only accepts connections from devices that view one of your
+terminals.
 Terminals shared with other people always go through the relay server, so other users never see
 your IP addresses.
 

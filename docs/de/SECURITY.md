@@ -75,7 +75,7 @@ den Relay-Server, und keines der Geräte sieht die IP-Adresse des anderen.
 Um die eigene öffentliche Adresse zu ermitteln, fragt Kodosi den Kodosi-Server ab,
 der diese IP-Adresse ohnehin sieht. Solange ein Gerät eine dieser Verbindungen sucht oder hält (sowie eine
 Minute danach), hält es einen einzelnen UDP-Port offen und akzeptiert dort ausschließlich
-Verbindungen von deinen eigenen freigegebenen Geräten. Terminals, die mit anderen Personen geteilt
+Verbindungen von Geräten, die eines deiner Terminals ansehen. Terminals, die mit anderen Personen geteilt
 sind, laufen immer über den Relay-Server, sodass andere Nutzer deine IP-Adressen nie sehen.
 
 ## Was der Dienst sieht

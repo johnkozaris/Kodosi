@@ -76,8 +76,8 @@ serveur relais avec le même chiffrement, et aucun des deux appareils ne voit l'
 
 Pour déterminer son adresse publique, Kodosi interroge le serveur Kodosi, qui voit de toute façon cette
 adresse IP. Lorsqu'un appareil recherche ou maintient l'une de ces connexions (et pendant une minute
-ensuite), il garde un unique port UDP ouvert et n'accepte de connexions que de vos propres
-appareils approuvés. Les terminaux partagés avec d'autres personnes passent toujours par le serveur
+ensuite), il garde un unique port UDP ouvert et n'accepte de connexions que
+d'appareils qui affichent l'un de vos terminaux. Les terminaux partagés avec d'autres personnes passent toujours par le serveur
 relais, de sorte que les autres utilisateurs ne voient jamais vos adresses IP.
 
 ## Ce que voit le service

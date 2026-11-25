@@ -332,8 +332,8 @@
     "anchor": "the relay pipe stays open while the messages go on a lane, and its end ends the route"
   },
   "direct": {
-    "who": "only the devices of one person: the viewer offers for a terminal of its own person, and a host answers a viewer of another person with no addresses",
-    "offer": "the viewer asks the server for the relay of the pipe (relay) when ready named one, and sends pathOffer, after accept; the host answers with pathAnswer; when no lane comes, the viewer offers again after 30 seconds, 2 minutes and then each 10 minutes, and 5 seconds after a lane ended; an empty answer ends its offers",
+    "who": "the devices of one person trade addresses and meet straight or through the relay; a viewer of another person's terminal offers no addresses and the host answers it with none, so the two devices meet only through the relay and neither learns the other's address",
+    "offer": "the viewer asks the server for the relay of the pipe (relay) when ready named one, and sends pathOffer, after accept; the host answers with pathAnswer; when no lane comes, the viewer offers again after 30 seconds, 2 minutes and then each 10 minutes, and 5 seconds after a lane ended; an empty answer to a viewer of its own person ends its offers, and a viewer of another person offers only when ready named a relay",
     "addresses": "the addresses of the device's networks that are up, without loopback and link-local ones, and the public addresses of its UDP socket that the server's UDP relay sees (relay.stun), at most 16; a side tries a private address of the other only on one of its own networks",
     "transport": "QUIC on one UDP socket of the runtime, on the first free port from 47360 to 47379 (the range that the Windows package opens on private networks) or another when they are taken, which also carries the STUN questions; ALPN kodosi-direct/<channelProtocolVersion>; TLS 1.3 with the keys, the key exchange and the cipher suite of the channel",
     "viewerCheck": "the host key must equal the key of the hosting device, as on the channel",

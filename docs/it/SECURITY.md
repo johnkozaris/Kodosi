@@ -76,8 +76,8 @@ crittografia, e nessuno dei due dispositivi vede l'indirizzo IP dell'altro.
 
 Per rilevare il proprio indirizzo pubblico, Kodosi interroga il server Kodosi, che
 vede comunque quell'IP. Mentre cerca o mantiene una di queste connessioni (e per il minuto successivo), il
-dispositivo tiene aperta una sola porta UDP e accetta connessioni unicamente dai tuoi dispositivi
-approvati. I terminali condivisi con altre persone passano sempre dal server relay, quindi gli
+dispositivo tiene aperta una sola porta UDP e accetta connessioni unicamente da
+dispositivi che visualizzano uno dei tuoi terminali. I terminali condivisi con altre persone passano sempre dal server relay, quindi gli
 altri utenti non vedono mai i tuoi indirizzi IP.
 
 ## Cosa vede il servizio

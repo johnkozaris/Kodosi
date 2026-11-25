@@ -500,11 +500,10 @@ async fn connect(
         .map_err(|_| Error::Closed)?;
     let authorization = cancel.child_token();
     let _authorization = authorization.clone().drop_guard();
-    let peers = (user == credentials.user_id)
-        .then(|| network.peers(credentials).ok())
-        .flatten();
+    let peers = network.peers(credentials).ok();
+    let own = user == credentials.user_id;
     let link = paths.link();
-    let finder = Finder::host(peers, paths, key, id);
+    let finder = Finder::host(peers, paths, (key, id, own));
     let (ended, channel) = {
         let mut stream = Stream::new(
             channel,

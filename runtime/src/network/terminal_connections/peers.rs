@@ -35,7 +35,7 @@ use super::{
 
 mod relay;
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;
 
 pub(super) use relay::Grant;
 
@@ -106,6 +106,8 @@ impl Drop for Bound {
 
 struct Joined {
     connection: noq::Connection,
+    /// The server's UDP relay forwards the connection.
+    forwarded: bool,
     uses: AtomicUsize,
     unused_since: Locked<tokio::time::Instant>,
     /// Where each video datagram goes, by its kind and flow.
@@ -119,9 +121,10 @@ struct Joined {
 }
 
 impl Joined {
-    fn new(connection: noq::Connection) -> Arc<Self> {
+    fn new(connection: noq::Connection, forwarded: bool) -> Arc<Self> {
         let joined = Arc::new(Self {
             connection: connection.clone(),
+            forwarded,
             uses: AtomicUsize::new(0),
             unused_since: Locked::new(tokio::time::Instant::now()),
             flows: Locked::new(HashMap::new()),
@@ -307,6 +310,10 @@ impl Lane {
     /// The connection under the lane, for video.
     pub(super) fn media(&self) -> Option<Media> {
         self.used.as_ref().map(|used| Media(Arc::clone(&used.0)))
+    }
+
+    pub(super) fn forwarded(&self) -> bool {
+        self.used.as_ref().is_some_and(|used| used.0.forwarded)
     }
 
     pub(super) async fn write(&mut self, message: &[u8]) -> Result<()> {
@@ -560,15 +567,16 @@ impl Peers {
             .await
             .ok()
             .flatten()?;
-        if bound.socket.relays(address) {
-            tracing::info!("this device reached another device of its person through the relay");
+        let forwarded = relay::is_stand_in(address);
+        if forwarded {
+            tracing::info!("this device reached another device through the relay");
         } else {
             tracing::info!(
                 lan,
                 "this device reached another device of its person straight"
             );
         }
-        let joined = Joined::new(connection);
+        let joined = Joined::new(connection, forwarded);
         self.dialed
             .lock()
             .ok()?
@@ -862,6 +870,7 @@ async fn accept(peers: Weak<Peers>, endpoint: noq::Endpoint) {
 /// of its streams to the route waiting for it.
 #[cfg(feature = "host")]
 async fn welcome(peers: Weak<Peers>, incoming: noq::Incoming) {
+    let forwarded = relay::is_stand_in(incoming.remote_address());
     let Ok(Ok(connection)) = tokio::time::timeout(ARRIVAL, incoming).await else {
         return;
     };
@@ -881,7 +890,7 @@ async fn welcome(peers: Weak<Peers>, incoming: noq::Incoming) {
             connection.close(VarInt::from_u32(1), b"");
             return;
         }
-        let joined = Joined::new(connection.clone());
+        let joined = Joined::new(connection.clone(), forwarded);
         if let Ok(mut arrived) = peers.arrived.lock() {
             arrived.insert(key.clone(), Arc::clone(&joined));
         }
@@ -1130,14 +1139,6 @@ impl Demux {
             }
         }
         None
-    }
-
-    /// Whether noq reaches `address` through the relay.
-    fn relays(&self, address: SocketAddr) -> bool {
-        self.0
-            .relays
-            .lock()
-            .is_ok_and(|routes| routes.bound(address).is_some())
     }
 
     /// Hands relayed segments on as from the stand-in of the device that sent them.

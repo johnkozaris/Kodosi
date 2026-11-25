@@ -271,6 +271,14 @@ pub(super) const fn wrapped_segment(segment: Option<usize>) -> Option<usize> {
     }
 }
 
+/// Whether QUIC reaches `address` through the relay.
+pub(super) fn is_stand_in(address: SocketAddr) -> bool {
+    match plain(address).ip() {
+        IpAddr::V6(ip) => ip.segments()[..4] == STAND_IN_V6,
+        IpAddr::V4(ip) => ip.octets()[0] == STAND_IN_V4,
+    }
+}
+
 /// An address as the socket compares it: IPv4 addresses that a dual-stack socket maps into IPv6
 /// count as IPv4.
 fn plain(address: SocketAddr) -> SocketAddr {

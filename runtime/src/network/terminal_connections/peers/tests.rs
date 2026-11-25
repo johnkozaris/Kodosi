@@ -234,10 +234,28 @@ fn stun_answer_for(id: [u8; 12], seen: SocketAddr) -> Vec<u8> {
     answer
 }
 
+/// Gives the two devices the allocation of `pipe` on `relay`, as the server's `relayed` does.
+#[cfg(feature = "host")]
+pub(crate) fn granted(host: &Peers, viewer: &Peers, relay: SocketAddr, pipe: Uuid) {
+    for (peers, slot) in [(host, 1), (viewer, 0)] {
+        peers.relay_at(Some(relay.to_string()));
+        let (pipe, grant) = Grant::read(&serde_json::json!({
+            "type": "relayed",
+            "pipe": pipe,
+            "allocation": "AQIDBAUGBw==",
+            "slot": slot,
+            "secret": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+            "now": 0,
+        }))
+        .unwrap();
+        peers.relayed(pipe, grant);
+    }
+}
+
 /// Forwards between the two addresses that bound the slots of an allocation, as the Kodosi
 /// server's relay does, without checking the binds' signatures.
 #[cfg(feature = "host")]
-async fn relay_for_tests() -> SocketAddr {
+pub(crate) async fn relay_for_tests() -> SocketAddr {
     let socket = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))
         .await
         .unwrap();
@@ -280,19 +298,7 @@ async fn devices_that_find_no_straight_path_meet_through_the_relay() {
     let (host, viewer) = (peers_of(&host_keys), peers_of(&viewer_keys));
     let relay = relay_for_tests().await;
     let pipe = Uuid::now_v7();
-    for (peers, slot) in [(&host, 1), (&viewer, 0)] {
-        peers.relay_at(Some(relay.to_string()));
-        let (pipe, grant) = Grant::read(&serde_json::json!({
-            "type": "relayed",
-            "pipe": pipe,
-            "allocation": "AQIDBAUGBw==",
-            "slot": slot,
-            "secret": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-            "now": 0,
-        }))
-        .unwrap();
-        peers.relayed(pipe, grant);
-    }
+    granted(&host, &viewer, relay, pipe);
     let expected = host.expect(viewer_keys.signing_public(), pipe);
     let (arrived, reached) = tokio::join!(
         expected.meet(&[]),
