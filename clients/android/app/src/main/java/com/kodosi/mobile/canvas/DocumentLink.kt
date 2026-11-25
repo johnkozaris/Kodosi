@@ -11,7 +11,7 @@ import java.io.ByteArrayOutputStream
 import java.util.Base64
 
 // The runtime owns each pipe and reconnects it after drops until closed. Each DocumentLink is
-// single-threaded: main thread for documents, the BrowserPipes executor for the browser.
+// single-threaded: main thread for documents, the VideoPipes executor for the browser and the screen.
 class DocumentLink(
     private val commands: CommandSink,
     val session: String,

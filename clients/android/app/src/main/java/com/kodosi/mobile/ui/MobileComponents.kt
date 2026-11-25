@@ -98,6 +98,9 @@ enum class AppSymbol {
     INFO,
     FILE,
     BROWSER,
+    DISPLAY,
+    WINDOW,
+    SHRINK,
     LOCK,
     FORWARD,
     COMPUTER,
@@ -310,6 +313,24 @@ private class SymbolPainter(private val symbol: AppSymbol) : androidx.compose.ui
                 circle(12f, 12f, 9f)
                 path(3f, 12f, 21f, 12f)
                 path(12f, 3f, 8f, 8f, 8f, 16f, 12f, 21f, 16f, 16f, 16f, 8f, 12f, 3f)
+            }
+
+            AppSymbol.DISPLAY -> {
+                rect(2f, 3f, 20f, 14f, 2f)
+                path(8f, 21f, 16f, 21f)
+                path(12f, 17f, 12f, 21f)
+            }
+
+            AppSymbol.WINDOW -> {
+                rect(2f, 4f, 20f, 16f, 2f)
+                path(2f, 9f, 22f, 9f)
+            }
+
+            AppSymbol.SHRINK -> {
+                path(4f, 14f, 10f, 14f, 10f, 20f)
+                path(20f, 10f, 14f, 10f, 14f, 4f)
+                path(14f, 10f, 21f, 3f)
+                path(3f, 21f, 10f, 14f)
             }
 
             AppSymbol.LOCK -> {

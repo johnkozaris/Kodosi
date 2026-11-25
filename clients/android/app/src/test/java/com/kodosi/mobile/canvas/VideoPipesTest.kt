@@ -32,7 +32,7 @@ import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
-class BrowserPipesTest {
+class VideoPipesTest {
     private class Sent(val command: JsonObject, val thread: Thread)
 
     @Test
@@ -46,11 +46,11 @@ class BrowserPipesTest {
             }
         }
         val thread = Executors.newSingleThreadExecutor()
-        val pipes = BrowserPipes(commands, thread)
+        val pipes = VideoPipes(commands, thread)
         val runtime = RuntimeHandle(pipes::claims)
         val scope = CoroutineScope(SupervisorJob())
         try {
-            scope.launch(pipes.dispatcher) { pipes.consume(runtime.browserEvents) }
+            scope.launch(pipes.dispatcher) { pipes.consume(runtime.videoEvents) }
             BrowserFeed(pipes, "terminal", scope, VideoCodec.decodable).show(true)
             val open = next(sent) { it.string("type") == "document.open" }.command
             commands.receive(answer("document.result", open.string("requestId"), "document.open"))

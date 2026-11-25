@@ -18,7 +18,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
-class BrowserDecoderTest {
+class VideoDecoderTest {
     private val thread = HandlerThread("Browser pictures").apply { start() }
     private val pictures = LinkedBlockingQueue<IntSize>()
     private val reader =
@@ -40,22 +40,22 @@ class BrowserDecoderTest {
         val failing = { codec: VideoCodec, size: IntSize ->
             listOf("c2.kodosi.missing.decoder") + deviceDecoders(codec, size)
         }
-        BrowserDecoder(reader.surface, {}, rendered = {}, refused = {}, lost = {}, decoders = failing).use { decoder ->
+        VideoDecoder(reader.surface, {}, rendered = {}, refused = {}, lost = {}, decoders = failing).use { decoder ->
             assertEquals(IntSize(160, 96), stream(decoder, SMALLER, IntSize(160, 96)))
         }
     }
 
     @Test
     fun anHevcKeyframeShowsItsPicture() {
-        BrowserDecoder(reader.surface, {}, rendered = {}, refused = {}, lost = {}).use { decoder ->
+        VideoDecoder(reader.surface, {}, rendered = {}, refused = {}, lost = {}).use { decoder ->
             assertEquals(IntSize(160, 96), stream(decoder, HEVC, IntSize(160, 96), VideoCodec.HEVC))
         }
     }
 
     @Test
     fun aDecoderThatFailsAtEachTryWithNoOtherLeftRefusesTheStreamOnce() {
-        val refusals = LinkedBlockingQueue<BrowserDecoder>()
-        BrowserDecoder(
+        val refusals = LinkedBlockingQueue<VideoDecoder>()
+        VideoDecoder(
             reader.surface,
             {},
             rendered = {},
@@ -72,7 +72,7 @@ class BrowserDecoderTest {
     // Software decoders (like the emulator's) buffer frames before emitting output, so resend the
     // keyframe until a decoded frame of the expected size arrives.
     private fun stream(
-        decoder: BrowserDecoder,
+        decoder: VideoDecoder,
         frame: String,
         size: IntSize,
         codec: VideoCodec = VideoCodec.H264

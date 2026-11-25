@@ -23,10 +23,10 @@ class RuntimeEventFaults {
             "so it asks for its state again"
     )
 
-    fun browserBehind(events: Int, bytes: Long) = write(
+    fun videoBehind(events: Int, bytes: Long) = write(
         Log.WARN,
         Ffi.LOG_WARNING,
-        "the shared browser fell behind the runtime's events and dropped $events of them, $bytes bytes, " +
+        "the video pipes fell behind the runtime's events and dropped $events of them, $bytes bytes, " +
             "so its pipes start again"
     )
 

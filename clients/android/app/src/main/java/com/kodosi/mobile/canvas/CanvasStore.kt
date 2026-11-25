@@ -182,6 +182,11 @@ class CanvasStore(private val commands: CommandSink, private val words: Words) {
         ask(session, fields("type" to "act", "action" to fields("do" to "wake")))
     }
 
+    // Puts the computer's screen on the canvas, which only its owner's devices do.
+    suspend fun showScreen(session: String) {
+        ask(session, fields("type" to "showScreen"))
+    }
+
     companion object {
         const val MAX_FILE_BYTES = 32 * 1024 * 1024
         const val PART_BYTES = 256 * 1024

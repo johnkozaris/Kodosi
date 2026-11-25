@@ -80,6 +80,9 @@ data class RuntimeSession(
 ) {
     fun shownFace(pick: FacePick?): TerminalFace = pick?.face ?: face ?: TerminalFace.TERMINAL
 
+    // Only its owner's devices see a computer's screen.
+    val showsScreen: Boolean get() = isOwner && kind == Kind.REMOTE
+
     fun keeps(pick: FacePick): Boolean = face == null || pick.over == face
 
     @Serializable

@@ -53,6 +53,10 @@ copy, removing items, or asking the agent about selected content. Documents, spr
 presentations, PDFs, and text files edit live, images support zoom, and the shared browser
 provides tabs, history, an address bar, named remote cursors, keyboard input, and downloads.
 
+On a terminal of one of your Macs, the canvas can show that Mac's screen, with a picker for its
+displays and windows. One finger taps, drags, and scrolls as in the shared browser, and two fingers
+zoom and move the view.
+
 ## Projects, friends, and Dosi
 
 Projects combine chat, tasks, linked repositories, members, and terminals. Wide screens show the

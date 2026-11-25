@@ -23,7 +23,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class BrowserFeedTest {
     private val sent = SentCommands()
-    private val pipes = BrowserPipes(sent.sink, Runnable::run)
+    private val pipes = VideoPipes(sent.sink, Runnable::run)
 
     @Test
     fun aFeedWatchesOnEachOpenOfItsPipeAndShowsALossUntilAFrameComes() = runTest {

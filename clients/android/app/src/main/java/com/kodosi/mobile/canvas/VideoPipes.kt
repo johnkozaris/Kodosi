@@ -10,16 +10,17 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.yield
 
-// Browser pipes run on a dedicated single thread so frame reassembly, acks, and decoder handoff
-// never block on the main thread (late acks cause the host to lower bitrate).
-class BrowserPipes(
+// Video pipes (the shared browser's and the screen's) run on a dedicated single thread so frame
+// reassembly, acks, and decoder handoff never block on the main thread (late acks cause the host to
+// lower bitrate).
+class VideoPipes(
     private val commands: CommandSink,
-    thread: Executor = Executors.newSingleThreadExecutor { Thread(it, "Kodosi browser") }
+    thread: Executor = Executors.newSingleThreadExecutor { Thread(it, "Kodosi video") }
 ) : Executor by thread {
     val dispatcher: CoroutineDispatcher = thread.asCoroutineDispatcher()
 
     private val links = mutableListOf<DocumentLink>()
-    private val feeds = mutableListOf<BrowserFeed>()
+    private val feeds = mutableListOf<VideoFeed>()
     private val chosen = mutableSetOf<String>()
 
     @Volatile
@@ -31,7 +32,7 @@ class BrowserPipes(
     fun claims(json: ByteArray): Boolean = claimed.any(json::holds)
 
     // Methods on the returned link must only be called on this executor's thread.
-    fun link(session: String): DocumentLink = DocumentLink(commands, session, "browser", ::claim) {
+    fun link(session: String, key: String): DocumentLink = DocumentLink(commands, session, key, ::claim) {
         links.remove(it)
         claim()
     }.also { link -> execute { links.add(link) } }
@@ -45,7 +46,7 @@ class BrowserPipes(
                 is RuntimeEventInbox.Arrival.Unreadable -> faults.unreadable(null, arrival.reason)
 
                 is RuntimeEventInbox.Arrival.Behind -> {
-                    faults.browserBehind(arrival.events, arrival.bytes)
+                    faults.videoBehind(arrival.events, arrival.bytes)
                     links.toList().forEach(DocumentLink::renewAfterLoss)
                 }
             }
@@ -56,24 +57,24 @@ class BrowserPipes(
 
     fun receive(event: RuntimeEvent) = links.toList().forEach { it.receive(event) }
 
-    // Mark that the user explicitly opened the browser here so the shared viewport resizes to this
+    // Mark that the user explicitly opened the browser or the screen here so its size follows this
     // device (immediately if watching, or on the next watch). Returning from background or
-    // reconnecting without choose() leaves the viewport owned by whichever device was active last.
+    // reconnecting without choose() leaves the size to whichever device was active last.
     fun choose(session: String) = execute {
         chosen += session
-        feeds.filter { it.session == session }.forEach(BrowserFeed::chosen)
+        feeds.filter { it.session == session }.forEach(VideoFeed::chosen)
     }
 
-    // Clear any pending viewport claim when leaving the browser before watch is sent.
+    // Clear any pending claim when leaving the browser or the screen before watch is sent.
     fun forget(session: String) = execute { chosen -= session }
 
     internal fun takeChoice(session: String) = chosen.remove(session)
 
-    internal fun follow(feed: BrowserFeed) {
+    internal fun follow(feed: VideoFeed) {
         feeds += feed
     }
 
-    internal fun unfollow(feed: BrowserFeed) {
+    internal fun unfollow(feed: VideoFeed) {
         feeds -= feed
     }
 

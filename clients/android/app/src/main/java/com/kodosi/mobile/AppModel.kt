@@ -5,9 +5,9 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.kodosi.mobile.account.AccountStore
 import com.kodosi.mobile.account.AppLock
 import com.kodosi.mobile.account.SignInStage
-import com.kodosi.mobile.canvas.BrowserPipes
 import com.kodosi.mobile.canvas.CanvasStore
 import com.kodosi.mobile.canvas.DocumentPages
+import com.kodosi.mobile.canvas.VideoPipes
 import com.kodosi.mobile.dosi.DosiStore
 import com.kodosi.mobile.notifications.FirebaseConfiguration
 import com.kodosi.mobile.notifications.MessagingService
@@ -93,7 +93,7 @@ class AppModel(
     val people = PeopleStore(commands)
     val dosi = DosiStore(commands)
     val canvas = CanvasStore(commands, words)
-    val browser = BrowserPipes(commands)
+    val video = VideoPipes(commands)
     internal val documents = DocumentPages(application, canvas, scope, ::notify)
     val lock = AppLock(preferences)
     val phase: StateFlow<Phase>
@@ -123,7 +123,7 @@ class AppModel(
 
     fun start() {
         if (runtime != null || phase.value is Phase.Failed) return
-        val handle = RuntimeHandle(browser::claims)
+        val handle = RuntimeHandle(video::claims)
         runtime = handle
         val previous = stopping
         consuming = scope.launch {
@@ -139,7 +139,7 @@ class AppModel(
             when (outcome) {
                 RuntimeHandle.Start.Started -> {
                     commands.transport = handle::send
-                    launch(browser.dispatcher) { browser.consume(handle.browserEvents) }
+                    launch(video.dispatcher) { video.consume(handle.videoEvents) }
                     consume(handle)
                 }
 
@@ -293,7 +293,7 @@ class AppModel(
         dosi.reset()
         documents.reset()
         canvas.reset()
-        browser.reset()
+        video.reset()
     }
 
     fun receive(event: RuntimeEvent) {

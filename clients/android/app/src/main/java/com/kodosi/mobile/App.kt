@@ -68,6 +68,7 @@ import androidx.navigation3.scene.Scene
 import androidx.navigation3.ui.NavDisplay
 import androidx.window.core.layout.WindowSizeClass
 import com.kodosi.mobile.canvas.CanvasScreen
+import com.kodosi.mobile.canvas.canvasPart
 import com.kodosi.mobile.dosi.DosiScreen
 import com.kodosi.mobile.onboarding.OnboardingScreen
 import com.kodosi.mobile.people.FriendScreen
@@ -409,11 +410,7 @@ private fun Home(model: AppModel) {
                                 at,
                                 model.preferences.state.value.closedCanvasParts(destination.id, current.canvas)
                             ) ?: at ?: "browser"
-                            model.preferences.canvasPart(
-                                destination.id,
-                                if (selected == "browser") "browser" else "files",
-                                true
-                            )
+                            model.preferences.canvasPart(destination.id, canvasPart(selected), true)
                             stack.add(Destination("canvas", destination.id, selected))
                         })
 
