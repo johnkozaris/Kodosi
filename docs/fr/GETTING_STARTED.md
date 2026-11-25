@@ -302,8 +302,11 @@ même sa confiance avant l'envoi de la demande.
 ### Partager un terminal
 
 Ouvrez le menu d'actions dans l'en-tête d'un terminal, cliquez sur **Partager**, puis sélectionnez
-des amis ou des projets. Toute personne avec qui vous le partagez en obtient le contrôle total,
-avec vos autorisations système sur cette machine. Vos autres terminaux restent privés.
+des amis ou des projets. Toute personne avec qui vous le partagez en obtient le contrôle total, avec
+vos autorisations système sur cette machine. Vos autres terminaux restent privés. Vous pouvez
+partager depuis n'importe lequel de vos appareils, y compris votre téléphone, tant que l'ordinateur
+qui exécute le terminal est en ligne. Kodosi vous demande de confirmer chaque fois que quelqu'un de
+nouveau obtient l'accès.
 
 ### Projets
 

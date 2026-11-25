@@ -409,6 +409,7 @@ struct AgentLauncher: View {
                 }
                 deps.workbench.launcherDraft = LauncherDraft()
                 started()
+            } catch RuntimeError.refused {
             } catch {
                 withAnimation(theme.motion.fade) { self.error = error.localizedDescription }
                 await launcher.refresh(force: true)

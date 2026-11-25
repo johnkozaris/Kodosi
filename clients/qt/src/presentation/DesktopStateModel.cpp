@@ -633,6 +633,17 @@ void DesktopStateModel::bringToFront(const QString& activationToken)
         m_window->requestActivate();
     });
 }
+// Unlike bringToFront, this leaves the keyboard where the person types: a window closed to the tray
+// shows again, a minimized one stays minimized, and the desktop marks the window, for example with
+// a taskbar entry that flashes until the person turns to it.
+void DesktopStateModel::askForAttention()
+{
+    if (!m_window)
+        return;
+    m_window->setVisible(true);
+    m_window->raise();
+    m_window->alert(0);
+}
 void DesktopStateModel::saveWindow()
 {
     m_windowSave.stop();

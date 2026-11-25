@@ -182,7 +182,7 @@ struct ProjectInfoSheet: View {
             do {
                 try await projects.invite(friend.userId, to: projectId)
                 done += 1
-            } catch is CancellationError {
+            } catch is CancellationError, RuntimeError.refused {
                 invited.remove(friend.userId)
             } catch {
                 invited.remove(friend.userId)

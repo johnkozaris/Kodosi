@@ -1,4 +1,5 @@
 import Foundation
+import KodosiBridge
 import Observation
 
 @Observable
@@ -20,8 +21,10 @@ final class NoticeCenter {
     }
 
     func show(_ error: any Error) {
-        guard !(error is CancellationError) else { return }
-        show(error.localizedDescription)
+        switch error {
+        case is CancellationError, RuntimeError.refused: return
+        default: show(error.localizedDescription)
+        }
     }
 
     func dismiss(_ notice: Notice) {

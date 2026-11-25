@@ -36,7 +36,7 @@ struct SheetLayer<Content: View>: View {
         .onAppear {
             withAnimation(theme.motion.spring) { self.risen = true }
             monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-                guard event.keyCode == 53, !KodosiPopoverState.shown else { return event }
+                guard event.keyCode == 53, !KodosiPopoverState.shown, !event.goesToSheetOrAlert else { return event }
                 (cancel ?? close)()
                 return nil
             }

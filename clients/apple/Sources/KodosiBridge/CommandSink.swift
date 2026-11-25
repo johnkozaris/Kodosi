@@ -151,9 +151,7 @@ public final class CommandSink {
         let failed = event.type == area + ".error"
         guard failed || event.type == area + ".result" else { return .app }
         if let pending = pending[requestId], pending.operation == operation {
-            finish(requestId, result: failed
-                ? .failure(RuntimeError.operation(event.string("message") ?? String(localized: "That did not work.", bundle: .module)))
-                : .success(event))
+            finish(requestId, result: failed ? .failure(Self.failure(event)) : .success(event))
             return .caller
         }
         if let index = abandoned.firstIndex(of: Abandoned(requestId: requestId, operation: operation)) {
@@ -161,6 +159,11 @@ public final class CommandSink {
             return .caller
         }
         return .app
+    }
+
+    private static func failure(_ event: RuntimeEvent) -> RuntimeError {
+        let message = event.string("message") ?? String(localized: "That did not work.", bundle: .module)
+        return event.refused ? .refused(message) : .operation(message)
     }
 
     public func cancelPending(_ error: any Error = RuntimeError.unavailable) {

@@ -120,10 +120,16 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.JsonNull
 
 @Composable
-fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: () -> Unit, canvas: (String?) -> Unit) {
+fun TerminalScreen(
+    model: AppModel,
+    sessionId: String,
+    online: Boolean,
+    back: () -> Unit,
+    addFriend: () -> Unit,
+    canvas: (String?) -> Unit
+) {
     val colors = KodosiTheme.colors
     val scope = rememberCoroutineScope()
     val connection = remember(sessionId) { model.connection(sessionId, scope) } ?: return
@@ -148,6 +154,7 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
     val draft = rememberSaveable(sessionId, saver = TextFieldState.Saver) { TextFieldState() }
     var renaming by remember { mutableStateOf(false) }
     var closing by remember { mutableStateOf(false) }
+    var sharing by remember { mutableStateOf(false) }
     var clipboardAnswer by remember { mutableStateOf<((String) -> Boolean)?>(null) }
     val context = LocalContext.current
     val links = com.kodosi.mobile.ui.LocalLinkOpener.current
@@ -227,6 +234,7 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                     back,
                     canvas,
                     { renaming = true },
+                    { sharing = true },
                     { closing = true }
                 )
             }
@@ -345,7 +353,7 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                         ActionIcon(AppSymbol.HIDE_KEYBOARD, R.string.hide_keyboard, { keyboard?.hide() })
                         TerminalActions(model, session, view, back, canvas, {
                             renaming = true
-                        }, { closing = true })
+                        }, { sharing = true }, { closing = true })
                     }
                 }
             } else {
@@ -419,6 +427,12 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
             destructive = true
         )
     }
+    if (sharing && session != null) {
+        SharingSheet(model, session, dismiss = { sharing = false }, addFriend = {
+            sharing = false
+            addFriend()
+        })
+    }
 }
 
 // Reference-counted because transitioning from one terminal to another overlaps their lifecycles.
@@ -469,6 +483,7 @@ private fun TerminalActions(
     back: () -> Unit,
     canvas: (String?) -> Unit,
     rename: () -> Unit,
+    share: () -> Unit,
     close: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -485,6 +500,15 @@ private fun TerminalActions(
                     canvas("browser")
                 })
             }
+            if (session != null) {
+                KodosiMenuItem(
+                    text = { Text(stringResource(if (session.isOwner) R.string.share_menu else R.string.sharing)) },
+                    onClick = {
+                        menu = false
+                        share()
+                    }
+                )
+            }
             if (session?.isOwner == true) {
                 KodosiMenuItem(text = { Text(stringResource(R.string.rename)) }, onClick = {
                     menu = false
@@ -496,16 +520,6 @@ private fun TerminalActions(
                     menu = false
                     scope.launch { model.runAction { model.terminals.act("session.interrupt", session) } }
                 })
-                if (session.projectId != null) {
-                    KodosiMenuItem(text = { Text(stringResource(R.string.remove_from_project)) }, onClick = {
-                        menu = false
-                        scope.launch {
-                            model.runAction {
-                                model.terminals.act("session.attachProject", session, mapOf("projectId" to JsonNull))
-                            }
-                        }
-                    })
-                }
                 KodosiMenuItem(text = { Text(stringResource(R.string.close_terminal)) }, onClick = {
                     menu = false
                     close()

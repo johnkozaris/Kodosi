@@ -23,6 +23,7 @@ final class AppModel {
     let projects: ProjectStore
     let people: PeopleStore
     let dosi: DosiStore
+    let approvals: SharingApprovals
     let push: PushNotifications
     var dosiDevice: String?
     var openedInvite: String?
@@ -54,10 +55,12 @@ final class AppModel {
         projects = ProjectStore(commands: commands)
         people = PeopleStore(commands: commands)
         dosi = DosiStore(commands: commands)
+        approvals = SharingApprovals(commands: commands)
         push = PushNotifications(commands: commands)
         commands.onFailure = { [notices] message in notices.show(message) }
         account.notify = { [notices] message in notices.show(message) }
         projects.notify = { [notices] message in notices.show(message) }
+        approvals.notify = { [notices] message in notices.show(message) }
         projects.isFront = { [weak self] in self?.inFront == true }
         network.start { [weak self] in self?.networkChanged() }
     }
@@ -218,6 +221,7 @@ final class AppModel {
     private func catchUp() {
         commands.abandonPending()
         terminals.canvas.renewPipes()
+        approvals.reset()
         commands.send("app.resync")
     }
 
@@ -234,6 +238,7 @@ final class AppModel {
         pausing = nil
         endBackgroundTask()
         terminals.releaseAll()
+        approvals.reset()
         commands.cancelPending()
         commands.transport = nil
         inbox.close()
@@ -250,6 +255,7 @@ final class AppModel {
         projects.reset(userId: userId)
         people.reset(userId: userId)
         dosi.reset()
+        approvals.reset()
         dosiDevice = nil
     }
 
@@ -295,15 +301,19 @@ final class AppModel {
         case "auth": try receiveAuth(event)
         case "devices": try account.receiveDevices(event)
         case "connection" where event.type == "connection.state": try account.receiveConnection(event)
-        case "sessions", "session", "term", "document":
-            try terminals.receive(event)
-            if terminals.fresh, ["sessions.snapshot", "session.result"].contains(event.type) {
-                push.settle(terminals.sessions)
-            }
+        case "sessions", "session", "term", "document": try receiveTerminals(event)
         case "friends": try people.receive(event)
         case "project", "projects": try projects.receive(event)
         case "dosi": try dosi.receive(event)
+        case "sharing": try approvals.receive(event)
         default: break
+        }
+    }
+
+    private func receiveTerminals(_ event: RuntimeEvent) throws {
+        try terminals.receive(event)
+        if terminals.fresh, ["sessions.snapshot", "session.result"].contains(event.type) {
+            push.settle(terminals.sessions)
         }
     }
 
@@ -347,7 +357,7 @@ final class AppModel {
               event.string("operation") != "project.act" else { return }
         let message = event.string("message") ?? String(localized: "That did not work.")
         people.absorb(error: event)
-        guard !account.absorb(error: event, message: message), !event.failedRefresh else { return }
+        guard !account.absorb(error: event, message: message), !event.failedRefresh, !event.refused else { return }
         notices.show(message)
     }
 }

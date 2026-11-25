@@ -6,6 +6,7 @@ use std::{
 
 use kodosi_runtime::{
     local_host::{self, TerminalFrame},
+    protocol::ClientKind,
     text::Text,
 };
 use serde_json::{Value, json};
@@ -84,6 +85,14 @@ impl Pending {
         event
     }
     fn deliver(&self, state: &State, event: Value) {
+        match event.get("type").and_then(Value::as_str) {
+            Some("sharing.approval") => self.wait_for_the_owner(&event),
+            Some("sharing.waiting") => {
+                self.wait_behind(&event);
+                return;
+            }
+            _ => {}
+        }
         if let Some(request) = event.get("requestId").and_then(Value::as_str) {
             let kind = event
                 .get("type")
@@ -109,6 +118,37 @@ impl Pending {
         }
         state.event(event);
     }
+    /// A request of the app that the owner has to allow waits as long as the question does.
+    fn wait_for_the_owner(&self, question: &Value) {
+        let Some(operation) = question.get("operation").and_then(Value::as_str) else {
+            return;
+        };
+        let until = tokio::time::Instant::now()
+            + kodosi_runtime::protocol::APPROVAL_WAIT
+            + kodosi_runtime::protocol::answer_time(operation);
+        for request in lock(&self.requests)
+            .values_mut()
+            .filter(|request| request.operation == operation)
+        {
+            request.deadline = request.deadline.max(until);
+        }
+    }
+
+    /// A request of the app that waits behind an earlier one waits as long as a question does.
+    /// The app learns of each question itself, so it does not hear of the wait.
+    fn wait_behind(&self, waiting: &Value) {
+        let Some(request) = waiting.get("requestId").and_then(Value::as_str) else {
+            return;
+        };
+        if let Some(entry) = lock(&self.requests).get_mut(request) {
+            entry.deadline = entry.deadline.max(
+                tokio::time::Instant::now()
+                    + kodosi_runtime::protocol::APPROVAL_WAIT
+                    + kodosi_runtime::protocol::answer_time(entry.operation),
+            );
+        }
+    }
+
     fn refuse(&self, state: &State, request: &str, operation: &str, message: &Value) {
         let area = operation.split('.').next().unwrap_or(operation);
         state.event(self.scoped(json!({"type":format!("{area}.error"),
@@ -141,7 +181,7 @@ impl Link {
     pub(super) async fn open(
         config: &Config,
     ) -> std::result::Result<(Self, Runner), Box<KodosiStartFailure>> {
-        let client = local_host::connect_or_start(&config.data_root)
+        let client = local_host::connect_or_start(&config.data_root, ClientKind::App)
             .await
             .map_err(|error| {
                 tracing::error!(%error, "could not reach the Kodosi host");
@@ -396,7 +436,7 @@ async fn reconnect(
 ) -> Option<local_host::Client> {
     let mut delay = RECONNECT_FIRST;
     loop {
-        let attempt = local_host::connect_or_start(root);
+        let attempt = local_host::connect_or_start(root, ClientKind::App);
         tokio::pin!(attempt);
         let result = loop {
             tokio::select! {
@@ -429,7 +469,8 @@ fn refuse(command: &Value, pending: &Pending, state: &State) {
 }
 
 async fn stream_terminal(root: &Path, state: &State, session: Uuid, token: &SubscriptionState) {
-    let mut client = match local_host::TerminalClient::connect(root, session).await {
+    let mut client = match local_host::TerminalClient::connect(root, session, ClientKind::App).await
+    {
         Ok(client) => client,
         Err(error) => {
             state.result(token, connect_code(&error));
@@ -590,10 +631,8 @@ mod tests {
         lock(events).push(serde_json::from_slice(json).unwrap());
     }
 
-    #[test]
-    fn each_request_hears_one_answer_in_the_current_account() {
-        let events = Mutex::new(Vec::<Value>::new());
-        let state = State {
+    fn recording(events: &Mutex<Vec<Value>>) -> State {
+        State {
             callbacks: KodosiCallbacks {
                 on_event: Some(record),
                 on_terminal_data: None,
@@ -601,12 +640,18 @@ mod tests {
                 on_terminal_connect_result: None,
                 on_terminal_checkpoint: None,
             },
-            userdata: UserData((&raw const events).cast_mut().cast()),
+            userdata: UserData(std::ptr::from_ref(events).cast_mut().cast()),
             gate: Gate::default(),
             serial: Mutex::new(()),
             cancel: CancellationToken::new(),
             subscriptions: Mutex::new(Subscriptions::default()),
-        };
+        }
+    }
+
+    #[test]
+    fn each_request_hears_one_answer_in_the_current_account() {
+        let events = Mutex::new(Vec::<Value>::new());
+        let state = recording(&events);
         let pending = Pending::default();
         let now = tokio::time::Instant::now();
         for (request, operation, deadline) in [
@@ -639,5 +684,95 @@ mod tests {
             json!({"type":"auth.error","requestId":"waiting","operation":"auth.login.start",
                 "message":late().to_string(),"accountUserId":"me","accountEpoch":7})
         );
+    }
+
+    #[test]
+    fn a_request_that_the_owner_has_to_allow_waits_as_long_as_the_question() {
+        let events = Mutex::new(Vec::<Value>::new());
+        let state = recording(&events);
+        let pending = Pending::default();
+        let now = tokio::time::Instant::now();
+        for (request, operation) in [
+            ("share", "session.share"),
+            ("list", "friends.refresh"),
+            ("behind", "session.attachProject"),
+        ] {
+            lock(&pending.requests).insert(
+                request.to_owned(),
+                Request {
+                    operation,
+                    deadline: now,
+                },
+            );
+        }
+        pending.deliver(
+            &state,
+            json!({"type":"sharing.approval","approvalId":Uuid::now_v7(),"operation":"session.share",
+                "title":"Share?","message":"Ben gets full control.","confirm":"Share","from":"app",
+                "accountUserId":"me","accountEpoch":7}),
+        );
+        pending.deliver(
+            &state,
+            json!({"type":"sharing.waiting","requestId":"behind","operation":"session.attachProject",
+                "message":"Waiting for an earlier request to end.","accountUserId":"me","accountEpoch":7}),
+        );
+        pending.expire(&state);
+        let mut waiting = lock(&pending.requests).keys().cloned().collect::<Vec<_>>();
+        waiting.sort();
+        assert_eq!(waiting, ["behind", "share"]);
+        let heard = lock(&events).clone();
+        assert_eq!(
+            heard
+                .iter()
+                .map(|event| event["type"].as_str())
+                .collect::<Vec<_>>(),
+            [Some("sharing.approval"), Some("friends.error")],
+            "the wait is not the app's to hear"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn the_app_connects_to_the_host_as_the_app() {
+        let storage = tempfile::tempdir().unwrap();
+        let root = kodosi_os::fs::canonicalize(storage.path()).unwrap();
+        let (home, data_root) = (root.join("home"), root.join("core"));
+        for folder in [&home, &data_root] {
+            kodosi_os::fs::create_private_dir(folder).unwrap();
+        }
+        let config = Config {
+            data_root,
+            preferences: Some(root.join("preferences.ini")),
+            home,
+            initial_shell: None,
+            backend_url: "http://127.0.0.1:1".parse().unwrap(),
+            oidc_issuer: "http://127.0.0.1:1".to_owned(),
+            oidc_client_id: "kodosi-test".to_owned(),
+            oidc_scopes: vec!["openid".to_owned()],
+            secret_service: "kodosi.isolated".to_owned(),
+            isolated: true,
+            host: kodosi_runtime::HostKind::Background,
+        };
+        let host = kodosi_runtime::start(config.clone()).await.unwrap();
+        let (_link, mut runner) = Link::open(&config).await.ok().unwrap();
+        let scope = runner.client.initial_events[0].clone();
+        let request = Uuid::now_v7().to_string();
+        runner
+            .client
+            .command(json!({"type":"sharing.answer","requestId":request,"approvalId":Uuid::now_v7(),
+                "allow":false,"accountUserId":scope["accountUserId"],"accountEpoch":scope["accountEpoch"]}))
+            .await
+            .unwrap();
+        let heard = loop {
+            let frame = runner.client.next().await.unwrap();
+            if frame["event"]["requestId"] == request.as_str() {
+                break frame["event"].clone();
+            }
+        };
+        assert_eq!(
+            heard["message"], "This request has already ended.",
+            "the host takes the answers of the app's link"
+        );
+        host.shutdown().await;
+        drop(host);
     }
 }

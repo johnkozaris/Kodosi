@@ -408,7 +408,9 @@ fun CheckRow(
     title: String,
     checked: Boolean,
     change: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    subtitle: String? = null,
     leading: (@Composable () -> Unit)? = null
 ) {
     val colors = KodosiTheme.colors
@@ -416,7 +418,7 @@ fun CheckRow(
     val focused by interaction.collectIsFocusedAsState()
     val pressed by interaction.collectIsPressedAsState()
     Box(
-        Modifier.fillMaxWidth()
+        modifier.fillMaxWidth()
             .background(if (pressed || focused) colors.lifted else Color.Transparent, RoundedCornerShape(Radius.sm))
             .toggleable(
                 checked,
@@ -427,7 +429,7 @@ fun CheckRow(
                 onValueChange = change
             )
     ) {
-        ListLine(title, leading = leading) {
+        ListLine(title, subtitle = subtitle, leading = leading) {
             val shape = RoundedCornerShape(5.dp)
             Box(
                 Modifier.size(20.dp).well(colors, shape)

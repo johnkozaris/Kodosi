@@ -5,8 +5,8 @@ the visual system.
 
 The Android app watches, answers, and controls terminals running on your computers or shared by
 friends, launches new terminals on your computers, and joins projects. Starting an agent inside an
-existing idle terminal, sharing terminals with friends, and viewing provider conversation history
-remain desktop-only. Requires Android 15 or newer.
+existing idle terminal and viewing provider conversation history remain desktop-only. Requires
+Android 15 or newer.
 
 ## Sign-in and device linking
 
@@ -41,6 +41,10 @@ scroll-wheel events when a program enables mouse reporting). Text selection, cop
 images), shared link rules, header renaming, live agent setting changes (with a notice when
 queued for the next turn), and Android's predictive back gesture are all supported.
 
+From a terminal's menu, its owner shares it with friends or with a project, and everyone else sees
+who shared it with them. A change that lets someone new in waits for the owner's OK in a dialog,
+one question at a time; when the owner says no, the change ends without a message.
+
 ## Canvas
 
 The canvas opens full screen only when requested. New or updated agent items display a banner with
@@ -55,14 +59,15 @@ provides tabs, history, an address bar, named remote cursors, keyboard input, an
 
 ## Projects, friends, and Dosi
 
-Projects combine chat, tasks, linked repositories, members, and terminals. Wide screens show the
-chat alongside tasks, repositories, or terminals.
+Projects combine chat, tasks, linked repositories, members, and terminals. You can start a terminal
+in a project or add one of your own from any computer. Wide screens show the chat alongside tasks,
+repositories, or terminals.
 
 **Friends** (opened from Settings, with a badge for pending requests) manages friend requests,
 verified friends, trust verification, and blocked users. It generates QR codes for your invite and
-scans friends' QR codes completely on-device without Google Play services. Opening or scanning an
-invite always confirms trust before sending a request. You can block or report users from their
-profile, request, project member list, or chat message.
+scans friends' QR codes completely on-device without Google Play services. Sending or accepting a
+request, verifying a friend, and trusting a changed identity each ask for your OK first. You can
+block or report users from their profile, request, project member list, or chat message.
 
 **Dosi** provides your synced conversation, choice prompts, and target-computer picker (any online
 computer, or the one that answered last, which is the default). Messages for an offline computer

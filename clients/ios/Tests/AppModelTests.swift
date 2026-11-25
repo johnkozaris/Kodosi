@@ -53,12 +53,32 @@ struct AppModelTests {
     @Test func `newer account epoch clears earlier state`() throws {
         try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
         try deliver("sessions.snapshot", ["sessions": [session(id: "s1")]])
+        try deliver("sharing.approval", [
+            "approvalId": UUID().uuidString.lowercased(), "operation": "project.invite", "title": "Invite Ana to Release?",
+            "message": "Ana sees its chat and tasks and gets full control of your terminal in it.", "confirm": "Invite", "from": "app",
+        ])
         #expect(model.terminals.sessions.count == 1)
+        #expect(model.approvals.current?.confirm == "Invite")
         try deliver("sessions.snapshot", userId: "user-2", epoch: 2, ["sessions": []])
         #expect(model.terminals.sessions.count == 1)
         try deliver("auth.ready", userId: "user-2", epoch: 2, ["userId": "user-2", "enrolled": true])
         #expect(model.terminals.sessions.isEmpty)
+        #expect(model.approvals.current == nil)
         #expect(model.account.userId == "user-2")
+    }
+
+    @Test func `a change that the owner refused ends without a notice, and a failure still shows one`() throws {
+        try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
+        var refusal: [String: Any] = [
+            "requestId": UUID().uuidString.lowercased(), "operation": "friends.identity.trust",
+            "message": "You did not allow this in Kodosi.", "refused": true,
+        ]
+        try deliver("friends.error", refusal)
+        #expect(model.notices.current == nil)
+        refusal["refused"] = nil
+        refusal["message"] = "Ann cannot be reached."
+        try deliver("friends.error", refusal)
+        #expect(model.notices.current?.message == "Ann cannot be reached.")
     }
 
     @Test func `the phone is in Kodosi while it is on screen and away in the background, once for each runtime connection`() throws {

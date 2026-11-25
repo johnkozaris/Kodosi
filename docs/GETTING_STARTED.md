@@ -268,7 +268,9 @@ Kodosi; they still confirm trust before the request is sent.
 
 Open the actions menu in a terminal's header, click **Share**, and select friends or projects.
 Anyone you share with gets full control with your OS permissions on that machine. Your other
-terminals stay private.
+terminals stay private. You can share from any of your devices, including your phone, while the
+computer that runs the terminal is online. Kodosi asks you to confirm each time someone new gets
+access.
 
 ### Projects
 

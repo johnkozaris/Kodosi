@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     let storageBootstrap: RuntimeStorageBootstrap
     let dependencies: AppDependencies
+    private lazy var sharingQuestions = SharingQuestions(approvals: dependencies.approvals)
 
     override init() {
         do {
@@ -38,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     func applicationDidFinishLaunching(_: Notification) {
         UNUserNotificationCenter.current().delegate = self
         SystemPresenceSignals.observe(dependencies.presence)
+        sharingQuestions.start()
         dependencies.watchAppearance()
         dependencies.start()
         if !storageBootstrap.isIsolated {

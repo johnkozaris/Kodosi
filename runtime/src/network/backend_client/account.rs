@@ -359,6 +359,8 @@ impl BackendClient {
         state.offer = None;
         state.deletion = None;
         state.changed_friends.clear();
+        #[cfg(feature = "host")]
+        state.friend_misses.clear();
         let secrets = state.secrets.clone();
         drop(state);
         if let Ok(mut kept) = self.inner.sessions.lock() {

@@ -244,7 +244,7 @@ struct SessionTileView: View {
             } registerFocusRevoker: { revoker in
                 deps.terminalFocus.registerRevoker(surfaceId: surfaceId, revoker: revoker)
             } onShareShortcut: {
-                if session.kind == .local, session.isOwner {
+                if session.isOwner {
                     deps.workbench.sharingSessionId = session.id
                 } else {
                     deps.workbench.detailsSessionId = session.id

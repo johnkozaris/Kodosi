@@ -388,6 +388,33 @@ public sealed class SharingTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task ACheckedFriendRequestSendsNothingAndItsRequestByAccountIdCountsTheUserNameOnce()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var clock = new ManualClock();
+        var friends = new Kodosi.Friends.FriendService(store.Db, store.Connections, clock, store.Plans,
+            new Kodosi.Friends.NameChecks(store.Db, store.Connections, store.DeviceSessions, clock));
+        var asker = await store.UserAsync("asker"); var other = await store.UserAsync("other"); var blocker = await store.UserAsync("blocker");
+        await friends.MutateAsync(blocker.User.Id, "asker", "block", ct);
+        Task<object> Check(string name) => friends.CheckRequestAsync(asker.User.Id, name, null, ct);
+        async Task<int> Refusal(string name) => (await Assert.ThrowsAsync<ApiException>(() => Check(name))).Status;
+
+        var unknown = await Assert.ThrowsAsync<ApiException>(() => Check("nobody"));
+        Assert.Equal((404, "No Kodosi account has this user name."), (unknown.Status, unknown.Message));
+        Assert.Equal(403, await Refusal("blocker"));
+        for (var name = 2; name < Kodosi.Friends.NameChecks.Burst - 1; name++) Assert.Equal(404, await Refusal($"nobody{name}"));
+        var person = JsonSerializer.SerializeToElement(await Check("other"), TestJson.Options);
+        Assert.Equal((other.User.Id, "other"), (person.GetProperty("userId").GetGuid(), person.GetProperty("handle").GetString()));
+        Assert.Empty(await store.Db.Friendships.AsNoTracking().ToListAsync(ct));
+        Assert.Equal(429, await Refusal("other"));
+
+        await friends.MutateAsync(asker.User.Id, null, other.User.Id, "send", ct);
+        Assert.Single(await store.Db.Friendships.AsNoTracking().ToListAsync(ct));
+        await Check("other");
+    }
+
+    [Fact]
     public async Task AnUnblockOfAPersonWhoIsNotBlockedTellsTheCallerNothing()
     {
         var ct = TestContext.Current.CancellationToken;

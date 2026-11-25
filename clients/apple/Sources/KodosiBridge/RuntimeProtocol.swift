@@ -46,6 +46,11 @@ public struct RuntimeEvent: Decodable, Sendable {
     public var failedRefresh: Bool {
         type.hasSuffix(".error") && Self.refreshes.contains(string("operation") ?? "")
     }
+
+    /// The owner said no to the change in the app, or let its question expire, so its end needs no words.
+    public var refused: Bool {
+        payload["refused"] == .bool(true)
+    }
 }
 
 public enum RuntimeError: LocalizedError, Equatable {
@@ -55,12 +60,14 @@ public enum RuntimeError: LocalizedError, Equatable {
     case operation(String)
     case timedOut
     case accountChanged
+    /// The owner said no in the app, or let the question expire. Where a person asked, it ends quietly.
+    case refused(String)
 
     public var errorDescription: String? {
         switch self {
         case .unavailable: String(localized: "Kodosi is not ready.", bundle: .module)
         case let .rejected(code): String(localized: "That did not work (\(code)).", bundle: .module)
-        case let .invalidResponse(message), let .operation(message): message
+        case let .invalidResponse(message), let .operation(message), let .refused(message): message
         case .timedOut: String(localized: "Kodosi cannot tell if that worked. Check before you try again.", bundle: .module)
         case .accountChanged: String(localized: "Your account changed before that finished.", bundle: .module)
         }

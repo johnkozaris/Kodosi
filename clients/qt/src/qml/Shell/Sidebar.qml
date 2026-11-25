@@ -852,7 +852,7 @@ Item {
                         TerminalDropArea {
                             anchors.fill: parent
                             objectName: project.objectName + ".drop"
-                            onTerminalDropped: id => projectShare.ask(id, project.entry.id)
+                            onTerminalDropped: id => Models.SessionActions.dropOnProject(id, project.entry.id)
                         }
                     }
                 }
@@ -1428,7 +1428,7 @@ Item {
             onTriggered: Models.DesktopState.togglePin(terminalMenu.sessionId)
         }
         KMenuItem { text: qsTr("Rename"); iconName: "pencil"; enabled: terminalMenu.session.isOwner === true; onTriggered: root.renamingId = terminalMenu.sessionId }
-        KMenuItem { text: qsTr("Share…"); iconName: "share"; enabled: terminalMenu.session.kind === "local" && terminalMenu.session.isOwner === true; onTriggered: root.shareRequested(terminalMenu.sessionId) }
+        KMenuItem { text: qsTr("Share…"); iconName: "share"; enabled: terminalMenu.session.isOwner === true; onTriggered: root.shareRequested(terminalMenu.sessionId) }
         KMenuItem { text: qsTr("Details"); iconName: "info"; onTriggered: root.detailsRequested(terminalMenu.sessionId) }
         MenuSeparator { contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline } }
         KMenuItem { text: qsTr("Minimize"); iconName: "minus"; enabled: Models.DesktopState.stagedSessionIds.indexOf(terminalMenu.sessionId) >= 0; onTriggered: Models.SessionActions.minimize(terminalMenu.sessionId) }
@@ -1511,9 +1511,5 @@ Item {
     }
     CloseTerminalDialog {
         id: closeDialog
-    }
-    ProjectShareDialog {
-        id: projectShare
-        onShared: id => root.openProject(id)
     }
 }

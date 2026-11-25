@@ -49,10 +49,13 @@ mod project_seen;
 #[cfg(feature = "host")]
 mod restore;
 mod saver;
+mod sharing;
 mod terminal_folders;
 
 #[cfg(test)]
 mod tests;
+
+pub(crate) use sharing::Origin;
 
 type DosiMessage = crate::dosi::Message;
 
@@ -60,8 +63,8 @@ type DosiMessage = crate::dosi::Message;
 pub(crate) fn not_published() -> crate::text::Text {
     text!("Remote access is still connecting. Try again when this device is online and approved.")
 }
-pub(crate) fn share_on_host() -> crate::text::Text {
-    text!("Change sharing on the computer that hosts this terminal.")
+pub(crate) fn hosted_elsewhere() -> crate::text::Text {
+    text!("Only the computer that hosts this terminal can change it.")
 }
 #[cfg(feature = "host")]
 pub(crate) fn sharing_changed() -> crate::text::Text {
@@ -105,13 +108,15 @@ pub struct RuntimeHandle {
 struct Consumer {
     id: Uuid,
     lifetime: CancellationToken,
+    origin: Origin,
 }
 
-impl Default for Consumer {
-    fn default() -> Self {
+impl Consumer {
+    fn new(origin: Origin) -> Self {
         Self {
             id: Uuid::now_v7(),
             lifetime: CancellationToken::new(),
+            origin,
         }
     }
 }
@@ -127,6 +132,7 @@ enum Request {
         envelope: CommandEnvelope,
         consumer: Uuid,
         lifetime: CancellationToken,
+        origin: Origin,
     },
     TerminalCommand {
         envelope: CommandEnvelope,
@@ -134,9 +140,14 @@ enum Request {
         reply: oneshot::Sender<Result<()>>,
     },
     Snapshot(oneshot::Sender<Result<Vec<Event>>>),
-    Observe(oneshot::Sender<Result<Observation>>),
+    Observe {
+        consumer: Uuid,
+        reply: oneshot::Sender<Result<Observation>>,
+    },
     Direct {
         consumer: Uuid,
+        lifetime: CancellationToken,
+        origin: Origin,
         reply: oneshot::Sender<mpsc::Receiver<Event>>,
     },
     Subscribe {
@@ -185,13 +196,14 @@ impl RuntimeHandle {
             envelope: command,
             consumer: self.consumer.id,
             lifetime: self.consumer.lifetime.clone(),
+            origin: self.consumer.origin,
         })
     }
 
     #[cfg(feature = "host")]
-    pub(crate) fn command_client(&self) -> Self {
+    pub(crate) fn command_client(&self, origin: Origin) -> Self {
         Self {
-            consumer: Arc::new(Consumer::default()),
+            consumer: Arc::new(Consumer::new(origin)),
             ..self.clone()
         }
     }
@@ -228,7 +240,7 @@ impl RuntimeHandle {
         command.validate()?;
         if !command.runs_on_other_computers() {
             return Err(Error::Refused(text!(
-                "This computer takes only the choices and the start of a new terminal from your other devices."
+                "This computer takes only the choices, the start of a new terminal and the sharing of its terminals from your other devices."
             )));
         }
         let (events, mut receiver) = self.observe().await?;
@@ -301,7 +313,10 @@ impl RuntimeHandle {
 
     pub async fn observe(&self) -> Result<Observation> {
         let (reply, response) = oneshot::channel();
-        self.send(Request::Observe(reply))?;
+        self.send(Request::Observe {
+            consumer: self.consumer.id,
+            reply,
+        })?;
         response.await.map_err(|_| Error::Stopped)?
     }
 
@@ -310,6 +325,8 @@ impl RuntimeHandle {
         let (reply, response) = oneshot::channel();
         self.send(Request::Direct {
             consumer: self.consumer.id,
+            lifetime: self.consumer.lifetime.clone(),
+            origin: self.consumer.origin,
             reply,
         })?;
         response.await.map_err(|_| Error::Stopped)
@@ -585,7 +602,11 @@ fn answer(command: &Command, outcome: std::result::Result<(), &Error>) -> Value 
             json!({"type":format!("{area}.result"), "requestId":command.request_id(), "operation":operation})
         }
         Err(error) => {
-            json!({"type":format!("{area}.error"), "requestId":command.request_id(), "operation":operation, "message":error.text()})
+            let mut value = json!({"type":format!("{area}.error"), "requestId":command.request_id(), "operation":operation, "message":error.text()});
+            if matches!(error, Error::NotAllowed(_)) {
+                value["refused"] = json!(true);
+            }
+            value
         }
     };
     if let Some(session) = command.session_id() {
@@ -738,6 +759,10 @@ enum Completion {
     Asked {
         command: Command,
         result: Result<Value>,
+    },
+    Checked {
+        held: Box<sharing::Held>,
+        facts: sharing::Facts,
     },
     TerminalFolders {
         device: String,
@@ -1185,8 +1210,15 @@ struct Runtime {
     next_reconnects: tokio::time::Instant,
     pausing: Option<CancellationToken>,
     online: bool,
-    consumers: HashMap<Uuid, CancellationToken>,
+    consumers: HashMap<Uuid, sharing::Joined>,
     leaving: FuturesUnordered<WaitForCancellationFutureOwned>,
+    approvals: BTreeMap<Uuid, sharing::Approval>,
+    lane: sharing::Lane,
+    /// The account whose terminals run on this computer, also while nobody is signed in.
+    #[cfg(feature = "host")]
+    terminals_owner: Option<String>,
+    #[cfg(feature = "host")]
+    sign_in_origin: Option<Origin>,
     #[cfg(feature = "host")]
     publishing: BTreeSet<Uuid>,
     #[cfg(feature = "host")]
@@ -1251,7 +1283,8 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         stopped: stopped_rx,
         clients,
         input_budget: Arc::new(Semaphore::new(MAX_QUEUED_INPUT_BYTES)),
-        consumer: Arc::new(Consumer::default()),
+        // An app that starts the runtime in its own process sends its commands with this handle.
+        consumer: Arc::new(Consumer::new(Origin::App)),
     };
     #[cfg(feature = "host")]
     let server = crate::local_host::serve(
@@ -1287,6 +1320,8 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
     #[cfg(feature = "host")]
     let restore = restore::Restore::load(&config.data_root);
     #[cfg(feature = "host")]
+    let terminals_owner = restore.owner();
+    #[cfg(feature = "host")]
     {
         crate::canvas::close_left(&config.data_root).await;
         crate::canvas::keep_profiles(&config.data_root, &restore.returning());
@@ -1297,7 +1332,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
     #[cfg(not(feature = "host"))]
     let (dosi, dosi_messages) = crate::dosi::Viewer::load(&config.data_root);
     #[cfg(feature = "host")]
-    network.answer_calls(handle.command_client().answering());
+    network.answer_calls(handle.command_client(Origin::Device).answering());
     #[cfg(feature = "host")]
     let links = crate::chat::Links::serve(&config.data_root).await;
     #[cfg(feature = "host")]
@@ -1356,6 +1391,12 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         online: true,
         consumers: HashMap::new(),
         leaving: FuturesUnordered::new(),
+        approvals: BTreeMap::new(),
+        lane: sharing::Lane::default(),
+        #[cfg(feature = "host")]
+        terminals_owner,
+        #[cfg(feature = "host")]
+        sign_in_origin: None,
         #[cfg(feature = "host")]
         publishing: BTreeSet::new(),
         #[cfg(feature = "host")]
@@ -1389,6 +1430,9 @@ impl Runtime {
         match self.event(value) {
             Ok(mut event) => {
                 if let Some(request) = event.event.request_id() {
+                    if event.event.is_answer() {
+                        self.lane.ended(request);
+                    }
                     let mut answers = self.answers();
                     let Some(answer) = answers.get(request) else {
                         tracing::debug!(
@@ -1441,14 +1485,15 @@ impl Runtime {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
-    fn command(&mut self, envelope: &CommandEnvelope, consumer: Uuid, lifetime: CancellationToken) {
+    fn command(
+        &mut self,
+        envelope: &CommandEnvelope,
+        consumer: Uuid,
+        lifetime: CancellationToken,
+        origin: Origin,
+    ) {
         let command = self.named(&envelope.command);
         let command = command.as_ref();
-        let own = self.network.identity().map(|identity| identity.device_id);
-        let elsewhere = envelope
-            .computer
-            .clone()
-            .filter(|computer| Some(computer) != own.as_ref());
         let answered = crate::protocol::answers(command.operation());
         if answered && let Err(error) = self.expect_answer(command, consumer, lifetime.clone()) {
             self.refuse(command, consumer, &error);
@@ -1467,10 +1512,13 @@ impl Runtime {
                     | Command::Look { .. }
             ) {
             Err(Error::Stale)
-        } else if let Some(computer) = elsewhere {
-            self.ask_computer(command, computer)
         } else {
-            self.apply_for_consumer(command, consumer, lifetime)
+            let requester = sharing::Requester {
+                consumer,
+                lifetime,
+                origin,
+            };
+            self.admit(command, envelope.computer.as_deref(), requester)
         };
         if let Err(error) = outcome {
             if answered {
@@ -1508,7 +1556,11 @@ impl Runtime {
     }
 
     fn refuse(&self, command: &Command, consumer: Uuid, error: &Error) {
-        match self.event(answer(command, Err(error))) {
+        self.tell(consumer, answer(command, Err(error)));
+    }
+
+    fn tell(&self, consumer: Uuid, value: Value) {
+        match self.event(value) {
             Ok(mut event) => {
                 event.recipient = Some(consumer);
                 self.send_event(event);
@@ -1517,9 +1569,12 @@ impl Runtime {
         }
     }
 
-    fn know_consumer(&mut self, consumer: Uuid, lifetime: &CancellationToken) {
+    fn know_consumer(&mut self, consumer: Uuid, origin: Origin, lifetime: &CancellationToken) {
         if let std::collections::hash_map::Entry::Vacant(known) = self.consumers.entry(consumer) {
-            known.insert(lifetime.clone());
+            known.insert(sharing::Joined {
+                origin,
+                lifetime: lifetime.clone(),
+            });
             self.leaving.push(lifetime.clone().cancelled_owned());
         }
     }
@@ -1947,6 +2002,8 @@ impl Runtime {
     fn catch_up(&mut self) {
         self.prune_views();
         self.prune_answers();
+        self.expire_approvals();
+        self.advance_lane();
         self.keep_pipes();
         if tokio::time::Instant::now() >= self.next_reconnects {
             self.reconnect_views();
@@ -1976,6 +2033,7 @@ impl Runtime {
             attention,
             self.pipes_due(),
             self.catalog().due(),
+            self.approvals_due(),
         ]
         .into_iter()
         .flatten()
@@ -1990,6 +2048,7 @@ impl Runtime {
         mut dosi_messages: mpsc::Receiver<DosiMessage>,
     ) {
         let mut dosi_open = true;
+        let mut sign_ins = self.network.hear_sign_ins();
         self.emit(self.ready_event());
         let network = self.network.clone();
         self.spawn(async move {
@@ -2017,10 +2076,10 @@ impl Runtime {
                     if self.synchronize_account().is_err() { break; }
                     match request {
                         None | Some(Request::Shutdown) => break,
-                        Some(Request::Command { envelope, consumer, lifetime }) => {
+                        Some(Request::Command { envelope, consumer, lifetime, origin }) => {
                             if !lifetime.is_cancelled() {
-                                self.know_consumer(consumer, &lifetime);
-                                self.command(&envelope, consumer, lifetime);
+                                self.know_consumer(consumer, origin, &lifetime);
+                                self.command(&envelope, consumer, lifetime, origin);
                             }
                         }
                         Some(Request::TerminalCommand { envelope, connection, reply }) => {
@@ -2063,7 +2122,8 @@ impl Runtime {
                         None => {},
                     }
                 }
-                Some(()) = self.leaving.next() => self.consumers.retain(|_, lifetime| !lifetime.is_cancelled()),
+                Some(()) = self.leaving.next() => self.consumers.retain(|_, joined| !joined.lifetime.is_cancelled()),
+                Some(sign_in) = sign_ins.recv() => self.sign_in_asked(sign_in),
                 Ok(()) = link.changed() => {}
                 () = &mut timer, if due.is_some() => {}
                 _ = retry.tick(), if !background => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.remember_conversations(); self.save_terminals(HashMap::new()); self.check_mentions(); self.tell_mentions(); self.type_agent_changes(); } self.started_remotes(); self.ask_folders(); }
@@ -2273,6 +2333,7 @@ impl Runtime {
                             &local.entry.shared_with,
                         )
                     }),
+                    owner: self.terminals_owner.clone(),
                     line,
                     worktree: local.worktree.clone(),
                     canvas: local
@@ -2829,17 +2890,13 @@ impl Runtime {
                 self.send_waiting_list();
                 drop(reply.send(self.snapshot_events()));
             }
-            Request::Observe(reply) => {
-                self.send_waiting_list();
-                let receiver = self.events.subscribe();
-                drop(reply.send(self.snapshot_events().map(|events| (events, receiver))));
-            }
-            Request::Direct { consumer, reply } => {
-                let (sender, receiver) = mpsc::channel(DIRECT_QUEUE);
-                self.direct.retain(|_, sender| !sender.is_closed());
-                self.direct.insert(consumer, sender);
-                drop(reply.send(receiver));
-            }
+            Request::Observe { consumer, reply } => drop(reply.send(self.observation(consumer))),
+            Request::Direct {
+                consumer,
+                lifetime,
+                origin,
+                reply,
+            } => self.join(consumer, &lifetime, origin, reply),
             Request::Subscribe { session, reply } => {
                 let target = self
                     .job_capacity()
@@ -2926,6 +2983,33 @@ impl Runtime {
         }
     }
 
+    /// The whole state for a client that starts or falls behind: an app also gets the questions
+    /// that wait for it, after the ready event that makes it forget the earlier ones.
+    fn observation(&self, consumer: Uuid) -> Result<Observation> {
+        self.send_waiting_list();
+        let receiver = self.events.subscribe();
+        let mut events = self.snapshot_events()?;
+        events.extend(self.open_questions(consumer));
+        Ok((events, receiver))
+    }
+
+    fn join(
+        &mut self,
+        consumer: Uuid,
+        lifetime: &CancellationToken,
+        origin: Origin,
+        reply: oneshot::Sender<mpsc::Receiver<Event>>,
+    ) {
+        let (sender, receiver) = mpsc::channel(DIRECT_QUEUE);
+        self.direct.retain(|_, sender| !sender.is_closed());
+        self.direct.insert(consumer, sender);
+        drop(reply.send(receiver));
+        if !lifetime.is_cancelled() {
+            self.know_consumer(consumer, origin, lifetime);
+            self.show_approvals(consumer);
+        }
+    }
+
     fn target(&self, id: Uuid) -> Result<TerminalTarget> {
         #[cfg(feature = "host")]
         if let Some(local) = self.local.get(&id) {
@@ -2981,6 +3065,7 @@ impl Runtime {
     }
 
     fn finish(&self, command: &Command) {
+        self.lane.ended(command.request_id());
         if self.answers().contains_key(command.request_id()) {
             self.result(command);
         }
@@ -2991,6 +3076,10 @@ impl Runtime {
         let generation = self.network.generation();
         if user == self.scope.user && generation == self.scope.network_generation {
             return Ok(());
+        }
+        #[cfg(feature = "host")]
+        if user.is_some() {
+            self.terminals_owner.clone_from(&user);
         }
         self.scope = Scope {
             user,
@@ -3021,6 +3110,7 @@ impl Runtime {
         self.mentions.clear();
         self.latest_auth = None;
         self.administering.clear();
+        self.forget_approvals();
         #[cfg(feature = "host")]
         self.publishing.clear();
         #[cfg(feature = "host")]

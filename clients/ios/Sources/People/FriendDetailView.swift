@@ -297,7 +297,6 @@ private struct VerifyForm: View {
     private func verify() {
         guard !trimmed.isEmpty else { return }
         model.people.verify(friend, invite: trimmed)
-        invite = ""
     }
 }
 

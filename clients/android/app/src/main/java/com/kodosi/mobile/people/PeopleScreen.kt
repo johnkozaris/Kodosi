@@ -35,12 +35,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kodosi.mobile.AppModel
 import com.kodosi.mobile.R
+import com.kodosi.mobile.runtime.Refused
 import com.kodosi.mobile.terminals.RuntimeSession
 import com.kodosi.mobile.terminals.TerminalCard
 import com.kodosi.mobile.ui.ActionIcon
@@ -79,22 +83,45 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 @Composable
-fun PeopleScreen(model: AppModel, back: () -> Unit, open: (String) -> Unit) {
+fun PeopleScreen(
+    model: AppModel,
+    back: () -> Unit,
+    addFriend: Boolean,
+    addFriendOpened: () -> Unit,
+    open: (String) -> Unit
+) {
     val state by model.people.state.collectAsStateWithLifecycle()
     val terminals by model.terminals.state.collectAsStateWithLifecycle()
     val opened by model.friendInvite.collectAsStateWithLifecycle()
     var adding by remember { mutableStateOf(false) }
     var showingInvite by remember { mutableStateOf(false) }
-    var accepting by remember { mutableStateOf<Person?>(null) }
     var blocking by remember { mutableStateOf<Person?>(null) }
     var reporting by remember { mutableStateOf<Person?>(null) }
+    // The requests on their way, so a second tap does not ask again while the first one waits.
+    var sending by remember { mutableStateOf(emptySet<String>()) }
     val scope = rememberCoroutineScope()
+    fun befriend(operation: String, handle: String) {
+        if (handle in sending) return
+        sending = sending + handle
+        scope.launch {
+            try {
+                model.runAction { model.people.act(operation, handle) }
+            } finally {
+                sending = sending - handle
+            }
+        }
+    }
+    LaunchedEffect(addFriend) {
+        if (!addFriend) return@LaunchedEffect
+        adding = true
+        addFriendOpened()
+    }
     LaunchedEffect(opened) {
         val invite = opened ?: return@LaunchedEffect
         model.friendInvite.value = null
         adding = false
         showingInvite = false
-        accepting = Person("", invite, "")
+        befriend("friends.request.send", invite)
     }
     Column(Modifier.fillMaxSize()) {
         PageHeader(stringResource(R.string.friends), back, actions = {
@@ -130,12 +157,16 @@ fun PeopleScreen(model: AppModel, back: () -> Unit, open: (String) -> Unit) {
                         KodosiTextButton(onClick = { blocking = person }) {
                             Text(stringResource(R.string.block), color = KodosiTheme.colors.danger)
                         }
+                        val answering = person.handle in sending
                         KodosiTextButton(onClick = {
                             scope.launch {
                                 model.runAction { model.people.act("friends.request.reject", person.handle) }
                             }
-                        }) { Text(stringResource(R.string.decline)) }
-                        KodosiButton(onClick = { accepting = person }) { Text(stringResource(R.string.accept)) }
+                        }, enabled = !answering) { Text(stringResource(R.string.decline)) }
+                        KodosiButton(
+                            onClick = { befriend("friends.request.accept", person.handle) },
+                            enabled = !answering
+                        ) { Text(stringResource(R.string.accept)) }
                     }
                 }
             }
@@ -213,70 +244,70 @@ fun PeopleScreen(model: AppModel, back: () -> Unit, open: (String) -> Unit) {
             }
         }
     }
-    if (adding) {
-        AddFriendDialog(dismiss = { adding = false }) { text ->
-            adding = false
-            // Confirm trust before sending the friend request to the runtime.
-            accepting = Person("", text, "")
-        }
-    }
+    if (adding) AddFriendDialog(model) { adding = false }
     if (showingInvite) InviteDialog(model) { showingInvite = false }
     blocking?.let { BlockDialog(model, it, dismiss = { blocking = null }) }
     reporting?.let { ReportDialog(model, it) { reporting = null } }
-    accepting?.let { person ->
-        ConfirmDialog(
-            if (person.userId.isEmpty()) "@" + PeopleStore.handle(person.handle).removePrefix("@") else person.name,
-            stringResource(R.string.friend_trust_message),
-            stringResource(if (person.userId.isEmpty()) R.string.add_friend else R.string.accept),
-            { accepting = null },
-            {
-                scope.launch {
-                    model.runAction {
-                        model.people.act(
-                            if (person.userId.isEmpty()) "friends.request.send" else "friends.request.accept",
-                            person.handle
-                        )
-                        accepting = null
-                    }
-                }
-            }
-        )
-    }
 }
 
 @Composable
-private fun AddFriendDialog(dismiss: () -> Unit, add: (String) -> Unit) {
+private fun AddFriendDialog(model: AppModel, dismiss: () -> Unit) {
     val context = LocalContext.current
     val camera = remember(context) { canScanCodes(context) }
     val text = rememberTextFieldState()
     var scanning by remember { mutableStateOf(false) }
+    var sending by remember { mutableStateOf(false) }
+    var failure by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    fun send(friend: String) {
+        failure = null
+        sending = true
+        scope.launch {
+            try {
+                model.people.act("friends.request.send", friend)
+                dismiss()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Refused) {
+            } catch (error: Exception) {
+                failure = error.localizedMessage ?: model.words.didNotWork
+            } finally {
+                sending = false
+            }
+        }
+    }
     KodosiDialog(
-        onDismissRequest = dismiss,
+        onDismissRequest = { if (!sending) dismiss() },
         title = { Text(stringResource(R.string.add_friend)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 KodosiField(
                     text,
                     label = stringResource(R.string.username_invite),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !sending
                 )
                 if (camera) {
-                    KodosiTextButton(onClick = { scanning = true }) {
+                    KodosiTextButton(onClick = { scanning = true }, enabled = !sending) {
                         AppIcon(AppSymbol.QR_CODE, tint = KodosiTheme.colors.accent)
                         Spacer(Modifier.width(8.dp))
                         Text(stringResource(R.string.scan_invite))
                     }
                 }
+                failure?.let { ErrorNote(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
+                if (sending) ProgressCaption(stringResource(R.string.working))
             }
         },
         confirmButton = {
             KodosiButton(
                 stringResource(R.string.add_friend),
-                { add(text.text.toString().trim()) },
-                enabled = text.text.isNotBlank()
+                { send(text.text.toString().trim()) },
+                enabled = text.text.isNotBlank() && !sending
             )
         },
-        dismissButton = { KodosiTextButton(onClick = dismiss) { Text(stringResource(R.string.cancel)) } }
+        dismissButton = {
+            KodosiTextButton(onClick = dismiss, enabled = !sending) { Text(stringResource(R.string.cancel)) }
+        }
     )
     if (scanning) {
         CodeScanDialog(
@@ -290,7 +321,7 @@ private fun AddFriendDialog(dismiss: () -> Unit, add: (String) -> Unit) {
             found = { invite ->
                 scanning = false
                 text.setTextAndPlaceCursorAtEnd(invite)
-                add(invite)
+                send(invite)
             },
             dismiss = { scanning = false }
         )
@@ -510,7 +541,8 @@ fun FriendScreen(model: AppModel, id: String, back: () -> Unit, terminal: (Strin
     val preferences by model.preferences.state.collectAsStateWithLifecycle()
     val person = people.friends.firstOrNull { it.userId == id }
     var verifying by remember { mutableStateOf(false) }
-    var confirming by remember { mutableStateOf<String?>(null) }
+    var trusting by remember { mutableStateOf(false) }
+    var removing by remember { mutableStateOf(false) }
     var blocking by remember { mutableStateOf<Person?>(null) }
     var reporting by remember { mutableStateOf<Person?>(null) }
     val scope = rememberCoroutineScope()
@@ -537,8 +569,15 @@ fun FriendScreen(model: AppModel, id: String, back: () -> Unit, terminal: (Strin
             if (person.identityState == "changed") {
                 item {
                     KodosiTextButton(onClick = {
-                        confirming = "friends.identity.trust"
-                    }) { Text(stringResource(R.string.trust_identity)) }
+                        trusting = true
+                        scope.launch {
+                            try {
+                                model.runAction { model.people.act("friends.identity.trust", person.handle) }
+                            } finally {
+                                trusting = false
+                            }
+                        }
+                    }, enabled = !trusting) { Text(stringResource(R.string.trust_identity)) }
                 }
             }
             item { SectionTitle(stringResource(R.string.terminals)) }
@@ -553,7 +592,7 @@ fun FriendScreen(model: AppModel, id: String, back: () -> Unit, terminal: (Strin
             }
             item {
                 KodosiTextButton(onClick = {
-                    confirming = "friends.remove"
+                    removing = true
                 }) { Text(stringResource(R.string.remove_friend), color = KodosiTheme.colors.danger) }
                 KodosiTextButton(onClick = {
                     blocking = person
@@ -574,27 +613,22 @@ fun FriendScreen(model: AppModel, id: String, back: () -> Unit, terminal: (Strin
             dismiss = { verifying = false }
         ) { model.people.act("friends.verify", person.handle, it) }
     }
-    if (person != null) {
-        confirming?.let { operation ->
-            val title = if (operation == "friends.remove") R.string.remove_friend else R.string.trust_identity
-            ConfirmDialog(
-                stringResource(title),
-                stringResource(
-                    if (operation == "friends.remove") R.string.remove_friend_message else R.string.friend_trust_message
-                ),
-                stringResource(title),
-                { confirming = null },
-                {
-                    scope.launch {
-                        model.runAction {
-                            model.people.act(operation, person.handle)
-                            confirming = null
-                            if (operation != "friends.identity.trust") back()
-                        }
+    if (removing && person != null) {
+        ConfirmDialog(
+            stringResource(R.string.remove_friend),
+            stringResource(R.string.remove_friend_message),
+            stringResource(R.string.remove_friend),
+            { removing = false },
+            {
+                scope.launch {
+                    model.runAction {
+                        model.people.act("friends.remove", person.handle)
+                        removing = false
+                        back()
                     }
-                },
-                destructive = operation != "friends.identity.trust"
-            )
-        }
+                }
+            },
+            destructive = true
+        )
     }
 }

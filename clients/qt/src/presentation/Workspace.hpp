@@ -7,6 +7,7 @@
 #include "presentation/ProjectsModel.hpp"
 #include "presentation/PeopleModel.hpp"
 #include "presentation/SessionActionsModel.hpp"
+#include "presentation/SharingModel.hpp"
 
 #include <QHash>
 #include <QJsonObject>
@@ -39,6 +40,7 @@ public:
     ProjectsModel& projects() { return m_projects; }
     DosiModel& dosi() { return m_dosi; }
     SessionActionsModel& sessionActions() { return m_sessionActions; }
+    SharingModel& sharing() { return m_sharing; }
 
     Q_INVOKABLE void clearError();
     void apply(const QJsonObject& event, std::uint64_t accountEpoch);
@@ -63,6 +65,7 @@ private:
     friend class ProjectsModel;
     friend class PeopleModel;
     friend class SessionActionsModel;
+    friend class SharingModel;
 
     enum class PendingDomain { Session, Project };
     struct Pending {
@@ -93,6 +96,7 @@ private:
     ProjectsModel m_projects;
     SessionActionsModel m_sessionActions;
     DosiModel m_dosi;
+    SharingModel m_sharing;
 
     QString sendRequest(QString type, QJsonObject values = {});
     bool sendUntracked(QString type, QJsonObject values = {});

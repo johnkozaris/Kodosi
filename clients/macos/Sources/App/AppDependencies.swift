@@ -19,6 +19,7 @@ final class AppDependencies {
     let dosi: DosiStore
     let canvas: CanvasStore
     let projects: ProjectStore
+    let approvals: SharingApprovals
     let documentPages = CanvasDocumentPages()
     var sessions: [RuntimeSession] = []
     var inviteRequested: ContinuousClock.Instant?
@@ -111,6 +112,7 @@ final class AppDependencies {
         people = PeopleStore(commands: commands)
         dosi = DosiStore(commands: commands)
         projects = ProjectStore(commands: commands)
+        approvals = SharingApprovals(commands: commands)
         launcher = LauncherState(commands: commands)
         let focus = TerminalProcessFocusCoordinator(commands: commands)
         terminalFocus = focus
@@ -125,6 +127,7 @@ final class AppDependencies {
         account.notify = { [weak self] message in self?.errorMessage = message }
         projects.notify = { [weak self] message in self?.errorMessage = message }
         projects.isFront = { [weak self] in self?.isFront() == true }
+        approvals.notify = { [weak self] message in self?.errorMessage = message }
     }
 
     func start() {
@@ -242,6 +245,7 @@ final class AppDependencies {
             terminalFocus.releaseSession(sessionId: session.id); terminalManager.releaseSession(for: session.id)
         }
         typeAhead.drop()
+        approvals.reset()
         commandSink.cancelPending()
         commandSink.transport = nil
         otherLaunchers.removeAll()
@@ -255,6 +259,7 @@ final class AppDependencies {
     private func catchUp() {
         commandSink.abandonPending()
         canvas.renewPipes()
+        approvals.reset()
         commandSink.send("app.resync")
     }
 

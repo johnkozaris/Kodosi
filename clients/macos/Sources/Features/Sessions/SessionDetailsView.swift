@@ -109,14 +109,12 @@ struct SessionDetailsView: View {
                     subtitle: current.projectName.map { String(localized: "In \($0)") }, symbol: "person.2.fill", tint: TileTint.blue)
         } else {
             let names = current.sharedWith.map(deps.personName)
-            let title = current.projectName.map { String(localized: "Shared with \($0)") }
+            let title = current.projectName.map { String(localized: "Shared with project \($0)") }
                 ?? (names.isEmpty ? String(localized: "Only you and your devices") : names.joined(separator: ", "))
             ListRow(title, subtitle: String(localized: "Encrypted end to end"), symbol: "person.2.fill", tint: TileTint.blue) {
-                if current.kind == .local {
-                    Button("Share…") { sharing = true }
-                        .buttonStyle(.kodosi(.tinted, size: .small))
-                        .kodosiPopover(isPresented: $sharing) { SessionSharingPopover(session: current) }
-                }
+                Button("Share…") { sharing = true }
+                    .buttonStyle(.kodosi(.tinted, size: .small))
+                    .kodosiPopover(isPresented: $sharing) { SessionSharingPopover(session: current) }
             }
         }
     }

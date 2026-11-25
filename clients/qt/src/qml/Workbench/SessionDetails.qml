@@ -10,8 +10,8 @@ KPopover {
 
     property var session: ({})
     property string sessionId: ""
-    readonly property bool shareable: session.kind === "local" && session.isOwner === true
-    readonly property string sharing: session.projectName ? qsTr("Shared with %1").arg(session.projectName)
+    readonly property bool shareable: session.isOwner === true
+    readonly property string sharing: session.projectName ? qsTr("Shared with project %1").arg(session.projectName)
         : (session.sharedWith || []).length === 1 ? qsTr("Shared with %1").arg(Identity.personName(session.sharedWith[0]))
         : (session.sharedWith || []).length > 1 ? qsTr("Shared with %1 people").arg(session.sharedWith.length)
         : session.isOwner === false ? qsTr("Shared by %1").arg(session.ownerName || qsTr("a friend"))

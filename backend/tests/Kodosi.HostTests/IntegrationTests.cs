@@ -325,7 +325,8 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         meter.Start();
         await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));
         using var owner = await app.EnrollAsync("owner"); using var friend = await app.EnrollAsync("friend");
-        await CallAsync(owner, HttpMethod.Post, "/api/friends/requests", new { username = "friend" });
+        var asked = await CallAsync(owner, HttpMethod.Post, "/api/friends/requests", new { username = "friend", check = true });
+        await CallAsync(owner, HttpMethod.Post, "/api/friends/requests", new { userId = asked.GetProperty("userId").GetGuid() });
         await CallAsync(friend, HttpMethod.Post, "/api/friends/requests/owner/accept");
         async Task<(HttpStatusCode Status, string? Tag)> IdentityAsync(ApiDevice actor, string identity, string? known = null)
         {

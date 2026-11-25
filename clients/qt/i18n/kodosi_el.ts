@@ -2346,41 +2346,6 @@
     </message>
 </context>
 <context>
-    <name>FriendTrustDialog</name>
-    <message>
-        <source>I trust %1</source>
-        <translation>Εμπιστεύομαι τον χρήστη %1</translation>
-    </message>
-    <message>
-        <source>I trust them</source>
-        <translation>Εμπιστεύομαι αυτό το άτομο</translation>
-    </message>
-    <message>
-        <source>You</source>
-        <translation>Εσείς</translation>
-    </message>
-    <message>
-        <source>Stop and read</source>
-        <translation>Σταματήστε και διαβάστε</translation>
-    </message>
-    <message>
-        <source>Do you trust %1 completely?</source>
-        <translation>Εμπιστεύεστε πλήρως τον χρήστη %1;</translation>
-    </message>
-    <message>
-        <source>Do you trust this person completely?</source>
-        <translation>Εμπιστεύεστε πλήρως αυτό το άτομο;</translation>
-    </message>
-    <message>
-        <source>A friend can type in each terminal that you share with them, as you, with your rights on that computer.</source>
-        <translation>Ένας φίλος μπορεί να πληκτρολογεί σε κάθε τερματικό που μοιράζεστε μαζί του, ως εσείς, με τα δικαιώματά σας σε εκείνον τον υπολογιστή.</translation>
-    </message>
-    <message>
-        <source>Add only a person that you would let use your computer.</source>
-        <translation>Προσθέστε μόνο άτομα που θα αφήνατε να χρησιμοποιήσουν τον υπολογιστή σας.</translation>
-    </message>
-</context>
-<context>
     <name>GeneralSettings</name>
     <message>
         <source>Continue in your browser</source>
@@ -3131,10 +3096,6 @@
         <translation>Αποχώρηση από το έργο…</translation>
     </message>
     <message>
-        <source>Share with %1</source>
-        <translation>Κοινή χρήση με %1</translation>
-    </message>
-    <message>
         <source>Terminal</source>
         <translation>Τερματικό</translation>
     </message>
@@ -3193,6 +3154,10 @@
     <message>
         <source>Report…</source>
         <translation>Αναφορά…</translation>
+    </message>
+    <message>
+        <source>Share with project %1</source>
+        <translation>Κοινή χρήση στο έργο %1</translation>
     </message>
     <message>
         <source>Delete %1?</source>
@@ -3410,33 +3375,6 @@
     <message>
         <source>Refresh</source>
         <translation>Ανανέωση</translation>
-    </message>
-</context>
-<context>
-    <name>ProjectShareDialog</name>
-    <message>
-        <source>the project</source>
-        <translation>το έργο</translation>
-    </message>
-    <message>
-        <source>Share %1 with %2?</source>
-        <translation>Κοινή χρήση του %1 με %2;</translation>
-    </message>
-    <message>
-        <source>this terminal</source>
-        <translation>αυτό το τερματικό</translation>
-    </message>
-    <message>
-        <source>Share</source>
-        <translation>Κοινή χρήση</translation>
-    </message>
-    <message>
-        <source>Everyone in %1 gets full control of it. It leaves %2.</source>
-        <translation>Όλοι στο %1 αποκτούν πλήρη έλεγχο. Φεύγει από το %2.</translation>
-    </message>
-    <message>
-        <source>Everyone in %1 gets full control of it.</source>
-        <translation>Όλοι στο %1 αποκτούν πλήρη έλεγχο.</translation>
     </message>
 </context>
 <context>
@@ -3816,6 +3754,10 @@
 <context>
     <name>SessionDetails</name>
     <message>
+        <source>Shared with project %1</source>
+        <translation>Κοινόχρηστο στο έργο %1</translation>
+    </message>
+    <message>
         <source>Shared with %1</source>
         <translation>Κοινόχρηστο με %1</translation>
     </message>
@@ -3928,6 +3870,10 @@
     <message>
         <source>Stop sharing</source>
         <translation>Διακοπή κοινής χρήσης</translation>
+    </message>
+    <message>
+        <source>Share with project %1</source>
+        <translation>Κοινή χρήση στο έργο %1</translation>
     </message>
     <message>
         <source>Shared</source>
@@ -5342,10 +5288,6 @@
     <message>
         <source>You cannot do this in the selected terminal.</source>
         <translation>Δεν μπορείτε να το κάνετε αυτό στο επιλεγμένο τερματικό.</translation>
-    </message>
-    <message>
-        <source>Change sharing on the computer that hosts this terminal.</source>
-        <translation>Αλλάξτε την κοινή χρήση στον υπολογιστή που φιλοξενεί αυτό το τερματικό.</translation>
     </message>
     <message>
         <source>Sign in before you share a terminal.</source>

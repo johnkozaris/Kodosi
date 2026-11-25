@@ -40,6 +40,8 @@ struct PromptField: NSViewRepresentable {
         context.coordinator.parent = self
         if view.string != text {
             view.string = text
+            // The steps recorded for the old text point past the end of a shorter one.
+            context.coordinator.undo.removeAllActions()
         }
         view.fit(theme)
         view.textColor = NSColor(theme.colors.ink)
@@ -65,18 +67,30 @@ struct PromptField: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: PromptField
         var focus = 0
+        /// A text view on the window's undo manager leaves its typing there when the view is freed,
+        /// and Undo in the window then messages the freed view and crashes the app.
+        let undo = UndoManager()
 
         init(_ parent: PromptField) {
             self.parent = parent
         }
 
+        func undoManager(for _: NSTextView) -> UndoManager? {
+            undo
+        }
+
+        /// The prompt is one line, so line breaks and tabs become one space here, before they reach
+        /// the text: changing the text after an edit leaves Undo with steps that no longer fit it.
+        func textView(_ view: NSTextView, shouldChangeTextIn range: NSRange, replacementString text: String?) -> Bool {
+            guard let text, text.contains(/[\v\t]/) else { return true }
+            view.breakUndoCoalescing()
+            view.insertText(text.replacing(/[\v\t]+/, with: " "), replacementRange: range)
+            return false
+        }
+
         func textDidChange(_ notification: Notification) {
             guard let view = notification.object as? PromptTextView else { return }
-            let line = view.string.replacing(/[\r\n\t\u{2028}\u{2029}]+/, with: " ")
-            if line != view.string {
-                view.string = line
-            }
-            parent.text = line
+            parent.text = view.string
             view.wake()
         }
 

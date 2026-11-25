@@ -69,6 +69,7 @@ data class RuntimeSession(
     val attention: Boolean = false,
     val hidden: Boolean = false,
     val projectId: String? = null,
+    val sharedWith: List<String> = emptyList(),
     val restoredFrom: String? = null,
     val canvas: Canvas? = null,
     // Preferred face reported by the agent (chat vs terminal), or null if none.

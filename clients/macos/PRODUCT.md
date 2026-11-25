@@ -46,5 +46,8 @@ other terminal app. Settings displays permission status and triggers macOS permi
 The app can preview an agent's saved provider conversations read-only without modifying them, and
 resume any conversation in a new terminal via the provider's CLI.
 
-Before adding or accepting a friend, the app pauses to confirm you understand the trust model,
-since friends get full interactive control over any terminal you share with them.
+Kodosi asks before someone becomes a friend, since friends get full interactive control over any
+terminal you share with them, and before any other change lets someone new into your terminals or
+projects. The question appears as an alert on Kodosi's front window, or on its own while no window
+is open. While you work in another app, Kodosi bounces its Dock icon and waits instead of taking
+the focus.

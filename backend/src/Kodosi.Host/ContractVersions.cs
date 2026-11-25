@@ -2,7 +2,7 @@ namespace Kodosi;
 
 internal static class ContractVersions
 {
-    public const int Api = 35;
+    public const int Api = 36;
     public const int OldestApi = 35;
     public const int Auth = 1;
     public const int TerminalConnection = 27;

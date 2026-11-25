@@ -170,6 +170,14 @@ public extension View {
         }
     }
 
+    @MainActor
+    public extension NSEvent {
+        /// A key for a sheet or a modal alert, which answers it before anything behind it may.
+        var goesToSheetOrAlert: Bool {
+            window?.isSheet == true || NSApp.modalWindow != nil
+        }
+    }
+
     private struct KodosiPopoverSurface: View {
         @Environment(\.theme) private var theme
         let item: KodosiPopoverItem
@@ -232,7 +240,7 @@ public extension View {
             KodosiPopoverState.add(1)
             let dismiss = item.dismiss
             monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-                guard event.keyCode == 53 else { return event }
+                guard event.keyCode == 53, !event.goesToSheetOrAlert else { return event }
                 dismiss()
                 return nil
             }

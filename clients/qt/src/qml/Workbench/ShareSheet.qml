@@ -20,7 +20,7 @@ KPopover {
     readonly property string actionTitle: {
         if (projectId !== currentProjectId) {
             const target = Models.Projects.projects.find(entry => entry.id === projectId)
-            return target ? qsTr("Share with %1").arg(target.name) : qsTr("Stop sharing")
+            return target ? qsTr("Share with project %1").arg(target.name) : qsTr("Stop sharing")
         }
         if (!changed && (projectId.length > 0 || people.length > 0))
             return qsTr("Shared")
@@ -152,7 +152,8 @@ KPopover {
                         objectName: "sharing.project." + modelData.id
                         Accessible.id: objectName
                         Accessible.name: modelData.name
-                        Accessible.selected: selected
+                        Accessible.checkable: true
+                        Accessible.checked: selected
                         contentItem: Item {
                             RowLayout {
                                 id: chipRow
@@ -181,6 +182,8 @@ KPopover {
                             root.projectId = selected ? "" : modelData.id;
                             root.people = root.originalPeople.slice();
                         }
+
+                        KFocusIndicator { active: chip.visualFocus }
                     }
                 }
             }
@@ -211,6 +214,8 @@ KPopover {
                         readonly property bool selected: root.people.indexOf(modelData.userId) >= 0
                         readonly property bool blocked: modelData.identityState === "changed" && !selected
                         readonly property string fullName: modelData.displayName || modelData.handle
+                        readonly property string label: fullName + " (@" + modelData.handle + ")"
+                        readonly property string blockedNote: qsTr("Their identity changed. Trust them in Friends first.")
 
                         width: 62
                         height: 66
@@ -219,10 +224,12 @@ KPopover {
                         scale: pressed ? 0.95 : 1
                         objectName: "sharing.friend." + modelData.userId
                         Accessible.id: objectName
-                        Accessible.name: fullName + " (@" + modelData.handle + ")"
-                        Accessible.selected: selected
+                        Accessible.name: label
+                        Accessible.description: blocked ? blockedNote : ""
+                        Accessible.checkable: true
+                        Accessible.checked: selected
                         ToolTip.visible: hovered
-                        ToolTip.text: blocked ? qsTr("Their identity changed. Trust them in Friends first.") : fullName + " (@" + modelData.handle + ")"
+                        ToolTip.text: blocked ? blockedNote : label
                         ToolTip.delay: Tip.delay
                         hoverEnabled: true
                         contentItem: Item {
@@ -262,6 +269,8 @@ KPopover {
                             }
                         }
                         onClicked: root.toggle(modelData.userId)
+
+                        KFocusIndicator { active: friend.visualFocus }
                     }
                 }
             }

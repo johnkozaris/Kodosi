@@ -1,6 +1,7 @@
 use crate::{
     Error, Result,
     local_host::{self, TerminalFrame},
+    protocol::ClientKind,
 };
 use ghostty_vt::{Terminal, TerminalPolicy};
 use std::{
@@ -23,7 +24,8 @@ pub(super) async fn attach(root: &Path, session: Uuid) -> Result<()> {
             "`kodosi terminal attach` needs an interactive terminal.".into(),
         ));
     }
-    let mut client = local_host::TerminalClient::connect(root, session).await?;
+    let mut client =
+        local_host::TerminalClient::connect(root, session, ClientKind::Command).await?;
     let initial = tokio::time::timeout(
         Duration::from_secs(5),
         local_host::read_terminal(&mut client.reader),

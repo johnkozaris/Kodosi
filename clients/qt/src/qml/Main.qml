@@ -471,6 +471,7 @@ ApplicationWindow {
         sourceComponent: AboutDialog {}
     }
     StartupOverlay {}
+    SharingApprovalDialog {}
     Shortcut {
         enabled: !window.modalOpen
         sequences: Models.Shortcuts.keys.newTerminal

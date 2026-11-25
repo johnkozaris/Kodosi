@@ -2,7 +2,7 @@ use crate::{
     Config, Error, EventBody, HostKind, Result,
     agents::{Output, Permissions},
     local_host,
-    protocol::SessionKind,
+    protocol::{ClientKind, SessionKind},
     provider::Provider,
 };
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
@@ -378,7 +378,7 @@ enum TerminalAction {
         #[arg(help = TERMINAL)]
         terminal: String,
     },
-    /// Give friends full control of a terminal of this computer.
+    /// Give friends full control of one of your terminals.
     Share {
         #[arg(help = TERMINAL)]
         terminal: String,
@@ -722,7 +722,7 @@ async fn dispatch(args: Arguments) -> Result<u8> {
         return Ok(code);
     }
     refuse_for_dosi(&args.command)?;
-    let mut client = local_host::connect_or_start(&config.data_root).await?;
+    let mut client = local_host::connect_or_start(&config.data_root, ClientKind::Command).await?;
     let mut context = Context::from_events(&client.initial_events);
     list_terminals(&args.command, &mut client, &mut context).await;
     let json_output = args.json;
@@ -1231,10 +1231,12 @@ async fn share(
     };
     let started = tokio::time::Instant::now();
     let event = loop {
-        let command = json!({"type":"session.share","requestId":Uuid::now_v7().to_string(),"sessionId":id,"expectedRuntimeIncarnationId":context.incarnation(id)?,"userIds":users});
+        let request_id = Uuid::now_v7().to_string();
+        let command = json!({"type":"session.share","requestId":request_id,"sessionId":id,"expectedRuntimeIncarnationId":context.incarnation(id)?,"userIds":users,"expectedUserIds":current});
         match request(client, context, command, json_output).await {
             Err(Error::Other(message))
                 if message == crate::runtime::not_published().to_string()
+                    && !context.waited.contains(&request_id)
                     && started.elapsed() < Duration::from_secs(10) =>
             {
                 tokio::time::sleep(Duration::from_millis(500)).await;
@@ -1675,6 +1677,8 @@ struct Context {
     friends: Vec<Value>,
     latest: BTreeMap<String, Value>,
     contents: BTreeMap<String, Value>,
+    /// The requests that waited for the owner's OK, which must never ask the owner again.
+    waited: HashSet<String>,
 }
 impl Context {
     fn names(&self) -> HashSet<&str> {
@@ -1693,6 +1697,7 @@ impl Context {
             friends: vec![],
             latest: BTreeMap::new(),
             contents: BTreeMap::new(),
+            waited: HashSet::new(),
         };
         for event in events {
             value.observe(event);
@@ -1788,52 +1793,68 @@ async fn wait_answer(
     request_id: &str,
     json_output: bool,
 ) -> Result<Value> {
-    tokio::time::timeout(crate::protocol::answer_time(operation), async {
-        loop {
-            let frame = client.next().await?;
-            if frame.get("kind").and_then(Value::as_str) == Some("rejected")
-                && frame.get("requestId").and_then(Value::as_str) == Some(request_id)
-            {
-                return Err(Error::Other(
-                    frame["message"]
-                        .as_str()
-                        .unwrap_or("command rejected")
-                        .to_owned(),
-                ));
-            }
-            let Some(event) = frame.get("event") else {
-                continue;
-            };
-            if !context.observe(event) {
-                continue;
-            }
-            if let Some(answer) = crate::protocol::answer(event, request_id) {
-                return answer.map_err(Error::Other);
-            }
-            if event.get("requestId").and_then(Value::as_str) != Some(request_id) {
-                continue;
-            }
-            match event.get("type").and_then(Value::as_str) {
-                Some("auth.device_code") if !json_output => writeln!(
-                    io::stdout().lock(),
-                    "Open {} and enter {}",
-                    event["verificationUri"].as_str().unwrap_or_default(),
-                    event["userCode"].as_str().unwrap_or_default()
-                )?,
-                Some("auth.deletion_pending") if !json_output => writeln!(
-                    io::stdout().lock(),
-                    "Open {} and confirm the deletion",
-                    event["confirmationUri"].as_str().unwrap_or_default()
-                )?,
-                _ if json_output => print_json(event)?,
-                _ => {}
-            }
+    let mut deadline = tokio::time::Instant::now() + crate::protocol::answer_time(operation);
+    loop {
+        let frame = tokio::time::timeout_at(deadline, client.next())
+            .await
+            .map_err(|_| {
+                Error::Other(
+                    "No answer arrived in time, and Kodosi did not send the command again.".into(),
+                )
+            })??;
+        if frame.get("kind").and_then(Value::as_str) == Some("rejected")
+            && frame.get("requestId").and_then(Value::as_str) == Some(request_id)
+        {
+            return Err(Error::Other(
+                frame["message"]
+                    .as_str()
+                    .unwrap_or("command rejected")
+                    .to_owned(),
+            ));
         }
-    })
-    .await
-    .map_err(|_| {
-        Error::Other("No answer arrived in time, and Kodosi did not send the command again.".into())
-    })?
+        let Some(event) = frame.get("event") else {
+            continue;
+        };
+        if !context.observe(event) {
+            continue;
+        }
+        if let Some(answer) = crate::protocol::answer(event, request_id) {
+            return answer.map_err(Error::Other);
+        }
+        if event.get("requestId").and_then(Value::as_str) != Some(request_id) {
+            continue;
+        }
+        match event.get("type").and_then(Value::as_str) {
+            Some("auth.device_code") if !json_output => writeln!(
+                io::stdout().lock(),
+                "Open {} and enter {}",
+                event["verificationUri"].as_str().unwrap_or_default(),
+                event["userCode"].as_str().unwrap_or_default()
+            )?,
+            Some("auth.deletion_pending") if !json_output => writeln!(
+                io::stdout().lock(),
+                "Open {} and confirm the deletion",
+                event["confirmationUri"].as_str().unwrap_or_default()
+            )?,
+            Some("sharing.waiting") => {
+                context.waited.insert(request_id.to_owned());
+                deadline = tokio::time::Instant::now()
+                    + crate::protocol::APPROVAL_WAIT
+                    + crate::protocol::answer_time(operation);
+                if json_output {
+                    print_json(event)?;
+                } else {
+                    writeln!(
+                        io::stdout().lock(),
+                        "{}",
+                        event["message"].as_str().unwrap_or_default()
+                    )?;
+                }
+            }
+            _ if json_output => print_json(event)?,
+            _ => {}
+        }
+    }
 }
 
 #[derive(Clone, Copy, ValueEnum)]

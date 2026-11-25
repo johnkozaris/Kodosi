@@ -21,6 +21,7 @@
 #include "presentation/ProviderFilesModel.hpp"
 #include "presentation/SessionCatalogModel.hpp"
 #include "presentation/SessionActionsModel.hpp"
+#include "presentation/SharingModel.hpp"
 #include "presentation/ShortcutsModel.hpp"
 #include "presentation/TerminalTilingLayoutModel.hpp"
 #include "presentation/Workspace.hpp"
@@ -83,6 +84,14 @@ struct SessionActionsModelForeign {
     Q_GADGET
     QML_FOREIGN(kodosi::SessionActionsModel)
     QML_NAMED_ELEMENT(SessionActions)
+    QML_SINGLETON
+    QML_UNCREATABLE("Kodosi provides it.")
+};
+
+struct SharingModelForeign {
+    Q_GADGET
+    QML_FOREIGN(kodosi::SharingModel)
+    QML_NAMED_ELEMENT(Sharing)
     QML_SINGLETON
     QML_UNCREATABLE("Kodosi provides it.")
 };

@@ -368,6 +368,58 @@
         }
       }
     },
+    "%@ is offline. Share with friends when it is back." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ist offline. Teile mit Freunden, sobald der Computer wieder online ist."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: εκτός σύνδεσης. Μοιραστείτε το με φίλους όταν συνδεθεί ξανά."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ está sin conexión. Comparte con amigos cuando vuelva."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ est hors ligne. Partagez avec des amis quand il sera de retour."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ è offline. Condividi con gli amici quando torna online."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ はオフラインです。オンラインに戻ってからフレンドと共有してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@이(가) 오프라인이에요. 다시 온라인이 되면 친구와 공유하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 已离线。请在它恢复在线后再与好友共享。"
+          }
+        }
+      }
+    },
     "%@ needs you to sign in" : {
       "localizations" : {
         "de" : {
@@ -15725,7 +15777,7 @@
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Μοιραστείτε ένα από τα τερματικά σας με αυτό το έργο. Οι φίλοι σας στο έργο αποκτούν πλήρη έλεγχο."
+            "value" : "Μοιραστείτε ένα από τα τερματικά σας σε αυτό το έργο. Οι φίλοι σας στο έργο αποκτούν πλήρη έλεγχο."
           }
         },
         "es" : {
@@ -15818,54 +15870,106 @@
         }
       }
     },
-    "Share with a project" : {
+    "Share with %lld people" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mit einem Projekt teilen"
+            "value" : "Mit %lld Personen teilen"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Κοινή χρήση με έργο"
+            "value" : "Κοινή χρήση με %lld άτομα"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Compartir con un proyecto"
+            "value" : "Compartir con %lld personas"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Partager avec un projet"
+            "value" : "Partager avec %lld personnes"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Condividi con un progetto"
+            "value" : "Condividi con %lld persone"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "プロジェクトと共有"
+            "value" : "%lld 人と共有"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "프로젝트에 공유"
+            "value" : "%lld명에게 공유"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "与项目共享"
+            "value" : "与 %lld 人共享"
+          }
+        }
+      }
+    },
+    "Share with project %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mit dem Projekt %@ teilen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Κοινή χρήση στο έργο %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compartir con el proyecto %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partager avec le projet %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Condividi con il progetto %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プロジェクト「%@」と共有"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 프로젝트에 공유"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "与项目“%@”共享"
           }
         }
       }
@@ -16032,54 +16136,54 @@
         }
       }
     },
-    "Shared with %@" : {
+    "Shared with project %@" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Geteilt mit %@"
+            "value" : "Mit dem Projekt %@ geteilt"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Κοινόχρηστο με %@"
+            "value" : "Κοινόχρηστο στο έργο %@"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Compartido con %@"
+            "value" : "Compartido con el proyecto %@"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Partagé avec %@"
+            "value" : "Partagé avec le projet %@"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Condiviso con %@"
+            "value" : "Condiviso con il progetto %@"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ と共有中"
+            "value" : "プロジェクト「%@」と共有中"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@에게 공유됨"
+            "value" : "%@ 프로젝트에 공유됨"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已与 %@ 共享"
+            "value" : "已与项目“%@”共享"
           }
         }
       }
@@ -16132,6 +16236,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "与你共享"
+          }
+        }
+      }
+    },
+    "Share…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Teilen…"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Κοινή χρήση…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compartir…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partager…"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Condividi…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共有…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "공유…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享…"
           }
         }
       }
@@ -19512,58 +19668,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "标题"
-          }
-        }
-      }
-    },
-    "To share it with people, open Kodosi on %@." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Um es mit Personen zu teilen, öffne Kodosi auf %@."
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Για να το μοιραστείτε με άτομα, ανοίξτε το Kodosi στο %@."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Para compartirlo con personas, abre Kodosi en %@."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pour le partager avec des personnes, ouvrez Kodosi sur %@."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Per condividerlo con altre persone, apri Kodosi su %@."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "人と共有するには、%@ で Kodosi を開いてください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "사람들과 공유하려면 %@에서 Kodosi를 여세요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "要与他人共享，请在 %@ 上打开 Kodosi。"
           }
         }
       }

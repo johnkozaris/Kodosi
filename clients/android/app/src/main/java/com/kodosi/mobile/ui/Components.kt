@@ -269,6 +269,24 @@ fun ErrorNote(message: String, modifier: Modifier = Modifier) {
     }
 }
 
+/** Says why an action waits for the connection, with the one step that can bring it back. */
+@Composable
+fun OfflineNote(retry: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier.semantics { liveRegion = LiveRegionMode.Polite },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            stringResource(R.string.account_restore_offline),
+            Modifier.weight(1f),
+            style = KodosiType.footnote,
+            color = KodosiTheme.colors.inkMuted
+        )
+        KodosiTextButton(onClick = retry) { Text(stringResource(R.string.try_again)) }
+    }
+}
+
 @Composable
 fun Wordmark(height: Dp, modifier: Modifier = Modifier) {
     val colors = KodosiTheme.colors

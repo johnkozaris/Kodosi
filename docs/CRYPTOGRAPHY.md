@@ -94,9 +94,11 @@ frame sizes.
 
 ### Remote host calls
 A device opens the same encrypted channel to another computer on its own account to query agents
-and folders or launch a terminal. The caller pins the host's approved key, and the host accepts
-only verified, non-recovery devices from its own account and restricts requests to launcher
-operations.
+and folders, launch a terminal, or change who a terminal on that computer is shared with. The
+caller pins the host's approved key, and the host accepts only verified, non-recovery devices from
+its own account and restricts requests to those operations. A sharing change still runs the host's
+own checks and is written by the host, so the backend never learns of a person before the host has
+chosen them.
 
 ### Terminal project assignments
 Adding a terminal to a project or removing it from one is signed by the acting device with a

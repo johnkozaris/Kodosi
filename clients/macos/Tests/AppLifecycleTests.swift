@@ -160,3 +160,26 @@ import Testing
     #expect(app.inviteCopies == 1)
     #expect(app.people.friends.count == 2)
 }
+
+@Test func `a change that the owner refused ends without an error, and a failure still shows one`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "RefusedChange"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
+    defer { app.shutdownProcess() }
+    app.commandSink.transport = { _ in 0 }
+    try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner")]))
+    let ann = try JSONDecoder().decode(FriendRequestEntry.self, from: Data(#"{"userId":"a","handle":"ann","displayName":"Ann"}"#.utf8))
+    app.people.accept(ann)
+    #expect(app.people.isBusy("ann"))
+    var refusal: [String: JSONValue] = [
+        "requestId": .string(UUIDv7.generate()), "operation": .string("friends.request.accept"),
+        "message": .string("You did not allow this in Kodosi."), "refused": .bool(true),
+    ]
+    try app.receive(runtimeEvent("friends.error", fields: refusal))
+    #expect(!app.people.isBusy("ann"))
+    #expect(app.errorMessage == nil)
+    refusal["refused"] = nil
+    refusal["message"] = .string("Ann cannot be reached.")
+    try app.receive(runtimeEvent("friends.error", fields: refusal))
+    #expect(app.errorMessage == "Ann cannot be reached.")
+}

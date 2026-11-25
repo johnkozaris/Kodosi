@@ -63,6 +63,9 @@ struct RootView: View {
                 LockCover().environment(model).kodosiTheme()
             }
         }
+        .background {
+            SharingQuestionWindow(approvals: model.approvals, asking: model.approvals.current?.id, locked: model.lock.locked)
+        }
         .onChange(of: model.lock.locked) { _, locked in
             if !locked {
                 model.projects.markShownRead()

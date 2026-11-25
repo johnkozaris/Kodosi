@@ -296,8 +296,11 @@ en ti antes de enviar la solicitud.
 ### Compartir un terminal
 
 Abre el menú de acciones en la cabecera de un terminal, haz clic en **Compartir** y selecciona
-amigos o proyectos. Cualquier persona con la que compartas el terminal obtiene control total con
-tus permisos del sistema operativo en esa máquina. Tus otros terminales siguen siendo privados.
+amigos o proyectos. Cualquier persona con la que compartas el terminal obtiene control total con tus
+permisos del sistema operativo en esa máquina. Tus otros terminales siguen siendo privados. Puedes
+compartir desde cualquiera de tus dispositivos, también desde el móvil, mientras el ordenador que
+ejecuta el terminal esté conectado. Kodosi te pide confirmación cada vez que alguien nuevo obtiene
+acceso.
 
 ### Proyectos
 

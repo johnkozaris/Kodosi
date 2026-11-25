@@ -2325,41 +2325,6 @@
     </message>
 </context>
 <context>
-    <name>FriendTrustDialog</name>
-    <message>
-        <source>I trust %1</source>
-        <translation>%1 님을 신뢰해요</translation>
-    </message>
-    <message>
-        <source>I trust them</source>
-        <translation>신뢰해요</translation>
-    </message>
-    <message>
-        <source>You</source>
-        <translation>나</translation>
-    </message>
-    <message>
-        <source>Stop and read</source>
-        <translation>잠깐, 먼저 읽어 보세요</translation>
-    </message>
-    <message>
-        <source>Do you trust %1 completely?</source>
-        <translation>%1 님을 완전히 신뢰하나요?</translation>
-    </message>
-    <message>
-        <source>Do you trust this person completely?</source>
-        <translation>이 사람을 완전히 신뢰하나요?</translation>
-    </message>
-    <message>
-        <source>A friend can type in each terminal that you share with them, as you, with your rights on that computer.</source>
-        <translation>친구는 내가 공유한 터미널에서 나와 같은 권한으로 입력할 수 있어요. 그 컴퓨터의 내 권한을 그대로 써요.</translation>
-    </message>
-    <message>
-        <source>Add only a person that you would let use your computer.</source>
-        <translation>내 컴퓨터를 맡겨도 되는 사람만 추가하세요.</translation>
-    </message>
-</context>
-<context>
     <name>GeneralSettings</name>
     <message>
         <source>Continue in your browser</source>
@@ -3105,10 +3070,6 @@
         <translation>프로젝트 나가기…</translation>
     </message>
     <message>
-        <source>Share with %1</source>
-        <translation>%1에게 공유</translation>
-    </message>
-    <message>
         <source>Terminal</source>
         <translation>터미널</translation>
     </message>
@@ -3167,6 +3128,10 @@
     <message>
         <source>Report…</source>
         <translation>신고…</translation>
+    </message>
+    <message>
+        <source>Share with project %1</source>
+        <translation>%1 프로젝트에 공유</translation>
     </message>
     <message>
         <source>Delete %1?</source>
@@ -3383,33 +3348,6 @@
     <message>
         <source>Refresh</source>
         <translation>새로고침</translation>
-    </message>
-</context>
-<context>
-    <name>ProjectShareDialog</name>
-    <message>
-        <source>the project</source>
-        <translation>프로젝트</translation>
-    </message>
-    <message>
-        <source>Share %1 with %2?</source>
-        <translation>%1을(를) %2에 공유할까요?</translation>
-    </message>
-    <message>
-        <source>this terminal</source>
-        <translation>이 터미널</translation>
-    </message>
-    <message>
-        <source>Share</source>
-        <translation>공유</translation>
-    </message>
-    <message>
-        <source>Everyone in %1 gets full control of it. It leaves %2.</source>
-        <translation>%1에 있는 모두가 전체 권한을 가져요. %2에서는 빠져요.</translation>
-    </message>
-    <message>
-        <source>Everyone in %1 gets full control of it.</source>
-        <translation>%1에 있는 모두가 전체 권한을 가져요.</translation>
     </message>
 </context>
 <context>
@@ -3785,6 +3723,10 @@
 <context>
     <name>SessionDetails</name>
     <message>
+        <source>Shared with project %1</source>
+        <translation>%1 프로젝트에 공유됨</translation>
+    </message>
+    <message>
         <source>Shared with %1</source>
         <translation>%1에게 공유됨</translation>
     </message>
@@ -3897,6 +3839,10 @@
     <message>
         <source>Stop sharing</source>
         <translation>공유 중지</translation>
+    </message>
+    <message>
+        <source>Share with project %1</source>
+        <translation>%1 프로젝트에 공유</translation>
     </message>
     <message>
         <source>Shared</source>
@@ -5301,10 +5247,6 @@
     <message>
         <source>You cannot do this in the selected terminal.</source>
         <translation>선택한 터미널에서는 이 작업을 할 수 없어요.</translation>
-    </message>
-    <message>
-        <source>Change sharing on the computer that hosts this terminal.</source>
-        <translation>공유 설정은 이 터미널을 호스팅하는 컴퓨터에서 바꾸세요.</translation>
     </message>
     <message>
         <source>Sign in before you share a terminal.</source>

@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import com.kodosi.mobile.R
+import com.kodosi.mobile.runtime.Refused
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -803,6 +804,7 @@ fun TextEntryDialog(
                         dismiss()
                     } catch (failure: CancellationException) {
                         throw failure
+                    } catch (_: Refused) {
                     } catch (failure: Exception) {
                         error = failure.localizedMessage
                     } finally {

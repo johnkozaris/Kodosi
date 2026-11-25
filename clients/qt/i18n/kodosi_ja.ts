@@ -2325,41 +2325,6 @@
     </message>
 </context>
 <context>
-    <name>FriendTrustDialog</name>
-    <message>
-        <source>I trust %1</source>
-        <translation>%1 さんを信頼しています</translation>
-    </message>
-    <message>
-        <source>I trust them</source>
-        <translation>信頼しています</translation>
-    </message>
-    <message>
-        <source>You</source>
-        <translation>あなた</translation>
-    </message>
-    <message>
-        <source>Stop and read</source>
-        <translation>必ずお読みください</translation>
-    </message>
-    <message>
-        <source>Do you trust %1 completely?</source>
-        <translation>%1 さんを完全に信頼していますか？</translation>
-    </message>
-    <message>
-        <source>Do you trust this person completely?</source>
-        <translation>この人を完全に信頼していますか？</translation>
-    </message>
-    <message>
-        <source>A friend can type in each terminal that you share with them, as you, with your rights on that computer.</source>
-        <translation>フレンドは、共有されたターミナルにあなたとして入力できます。そのコンピュータでのあなたの権限もそのまま使えます。</translation>
-    </message>
-    <message>
-        <source>Add only a person that you would let use your computer.</source>
-        <translation>自分のコンピュータを使わせてもよい人だけを追加してください。</translation>
-    </message>
-</context>
-<context>
     <name>GeneralSettings</name>
     <message>
         <source>Continue in your browser</source>
@@ -3105,10 +3070,6 @@
         <translation>プロジェクトから退出…</translation>
     </message>
     <message>
-        <source>Share with %1</source>
-        <translation>%1 と共有</translation>
-    </message>
-    <message>
         <source>Terminal</source>
         <translation>ターミナル</translation>
     </message>
@@ -3167,6 +3128,10 @@
     <message>
         <source>Report…</source>
         <translation>報告…</translation>
+    </message>
+    <message>
+        <source>Share with project %1</source>
+        <translation>プロジェクト「%1」と共有</translation>
     </message>
     <message>
         <source>Delete %1?</source>
@@ -3383,33 +3348,6 @@
     <message>
         <source>Refresh</source>
         <translation>更新</translation>
-    </message>
-</context>
-<context>
-    <name>ProjectShareDialog</name>
-    <message>
-        <source>the project</source>
-        <translation>プロジェクト</translation>
-    </message>
-    <message>
-        <source>Share %1 with %2?</source>
-        <translation>%1 を %2 と共有しますか？</translation>
-    </message>
-    <message>
-        <source>this terminal</source>
-        <translation>このターミナル</translation>
-    </message>
-    <message>
-        <source>Share</source>
-        <translation>共有</translation>
-    </message>
-    <message>
-        <source>Everyone in %1 gets full control of it. It leaves %2.</source>
-        <translation>%1 の全員がフル操作できます。%2 からは外れます。</translation>
-    </message>
-    <message>
-        <source>Everyone in %1 gets full control of it.</source>
-        <translation>%1 の全員がフル操作できます。</translation>
     </message>
 </context>
 <context>
@@ -3785,6 +3723,10 @@
 <context>
     <name>SessionDetails</name>
     <message>
+        <source>Shared with project %1</source>
+        <translation>プロジェクト「%1」と共有中</translation>
+    </message>
+    <message>
         <source>Shared with %1</source>
         <translation>%1 と共有中</translation>
     </message>
@@ -3897,6 +3839,10 @@
     <message>
         <source>Stop sharing</source>
         <translation>共有を停止</translation>
+    </message>
+    <message>
+        <source>Share with project %1</source>
+        <translation>プロジェクト「%1」と共有</translation>
     </message>
     <message>
         <source>Shared</source>
@@ -5301,10 +5247,6 @@
     <message>
         <source>You cannot do this in the selected terminal.</source>
         <translation>選択したターミナルではこの操作はできません。</translation>
-    </message>
-    <message>
-        <source>Change sharing on the computer that hosts this terminal.</source>
-        <translation>共有設定は、このターミナルをホストしているコンピュータで変更してください。</translation>
     </message>
     <message>
         <source>Sign in before you share a terminal.</source>
