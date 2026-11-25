@@ -374,7 +374,7 @@ impl Browser {
         });
         let agent = agent.unwrap_or_else(|| "The agent".to_owned());
         if let Some((kind, target)) = doing(&arguments) {
-            let point = match target {
+            let point = match target.filter(|_| window.is_watched()) {
                 Some(target) => self.point(&folder, &driver, &target).await,
                 None => None,
             };
