@@ -99,7 +99,7 @@ FocusScope {
             anchors.verticalCenter: parent.verticalCenter
             spacing: 7
 
-            KIcon { anchors.verticalCenter: parent.verticalCenter; width: 12; height: 12; name: "search"; color: KodosiTheme.inkFaint; strokeWidth: 2.2 }
+            KIcon { anchors.verticalCenter: parent.verticalCenter; width: KodosiTheme.scaled(12); height: KodosiTheme.scaled(12); name: "search"; color: KodosiTheme.inkFaint; strokeWidth: 2.2 }
             PlainLabel {
                 anchors.verticalCenter: parent.verticalCenter
                 text: root.filter.length > 0 ? root.filter : qsTr("Type to find")
@@ -273,8 +273,8 @@ FocusScope {
                 anchors.rightMargin: 10
                 anchors.verticalCenter: parent.verticalCenter
                 visible: row.modelData.current === true
-                width: 13
-                height: 13
+                width: KodosiTheme.scaled(13)
+                height: KodosiTheme.scaled(13)
                 name: "check"
                 color: KodosiTheme.accentStrong
                 strokeWidth: 2.6

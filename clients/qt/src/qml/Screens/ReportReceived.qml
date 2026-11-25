@@ -17,8 +17,8 @@ Row {
 
     KIcon {
         anchors.verticalCenter: parent.verticalCenter
-        width: 12
-        height: 12
+        width: KodosiTheme.scaled(12)
+        height: KodosiTheme.scaled(12)
         name: "check"
         color: KodosiTheme.ready
     }

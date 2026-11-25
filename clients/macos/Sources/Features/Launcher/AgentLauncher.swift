@@ -222,7 +222,7 @@ struct AgentLauncher: View {
                 open: menu == .folder, identifier: "launcher.folder",
                 label: String(localized: "Folder"), help: directory.map { places?.shown($0) ?? $0 },
             ) {
-                Image(systemName: "folder.fill").font(.system(size: 10, weight: .semibold)).foregroundStyle(TileTint.teal)
+                Image(systemName: "folder.fill").font(scaled: 10, weight: .semibold).foregroundStyle(TileTint.teal)
             } action: {
                 toggle(.folder)
             }
@@ -239,7 +239,7 @@ struct AgentLauncher: View {
                 title: directory.map(folderName) ?? "~", open: menu == .folder, identifier: "launcher.folder",
                 label: String(localized: "Folder"), help: directory.map(tilde),
             ) {
-                Image(systemName: "folder.fill").font(.system(size: 10, weight: .semibold)).foregroundStyle(TileTint.teal)
+                Image(systemName: "folder.fill").font(scaled: 10, weight: .semibold).foregroundStyle(TileTint.teal)
             } action: {
                 toggle(.folder)
             }
@@ -346,7 +346,7 @@ struct AgentLauncher: View {
             Button(action: start) {
                 HStack(spacing: 8) {
                     Text(startTitle)
-                    Image(systemName: "return").font(.system(size: 11, weight: .bold)).opacity(0.6)
+                    Image(systemName: "return").font(scaled: 11, weight: .bold).opacity(0.6)
                 }
                 .shimmer(starting)
             }
@@ -461,7 +461,7 @@ private extension AgentLauncher {
             quiet: permissions == info.defaultPermissions && output == info.defaultOutput && !chat,
             open: menu == .modes, identifier: "launcher.modes", label: String(localized: "More"), help: chosen,
         ) {
-            Image(systemName: "ellipsis").font(.system(size: 9.5, weight: .bold))
+            Image(systemName: "ellipsis").font(scaled: 9.5, weight: .bold)
                 .foregroundStyle(permissions == .unrestricted ? theme.colors.caution : info.kind.tint)
         } action: {
             toggle(.modes)
@@ -479,14 +479,14 @@ private extension AgentLauncher {
             loading: plan.models == nil && launcher.loadingModels.contains(info.agent),
             open: menu == .model, identifier: "launcher.model", label: String(localized: "Model and effort"),
         ) {
-            Image(systemName: "sparkle").font(.system(size: 9, weight: .bold)).foregroundStyle(info.kind.tint)
+            Image(systemName: "sparkle").font(scaled: 9, weight: .bold).foregroundStyle(info.kind.tint)
         } accessory: {
             if let level {
                 EffortBars(level: level, count: plan.efforts.count, height: 10)
                     .transition(AnyTransition.pop)
             }
             if plan.fast {
-                Image(systemName: "bolt.fill").font(.system(size: 9, weight: .bold)).foregroundStyle(info.kind.tint)
+                Image(systemName: "bolt.fill").font(scaled: 9, weight: .bold).foregroundStyle(info.kind.tint)
                     .transition(AnyTransition.pop)
             }
         } action: {

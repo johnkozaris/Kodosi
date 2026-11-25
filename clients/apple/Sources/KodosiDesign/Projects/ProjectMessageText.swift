@@ -55,7 +55,7 @@ public struct ProjectMessageText: View {
         #if os(iOS)
             label.swiftUI.font = .system(.body, weight: .semibold)
         #else
-            label.swiftUI.font = .system(size: 13, weight: .semibold)
+            label.swiftUI.font = .system(size: theme.scaled(13), weight: .semibold)
         #endif
         if let link = target.link {
             label.link = link

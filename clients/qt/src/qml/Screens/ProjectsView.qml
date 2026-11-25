@@ -265,7 +265,7 @@ Item {
                         ColumnLayout {
                             anchors.centerIn: parent
                             spacing: 10
-                            KIcon { Layout.alignment: Qt.AlignHCenter; Layout.preferredWidth: 18; Layout.preferredHeight: 18; name: "plus"; strokeWidth: 2.2 }
+                            KIcon { Layout.alignment: Qt.AlignHCenter; Layout.preferredWidth: KodosiTheme.scaled(18); Layout.preferredHeight: KodosiTheme.scaled(18); name: "plus"; strokeWidth: 2.2 }
                             PlainLabel { id: label; text: root.projects.length === 0 ? qsTr("Make your first project") : qsTr("New project"); color: KodosiTheme.inkMuted; font.weight: Font.DemiBold }
                         }
                     }

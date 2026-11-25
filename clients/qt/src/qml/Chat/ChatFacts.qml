@@ -100,8 +100,8 @@ Item {
         HoverHandler { id: markHover }
         KIcon {
             anchors.verticalCenter: parent.verticalCenter
-            width: 13
-            height: 13
+            width: KodosiTheme.scaled(13)
+            height: KodosiTheme.scaled(13)
             name: mark.icon || "hand"
             strokeWidth: 2.2
             color: mark.ink
@@ -551,8 +551,8 @@ Item {
 
                     KIcon {
                         anchors.verticalCenter: parent.verticalCenter
-                        width: 14
-                        height: 14
+                        width: KodosiTheme.scaled(14)
+                        height: KodosiTheme.scaled(14)
                         name: "refresh"
                         strokeWidth: 2.2
                         color: root.look.inkMuted

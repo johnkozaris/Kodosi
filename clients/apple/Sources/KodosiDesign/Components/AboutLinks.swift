@@ -18,7 +18,7 @@ public struct AboutLinks: View {
         Link(destination: URL(string: address)!) {
             ListRow(title, symbol: symbol, tint: tint) {
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(scaled: 12, weight: .semibold)
                     .foregroundStyle(theme.colors.inkFaint)
                     .accessibilityHidden(true)
             }

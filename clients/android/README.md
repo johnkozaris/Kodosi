@@ -90,9 +90,11 @@ containing a client matching the build's package name (`com.kodosi.mobile` for R
 supplies `FirebaseOptions` directly and doesn't need the Google Services Gradle plugin.
 
 The backend must have FCM HTTP v1 configured. After device approval, the app requests notification
-permission and registers its FCM token with the runtime, using WorkManager to retry token updates
-once online. Push payloads only carry terminal IDs, agents, and states; human-readable names come
-from a bounded local cache. Never ship server service-account credentials in the app.
+permission, registers with FCM by its Firebase installation ID, and passes that ID to the backend
+through the runtime. When FCM reports a new installation ID, WorkManager sends it to the backend
+once the phone is online. Push payloads only carry terminal IDs, agents, and states;
+human-readable names come from a bounded local cache. Never ship server service-account credentials
+in the app.
 
 ## Architecture overview
 

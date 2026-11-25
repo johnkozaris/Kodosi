@@ -4423,6 +4423,26 @@
         <translation>다크</translation>
     </message>
     <message>
+        <source>Text size</source>
+        <translation>텍스트 크기</translation>
+    </message>
+    <message>
+        <source>Small</source>
+        <translation>작게</translation>
+    </message>
+    <message>
+        <source>Normal</source>
+        <translation>보통</translation>
+    </message>
+    <message>
+        <source>Large</source>
+        <translation>크게</translation>
+    </message>
+    <message>
+        <source>Larger</source>
+        <translation>더 크게</translation>
+    </message>
+    <message>
         <source>Keep terminals dark</source>
         <translation>터미널 항상 다크로 유지</translation>
     </message>
@@ -4882,6 +4902,10 @@
     <message>
         <source>Motion settings could not be written. The previous choice remains active.</source>
         <translation>동작 설정을 저장하지 못했어요. 이전 선택이 그대로 적용돼요.</translation>
+    </message>
+    <message>
+        <source>Text size settings could not be written. The previous choice remains active.</source>
+        <translation>텍스트 크기 설정을 저장하지 못했어요. 이전 선택이 그대로 적용돼요.</translation>
     </message>
     <message>
         <source>Title settings could not be written. The previous choice remains active.</source>

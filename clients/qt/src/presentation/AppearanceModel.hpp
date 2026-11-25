@@ -19,6 +19,8 @@ class AppearanceModel final : public QObject {
     Q_PROPERTY(bool reduceMotion READ reduceMotion NOTIFY reduceMotionChanged FINAL)
     Q_PROPERTY(bool systemReducesMotion READ systemReducesMotion NOTIFY reduceMotionChanged FINAL)
     Q_PROPERTY(bool summaryFirst READ summaryFirst NOTIFY summaryFirstChanged FINAL)
+    Q_PROPERTY(TextSize textSize READ textSize NOTIFY textSizeChanged FINAL)
+    Q_PROPERTY(qreal textScale READ textScale NOTIFY textSizeChanged FINAL)
     Q_PROPERTY(QString settingsError READ settingsError NOTIFY settingsErrorChanged FINAL)
 
 public:
@@ -28,6 +30,14 @@ public:
         Dark = 2,
     };
     Q_ENUM(Preference)
+
+    enum class TextSize {
+        Small = 0,
+        Normal = 1,
+        Large = 2,
+        Larger = 3,
+    };
+    Q_ENUM(TextSize)
 
     struct StyleHooks {
         std::function<Qt::ColorScheme()> colorScheme;
@@ -48,12 +58,17 @@ public:
     [[nodiscard]] bool reduceMotion() const noexcept;
     [[nodiscard]] bool systemReducesMotion() const noexcept;
     [[nodiscard]] bool summaryFirst() const noexcept;
+    [[nodiscard]] TextSize textSize() const noexcept;
+    /// How much larger than normal the words and the controls around them are: about one point a
+    /// step at the size of the conversation.
+    [[nodiscard]] qreal textScale() const noexcept;
     [[nodiscard]] QString settingsError() const;
 
     Q_INVOKABLE [[nodiscard]] bool setPreference(int preference);
     Q_INVOKABLE [[nodiscard]] bool setKeepsTerminalsDark(bool enabled);
     Q_INVOKABLE [[nodiscard]] bool setReducesMotion(bool enabled);
     Q_INVOKABLE [[nodiscard]] bool setSummaryFirst(bool enabled);
+    Q_INVOKABLE [[nodiscard]] bool setTextSize(int size);
     Q_INVOKABLE [[nodiscard]] static int stableIndex(const QString& key, int count);
     Q_INVOKABLE [[nodiscard]] static int stableBits(const QString& key);
     // Only promote an agent's summary above the terminal name when the subtitle line is free to
@@ -69,6 +84,7 @@ signals:
     void terminalLookChanged();
     void reduceMotionChanged();
     void summaryFirstChanged();
+    void textSizeChanged();
     void settingsErrorChanged();
 
 private:
@@ -80,6 +96,7 @@ private:
     bool m_systemReducesMotion = false;
     bool m_reducesMotion = false;
     bool m_summaryFirst = false;
+    TextSize m_textSize = TextSize::Normal;
     QString m_settingsError;
 
     [[nodiscard]] bool store(const QString& key, const QVariant& value);

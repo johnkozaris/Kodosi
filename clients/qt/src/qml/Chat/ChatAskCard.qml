@@ -115,8 +115,8 @@ Item {
                 look: root.look
 
                 KIcon {
-                    Layout.preferredWidth: 15
-                    Layout.preferredHeight: 11
+                    Layout.preferredWidth: KodosiTheme.scaled(15)
+                    Layout.preferredHeight: KodosiTheme.scaled(11)
                     Layout.alignment: Qt.AlignVCenter
                     name: root.ask.icon || "cube"
                     strokeWidth: 2.2
@@ -156,8 +156,8 @@ Item {
                 spacing: 5
 
                 KIcon {
-                    Layout.preferredWidth: 11
-                    Layout.preferredHeight: 11
+                    Layout.preferredWidth: KodosiTheme.scaled(11)
+                    Layout.preferredHeight: KodosiTheme.scaled(11)
                     name: "people"
                     strokeWidth: 2.2
                     color: root.look.inkFaint
@@ -529,8 +529,8 @@ Item {
                 look: root.look
 
                 KIcon {
-                    Layout.preferredWidth: 15
-                    Layout.preferredHeight: 11
+                    Layout.preferredWidth: KodosiTheme.scaled(15)
+                    Layout.preferredHeight: KodosiTheme.scaled(11)
                     name: "tasks"
                     strokeWidth: 2.2
                     color: root.look.inkFaint

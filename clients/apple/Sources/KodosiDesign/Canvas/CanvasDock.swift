@@ -121,7 +121,7 @@ public struct CanvasDock: View {
         return Button { press(section) } label: {
             HStack(spacing: 5) {
                 Image(systemName: section.symbol)
-                    .font(.system(size: 11.5, weight: .semibold))
+                    .font(scaled: 11.5, weight: .semibold)
                     .foregroundStyle(selected ? theme.colors.accentStrong : theme.colors.inkMuted)
                 if let words {
                     Text(words).lineLimit(1).truncationMode(.middle)

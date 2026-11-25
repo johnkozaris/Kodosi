@@ -55,9 +55,9 @@ struct HistoryMessageView: View {
         VStack(alignment: .leading, spacing: 6) {
             Button { withAnimation(theme.motion.spring) { expanded.toggle() } } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "wrench.and.screwdriver").font(.system(size: 9, weight: .semibold))
+                    Image(systemName: "wrench.and.screwdriver").font(scaled: 9, weight: .semibold)
                     Text(entry.toolName ?? String(localized: "Tool")).lineLimit(1)
-                    Image(systemName: "chevron.right").font(.system(size: 7, weight: .bold)).rotationEffect(.degrees(expanded ? 90 : 0))
+                    Image(systemName: "chevron.right").font(scaled: 7, weight: .bold).rotationEffect(.degrees(expanded ? 90 : 0))
                 }
                 .appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted)
                 .padding(.horizontal, 9).frame(height: 22).background(theme.colors.ink.opacity(0.07), in: Capsule())

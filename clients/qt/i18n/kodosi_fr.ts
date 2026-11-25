@@ -4454,6 +4454,26 @@
         <translation>Sombre</translation>
     </message>
     <message>
+        <source>Text size</source>
+        <translation>Taille du texte</translation>
+    </message>
+    <message>
+        <source>Small</source>
+        <translation>Petite</translation>
+    </message>
+    <message>
+        <source>Normal</source>
+        <translation>Normale</translation>
+    </message>
+    <message>
+        <source>Large</source>
+        <translation>Grande</translation>
+    </message>
+    <message>
+        <source>Larger</source>
+        <translation>Plus grande</translation>
+    </message>
+    <message>
         <source>Keep terminals dark</source>
         <translation>Garder les terminaux sombres</translation>
     </message>
@@ -4921,6 +4941,10 @@
     <message>
         <source>Motion settings could not be written. The previous choice remains active.</source>
         <translation>Les réglages d&apos;animation n&apos;ont pas pu être enregistrés. Le choix précédent reste actif.</translation>
+    </message>
+    <message>
+        <source>Text size settings could not be written. The previous choice remains active.</source>
+        <translation>Le réglage de la taille du texte n&apos;a pas pu être enregistré. Le choix précédent reste actif.</translation>
     </message>
     <message>
         <source>Title settings could not be written. The previous choice remains active.</source>

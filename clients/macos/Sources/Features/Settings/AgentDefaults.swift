@@ -174,7 +174,7 @@ private struct ChoiceButton<Content: View>: View {
                 if let bars {
                     EffortBars(level: bars.level, count: bars.count, height: 10).transition(AnyTransition.pop)
                 }
-                Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(theme.colors.inkFaint)
+                Image(systemName: "chevron.up.chevron.down").font(scaled: 9, weight: .bold).foregroundStyle(theme.colors.inkFaint)
             }
         }
         .buttonStyle(.kodosi(.secondary))

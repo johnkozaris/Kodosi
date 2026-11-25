@@ -280,8 +280,8 @@ Item {
 
                                 KIcon {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: 12
-                                    height: 12
+                                    width: KodosiTheme.scaled(12)
+                                    height: KodosiTheme.scaled(12)
                                     name: "grid"
                                     strokeWidth: 2.1
                                     color: root.shelf ? KodosiTheme.ink : KodosiTheme.inkMuted
@@ -361,8 +361,8 @@ Item {
                                             spacing: 5
 
                                             KIcon {
-                                                Layout.preferredWidth: 12
-                                                Layout.preferredHeight: 12
+                                                Layout.preferredWidth: KodosiTheme.scaled(12)
+                                                Layout.preferredHeight: KodosiTheme.scaled(12)
                                                 opacity: tab.closing ? 0 : 1
                                                 name: root.glyph(tab.modelData.kind)
                                                 strokeWidth: 2.2

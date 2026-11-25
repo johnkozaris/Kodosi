@@ -4423,6 +4423,26 @@
         <translation>深色</translation>
     </message>
     <message>
+        <source>Text size</source>
+        <translation>文字大小</translation>
+    </message>
+    <message>
+        <source>Small</source>
+        <translation>小</translation>
+    </message>
+    <message>
+        <source>Normal</source>
+        <translation>标准</translation>
+    </message>
+    <message>
+        <source>Large</source>
+        <translation>大</translation>
+    </message>
+    <message>
+        <source>Larger</source>
+        <translation>特大</translation>
+    </message>
+    <message>
         <source>Keep terminals dark</source>
         <translation>终端始终保持深色</translation>
     </message>
@@ -4882,6 +4902,10 @@
     <message>
         <source>Motion settings could not be written. The previous choice remains active.</source>
         <translation>无法写入动态效果设置。之前的选择仍然有效。</translation>
+    </message>
+    <message>
+        <source>Text size settings could not be written. The previous choice remains active.</source>
+        <translation>无法写入文字大小设置。之前的选择仍然有效。</translation>
     </message>
     <message>
         <source>Title settings could not be written. The previous choice remains active.</source>

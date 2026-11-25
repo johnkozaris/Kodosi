@@ -520,7 +520,7 @@ ColumnLayout {
                 Accessible.name: qsTr("Recovery key")
                 Layout.fillWidth: true
                 font.family: "monospace"
-                font.pixelSize: 16
+                font.pixelSize: KodosiTheme.scaled(16)
                 font.weight: Font.DemiBold
                 horizontalAlignment: Text.AlignHCenter
                 objectName: "panel.settings.recovery-key.text"

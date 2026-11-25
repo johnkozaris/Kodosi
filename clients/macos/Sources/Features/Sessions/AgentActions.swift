@@ -81,11 +81,11 @@ struct AgentActions: View {
                     change(AgentSettings(fast: !fast))
                 } trailing: {
                     if pending.fast != nil {
-                        Image(systemName: "clock").font(.system(size: 10, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
+                        Image(systemName: "clock").font(scaled: 10, weight: .semibold).foregroundStyle(theme.colors.inkFaint)
                             .help(String(localized: "\(agent.label) changes when it finishes its turn."))
                     }
                     if fast {
-                        Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(theme.colors.accentStrong)
+                        Image(systemName: "checkmark").font(scaled: 11, weight: .bold).foregroundStyle(theme.colors.accentStrong)
                     }
                 }
                 .accessibilityAddTraits(fast ? .isSelected : [])
@@ -253,20 +253,20 @@ private struct FlyoutRow<Accessory: View>: View {
         let lit = hovered || open
         Button { open.toggle() } label: {
             HStack(spacing: 9) {
-                Image(systemName: icon).font(.system(size: 12.5, weight: .semibold))
+                Image(systemName: icon).font(scaled: 12.5, weight: .semibold)
                     .foregroundStyle(caution ? theme.colors.caution : lit ? theme.colors.ink : theme.colors.inkMuted)
                     .frame(width: 18)
-                title.font(.system(size: 12.5, weight: .medium)).foregroundStyle(theme.colors.ink).lineLimit(1)
+                title.font(scaled: 12.5, weight: .medium).foregroundStyle(theme.colors.ink).lineLimit(1)
                 Spacer(minLength: 12)
                 if waits {
-                    Image(systemName: "clock").font(.system(size: 10, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
+                    Image(systemName: "clock").font(scaled: 10, weight: .semibold).foregroundStyle(theme.colors.inkFaint)
                         .help(String(localized: "\(agent.label) changes when it finishes its turn."))
                         .transition(AnyTransition.pop)
                 }
                 Text(verbatim: value).appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted).lineLimit(1).fixedSize()
                 accessory()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(scaled: 9, weight: .bold)
                     .foregroundStyle(lit ? theme.colors.inkMuted : theme.colors.inkFaint)
             }
             .padding(.horizontal, 8).frame(height: 30)

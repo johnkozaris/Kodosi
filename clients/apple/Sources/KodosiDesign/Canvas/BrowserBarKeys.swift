@@ -12,7 +12,7 @@ struct SharedBrowserKey: View {
     var body: some View {
         ExplainedKey(words: explanation) {
             HStack(spacing: 4) {
-                Image(systemName: "person.2.fill").font(.system(size: 9, weight: .semibold))
+                Image(systemName: "person.2.fill").font(scaled: 9, weight: .semibold)
                 Text("Shared", bundle: .module)
             }
             .appTextStyle(.footnote).fontWeight(.medium).foregroundStyle(theme.colors.inkMuted)
@@ -33,7 +33,7 @@ struct BrowserProblemKey: View {
 
     var body: some View {
         ExplainedKey(words: problem) {
-            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 11, weight: .semibold))
+            Image(systemName: "exclamationmark.triangle.fill").font(scaled: 11, weight: .semibold)
                 .foregroundStyle(theme.colors.caution)
                 .frame(width: size, height: size)
                 .touchTarget(Rectangle())

@@ -162,7 +162,7 @@ public struct ProjectTerminalChip: View {
 
     public var body: some View {
         HStack(spacing: Self.spacing) {
-            Image(systemName: "apple.terminal").font(.system(size: glyph, weight: .bold))
+            Image(systemName: "apple.terminal").font(scaled: glyph, weight: .bold)
             Text(name).lineLimit(1)
             if let sign {
                 StatusSign(form: sign, size: 9)

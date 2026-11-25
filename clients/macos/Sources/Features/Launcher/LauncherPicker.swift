@@ -52,7 +52,7 @@ struct PickerKey<Glyph: View, Accessory: View>: View {
                     .shimmer(loading)
                 accessory()
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 8, weight: .bold))
+                    .font(scaled: 8, weight: .bold)
                     .foregroundStyle(open ? theme.colors.accentStrong : theme.colors.inkFaint)
                     .rotationEffect(.degrees(open ? 180 : 0))
             }
@@ -183,7 +183,7 @@ struct PickerList: View {
 
     private var filterWell: some View {
         HStack(spacing: 7) {
-            Image(systemName: "magnifyingglass").font(.system(size: 11, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
+            Image(systemName: "magnifyingglass").font(scaled: 11, weight: .semibold).foregroundStyle(theme.colors.inkFaint)
             if filter.isEmpty {
                 Text("Type to find").appTextStyle(.footnote).foregroundStyle(theme.colors.inkFaint)
             } else {
@@ -225,7 +225,7 @@ struct PickerList: View {
             }
             if row.current {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(scaled: 11, weight: .bold)
                     .foregroundStyle(theme.colors.accentStrong)
                     .transition(AnyTransition.pop)
             }

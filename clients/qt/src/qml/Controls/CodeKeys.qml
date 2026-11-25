@@ -20,8 +20,8 @@ Row {
             required property string modelData
             readonly property bool separator: modelData === "-" || modelData === " "
 
-            width: separator ? 12 : 40
-            height: 52
+            width: separator ? 12 : KodosiTheme.scaled(40)
+            height: KodosiTheme.scaled(52)
 
             Raised { anchors.fill: parent; visible: !key.separator; radius: KodosiTheme.radiusMd }
             Text {
@@ -29,7 +29,7 @@ Row {
                 text: key.modelData
                 color: key.separator ? KodosiTheme.inkFaint : KodosiTheme.ink
                 font.family: "monospace"
-                font.pixelSize: 24
+                font.pixelSize: KodosiTheme.scaled(24)
                 font.weight: Font.DemiBold
             }
         }

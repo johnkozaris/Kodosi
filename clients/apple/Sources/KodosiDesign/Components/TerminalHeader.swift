@@ -49,16 +49,16 @@ public struct TerminalLocation: View {
     public var body: some View {
         HStack(spacing: 4) {
             if let host {
-                DeviceGlyph(label: host).font(.system(size: 9.5, weight: .semibold))
+                DeviceGlyph(label: host).font(scaled: 9.5, weight: .semibold)
                 Text(host).lineLimit(1)
             }
             if host != nil, name != nil {
-                Image(systemName: "chevron.compact.right").font(.system(size: 11, weight: .medium))
+                Image(systemName: "chevron.compact.right").font(scaled: 11, weight: .medium)
                     .foregroundStyle(theme.colors.inkFaint).padding(.horizontal, 1)
             }
             if let name {
                 HStack(spacing: 4) {
-                    Image(systemName: glyph).font(.system(size: 9.5, weight: .semibold))
+                    Image(systemName: glyph).font(scaled: 9.5, weight: .semibold)
                     Text(name).lineLimit(1).truncationMode(.middle)
                 }
                 .foregroundStyle(theme.colors.ink.mix(with: theme.colors.inkMuted, by: 0.35))

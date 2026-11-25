@@ -19,12 +19,12 @@ private struct DosiMoreChip<List: View>: View {
         let shape = RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
         Button { open.toggle() } label: {
             HStack(spacing: 4) {
-                Text(verbatim: "\(count)").font(.system(size: 11.5, weight: .semibold).monospacedDigit())
-                Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold))
+                Text(verbatim: "\(count)").font(scaled: 11.5, weight: .semibold).monospacedDigit()
+                Image(systemName: "chevron.down").font(scaled: 8, weight: .bold)
                     .rotationEffect(.degrees(open ? 180 : 0))
             }
             .foregroundStyle(needs ? theme.colors.accentStrong : open || hovered ? theme.colors.ink : theme.colors.inkMuted)
-            .frame(width: DosiShelfFit.more(count), height: 26)
+            .frame(width: DosiShelfFit.more(count, size: theme.scaled(11.5)), height: 26)
             .background {
                 BezelBackground(shape: shape, fill: open || selected ? theme.colors.accentSoft
                     : theme.colors.raised.mix(with: theme.colors.ink, by: hovered ? 0.05 : 0), bezel: .quiet)
@@ -74,11 +74,11 @@ private struct DosiMoreRow<Mark: View, Sign: View>: View {
         } label: {
             HStack(spacing: 8) {
                 mark()
-                Text(name).font(.system(size: 12, weight: selected ? .semibold : .medium)).foregroundStyle(theme.colors.ink)
+                Text(name).font(scaled: 12, weight: selected ? .semibold : .medium).foregroundStyle(theme.colors.ink)
                     .lineLimit(1).truncationMode(.middle)
                 Spacer(minLength: 6)
                 if let detail {
-                    Text(detail).font(.system(size: 11)).foregroundStyle(theme.colors.inkFaint).lineLimit(1)
+                    Text(detail).font(scaled: 11).foregroundStyle(theme.colors.inkFaint).lineLimit(1)
                 }
                 sign()
             }

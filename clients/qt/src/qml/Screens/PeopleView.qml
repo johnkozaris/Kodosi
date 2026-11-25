@@ -80,7 +80,7 @@ Item {
                         anchors.rightMargin: 5
                         spacing: 8
 
-                        KIcon { Layout.preferredWidth: 14; Layout.preferredHeight: 14; name: "share"; color: KodosiTheme.inkFaint }
+                        KIcon { Layout.preferredWidth: KodosiTheme.scaled(14); Layout.preferredHeight: KodosiTheme.scaled(14); name: "share"; color: KodosiTheme.inkFaint }
                         TextInput {
                             id: handle
                             Layout.fillWidth: true

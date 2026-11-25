@@ -234,13 +234,13 @@ Item {
                 id: compactedView
 
                 Item {
-                    implicitHeight: 22
+                    implicitHeight: KodosiTheme.scaled(22)
 
                     Raised {
                         anchors.centerIn: parent
                         width: compacted.implicitWidth + 20
-                        height: 22
-                        radius: 11
+                        height: KodosiTheme.scaled(22)
+                        radius: height / 2
                         look: root.look
                         fill: root.look.raised
 
@@ -340,8 +340,8 @@ Item {
 
                         KIcon {
                             anchors.verticalCenter: parent.verticalCenter
-                            width: 11
-                            height: 11
+                            width: KodosiTheme.scaled(11)
+                            height: KodosiTheme.scaled(11)
                             name: "tasks"
                             strokeWidth: 2.2
                             color: root.look.inkMuted
@@ -400,8 +400,8 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         visible: entry.line.end !== "done"
                         width: endTag.implicitWidth + 18
-                        height: 20
-                        radius: 10
+                        height: KodosiTheme.scaled(20)
+                        radius: height / 2
                         look: root.look
                         fill: root.look.raised
 
@@ -437,8 +437,8 @@ Item {
                     spacing: 8
 
                     KIcon {
-                        width: 13
-                        height: 13
+                        width: KodosiTheme.scaled(13)
+                        height: KodosiTheme.scaled(13)
                         y: 12
                         name: notice.recap ? "text" : entry.line.note === "signedOut" ? "key" : "warning"
                         strokeWidth: 2.4
@@ -472,12 +472,12 @@ Item {
                 id: nowView
 
                 Item {
-                    implicitHeight: 20 + (entry.lead ? 2 : 8)
+                    implicitHeight: KodosiTheme.scaled(20) + (entry.lead ? 2 : 8)
 
                     RollingText {
                         y: entry.lead ? 2 : 8
                         width: Math.min(implicitWidth, parent.width)
-                        height: 20
+                        height: KodosiTheme.scaled(20)
                         text: entry.line.words || ""
                         color: root.look.inkMuted
                         font.pixelSize: KodosiTheme.fontFootnote

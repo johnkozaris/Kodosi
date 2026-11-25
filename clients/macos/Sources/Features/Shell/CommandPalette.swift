@@ -40,7 +40,7 @@ struct CommandPalette: View {
                 .contentShape(Rectangle()).onTapGesture(perform: close)
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
-                    Image(systemName: "magnifyingglass").font(.system(size: 13, weight: .semibold)).foregroundStyle(theme.colors.inkMuted)
+                    Image(systemName: "magnifyingglass").font(scaled: 13, weight: .semibold).foregroundStyle(theme.colors.inkMuted)
                     TextField("Go to a terminal, a project or a person", text: $query)
                         .textFieldStyle(.plain).appTextStyle(.body).focused($focused)
                         .onSubmit { run(results) }
@@ -212,7 +212,7 @@ private struct Keycap: View {
     var body: some View {
         Group {
             if let symbol {
-                Image(systemName: symbol).font(.system(size: 9, weight: .bold))
+                Image(systemName: symbol).font(scaled: 9, weight: .bold)
             } else if let text {
                 Text(verbatim: text).appTextStyle(.caption2)
             }

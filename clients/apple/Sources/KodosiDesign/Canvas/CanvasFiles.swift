@@ -45,7 +45,7 @@ public struct CanvasFilesBar<Actions: View>: View {
                 withAnimation(theme.motion.snappy) { store.showShelf(!shelf, in: session.id) }
             } label: {
                 HStack(spacing: 5) {
-                    Image(systemName: "rectangle.stack").font(.system(size: 11, weight: .semibold))
+                    Image(systemName: "rectangle.stack").font(scaled: 11, weight: .semibold)
                     Text(files.count, format: .number).monospacedDigit()
                 }
                 .appTextStyle(.footnote).fontWeight(.medium)
@@ -259,7 +259,7 @@ struct CanvasCard: View {
                 Image(decorative: image, scale: 1).resizable().interpolation(.high).scaledToFill()
             case let .title(title):
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(title).font(.system(size: 9.5, weight: .bold)).foregroundStyle(theme.colors.ink).lineLimit(2)
+                    Text(title).font(scaled: 9.5, weight: .bold).foregroundStyle(theme.colors.ink).lineLimit(2)
                     ForEach([0.92, 0.8, 0.86, 0.5], id: \.self) { part in
                         GeometryReader { geometry in
                             Capsule().fill(theme.colors.inkFaint.opacity(0.35)).frame(width: geometry.size.width * part, height: 3)

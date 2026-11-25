@@ -13,15 +13,15 @@ Item {
         return days === 0 ? qsTr("Today") : days === 1 ? qsTr("Yesterday") : date.toLocaleDateString(Qt.locale(), qsTr("d MMMM"))
     }
 
-    implicitHeight: 26
+    implicitHeight: KodosiTheme.scaled(26)
     Accessible.role: Accessible.StaticText
     Accessible.name: label
 
     Rectangle {
         anchors.centerIn: parent
         width: day.implicitWidth + 20
-        height: 20
-        radius: 10
+        height: KodosiTheme.scaled(20)
+        radius: height / 2
         color: KodosiTheme.alpha(root.look.ink, 0.07)
 
         PlainLabel {

@@ -83,7 +83,7 @@ public struct SegmentedPill<Value: Hashable>: View {
             } label: {
                 HStack(spacing: 6) {
                     if let symbol = option.symbol {
-                        Image(systemName: symbol).font(.system(size: compact ? 11 : 12, weight: .semibold))
+                        Image(systemName: symbol).font(scaled: compact ? 11 : 12, weight: .semibold)
                     }
                     if !symbolic {
                         Text(option.title)
@@ -238,7 +238,7 @@ public struct SectionDock: View {
         if let progress = item.progress {
             ProgressRing(value: progress, size: 14, lineWidth: 2.4)
         } else {
-            Image(systemName: item.symbol).font(.system(size: 12, weight: .semibold))
+            Image(systemName: item.symbol).font(scaled: 12, weight: .semibold)
                 .foregroundStyle(selected ? theme.colors.accentStrong : theme.colors.inkMuted)
         }
     }
@@ -282,7 +282,7 @@ public struct CountBadge: View {
 
     public var body: some View {
         Text(verbatim: count > 99 ? "99+" : "\(count)")
-            .font(.system(size: 10, weight: .semibold, design: .rounded)).monospacedDigit()
+            .font(scaled: 10, weight: .semibold, design: .rounded).monospacedDigit()
             .foregroundStyle(quiet ? theme.colors.inkMuted : theme.colors.onAccent)
             .padding(.horizontal, 5)
             .frame(minWidth: 17, minHeight: 17)

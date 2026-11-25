@@ -65,7 +65,7 @@ struct ProjectsLobby: View {
                     Button { deps.workbench.showsNewProject = true } label: {
                         DashedSlot(radius: Radius.xl) {
                             VStack(spacing: 10) {
-                                Image(systemName: "plus").font(.system(size: 18, weight: .semibold))
+                                Image(systemName: "plus").font(scaled: 18, weight: .semibold)
                                 Text(deps.projects.entries.isEmpty ? "Make your first project" : "New project").appTextStyle(.subhead)
                             }
                             .foregroundStyle(theme.colors.inkMuted)

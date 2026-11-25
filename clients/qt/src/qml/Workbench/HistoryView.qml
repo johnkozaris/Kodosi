@@ -153,7 +153,7 @@ KPopover {
                                 }
                                 RowLayout {
                                     spacing: 5
-                                    KIcon { Layout.preferredWidth: 10; Layout.preferredHeight: 10; name: "folder"; color: KodosiTheme.inkFaint }
+                                    KIcon { Layout.preferredWidth: KodosiTheme.scaled(10); Layout.preferredHeight: KodosiTheme.scaled(10); name: "folder"; color: KodosiTheme.inkFaint }
                                     PlainLabel {
                                         Layout.fillWidth: true
                                         text: Models.Sessions.folderName(conversation.modelData.workingDirectory)

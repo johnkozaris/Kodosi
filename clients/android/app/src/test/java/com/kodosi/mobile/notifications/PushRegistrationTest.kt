@@ -17,9 +17,9 @@ class PushRegistrationTest {
     private val sent = SentCommands().apply { sink.setAccount("ana", 1) }
 
     @Test
-    fun anApprovedDeviceRegistersOnceAndTokenRotationRegistersAgain() = runTest {
-        var token = "first-token"
-        val registration = PushRegistration(sent.sink, this, { token }, {})
+    fun anApprovedDeviceRegistersOnceAndANewInstallationRegistersAgain() = runTest {
+        var installation = "first-installation"
+        val registration = PushRegistration(sent.sink, this, { installation }, {})
         val initial = registration.update("ana", 1, true)
         runCurrent()
         registration.update("ana", 1, true)
@@ -33,36 +33,65 @@ class PushRegistrationTest {
         registration.update("ana", 1, true)
         runCurrent()
         assertEquals(1, sent.commands.size)
-        token = "rotated-token"
-        val rotated = registration.update("ana", 1, true, force = true)
+        installation = "new-installation"
+        val renewed = registration.update("ana", 1, true, force = true)
         runCurrent()
-        assertEquals("rotated-token", sent.last("push.register").string("token"))
+        assertEquals("new-installation", sent.last("push.register").string("token"))
         sent.reply("push.register")
         runCurrent()
-        assertTrue(registration.await(rotated))
+        assertTrue(registration.await(renewed))
     }
 
     @Test
-    fun aTokenThatArrivesAfterSignOutCannotRegisterForTheNextAccount() = runTest {
-        val token = CompletableDeferred<String>()
-        var forgotten = false
-        val registration = PushRegistration(sent.sink, this, { token.await() }, { forgotten = true })
+    fun aReportedRegistrationUpdatesTheBackendWithoutCallingRegisterAgain() = runTest {
+        var registerCalls = 0
+        val registration = PushRegistration(
+            sent.sink,
+            this,
+            {
+                registerCalls += 1
+                "installation"
+            },
+            {}
+        )
+        val initial = registration.update("ana", 1, true)
+        runCurrent()
+        sent.reply("push.register")
+        runCurrent()
+        assertTrue(registration.await(initial))
+        assertEquals(1, registerCalls)
+
+        val refreshed = registration.update("ana", 1, true, force = true, registered = "installation")
+        runCurrent()
+        assertEquals(1, registerCalls)
+        assertEquals(2, sent.commands.size)
+        assertEquals("installation", sent.last("push.register").string("token"))
+        sent.reply("push.register")
+        runCurrent()
+        assertTrue(registration.await(refreshed))
+    }
+
+    @Test
+    fun anInstallationThatArrivesAfterSignOutCannotRegisterForTheNextAccount() = runTest {
+        val installation = CompletableDeferred<String>()
+        var unregistered = false
+        val registration = PushRegistration(sent.sink, this, { installation.await() }, { unregistered = true })
         registration.update("ana", 1, true)
         runCurrent()
         sent.sink.setAccount(null, 2)
         val signedOut = registration.update(null, 2, false)
-        token.complete("old-token")
+        installation.complete("old-installation")
         runCurrent()
 
         assertTrue(sent.commands.isEmpty())
-        assertTrue(forgotten)
+        assertTrue(unregistered)
         assertTrue(registration.await(signedOut))
     }
 
     @Test
     fun turningNotificationsOffWaitsForAnInFlightRegistrationBeforeRemovingIt() = runTest {
-        var forgotten = false
-        val registration = PushRegistration(sent.sink, this, { "token" }, { forgotten = true })
+        var unregistered = false
+        val registration = PushRegistration(sent.sink, this, { "installation" }, { unregistered = true })
         registration.update("ana", 1, true)
         runCurrent()
         val disabled = registration.update("ana", 1, false)
@@ -74,7 +103,7 @@ class PushRegistrationTest {
         assertEquals(listOf("push.register", "push.unregister"), sent.types)
         sent.reply("push.unregister")
         runCurrent()
-        assertTrue(forgotten)
+        assertTrue(unregistered)
         assertTrue(registration.await(disabled))
     }
 
@@ -84,7 +113,7 @@ class PushRegistrationTest {
         val registration = PushRegistration(
             sent.sink,
             this,
-            { if (!online) error("No connection.") else "token" },
+            { if (!online) error("No connection.") else "installation" },
             {}
         )
         val failed = registration.update("ana", 1, true)

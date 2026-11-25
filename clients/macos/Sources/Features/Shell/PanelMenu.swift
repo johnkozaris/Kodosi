@@ -40,14 +40,14 @@ struct PanelMenuRow<Trailing: View>: View {
                 Group {
                     switch icon {
                     case let .symbol(symbol):
-                        Image(systemName: symbol).font(.system(size: 12.5, weight: .semibold))
+                        Image(systemName: symbol).font(scaled: 12.5, weight: .semibold)
                             .foregroundStyle(iconColor(lit: lit))
                     case let .agent(kind):
                         AgentMark(kind: kind, size: 18, activity: .awake)
                     }
                 }
                 .frame(width: 18)
-                title.font(.system(size: 12.5, weight: .medium)).foregroundStyle(titleColor).lineLimit(1)
+                title.font(scaled: 12.5, weight: .medium).foregroundStyle(titleColor).lineLimit(1)
                 Spacer(minLength: 8)
                 trailing()
             }

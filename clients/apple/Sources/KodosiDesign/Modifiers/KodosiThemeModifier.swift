@@ -9,6 +9,7 @@ private struct KodosiThemeModifier: ViewModifier {
     @AppStorage(ThemePreference.storageKey) private var preference: String = ThemePreference.system.rawValue
     @AppStorage(MotionPreference.storageKey) private var reducesMotion = false
     #if os(macOS)
+        @AppStorage(TextSize.storageKey) private var textSize = TextSize.normal.rawValue
         @State private var windowVisible = true
     #else
         @Environment(\.scenePhase) private var scenePhase
@@ -26,7 +27,12 @@ private struct KodosiThemeModifier: ViewModifier {
 
     private var resolved: AppTheme {
         let pref = ThemePreference(rawValue: preference) ?? .system
-        return pref.resolve(systemColorScheme: systemColorScheme).reducingMotion(reduceMotion || reducesMotion || !onScreen)
+        let theme = pref.resolve(systemColorScheme: systemColorScheme).reducingMotion(reduceMotion || reducesMotion || !onScreen)
+        #if os(macOS)
+            return theme.scalingText((TextSize(rawValue: textSize) ?? .normal).scale)
+        #else
+            return theme
+        #endif
     }
 
     private var colorSchemeOverride: ColorScheme? {

@@ -154,7 +154,7 @@ struct SidebarView: View {
             if !deps.account.isReady {
                 Button { deps.beginSignIn() } label: {
                     HStack(spacing: 9) {
-                        Image(systemName: "person.2.wave.2").font(.system(size: 12, weight: .semibold)).frame(width: 22)
+                        Image(systemName: "person.2.wave.2").font(scaled: 12, weight: .semibold).frame(width: 22)
                         Text(deps.account.userId == nil
                             ? String(localized: "Sign in to work together") : String(localized: "Trust this Mac to work together"))
                             .appTextStyle(.footnote)
@@ -296,7 +296,7 @@ struct NewTerminalButton: View {
     var body: some View {
         Button { deps.openLauncher() } label: {
             HStack(spacing: 8) {
-                Image(systemName: "plus").font(.system(size: 12, weight: .bold))
+                Image(systemName: "plus").font(scaled: 12, weight: .bold)
                 Text("New terminal")
                 Spacer(minLength: 0)
                 Text(verbatim: deps.settings.shortcuts.keys(for: .newTerminal).first?.label ?? "")

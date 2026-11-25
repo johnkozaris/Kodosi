@@ -94,6 +94,8 @@ object names, `body` for chat messages and list rows, `footnote` and `caption` f
 `mono` for code and paths. Use sentence case for all labels. The wordmark is rendered as an image
 asset.
 
+A person picks the text size in Settings: Small, Normal, Large or Larger, about one point a step at the size of the conversation. It scales the text styles, the other sizes of words and of the symbols beside them (`font(scaled:)`), and the heights of the controls that hold words, so a key keeps its text centered. Marks, avatars, pictures, icon-only keys and spacing keep their size. The terminal has its own font size, and a document on the canvas its own zoom.
+
 ## Layout
 
 The window has no standard title bar. The sidebar collapses to an icon rail or widens for Dosi,

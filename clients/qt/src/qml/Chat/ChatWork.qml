@@ -53,8 +53,8 @@ Column {
 
                 KIcon {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 15
-                    height: 11
+                    width: KodosiTheme.scaled(15)
+                    height: KodosiTheme.scaled(11)
                     name: root.line.icon || "cube"
                     strokeWidth: 2.2
                     color: root.look.inkFaint
@@ -90,8 +90,8 @@ Column {
                 }
                 KIcon {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 9
-                    height: 9
+                    width: KodosiTheme.scaled(9)
+                    height: KodosiTheme.scaled(9)
                     name: "chevron-right"
                     rotation: root.open ? 90 : 0
                     strokeWidth: 2.8

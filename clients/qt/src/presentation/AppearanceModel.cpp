@@ -16,6 +16,9 @@ const auto preferenceKey = QStringLiteral("appearance/preference");
 const auto motionKey = QStringLiteral("appearance/reduceMotion");
 const auto terminalsKey = QStringLiteral("appearance/keepTerminalsDark");
 const auto summaryKey = QStringLiteral("appearance/summaryFirst");
+const auto textSizeKey = QStringLiteral("appearance/textSize");
+const QStringList textSizeNames { QStringLiteral("small"), QStringLiteral("normal"), QStringLiteral("large"),
+    QStringLiteral("larger") };
 
 QString preferenceName(const AppearanceModel::Preference preference)
 {
@@ -89,6 +92,8 @@ AppearanceModel::AppearanceModel(
     m_reducesMotion = m_settings->value(motionKey).toString() == QStringLiteral("true");
     m_keepsTerminalsDark = m_settings->value(terminalsKey).toString() == QStringLiteral("true");
     m_summaryFirst = m_settings->value(summaryKey).toString() == QStringLiteral("true");
+    const auto storedSize = textSizeNames.indexOf(m_settings->value(textSizeKey).toString());
+    m_textSize = storedSize < 0 ? TextSize::Normal : static_cast<TextSize>(storedSize);
     applyPreference();
 }
 
@@ -147,6 +152,26 @@ bool AppearanceModel::systemReducesMotion() const noexcept
 bool AppearanceModel::summaryFirst() const noexcept
 {
     return m_summaryFirst;
+}
+
+AppearanceModel::TextSize AppearanceModel::textSize() const noexcept
+{
+    return m_textSize;
+}
+
+qreal AppearanceModel::textScale() const noexcept
+{
+    switch (m_textSize) {
+    case TextSize::Small:
+        return 0.92;
+    case TextSize::Normal:
+        return 1;
+    case TextSize::Large:
+        return 1.08;
+    case TextSize::Larger:
+        return 1.16;
+    }
+    return 1;
 }
 
 QString AppearanceModel::leadingSummary(const QVariantMap& session, const bool summaryFirst)
@@ -222,6 +247,26 @@ bool AppearanceModel::setReducesMotion(const bool enabled)
     }
     setError({});
     updateMotion(m_systemReducesMotion, enabled);
+    return true;
+}
+
+bool AppearanceModel::setTextSize(const int size)
+{
+    if (size < 0 || size >= textSizeNames.size()) {
+        return false;
+    }
+    const auto chosen = static_cast<TextSize>(size);
+    if (chosen == m_textSize) {
+        return true;
+    }
+    if (!store(textSizeKey, textSizeNames.at(size))) {
+        setError(tr(
+            "Text size settings could not be written. The previous choice remains active."));
+        return false;
+    }
+    setError({});
+    m_textSize = chosen;
+    emit textSizeChanged();
     return true;
 }
 

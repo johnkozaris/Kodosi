@@ -4454,6 +4454,26 @@
         <translation>Σκουρόχρωμο</translation>
     </message>
     <message>
+        <source>Text size</source>
+        <translation>Μέγεθος κειμένου</translation>
+    </message>
+    <message>
+        <source>Small</source>
+        <translation>Μικρό</translation>
+    </message>
+    <message>
+        <source>Normal</source>
+        <translation>Κανονικό</translation>
+    </message>
+    <message>
+        <source>Large</source>
+        <translation>Μεγάλο</translation>
+    </message>
+    <message>
+        <source>Larger</source>
+        <translation>Μεγαλύτερο</translation>
+    </message>
+    <message>
         <source>Keep terminals dark</source>
         <translation>Τερματικά πάντα σκουρόχρωμα</translation>
     </message>
@@ -4921,6 +4941,10 @@
     <message>
         <source>Motion settings could not be written. The previous choice remains active.</source>
         <translation>Οι ρυθμίσεις κίνησης δεν αποθηκεύτηκαν. Η προηγούμενη επιλογή παραμένει ενεργή.</translation>
+    </message>
+    <message>
+        <source>Text size settings could not be written. The previous choice remains active.</source>
+        <translation>Η ρύθμιση μεγέθους κειμένου δεν αποθηκεύτηκε. Η προηγούμενη επιλογή παραμένει ενεργή.</translation>
     </message>
     <message>
         <source>Title settings could not be written. The previous choice remains active.</source>

@@ -140,7 +140,7 @@ public struct ProjectMentionSuggestions: View {
             }
             Spacer(minLength: 4)
             if highlighted {
-                Image(systemName: "return").font(.system(size: Self.returnGlyph, weight: .bold)).foregroundStyle(theme.colors.inkFaint)
+                Image(systemName: "return").font(scaled: Self.returnGlyph, weight: .bold).foregroundStyle(theme.colors.inkFaint)
             }
         }
         .padding(.horizontal, Self.inset)

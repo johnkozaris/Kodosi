@@ -192,7 +192,7 @@ private struct TerminalScope: ViewModifier {
     let look: TerminalLook
 
     func body(content: Content) -> some View {
-        let scoped = AppTheme(look: look).reducingMotion(theme.motion.reduced)
+        let scoped = AppTheme(look: look).reducingMotion(theme.motion.reduced).scalingText(theme.textScale)
         content
             .environment(\.chromeTheme, chrome ?? theme)
             .environment(\.theme, scoped)

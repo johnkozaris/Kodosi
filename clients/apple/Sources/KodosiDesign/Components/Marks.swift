@@ -301,6 +301,10 @@ public struct StatusSign: View {
             glyph.id(form).transition(.asymmetric(insertion: .scale(scale: 0.6).combined(with: .opacity), removal: .opacity))
         }
         .frame(width: size + 5, height: size + 5)
+        // A drawn check and a dot have no baseline, so a line of words would carry them on their
+        // bottom edge; each form sits where a symbol of its size sits.
+        .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + size * 0.36 }
+        .alignmentGuide(.lastTextBaseline) { $0[VerticalAlignment.center] + size * 0.36 }
         .animation(theme.motion.snappy, value: form)
         .accessibilityElement()
         .accessibilityLabel(Text(form.label))
@@ -543,7 +547,7 @@ public struct VerifiedSeal: View {
 
     public var body: some View {
         Image(systemName: "checkmark.seal.fill")
-            .font(.system(size: size, weight: .semibold))
+            .font(scaled: size, weight: .semibold)
             .foregroundStyle(theme.colors.ready)
             .accessibilityLabel(Text("Verified", bundle: .module))
     }

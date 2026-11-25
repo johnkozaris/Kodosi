@@ -13,8 +13,16 @@ public enum AppTextStyle: Sendable {
     case mono
     case monoCaption
 
-    fileprivate var font: Font {
+    fileprivate func font(_ theme: AppTheme) -> Font {
         #if os(iOS)
+            textStyleFont
+        #else
+            .system(size: theme.scaled(points), weight: weight, design: design)
+        #endif
+    }
+
+    #if os(iOS)
+        private var textStyleFont: Font {
             switch self {
             case .large: .system(.largeTitle, weight: .semibold)
             case .title: .system(.title2, weight: .semibold)
@@ -28,22 +36,38 @@ public enum AppTextStyle: Sendable {
             case .mono: .system(.subheadline, design: .monospaced)
             case .monoCaption: .system(.caption, design: .monospaced)
             }
-        #else
+        }
+    #else
+        /// The size at the Normal text size.
+        private var points: CGFloat {
             switch self {
-            case .large: .system(size: 28, weight: .semibold)
-            case .title: .system(size: 20, weight: .semibold)
-            case .headline: .system(size: 15, weight: .semibold)
-            case .subhead: .system(size: 13, weight: .semibold)
-            case .callout: .system(size: 14)
-            case .body: .system(size: 13)
-            case .footnote: .system(size: 12)
-            case .caption: .system(size: 11, weight: .medium)
-            case .caption2: .system(size: 10, weight: .medium)
-            case .mono: .system(size: 12.5, design: .monospaced)
-            case .monoCaption: .system(size: 11, design: .monospaced)
+            case .large: 28
+            case .title: 20
+            case .headline: 15
+            case .callout: 14
+            case .subhead, .body: 13
+            case .mono: 12.5
+            case .footnote: 12
+            case .caption, .monoCaption: 11
+            case .caption2: 10
             }
-        #endif
-    }
+        }
+
+        private var weight: Font.Weight {
+            switch self {
+            case .large, .title, .headline, .subhead: .semibold
+            case .caption, .caption2: .medium
+            case .callout, .body, .footnote, .mono, .monoCaption: .regular
+            }
+        }
+
+        private var design: Font.Design {
+            switch self {
+            case .mono, .monoCaption: .monospaced
+            case .large, .title, .headline, .subhead, .callout, .body, .footnote, .caption, .caption2: .default
+            }
+        }
+    #endif
 
     fileprivate var tracking: CGFloat {
         switch self {
@@ -56,27 +80,68 @@ public enum AppTextStyle: Sendable {
     }
 }
 
-public extension View {
-    func appTextStyle(_ style: AppTextStyle) -> some View {
-        font(style.font).tracking(style.tracking)
+private struct AppTextStyleFont: ViewModifier {
+    @Environment(\.theme) private var theme
+    let style: AppTextStyle
+
+    func body(content: Content) -> some View {
+        content.font(style.font(theme)).tracking(style.tracking * theme.textScale)
     }
 }
 
-extension View {
-    /// Fixed height on macOS; minimum height on iOS to accommodate Dynamic Type.
-    func controlHeight(_ height: CGFloat) -> some View {
+/// A size of words or symbols that the person's text size scales on a Mac.
+private struct ScaledFont: ViewModifier {
+    @Environment(\.theme) private var theme
+    let size: CGFloat
+    let style: Font.TextStyle?
+    let weight: Font.Weight
+    let design: Font.Design
+
+    func body(content: Content) -> some View {
         #if os(iOS)
-            frame(minHeight: height)
+            if let style {
+                content.font(.system(style, design: design, weight: weight))
+            } else {
+                content.font(.system(size: size, weight: weight, design: design))
+            }
         #else
-            frame(height: height)
+            content.font(.system(size: theme.scaled(size), weight: weight, design: design))
         #endif
     }
+}
 
-    func font(mac size: CGFloat, ios style: Font.TextStyle, weight: Font.Weight = .regular, design: Font.Design = .default) -> some View {
+/// Exactly this height on a Mac, at the person's text size, and at least this on iPhone and iPad,
+/// where the text grows with Dynamic Type.
+private struct ControlHeight: ViewModifier {
+    @Environment(\.theme) private var theme
+    let height: CGFloat
+
+    func body(content: Content) -> some View {
         #if os(iOS)
-            font(.system(style, design: design, weight: weight))
+            content.frame(minHeight: height)
         #else
-            font(.system(size: size, weight: weight, design: design))
+            content.frame(height: theme.scaled(height))
         #endif
+    }
+}
+
+public extension View {
+    func appTextStyle(_ style: AppTextStyle) -> some View {
+        modifier(AppTextStyleFont(style: style))
+    }
+
+    /// `size` points at the person's text size on a Mac, and the same points on iPhone and iPad.
+    func font(scaled size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> some View {
+        modifier(ScaledFont(size: size, style: nil, weight: weight, design: design))
+    }
+
+    /// `size` points at the person's text size on a Mac, and the text style `style` on iPhone and
+    /// iPad, where it grows with Dynamic Type.
+    func font(mac size: CGFloat, ios style: Font.TextStyle, weight: Font.Weight = .regular, design: Font.Design = .default) -> some View {
+        modifier(ScaledFont(size: size, style: style, weight: weight, design: design))
+    }
+
+    func controlHeight(_ height: CGFloat) -> some View {
+        modifier(ControlHeight(height: height))
     }
 }
