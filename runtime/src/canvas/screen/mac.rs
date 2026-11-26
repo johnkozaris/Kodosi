@@ -45,11 +45,14 @@ impl Screens {
         Some(Self(screen::Screens::new(screen::Settings {
             helper,
             sockets,
-            notice: Arc::new(|names| {
+            notice: Arc::new(|devices| {
                 let language = crate::text::language();
+                let watching = match devices {
+                    [device] => text!("{device} is watching", device = device),
+                    _ => text!("{devices} are watching", devices = devices.join(", ")),
+                };
                 screen::Notice {
-                    watching: text!("Watching this screen: {names}", names = names.join(", "))
-                        .in_language(language),
+                    watching: watching.in_language(language),
                     stop: text!("Stop sharing").in_language(language),
                 }
             }),

@@ -10,7 +10,7 @@ use objc2_core_graphics::{
     CGRequestScreenCaptureAccess,
 };
 use screen::link::{self, Access, Away, FromHelper, Message, Source, Sources, ToHelper, VERSION};
-use stream::viewer::{Input, MouseAction};
+use stream::viewer::{Input, KeyAction, MouseAction};
 use stream_encode::{Encoder, Settings};
 use tokio::{
     io::AsyncWriteExt as _,
@@ -24,6 +24,8 @@ use tokio::{
 use super::{
     app,
     capture::{Capture, Frames, Wanted},
+    clipboard::{self, Clipboard},
+    hand,
     input::Hands,
     power::{self, Power},
     raise,
@@ -36,6 +38,8 @@ pub(super) const MESSAGES: usize = 64;
 const LOOK_EVERY: Duration = Duration::from_secs(2);
 /// How long a raised window takes to come to the front, before the click that follows.
 const RAISING: Duration = Duration::from_millis(50);
+/// How often the helper looks whether something was copied, while the screen is captured.
+const COPIES_EVERY: Duration = Duration::from_millis(500);
 
 pub(super) enum Event {
     /// The person at the computer stopped the sharing.
@@ -107,6 +111,7 @@ struct Session {
     /// The encoder, from the first capture until the host stops it.
     frames: Option<Arc<Frames>>,
     hands: Hands,
+    clipboard: Clipboard,
 }
 
 impl Session {
@@ -124,6 +129,7 @@ impl Session {
             capture: None,
             frames: None,
             hands: Hands::new(),
+            clipboard: Clipboard::new(),
         }
     }
 
@@ -146,6 +152,8 @@ impl Session {
         tokio::spawn(read(reader, heard));
         let mut looking = tokio::time::interval(LOOK_EVERY);
         looking.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        let mut copies = tokio::time::interval(COPIES_EVERY);
+        copies.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
             tokio::select! {
                 said = hearing.recv() => {
@@ -158,6 +166,7 @@ impl Session {
                 }
                 Some(event) = events.recv() => self.event(event).await,
                 _ = looking.tick() => self.look().await,
+                _ = copies.tick(), if self.capture.is_some() => self.copies(),
             }
         }
         self.stop().await;
@@ -200,6 +209,7 @@ impl Session {
                     self.look().await;
                 }
             }
+            ToHelper::Clipboard { text } => self.clipboard.put(&text),
             ToHelper::Ask => {
                 if !self.access.screen {
                     CGRequestScreenCaptureAccess();
@@ -238,6 +248,8 @@ impl Session {
         }
         if let Some(earlier) = self.capture.take() {
             earlier.stop().await;
+        } else {
+            self.clipboard.settle();
         }
         self.capture = Some(Capture::start(content, wanted, frames).await?);
         self.power.keep_awake(true);
@@ -282,10 +294,27 @@ impl Session {
         }
     }
 
+    /// Sends text copied on the computer to the host; reading it may wait for the person at the
+    /// computer to allow it.
+    fn copies(&mut self) {
+        if !self.clipboard.changed() {
+            return;
+        }
+        let say = self.say.clone();
+        tokio::spawn(async move {
+            if let Ok(Some(text)) = tokio::task::spawn_blocking(clipboard::copied).await {
+                drop(say.send(link::json(&FromHelper::Copied { text })).await);
+            }
+        });
+    }
+
     async fn play(&mut self, input: &Input) {
         let Some(source) = self.capture.as_ref().map(|capture| capture.source) else {
             return;
         };
+        if hand::busy() && !lets_go(input) {
+            return;
+        }
         let Some(bounds) = sources::bounds(source).filter(|_| self.access.input) else {
             return;
         };
@@ -352,6 +381,20 @@ impl Session {
     async fn tell(&self, message: FromHelper) {
         drop(self.say.send(link::json(&message)).await);
     }
+}
+
+/// Letting go of what a viewer holds goes through even while the person at the computer uses it.
+const fn lets_go(input: &Input) -> bool {
+    matches!(
+        input,
+        Input::Mouse {
+            action: MouseAction::Release,
+            ..
+        } | Input::Key {
+            action: KeyAction::Up,
+            ..
+        }
+    )
 }
 
 /// Windows come front to back, so bringing one forward changes their order but not the sources.

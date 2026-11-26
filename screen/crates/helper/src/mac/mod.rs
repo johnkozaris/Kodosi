@@ -8,8 +8,11 @@
 
 mod app;
 mod capture;
+mod clipboard;
+mod hand;
 mod input;
 mod keys;
+mod layout;
 mod pointer;
 mod power;
 mod raise;

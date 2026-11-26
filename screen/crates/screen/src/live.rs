@@ -19,7 +19,8 @@ use tokio::{
 use crate::{
     host::Started,
     link::{
-        self, Access, Away, FromHelper, Message, Notice, Pointer, Shape, Source, Sources, ToHelper,
+        self, Access, Away, FromHelper, MOST_CLIPBOARD, Message, Notice, Pointer, Shape, Source,
+        Sources, ToHelper, Window,
     },
     wire::{State, ToScreen},
 };
@@ -33,6 +34,9 @@ const IDLE: Duration = Duration::from_mins(1);
 const MOST_PICTURE: (f64, f64) = (4096.0, 2304.0);
 /// The smallest region a viewer zooms into, in points.
 const SMALLEST_REGION: f64 = 32.0;
+/// Modifier bits of viewer input.
+const CONTROL: u8 = 2;
+const META: u8 = 4;
 
 pub(crate) enum Event {
     Join {
@@ -89,6 +93,10 @@ impl Mailbox {
     }
 }
 
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "what a viewer said about itself, each on its own"
+)]
 struct Seat {
     viewer: Viewer,
     number: u64,
@@ -97,6 +105,7 @@ struct Seat {
     size: Option<Size>,
     decoders: Vec<Decoder>,
     anchors: bool,
+    command_key: bool,
     watching: bool,
     /// The part of the source that the view shows, when only a part.
     look: Option<Region>,
@@ -215,7 +224,11 @@ pub(crate) struct Live {
     sources: Sources,
     source: Option<Source>,
     wanted: Wanted,
+    /// A viewer chose the shown source, so an agent's window no longer comes back over it.
+    chosen: bool,
     pointer: Option<Pointer>,
+    /// Text copied on the computer, for the viewer in control.
+    copied: Option<String>,
     shapes: HashMap<u64, Shape>,
     /// The viewer whose view the capture's size follows: the last to act, or the first to come.
     control: Option<String>,
@@ -252,7 +265,9 @@ impl Live {
             sources: Sources::default(),
             source: None,
             wanted,
+            chosen: false,
             pointer: None,
+            copied: None,
             shapes: HashMap::new(),
             control: None,
             capture: None,
@@ -314,6 +329,7 @@ impl Live {
                         size: None,
                         decoders: Vec::new(),
                         anchors: false,
+                        command_key: false,
                         watching: false,
                         look: None,
                         has_sources: false,
@@ -340,6 +356,7 @@ impl Live {
             }
             Event::Show(wanted) => {
                 self.wanted = wanted;
+                self.chosen = false;
                 self.show(self.pick());
             }
             Event::Access(reply) => drop(reply.send(self.access)),
@@ -357,6 +374,7 @@ impl Live {
                 decoders,
                 anchors,
                 opened,
+                command_key,
             } => {
                 let Some(seat) = self.seats.get_mut(viewer) else {
                     return;
@@ -364,6 +382,7 @@ impl Live {
                 seat.size = Some(size);
                 seat.decoders = decoders;
                 seat.anchors = anchors;
+                seat.command_key = command_key;
                 seat.watching = true;
                 seat.has_sources = false;
                 seat.shapes.clear();
@@ -406,14 +425,26 @@ impl Live {
                 if acts {
                     self.take_control(viewer);
                 }
-                if let Some(seat) = self.seats.get_mut(viewer) {
-                    seat.pressed.note(&input);
-                }
+                let Some(seat) = self.seats.get_mut(viewer) else {
+                    return;
+                };
+                let input = if cfg!(target_os = "macos") || !seat.command_key {
+                    input
+                } else {
+                    command_as_control(input)
+                };
+                seat.pressed.note(&input);
                 self.say(&ToHelper::Input { input });
             }
             ToScreen::Show { source } => {
                 if self.sources.size(source).is_some() {
+                    self.chosen = true;
                     self.show(Some(source));
+                }
+            }
+            ToScreen::Clipboard { text } => {
+                if text.len() <= MOST_CLIPBOARD {
+                    self.say(&ToHelper::Clipboard { text });
                 }
             }
             ToScreen::Look { source, region } => {
@@ -467,10 +498,7 @@ impl Live {
                     for seat in self.seats.values_mut() {
                         seat.has_sources = false;
                     }
-                    let gone = self
-                        .source
-                        .is_none_or(|source| self.sources.size(source).is_none());
-                    self.show(if gone { self.pick() } else { self.source });
+                    self.show(self.next_source());
                 }
                 FromHelper::Access { access } => {
                     self.access = access;
@@ -489,6 +517,12 @@ impl Live {
                 }
                 FromHelper::Shape { shape } => {
                     self.shapes.insert(shape.id, shape);
+                }
+                FromHelper::Copied { text } => {
+                    if text.len() <= MOST_CLIPBOARD {
+                        self.copied = Some(text);
+                        self.publish();
+                    }
                 }
                 FromHelper::Stopped => {
                     (self.calls.stopped)();
@@ -620,19 +654,44 @@ impl Live {
     }
 
     fn pick(&self) -> Option<Source> {
-        let Wanted::Window(words) = &self.wanted else {
-            return self.sources.main();
-        };
-        let words = words.to_lowercase();
+        self.wanted_window().or_else(|| self.sources.main())
+    }
+
+    /// The window that an agent showed, when it is there.
+    fn wanted_window(&self) -> Option<Source> {
         self.sources
             .windows
             .iter()
-            .find(|window| {
-                window.app.to_lowercase().contains(&words)
-                    || window.title.to_lowercase().contains(&words)
-            })
+            .find(|window| self.wants(window))
             .map(|window| Source::Window { id: window.id })
-            .or_else(|| self.sources.main())
+    }
+
+    fn wants(&self, window: &Window) -> bool {
+        let Wanted::Window(words) = &self.wanted else {
+            return false;
+        };
+        let words = words.to_lowercase();
+        window.app.to_lowercase().contains(&words) || window.title.to_lowercase().contains(&words)
+    }
+
+    /// Keeps the shown source while it is there. An agent's window that went comes back once
+    /// it is there again, unless a viewer chose what to show.
+    fn next_source(&self) -> Option<Source> {
+        let shown = self
+            .source
+            .filter(|source| self.sources.size(*source).is_some());
+        let shows_wanted = shown.is_some_and(|source| match source {
+            Source::Window { id } => self
+                .sources
+                .windows
+                .iter()
+                .any(|window| window.id == id && self.wants(window)),
+            Source::Display { .. } => false,
+        });
+        match self.wanted_window() {
+            Some(window) if !self.chosen && !shows_wanted => Some(window),
+            _ => shown.or_else(|| self.pick()),
+        }
     }
 
     /// Keeps a region inside the shown source and no smaller than a viewer zooms.
@@ -722,6 +781,11 @@ impl Live {
             .source
             .and_then(|source| self.sources.size(source))
             .map_or((0.0, 0.0), |(width, height, _)| (width, height));
+        let control = self.control.as_deref();
+        let mut copied = self
+            .copied
+            .take()
+            .filter(|_| control.is_some_and(|control| self.seats.contains_key(control)));
         for (viewer, seat) in self.seats.iter_mut().filter(|(_, seat)| seat.watching) {
             let shapes: Vec<Shape> = self
                 .shapes
@@ -739,9 +803,80 @@ impl Live {
                 shapes,
                 access: self.access,
                 away: self.away,
-                control: self.control.as_deref() == Some(viewer),
+                control: control == Some(viewer.as_str()),
+                copied: if control == Some(viewer.as_str()) {
+                    copied.take()
+                } else {
+                    None
+                },
             });
         }
+    }
+}
+
+/// A Command key takes Control's place on a computer that is not a Mac, so that ⌘C copies there
+/// too; such a computer has no other use for the key in shortcuts.
+fn command_as_control(input: Input) -> Input {
+    /// Windows' virtual key of Control, which viewers send as `key_code`.
+    const CONTROL_KEY_CODE: u32 = 0x11;
+    let swap = |modifiers: u8| {
+        if modifiers & META == 0 {
+            modifiers
+        } else {
+            (modifiers & !META) | CONTROL
+        }
+    };
+    match input {
+        Input::Key {
+            action,
+            key,
+            code,
+            text,
+            key_code,
+            modifiers,
+        } => {
+            let (key, code, key_code) = match code.as_str() {
+                "MetaLeft" => (
+                    "Control".to_owned(),
+                    "ControlLeft".to_owned(),
+                    CONTROL_KEY_CODE,
+                ),
+                "MetaRight" => (
+                    "Control".to_owned(),
+                    "ControlRight".to_owned(),
+                    CONTROL_KEY_CODE,
+                ),
+                _ => (key, code, key_code),
+            };
+            Input::Key {
+                action,
+                key,
+                code,
+                text,
+                key_code,
+                modifiers: swap(modifiers),
+            }
+        }
+        Input::Mouse {
+            action,
+            x,
+            y,
+            button,
+            clicks,
+            delta_x,
+            delta_y,
+            modifiers,
+        } => Input::Mouse {
+            action,
+            x,
+            y,
+            button,
+            clicks,
+            delta_x,
+            delta_y,
+            modifiers: swap(modifiers),
+        },
+        text @ Input::Text { .. } => text,
     }
 }
 
@@ -839,7 +974,13 @@ mod tests {
             Self { helper, events }
         }
 
-        async fn watch(&self, id: &str, size: Size, decoders: Vec<Decoder>, opened: bool) {
+        async fn watch(
+            &self,
+            id: &str,
+            size: Size,
+            decoders: Vec<Decoder>,
+            opened: bool,
+        ) -> Arc<Mailbox> {
             let viewer = Viewer {
                 id: id.to_owned(),
                 person: "ana".to_owned(),
@@ -854,7 +995,7 @@ mod tests {
                     viewer,
                     seat: 1,
                     outgoing,
-                    mailbox,
+                    mailbox: Arc::clone(&mailbox),
                 })
                 .await
                 .unwrap();
@@ -865,9 +1006,11 @@ mod tests {
                     decoders,
                     anchors: false,
                     opened,
+                    command_key: false,
                 },
             )
             .await;
+            mailbox
         }
 
         async fn tell(&mut self, said: FromHelper) {
@@ -904,6 +1047,14 @@ mod tests {
                     return found;
                 }
             }
+        }
+
+        async fn captured_source(&mut self) -> Source {
+            self.next(|said| match said {
+                ToHelper::Capture { source, .. } => Some(source),
+                _ => None,
+            })
+            .await
         }
 
         async fn capture(&mut self) -> (u32, u32, Codec) {
@@ -995,6 +1146,143 @@ mod tests {
             )
             .await;
         assert_ne!(computer.capture().await, (2772, 1800, Codec::H264));
+    }
+
+    #[tokio::test]
+    async fn an_agents_window_that_went_comes_back_unless_a_viewer_chose_another_source() {
+        let mut computer = Computer::start().await;
+        computer
+            .watch("laptop", view(1440, 900, 2.0), Vec::new(), true)
+            .await;
+        computer.capture().await;
+        computer
+            .events
+            .send(Event::Show(Wanted::Window("notes".to_owned())))
+            .await
+            .unwrap();
+        let display = Source::Display { id: 1 };
+        let notes = Source::Window { id: 7 };
+        for (windows, shown) in [
+            (vec![window(7, "Notes")], notes),
+            (Vec::new(), display),
+            (vec![window(7, "Notes")], notes),
+        ] {
+            computer.tell(sources(windows)).await;
+            assert_eq!(computer.captured_source().await, shown);
+        }
+        computer
+            .say("laptop", ToScreen::Show { source: display })
+            .await;
+        assert_eq!(computer.captured_source().await, display);
+        computer
+            .tell(sources(vec![window(7, "Notes"), window(8, "Notes 2")]))
+            .await;
+        computer
+            .say(
+                "laptop",
+                ToScreen::Size {
+                    size: view(1200, 800, 2.0),
+                },
+            )
+            .await;
+        assert_eq!(computer.captured_source().await, display);
+    }
+
+    #[tokio::test]
+    async fn text_copied_on_the_computer_goes_only_to_the_viewer_in_control() {
+        let mut computer = Computer::start().await;
+        let phone = computer
+            .watch("phone", view(390, 844, 3.0), vec![HEVC], true)
+            .await;
+        let laptop = computer
+            .watch("laptop", view(1440, 900, 2.0), Vec::new(), false)
+            .await;
+        computer.capture().await;
+        computer
+            .tell(FromHelper::Copied {
+                text: "secret".to_owned(),
+            })
+            .await;
+        assert_eq!(copied(&phone).await.as_deref(), Some("secret"));
+        tokio::time::sleep(TICK * 2).await;
+        assert!(laptop.take().is_none_or(|state| state.copied.is_none()));
+    }
+
+    #[test]
+    fn a_command_key_becomes_control_on_a_computer_that_is_not_a_mac() {
+        let command = Input::Key {
+            action: KeyAction::Down,
+            key: "Meta".to_owned(),
+            code: "MetaLeft".to_owned(),
+            text: None,
+            key_code: 91,
+            modifiers: META,
+        };
+        let copy = Input::Key {
+            action: KeyAction::Down,
+            key: "c".to_owned(),
+            code: "KeyC".to_owned(),
+            text: Some("c".to_owned()),
+            key_code: 67,
+            modifiers: META,
+        };
+        assert_eq!(
+            [command, copy].map(command_as_control),
+            [
+                Input::Key {
+                    action: KeyAction::Down,
+                    key: "Control".to_owned(),
+                    code: "ControlLeft".to_owned(),
+                    text: None,
+                    key_code: 0x11,
+                    modifiers: CONTROL,
+                },
+                Input::Key {
+                    action: KeyAction::Down,
+                    key: "c".to_owned(),
+                    code: "KeyC".to_owned(),
+                    text: Some("c".to_owned()),
+                    key_code: 67,
+                    modifiers: CONTROL,
+                },
+            ]
+        );
+    }
+
+    async fn copied(mailbox: &Mailbox) -> Option<String> {
+        loop {
+            if let Some(state) = mailbox.take()
+                && state.copied.is_some()
+            {
+                return state.copied;
+            }
+            tokio::time::sleep(TICK).await;
+        }
+    }
+
+    fn window(id: u32, title: &str) -> Window {
+        Window {
+            id,
+            app: "Notes".to_owned(),
+            title: title.to_owned(),
+            width: 800.0,
+            height: 600.0,
+            scale: 2.0,
+        }
+    }
+
+    fn sources(windows: Vec<Window>) -> FromHelper {
+        FromHelper::Sources {
+            sources: Sources {
+                displays: vec![Display {
+                    id: 1,
+                    width: 1512.0,
+                    height: 982.0,
+                    scale: 2.0,
+                }],
+                windows,
+            },
+        }
     }
 
     #[tokio::test]

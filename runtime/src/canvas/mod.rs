@@ -32,7 +32,6 @@ pub const PART_BYTES: usize = 256 * 1024;
 #[cfg(feature = "host")]
 pub(crate) const BROWSER_PIPE: &str = "browser";
 /// The key of this computer's screen on the canvas, and of a pipe to it.
-#[cfg(feature = "host")]
 pub(crate) const SCREEN_PIPE: &str = "screen";
 pub(crate) const PIPE_QUEUE: usize = 64;
 pub(crate) const MOST_PIPE_FRAME: usize = 64 * 1024 * 1024;

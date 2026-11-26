@@ -24,6 +24,8 @@ use screen::{Notice, link::Source};
 use tokio::sync::mpsc;
 
 use super::{
+    hand::Tap,
+    layout,
     pointer::Pointing,
     session::{self, Event},
 };
@@ -39,6 +41,8 @@ struct Shell {
     _changes: Retained<Changes>,
     notice: RefCell<Option<Retained<NSStatusItem>>>,
     pointer: RefCell<Pointing>,
+    /// Hears the person at the computer while the screen is captured.
+    hand: RefCell<Option<Tap>>,
 }
 
 pub(super) fn run(main: MainThreadMarker, link: PathBuf, token: String) {
@@ -52,7 +56,9 @@ pub(super) fn run(main: MainThreadMarker, link: PathBuf, token: String) {
         _changes: Changes::observe(main, events.clone()),
         notice: RefCell::new(None),
         pointer: RefCell::new(Pointing::new(say.clone())),
+        hand: RefCell::new(None),
     };
+    layout::learn();
     SHELL.with(|cell| {
         cell.get_or_init(|| shell);
     });
@@ -72,11 +78,20 @@ pub(super) fn notice(notice: Option<Notice>) {
     DispatchQueue::main().exec_async(move || with(|shell| shell.notice(notice.as_ref())));
 }
 
-/// Follows the pointer over the shown source, or stops. Called from any thread.
+/// Follows the pointer over the shown source and hears the person at the computer, or stops.
+/// Called from any thread.
 pub(super) fn follow(source: Option<Source>) {
     DispatchQueue::main().exec_async(move || {
-        with(|shell| shell.pointer.borrow_mut().follow(source));
+        with(|shell| {
+            shell.pointer.borrow_mut().follow(source);
+            shell.listen(source.is_some());
+        });
     });
+}
+
+/// macOS stops a tap that it finds slow; it hears again at once.
+pub(super) fn listen_again() {
+    with(|shell| shell.listen(true));
 }
 
 pub(super) fn pointing(look: impl FnOnce(&mut Pointing)) {
@@ -137,6 +152,16 @@ impl Shell {
         item.setMenu(Some(&menu));
     }
 
+    fn listen(&self, on: bool) {
+        let mut hand = self.hand.borrow_mut();
+        if on && hand.is_none() {
+            *hand = Tap::new();
+        }
+        if let Some(tap) = hand.as_ref() {
+            tap.enable(on);
+        }
+    }
+
     fn quit(&self) {
         NSApplication::sharedApplication(self.main).terminate(None);
     }
@@ -185,6 +210,11 @@ define_class!(
         fn changed(&self, _notification: Option<&AnyObject>) {
             drop(self.ivars().send(Event::Changed));
         }
+
+        #[unsafe(method(layoutChanged:))]
+        fn layout_changed(&self, _notification: Option<&AnyObject>) {
+            layout::learn();
+        }
     }
 );
 
@@ -208,6 +238,17 @@ impl Changes {
                     None,
                 );
             }
+        }
+        // SAFETY: as above.
+        unsafe {
+            distributed.addObserver_selector_name_object(
+                &this,
+                sel!(layoutChanged:),
+                Some(ns_string!(
+                    "com.apple.Carbon.TISNotifySelectedKeyboardInputSourceChanged"
+                )),
+                None,
+            );
         }
         let workspace = NSWorkspace::sharedWorkspace().notificationCenter();
         // SAFETY: AppKit's notification names, which live as long as the app.

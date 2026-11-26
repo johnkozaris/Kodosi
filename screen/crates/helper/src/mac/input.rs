@@ -1,6 +1,6 @@
 //! Viewers' mouse and keys, posted as this computer's own input.
 
-use std::ffi::c_ulong;
+use std::{collections::HashMap, ffi::c_ulong};
 
 use objc2_core_foundation::{CFRetained, CGPoint, CGRect};
 use objc2_core_graphics::{
@@ -9,7 +9,7 @@ use objc2_core_graphics::{
 };
 use stream::viewer::{Input, KeyAction, MouseAction, MouseButton};
 
-use super::keys;
+use super::{keys, layout};
 
 /// `CGEventKeyboardSetUnicodeString` takes this many UTF-16 units per event at most.
 const TEXT_CHUNK: usize = 20;
@@ -22,6 +22,8 @@ pub(super) struct Hands {
     source: Option<CFRetained<CGEventSource>>,
     /// The button held down, which turns moves into drags.
     held: MouseButton,
+    /// The Mac's key for each viewer key held down, which lets go of the same key.
+    keys: HashMap<String, u16>,
 }
 
 impl Hands {
@@ -29,6 +31,7 @@ impl Hands {
         Self {
             source: CGEventSource::new(CGEventSourceStateID::HIDSystemState),
             held: MouseButton::None,
+            keys: HashMap::new(),
         }
     }
 
@@ -64,12 +67,14 @@ impl Hands {
             }
             Input::Key {
                 action,
+                key,
                 code,
                 text,
                 modifiers,
                 ..
             } => self.key(
                 *action == KeyAction::Down,
+                key,
                 code,
                 text.as_deref(),
                 *modifiers,
@@ -124,11 +129,24 @@ impl Hands {
         post(&event);
     }
 
-    /// Shortcuts go by key, so that the Mac's own keyboard layout reads them; other keys carry
-    /// the text that they typed on the viewer's keyboard.
-    fn key(&self, down: bool, code: &str, text: Option<&str>, modifiers: u8) {
-        let key = keys::virtual_key(code);
-        let typed = text.filter(|text| !text.is_empty() && modifiers & (CONTROL | META) == 0);
+    /// A shortcut goes by the character that its key types on the viewer's keyboard, so that it
+    /// means the same with the Mac's own layout, and by the key's place when the Mac's layout
+    /// has no such character. Other keys carry the text that they typed on the viewer's keyboard.
+    fn key(&mut self, down: bool, character: &str, code: &str, text: Option<&str>, modifiers: u8) {
+        let shortcut = modifiers & (CONTROL | META) != 0 && !keys::is_modifier(code);
+        let key = if down {
+            let key = shortcut
+                .then(|| single(character).and_then(layout::key_for))
+                .flatten()
+                .or_else(|| keys::virtual_key(code));
+            if let Some(key) = key {
+                self.keys.insert(code.to_owned(), key);
+            }
+            key
+        } else {
+            self.keys.remove(code).or_else(|| keys::virtual_key(code))
+        };
+        let typed = text.filter(|text| !text.is_empty() && !shortcut);
         if key.is_none() && typed.is_none() {
             return;
         }
@@ -160,6 +178,11 @@ impl Hands {
             }
         }
     }
+}
+
+fn single(text: &str) -> Option<char> {
+    let mut characters = text.chars();
+    characters.next().filter(|_| characters.next().is_none())
 }
 
 fn set_text(event: &CGEvent, units: &[u16]) {

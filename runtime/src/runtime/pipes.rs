@@ -325,7 +325,12 @@ impl Runtime {
             .and_then(|()| self.target(kept.session))
             .map(|target| {
                 let attempt = Uuid::now_v7();
-                let name = self.person.clone().unwrap_or_else(|| "Someone".to_owned());
+                // Only the owner's devices watch the screen, so the computer names the device.
+                let name = if kept.key == crate::canvas::SCREEN_PIPE {
+                    crate::network::host_label()
+                } else {
+                    self.person.clone().unwrap_or_else(|| "Someone".to_owned())
+                };
                 let opening = target.document(
                     attempt,
                     kept.key.clone(),

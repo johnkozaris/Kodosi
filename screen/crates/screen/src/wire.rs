@@ -22,6 +22,10 @@ pub(crate) enum ToScreen {
         anchors: bool,
         #[serde(default)]
         opened: bool,
+        /// The viewer's keyboard has a Command key, which takes Control's place in the shortcuts
+        /// of computers that are not Macs.
+        #[serde(default)]
+        command_key: bool,
     },
     Ack {
         frame: u32,
@@ -49,6 +53,10 @@ pub(crate) enum ToScreen {
     Rate {
         bitrate: u64,
     },
+    /// The viewer's clipboard, which the computer's clipboard takes before the viewer pastes.
+    Clipboard {
+        text: String,
+    },
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
@@ -70,6 +78,9 @@ pub(crate) struct State {
     pub(crate) away: Option<Away>,
     /// True for the viewer whose view the capture's size follows.
     pub(crate) control: bool,
+    /// Text copied on the computer, sent once to the viewer in control.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) copied: Option<String>,
 }
 
 impl State {
@@ -77,6 +88,9 @@ impl State {
     pub(crate) fn after(mut self, earlier: Self) -> Self {
         if self.sources.is_none() {
             self.sources = earlier.sources;
+        }
+        if self.copied.is_none() {
+            self.copied = earlier.copied;
         }
         let mut shapes = earlier.shapes;
         shapes.retain(|shape| self.shapes.iter().all(|newer| newer.id != shape.id));

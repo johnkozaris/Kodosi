@@ -15,6 +15,8 @@ use tokio::io::{AsyncRead, AsyncReadExt as _};
 pub const VERSION: u32 = 2;
 /// The largest message either side takes.
 const MOST_MESSAGE: usize = 16 * 1024 * 1024;
+/// The most clipboard text that goes between a viewer and the computer.
+pub const MOST_CLIPBOARD: usize = 1024 * 1024;
 const JSON: u8 = 0;
 const FRAME: u8 = 1;
 const FRAME_HEADER: usize = 1 + 1 + 1 + 8;
@@ -61,6 +63,10 @@ pub enum ToHelper {
     /// Asks macOS for what the helper may not do yet, which shows the person at the computer
     /// its prompts.
     Ask,
+    /// Puts a viewer's text on the computer's clipboard, before the viewer pastes it.
+    Clipboard {
+        text: String,
+    },
     Quit,
 }
 
@@ -106,6 +112,10 @@ pub enum FromHelper {
     /// A pointer image that `Pointer` refers to by `id`, sent once.
     Shape {
         shape: Shape,
+    },
+    /// Text copied on the computer while it is captured.
+    Copied {
+        text: String,
     },
     /// The person at the computer stopped the sharing.
     Stopped,
