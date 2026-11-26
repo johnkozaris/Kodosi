@@ -247,7 +247,7 @@ struct DeviceSettingsView: View {
         let power = deps.power.computers[device.deviceId]
         let isSelf = device.deviceId == deps.account.selfDeviceId
         let awake = isSelf ? deps.power.keepsAwake : deps.account.computers.contains(device) && power?.busy == nil ? power?.keepAwake : nil
-        let sleeps = !isSelf && deps.account.computers.contains(device) && power?.busy == nil
+        let sleeps = !isSelf && deps.account.computers.contains(device) && power.map { $0.busy == nil } ?? false
         let tests = power?.canTest == true
         let removes = deps.account.canRemove(device)
         if awake != nil || sleeps || removes {

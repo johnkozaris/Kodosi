@@ -254,7 +254,8 @@ ColumnLayout {
 
                     readonly property string awake: deviceRow.self ? Models.Devices.keepAwake
                         : deviceRow.online && !deviceRow.power.busy ? deviceRow.power.keepAwake || "" : ""
-                    readonly property bool sleeps: !deviceRow.self && deviceRow.online && !deviceRow.power.busy
+                    readonly property bool sleeps: !deviceRow.self && deviceRow.online && !!deviceRow.power.deviceId
+                        && !deviceRow.power.busy
                     readonly property bool removes: !deviceRow.self
 
                     function choose(choice: string): void {
