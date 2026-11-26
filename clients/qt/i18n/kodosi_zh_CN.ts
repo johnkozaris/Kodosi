@@ -861,6 +861,10 @@
         <translation>移除</translation>
     </message>
     <message>
+        <source>%1 reads this before its next step.</source>
+        <translation>%1 会在下一步之前读取此消息。</translation>
+    </message>
+    <message>
         <source>Waiting for %1</source>
         <translation>正在等待 %1</translation>
     </message>
@@ -875,10 +879,6 @@
     <message>
         <source>Show the terminal</source>
         <translation>显示终端</translation>
-    </message>
-    <message>
-        <source>%1 reads this before its next step.</source>
-        <translation>%1 会在下一步之前读取此消息。</translation>
     </message>
     <message>
         <source>No agent runs in this terminal</source>

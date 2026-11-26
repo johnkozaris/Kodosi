@@ -861,6 +861,10 @@
         <translation>제거</translation>
     </message>
     <message>
+        <source>%1 reads this before its next step.</source>
+        <translation>%1이(가) 다음 단계 전에 이 메시지를 읽어요.</translation>
+    </message>
+    <message>
         <source>Waiting for %1</source>
         <translation>%1을(를) 기다리는 중</translation>
     </message>
@@ -875,10 +879,6 @@
     <message>
         <source>Show the terminal</source>
         <translation>터미널 보기</translation>
-    </message>
-    <message>
-        <source>%1 reads this before its next step.</source>
-        <translation>%1이(가) 다음 단계 전에 이 메시지를 읽어요.</translation>
     </message>
     <message>
         <source>No agent runs in this terminal</source>

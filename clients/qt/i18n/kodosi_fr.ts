@@ -864,6 +864,10 @@
         <translation>Retirer</translation>
     </message>
     <message>
+        <source>%1 reads this before its next step.</source>
+        <translation>%1 le lit avant sa prochaine étape.</translation>
+    </message>
+    <message>
         <source>Waiting for %1</source>
         <translation>En attente de %1</translation>
     </message>
@@ -878,10 +882,6 @@
     <message>
         <source>Show the terminal</source>
         <translation>Afficher le terminal</translation>
-    </message>
-    <message>
-        <source>%1 reads this before its next step.</source>
-        <translation>%1 le lit avant sa prochaine étape.</translation>
     </message>
     <message>
         <source>No agent runs in this terminal</source>
