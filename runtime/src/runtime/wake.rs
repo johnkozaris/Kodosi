@@ -12,11 +12,9 @@ use uuid::Uuid;
 use super::{Completion, MAX_JOBS, Runtime, saver::Saver};
 use crate::{
     Command, Error, EventBody, Result,
-    protocol::{
-        ComputerPower, ComputerSystem, KeepAwake, PowerBusy, WakeAbility, WakeDetails, WakeTest,
-    },
+    protocol::{ComputerPower, ComputerSystem, KeepAwake, PowerBusy, WakeDetails, WakeTest},
     text::Text,
-    wake::{self, OwnNetwork, Rouse, Roused, Tested},
+    wake::{self, OwnNetwork, Rouse, Roused, Tested, WakeAbility},
 };
 
 const MOST_BYTES: usize = 1024 * 1024;
@@ -318,7 +316,6 @@ impl Runtime {
             let label = crate::network::host_label();
             computers.push(ComputerPower {
                 device_id: identity.device_id.clone(),
-                wake: ability,
                 note: expectation(ability, &details, &label),
                 problem: None,
                 sleep_warning: None,
@@ -355,7 +352,6 @@ impl Runtime {
             };
             computers.push(ComputerPower {
                 device_id: device.clone(),
-                wake: ability,
                 note: expectation(ability, &known.details, label),
                 problem,
                 sleep_warning,

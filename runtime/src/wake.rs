@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::{
     Command, EventBody,
     network::BackendClient,
-    protocol::{WakeAbility, WakeDetails, WakeMedium, WakeSetting, WakeSignal, WakeTest},
+    protocol::{WakeDetails, WakeMedium, WakeSetting, WakeSignal, WakeTest},
     text::Text,
 };
 
@@ -231,6 +231,21 @@ impl OwnNetwork {
         }
         outcome
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum WakeAbility {
+    /// A test woke it.
+    Tested,
+    /// Its settings allow a wake, and no test ran.
+    Ready,
+    /// A test did not wake it.
+    Failed,
+    /// A setting of its operating system must change first.
+    Fix,
+    /// It is only on Wi-Fi.
+    Radio,
+    Unknown,
 }
 
 /// A test counts for as long as the computer still has the card that the test woke it through.

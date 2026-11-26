@@ -16980,33 +16980,10 @@
                       "type": "null"
                     }
                   ]
-                },
-                "wake": {
-                  "oneOf": [
-                    {
-                      "const": "tested"
-                    },
-                    {
-                      "const": "ready"
-                    },
-                    {
-                      "const": "failed"
-                    },
-                    {
-                      "const": "fix"
-                    },
-                    {
-                      "const": "radio"
-                    },
-                    {
-                      "const": "unknown"
-                    }
-                  ]
                 }
               },
               "required": [
                 "deviceId",
-                "wake",
                 "canWake",
                 "canTest",
                 "keepAwake"

@@ -2539,6 +2539,9 @@ fn my_terminal(computer: &str) -> RemoteSession {
     }
 }
 
+const READY: &str = "Should wake from sleep. Not tested.";
+const TESTED: &str = "Wakes from sleep. Tested.";
+
 fn wake_details(address: &str, tested: Option<bool>) -> crate::protocol::WakeDetails {
     serde_json::from_value(json!({"system":"linux","tested":tested.map(|woke| json!({
             "hardware":format!("02:00:5e:00:00:{}", &address[address.len() - 2..]),"woke":woke})),
@@ -2607,8 +2610,8 @@ async fn a_sleeping_computer_shows_wake_only_while_an_awake_device_is_on_its_net
     runtime.complete(wake_answer(&runtime, "30", runtime.wakes_asked(), None));
     let desk = wake_state(&runtime, "20");
     assert_eq!(
-        (&desk["wake"], &desk["canWake"], &desk["canTest"]),
-        (&json!("ready"), &json!(false), &json!(true)),
+        (&desk["note"]["$text"], &desk["canWake"], &desk["canTest"]),
+        (&json!(READY), &json!(false), &json!(true)),
         "an awake computer can be tested, with the laptop as the sender"
     );
 
@@ -2671,7 +2674,7 @@ async fn the_result_of_a_wake_test_stays_until_the_computer_has_it() {
     my_computers(&mut runtime, &["20"]);
     let before_the_test = runtime.wakes_asked();
     runtime.complete(wake_answer(&runtime, "20", before_the_test, None));
-    assert_eq!(wake_state(&runtime, "20")["wake"], "ready");
+    assert_eq!(wake_state(&runtime, "20")["note"]["$text"], READY);
 
     let details = wake_details("192.168.1.20", None);
     let woke = Tested::Roused(Roused {
@@ -2680,11 +2683,11 @@ async fn the_result_of_a_wake_test_stays_until_the_computer_has_it() {
         refused: None,
     });
     runtime.wake_tested("20", &details, woke);
-    assert_eq!(wake_state(&runtime, "20")["wake"], "tested");
+    assert_eq!(wake_state(&runtime, "20")["note"]["$text"], TESTED);
 
     // An answer that the computer gave before the test knows nothing of the result.
     runtime.complete(wake_answer(&runtime, "20", before_the_test, None));
-    assert_eq!(wake_state(&runtime, "20")["wake"], "tested");
+    assert_eq!(wake_state(&runtime, "20")["note"]["$text"], TESTED);
     runtime.jobs.shutdown().await;
     runtime.wakes.saved().await;
     let root = kodosi_os::fs::canonicalize(root.path()).unwrap();
@@ -2698,7 +2701,7 @@ async fn the_result_of_a_wake_test_stays_until_the_computer_has_it() {
     let result = kept.unreported("owner", "20");
     runtime.complete(wake_answer(&runtime, "20", runtime.wakes_asked(), result));
     assert_eq!(runtime.wakes.unreported("owner", "20"), None);
-    assert_eq!(wake_state(&runtime, "20")["wake"], "tested");
+    assert_eq!(wake_state(&runtime, "20")["note"]["$text"], TESTED);
 }
 
 #[tokio::test]
@@ -2745,7 +2748,7 @@ async fn a_wake_that_the_computer_does_not_take_is_no_result() {
         refused: None,
     });
     runtime.wake_tested("20", &details, woke);
-    assert_eq!(wake_state(&runtime, "20")["wake"], "tested");
+    assert_eq!(wake_state(&runtime, "20")["note"]["$text"], TESTED);
 
     // A computer that did not really sleep also comes back, and refuses the wake.
     let number = runtime.wakes_asked();
@@ -2763,7 +2766,7 @@ async fn a_wake_that_the_computer_does_not_take_is_no_result() {
     });
     assert_eq!(runtime.wakes.unreported("owner", "20"), None);
     let desk = wake_state(&runtime, "20");
-    assert_eq!(desk["wake"], "ready");
+    assert_eq!(desk["note"]["$text"], READY);
     assert_ne!(desk["problem"], Value::Null);
 }
 

@@ -1962,22 +1962,6 @@ pub enum WakeSignal {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub enum WakeAbility {
-    /// A test woke it.
-    Tested,
-    /// Its settings allow a wake, and no test ran.
-    Ready,
-    /// A test did not wake it.
-    Failed,
-    /// A setting of its operating system must change first.
-    Fix,
-    /// It is only on Wi-Fi.
-    Radio,
-    Unknown,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
 pub enum PowerBusy {
     Waking,
     Testing,
@@ -1988,7 +1972,6 @@ pub enum PowerBusy {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ComputerPower {
     pub device_id: String,
-    pub wake: WakeAbility,
     /// What the person can expect of a wake, or the one setting to change for it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<Text>,
