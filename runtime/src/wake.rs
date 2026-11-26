@@ -110,6 +110,8 @@ pub(crate) struct OwnNetwork {
     public: Option<Ipv4Addr>,
     #[cfg(feature = "host")]
     fast_startup: bool,
+    #[cfg(feature = "host")]
+    standby: bool,
 }
 
 impl OwnNetwork {
@@ -124,6 +126,8 @@ impl OwnNetwork {
             public: None,
             #[cfg(feature = "host")]
             fast_startup: kodosi_os::network::fast_startup(),
+            #[cfg(feature = "host")]
+            standby: kodosi_os::power::sleeps_with_its_screen(),
         });
         let mut own = read.await.unwrap_or_default();
         if public(&own.cards) {
@@ -195,6 +199,7 @@ impl OwnNetwork {
                 .collect(),
             public: self.public.map(|public| public.to_string()),
             fast_startup: self.fast_startup,
+            standby: self.standby,
             keep_awake,
             tested,
         }
@@ -474,6 +479,7 @@ mod tests {
             links,
             public: public.map(str::to_owned),
             fast_startup: false,
+            standby: false,
             keep_awake: crate::protocol::KeepAwake::default(),
             tested: None,
         }

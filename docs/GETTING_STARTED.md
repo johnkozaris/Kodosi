@@ -281,7 +281,8 @@ in **Privacy & Security**.
 
 To be sure, choose **Test wake…** in the menu of a computer that is awake (on a phone, on its page).
 Kodosi puts it to sleep, wakes it and keeps the result. Stay near the computer for the first test:
-if it doesn't wake, wake it by hand.
+if it doesn't wake, wake it by hand. A Windows PC with Modern Standby has no **Test wake…**, because
+Windows does not show apps when it sleeps.
 
 ### Recovery keys
 

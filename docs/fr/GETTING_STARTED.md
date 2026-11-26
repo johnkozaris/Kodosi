@@ -320,7 +320,9 @@ Réglages Système, sous **Confidentialité et sécurité**.
 
 Pour en être sûr, choisissez **Tester le réveil…** dans le menu d'un ordinateur éveillé (sur un
 téléphone, sur sa page). Kodosi le met en veille, le réveille et garde le résultat. Restez près de
-l'ordinateur pour le premier test : s'il ne se réveille pas, réveillez-le à la main.
+l'ordinateur pour le premier test : s'il ne se réveille pas, réveillez-le à la main. Un PC Windows
+avec Modern Standby n'a pas **Tester le réveil…**, car Windows ne montre pas aux apps quand il se
+met en veille.
 
 ### Clés de récupération
 

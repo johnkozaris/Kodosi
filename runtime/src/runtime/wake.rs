@@ -356,7 +356,7 @@ impl Runtime {
                 problem,
                 sleep_warning,
                 can_wake: sender && !online && busy.is_none(),
-                can_test: sender && online && busy.is_none(),
+                can_test: sender && online && busy.is_none() && !known.details.standby,
                 busy,
                 keep_awake: known.details.keep_awake,
             });
@@ -618,6 +618,12 @@ impl Runtime {
         };
         if self.wakes.busy.contains_key(device) {
             return Err(Error::Busy);
+        }
+        if awake && known.details.standby {
+            return Err(Error::Refused(text!(
+                "Kodosi cannot test the wake of {computer}: with Modern Standby, Windows does not show apps when it sleeps.",
+                computer = computer
+            )));
         }
         if self.wakes.is_online(device) != awake {
             return Err(Error::Refused(if awake {

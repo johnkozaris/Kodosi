@@ -69,6 +69,7 @@
 "Kodosi cannot reach the server. Check your connection and try again.": "Kodosi 无法连接到服务器。请检查网络连接后重试。",
 "Kodosi cannot read this recovery key.": "Kodosi 无法读取此恢复密钥。",
 "Kodosi cannot start an agent from this folder.": "Kodosi 无法从此文件夹启动 Agent。",
+"Kodosi cannot test the wake of {computer}: with Modern Standby, Windows does not show apps when it sleeps.": "Kodosi 无法测试唤醒 {computer}：使用新式待机（Modern Standby）时，Windows 不会告诉应用它何时进入睡眠。",
 "Kodosi cannot wake {computer}. Wake it by hand.": "Kodosi 无法唤醒 {computer}。请手动唤醒它。",
 "Kodosi could not confirm the account deletion.": "Kodosi 无法确认账号删除。",
 "Kodosi could not find the server address. Check your connection and try again.": "Kodosi 找不到服务器地址。请检查网络连接后重试。",

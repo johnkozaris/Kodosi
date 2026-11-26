@@ -311,7 +311,9 @@ del Sistema, en **Privacidad y seguridad**.
 
 Para asegurarte, elige **Probar la reactivación…** en el menú de un ordenador despierto (en un
 teléfono, en su página). Kodosi lo suspende, lo reactiva y guarda el resultado. Quédate cerca del
-ordenador en la primera prueba: si no se reactiva, reactívalo a mano.
+ordenador en la primera prueba: si no se reactiva, reactívalo a mano. Un PC con Windows y Modern
+Standby no tiene **Probar la reactivación…**, porque Windows no muestra a las apps cuándo se
+suspende.
 
 ### Claves de recuperación
 

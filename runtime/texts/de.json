@@ -69,6 +69,7 @@
 "Kodosi cannot reach the server. Check your connection and try again.": "Kodosi erreicht den Server nicht. Prüfe deine Verbindung und versuche es erneut.",
 "Kodosi cannot read this recovery key.": "Kodosi kann diesen Wiederherstellungsschlüssel nicht lesen.",
 "Kodosi cannot start an agent from this folder.": "Kodosi kann aus diesem Ordner keinen Agent starten.",
+"Kodosi cannot test the wake of {computer}: with Modern Standby, Windows does not show apps when it sleeps.": "Kodosi kann das Aufwecken von {computer} nicht testen: Mit Modern Standby zeigt Windows Apps nicht, wann es in den Ruhezustand geht.",
 "Kodosi cannot wake {computer}. Wake it by hand.": "Kodosi kann {computer} nicht wecken. Wecke ihn von Hand.",
 "Kodosi could not confirm the account deletion.": "Kodosi konnte das Löschen des Kontos nicht bestätigen.",
 "Kodosi could not find the server address. Check your connection and try again.": "Kodosi hat die Serveradresse nicht gefunden. Prüfe deine Verbindung und versuche es erneut.",

@@ -311,7 +311,9 @@ Impostazioni di Sistema, in **Privacy e sicurezza**.
 
 Per esserne certo, scegli **Prova la riattivazione…** nel menu di un computer attivo (su un
 telefono, nella sua pagina). Kodosi lo sospende, lo riattiva e conserva il risultato. Resta vicino
-al computer per la prima prova: se non si riattiva, riattivalo a mano.
+al computer per la prima prova: se non si riattiva, riattivalo a mano. Un PC Windows con Modern
+Standby non ha **Prova la riattivazione…**, perché Windows non mostra alle app quando va in
+sospensione.
 
 ### Chiavi di recupero
 

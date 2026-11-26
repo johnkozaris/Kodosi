@@ -69,6 +69,7 @@
 "Kodosi cannot reach the server. Check your connection and try again.": "Kodosi がサーバーに接続できません。接続を確認して、もう一度お試しください。",
 "Kodosi cannot read this recovery key.": "Kodosi はこのリカバリーキーを読み取れません。",
 "Kodosi cannot start an agent from this folder.": "Kodosi はこのフォルダからエージェントを起動できません。",
+"Kodosi cannot test the wake of {computer}: with Modern Standby, Windows does not show apps when it sleeps.": "Kodosi は {computer} のスリープ解除をテストできません。Modern Standby では、Windows はスリープしたことをアプリに知らせません。",
 "Kodosi cannot wake {computer}. Wake it by hand.": "Kodosi は {computer} をスリープから復帰させられません。手動で復帰させてください。",
 "Kodosi could not confirm the account deletion.": "Kodosi はアカウントの削除を確認できませんでした。",
 "Kodosi could not find the server address. Check your connection and try again.": "Kodosi がサーバーのアドレスを見つけられませんでした。接続を確認して、もう一度お試しください。",

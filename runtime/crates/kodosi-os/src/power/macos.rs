@@ -24,6 +24,10 @@ unsafe extern "C" {
     fn IOPSGetProvidingPowerSourceType(snapshot: CFTypeRef) -> CFStringRef;
 }
 
+pub(super) const fn sleeps_with_its_screen() -> bool {
+    false
+}
+
 pub(super) fn on_battery() -> bool {
     // SAFETY: the call takes no arguments and returns a new snapshot, or null.
     let snapshot = unsafe { IOPSCopyPowerSourcesInfo() };

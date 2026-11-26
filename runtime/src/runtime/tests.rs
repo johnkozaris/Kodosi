@@ -2665,6 +2665,35 @@ async fn sleep_warns_when_no_device_could_wake_the_computer_again() {
 }
 
 #[tokio::test]
+async fn a_computer_whose_sleep_apps_cannot_see_offers_no_wake_test() {
+    let (mut runtime, _root) = registry_fixture();
+    sign_in(&mut runtime, true);
+    runtime.online = true;
+    my_computers(&mut runtime, &["20"]);
+    let mut details = wake_details("192.168.1.20", None);
+    details.standby = true;
+    runtime.complete(Job {
+        scope: runtime.scope.clone(),
+        completion: Completion::WakeDescribed {
+            device: "20".to_owned(),
+            number: runtime.wakes_asked(),
+            reported: None,
+            result: Ok(details),
+        },
+    });
+    runtime.own_network_read(crate::wake::OwnNetwork::default(), Some(0));
+    my_computers(&mut runtime, &["20", "30"]);
+    runtime.complete(wake_answer(&runtime, "30", runtime.wakes_asked(), None));
+
+    let desk = wake_state(&runtime, "20");
+    assert_eq!(
+        (&desk["canTest"], &desk["note"]["$text"]),
+        (&json!(false), &json!(READY)),
+        "the laptop could send, but the test would have no result"
+    );
+}
+
+#[tokio::test]
 async fn a_wake_test_with_no_signal_sent_has_no_result() {
     use crate::wake::{Roused, Tested};
 

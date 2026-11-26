@@ -127,7 +127,9 @@ public address decides. The device repeats the signal until the computer is onli
 gives up after a time with one thing for the person to do.
 
 What a computer reads is only an expectation. A wake test puts the computer to sleep, wakes it and
-tells it the result, which the computer keeps with the card that it tested.
+tells it the result, which the computer keeps with the card that it tested. A test counts only when
+a wake signal went out and the computer itself saw a real sleep. Windows with Modern Standby stays on
+while it sleeps, so its apps cannot see the sleep, and it offers no test.
 
 ## Backend and projects
 

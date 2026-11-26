@@ -69,6 +69,7 @@
 "Kodosi cannot reach the server. Check your connection and try again.": "Το Kodosi δεν μπορεί να επικοινωνήσει με τον διακομιστή. Ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά.",
 "Kodosi cannot read this recovery key.": "Το Kodosi δεν μπορεί να διαβάσει αυτό το κλειδί ανάκτησης.",
 "Kodosi cannot start an agent from this folder.": "Το Kodosi δεν μπορεί να ξεκινήσει agent από αυτόν τον φάκελο.",
+"Kodosi cannot test the wake of {computer}: with Modern Standby, Windows does not show apps when it sleeps.": "Το Kodosi δεν μπορεί να δοκιμάσει την αφύπνιση του υπολογιστή {computer}: με το Modern Standby, τα Windows δεν δείχνουν στις εφαρμογές πότε μπαίνουν σε ύπνο.",
 "Kodosi cannot wake {computer}. Wake it by hand.": "Το Kodosi δεν μπορεί να ξυπνήσει τον υπολογιστή {computer}. Ξυπνήστε τον με το χέρι.",
 "Kodosi could not confirm the account deletion.": "Το Kodosi δεν μπόρεσε να επιβεβαιώσει τη διαγραφή του λογαριασμού.",
 "Kodosi could not find the server address. Check your connection and try again.": "Το Kodosi δεν βρήκε τη διεύθυνση του διακομιστή. Ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά.",

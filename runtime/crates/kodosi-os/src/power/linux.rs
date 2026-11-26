@@ -99,6 +99,10 @@ fn desktop_hold(reason: &str) -> Option<DesktopHold> {
 }
 
 /// The battery of a mouse or a headset has the scope `Device`, and it does not power the computer.
+pub(super) const fn sleeps_with_its_screen() -> bool {
+    false
+}
+
 pub(super) fn on_battery() -> bool {
     let Ok(supplies) = std::fs::read_dir(POWER_SUPPLIES) else {
         return false;

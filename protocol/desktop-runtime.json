@@ -9568,6 +9568,9 @@
                   }
                 ]
               },
+              "standby": {
+                "type": "boolean"
+              },
               "system": {
                 "oneOf": [
                   {
@@ -17160,6 +17163,9 @@
                       }
                     ]
                   },
+                  "standby": {
+                    "type": "boolean"
+                  },
                   "system": {
                     "oneOf": [
                       {
@@ -17201,6 +17207,7 @@
                   "system",
                   "links",
                   "fastStartup",
+                  "standby",
                   "keepAwake"
                 ],
                 "type": "object"

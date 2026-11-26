@@ -37,6 +37,12 @@ pub fn on_battery() -> bool {
     imp::on_battery()
 }
 
+/// Windows with Modern Standby stays on in its sleep: the screen goes dark, and the clocks run
+/// on as if the computer were awake.
+pub fn sleeps_with_its_screen() -> bool {
+    imp::sleeps_with_its_screen()
+}
+
 pub fn can_sleep() -> io::Result<()> {
     imp::can_sleep()
 }

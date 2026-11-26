@@ -69,7 +69,7 @@ impl Drop for Awake {
 }
 
 /// A computer with Modern Standby has no S3 sleep. It goes to standby when its screen turns off.
-fn sleeps_with_its_screen() -> bool {
+pub(super) fn sleeps_with_its_screen() -> bool {
     let mut capabilities = SYSTEM_POWER_CAPABILITIES::default();
     // SAFETY: `capabilities` is a valid place for the result.
     unsafe { GetPwrCapabilities(&raw mut capabilities) && capabilities.AoAc }

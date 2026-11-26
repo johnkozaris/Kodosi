@@ -1910,6 +1910,10 @@ pub struct WakeDetails {
     /// Windows with Fast Startup does not wake after a shutdown.
     #[serde(default)]
     pub fast_startup: bool,
+    /// Windows with Modern Standby does not show apps when it sleeps, so a wake test has no
+    /// result there.
+    #[serde(default)]
+    pub standby: bool,
     #[serde(default)]
     pub keep_awake: KeepAwake,
     #[serde(default, skip_serializing_if = "Option::is_none")]

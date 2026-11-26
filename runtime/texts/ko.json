@@ -69,6 +69,7 @@
 "Kodosi cannot reach the server. Check your connection and try again.": "Kodosi가 서버에 연결할 수 없어요. 연결을 확인하고 다시 시도하세요.",
 "Kodosi cannot read this recovery key.": "Kodosi가 이 복구 키를 읽을 수 없어요.",
 "Kodosi cannot start an agent from this folder.": "Kodosi는 이 폴더에서 에이전트를 시작할 수 없어요.",
+"Kodosi cannot test the wake of {computer}: with Modern Standby, Windows does not show apps when it sleeps.": "Kodosi가 {computer}의 깨우기를 테스트할 수 없어요. Modern Standby를 쓰는 Windows는 잠자기로 전환될 때 앱에 알려 주지 않아요.",
 "Kodosi cannot wake {computer}. Wake it by hand.": "Kodosi가 {computer}을(를) 깨울 수 없어요. 직접 깨워 주세요.",
 "Kodosi could not confirm the account deletion.": "Kodosi가 계정 삭제를 확인하지 못했어요.",
 "Kodosi could not find the server address. Check your connection and try again.": "Kodosi가 서버 주소를 찾지 못했어요. 연결을 확인하고 다시 시도하세요.",

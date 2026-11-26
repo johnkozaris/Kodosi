@@ -320,7 +320,8 @@ Systemeinstellungen unter **Datenschutz & Sicherheit**.
 Um sicherzugehen, wähle im Menü eines wachen Computers **Aufwecken testen…** (auf einem Smartphone
 auf seiner Seite). Kodosi versetzt ihn in den Ruhezustand, weckt ihn auf und merkt sich das
 Ergebnis. Bleib beim ersten Test in der Nähe des Computers: Wenn er nicht aufwacht, wecke ihn von
-Hand.
+Hand. Ein Windows-PC mit Modern Standby hat kein **Aufwecken testen…**, weil Windows Apps nicht
+zeigt, wann er in den Ruhezustand geht.
 
 ### Wiederherstellungsschlüssel
 
