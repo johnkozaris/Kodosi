@@ -15,7 +15,7 @@
         }
 
         enum Trouble: Equatable {
-            case microphone, recognition, unsupported, failed
+            case microphone, unsupported, failed
         }
 
         private(set) var phase = Phase.off
@@ -93,8 +93,6 @@
                 pacing = Task { await pace() }
             } catch TalkListener.Failure.microphoneDenied {
                 fail(.microphone, attempt: attempt)
-            } catch TalkListener.Failure.recognitionDenied {
-                fail(.recognition, attempt: attempt)
             } catch TalkListener.Failure.unsupported {
                 fail(.unsupported, attempt: attempt)
             } catch {
@@ -174,7 +172,7 @@
     @MainActor
     private final class TalkListener {
         enum Failure: Error {
-            case microphoneDenied, recognitionDenied, unsupported, noMicrophone
+            case microphoneDenied, unsupported, noMicrophone
         }
 
         /// A transcriber with the words that it reports and the hints that it takes.
@@ -189,6 +187,8 @@
             let category: AVAudioSession.Category
             let mode: AVAudioSession.Mode
             let options: AVAudioSession.CategoryOptions
+            let hapticsWhileRecording: Bool
+            let quietAlerts: Bool
         }
 
         private let analyzer: SpeechAnalyzer
@@ -201,11 +201,16 @@
             self.analyzer = analyzer
             self.microphone = microphone
             let session = AVAudioSession.sharedInstance()
-            audio = AudioUse(category: session.category, mode: session.mode, options: session.categoryOptions)
+            audio = AudioUse(
+                category: session.category, mode: session.mode, options: session.categoryOptions,
+                hapticsWhileRecording: session.allowHapticsAndSystemSoundsDuringRecording,
+                quietAlerts: session.prefersNoInterruptionsFromSystemAlerts,
+            )
         }
 
-        /// Asks for the microphone and speech recognition the first time, gets the language's model
-        /// ready, then listens.
+        /// Asks for the microphone the first time, gets the language's model ready, then listens.
+        /// The speech recognition permission covers sending speech to Apple's servers, so talking,
+        /// whose speech stays on this device, does not ask for it.
         static func open(
             names: [String],
             heard: @escaping @MainActor (TalkResult) -> Void,
@@ -213,18 +218,24 @@
             ended: @escaping @MainActor (any Error?) -> Void,
         ) async throws -> TalkListener {
             guard await AVAudioApplication.requestRecordPermission() else { throw Failure.microphoneDenied }
-            guard await recognitionAllowed() else { throw Failure.recognitionDenied }
             let transcription = try await transcription(names: names)
+            guard await AssetInventory.status(forModules: [transcription.module]) != .unsupported else {
+                throw Failure.unsupported
+            }
             if let installation = try await AssetInventory.assetInstallationRequest(supporting: [transcription.module]) {
                 try await installation.downloadAndInstall()
             }
             guard let format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcription.module]) else {
                 throw Failure.unsupported
             }
-            let analyzer = SpeechAnalyzer(modules: [transcription.module])
+            // Talking again soon starts at once, as the model stays loaded for a while.
+            let analyzer = SpeechAnalyzer(
+                modules: [transcription.module], options: .init(priority: .userInitiated, modelRetention: .lingering),
+            )
             if let hints = transcription.hints {
                 try await analyzer.setContext(hints)
             }
+            try await analyzer.prepareToAnalyze(in: format)
             let (input, feed) = AsyncStream<AnalyzerInput>.makeStream()
             let microphone = Microphone(format: format, feed: feed) { decibels in
                 Task { @MainActor in loudness(decibels) }
@@ -255,31 +266,48 @@
             let session = AVAudioSession.sharedInstance()
             try? session.setActive(false, options: .notifyOthersOnDeactivation)
             try? session.setCategory(audio.category, mode: audio.mode, options: audio.options)
+            try? session.setAllowHapticsAndSystemSoundsDuringRecording(audio.hapticsWhileRecording)
+            try? session.setPrefersNoInterruptionsFromSystemAlerts(audio.quietAlerts)
         }
 
-        /// Apple's newer transcriber is the more accurate one but takes no word hints, so `names`
-        /// help only in the languages that only the dictation transcriber knows. Both use Apple's
-        /// presets for live words.
+        /// Takes the first of the person's languages that this device turns into text. Apple's newer
+        /// transcriber is the more accurate one but takes no word hints, so `names` help only in the
+        /// languages that only the dictation transcriber knows. Both use Apple's presets for live
+        /// words.
         private static func transcription(names: [String]) async throws -> Transcription {
-            let language = Locale(identifier: Locale.preferredLanguages.first ?? "en-US")
-            if SpeechTranscriber.isAvailable, let locale = await SpeechTranscriber.supportedLocale(equivalentTo: language) {
-                let transcriber = SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
-                let results = heardWords(transcriber.results) { TalkResult($0.text, final: $0.isFinal, range: $0.range) }
-                return Transcription(module: transcriber, results: results, hints: nil)
-            }
-            if let locale = await DictationTranscriber.supportedLocale(equivalentTo: language) {
-                let transcriber = DictationTranscriber(locale: locale, preset: .progressiveLongDictation)
-                let results = heardWords(transcriber.results) { TalkResult($0.text, final: $0.isFinal, range: $0.range) }
-                let hints = AnalysisContext()
-                hints.contextualStrings[.general] = Array(Set(names.filter { !$0.isEmpty }).prefix(100))
-                return Transcription(module: transcriber, results: results, hints: hints)
+            for identifier in Locale.preferredLanguages {
+                let language = Locale(identifier: identifier)
+                if SpeechTranscriber.isAvailable, let locale = await SpeechTranscriber.supportedLocale(equivalentTo: language) {
+                    let transcriber = SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
+                    let results = heardWords(transcriber.results) { TalkResult($0.text, final: $0.isFinal, range: $0.range) }
+                    return Transcription(module: transcriber, results: results, hints: nil)
+                }
+                if let locale = await DictationTranscriber.supportedLocale(equivalentTo: language) {
+                    let transcriber = DictationTranscriber(locale: locale, preset: .progressiveLongDictation)
+                    let results = heardWords(transcriber.results) { TalkResult($0.text, final: $0.isFinal, range: $0.range) }
+                    let hints = AnalysisContext()
+                    hints.contextualStrings[.general] = Array(spokenNames(names).prefix(100))
+                    return Transcription(module: transcriber, results: results, hints: hints)
+                }
             }
             throw Failure.unsupported
         }
 
+        /// Names as people say them: "talk-in_chat" is "talk in chat".
+        private static func spokenNames(_ names: [String]) -> [String] {
+            var seen = Set<String>()
+            return names.map { $0.replacing(/[-_.\/\\]+/, with: " ").trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty && seen.insert($0).inserted }
+        }
+
+        /// Other audio pauses while the person talks, AirPods record at their best where they can, the
+        /// haptic of a sent message still plays, and a call that shows as a banner interrupts only once
+        /// it is answered.
         private func takeAudio() throws {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.record, mode: .measurement, options: [.duckOthers, .allowBluetoothHFP])
+            try session.setCategory(.playAndRecord, mode: .default, options: [.allowBluetoothHFP, .bluetoothHighQualityRecording])
+            try session.setAllowHapticsAndSystemSoundsDuringRecording(true)
+            try session.setPrefersNoInterruptionsFromSystemAlerts(true)
             try session.setActive(true)
         }
 
@@ -300,7 +328,8 @@
             }
         }
 
-        /// A call ends talking; a new headset or microphone keeps it going with that microphone.
+        /// A call or a reset of the system's audio ends talking; a new headset or microphone keeps it
+        /// going with that microphone.
         private func watch(ended: @escaping @MainActor (any Error?) -> Void) {
             let center = NotificationCenter.default
             observers.append(center.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { note in
@@ -309,6 +338,11 @@
                     if began {
                         ended(nil)
                     }
+                }
+            })
+            observers.append(center.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated {
+                    ended(nil)
                 }
             })
             observers.append(center.addObserver(forName: .AVAudioEngineConfigurationChange, object: microphone.engine, queue: .main) { [weak self] _ in
@@ -320,15 +354,6 @@
                     }
                 }
             })
-        }
-
-        @concurrent
-        private nonisolated static func recognitionAllowed() async -> Bool {
-            await withCheckedContinuation { continuation in
-                SFSpeechRecognizer.requestAuthorization { @Sendable status in
-                    continuation.resume(returning: status == .authorized)
-                }
-            }
         }
 
         private static func heardWords<Results: AsyncSequence & Sendable>(
@@ -377,6 +402,9 @@
             let hardware = node.outputFormat(forBus: 0)
             guard hardware.sampleRate > 0, hardware.channelCount > 0 else { throw TalkListener.Failure.noMicrophone }
             converter = AVAudioConverter(from: hardware, to: format)
+            // Without priming, the converted audio keeps the timing of the microphone, which the
+            // recognizer's times for the words depend on.
+            converter?.primeMethod = .none
             node.installTap(onBus: 0, bufferSize: 4096, format: hardware) { [weak self] buffer, _ in
                 self?.take(buffer)
             }
