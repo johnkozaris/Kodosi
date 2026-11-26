@@ -16,11 +16,13 @@ extension View {
 
     /// Lets a person copy the whole message: on a Mac with a key that shows while the pointer is on
     /// it, on an iPhone or iPad from the menu of a long press, which also selects a part of it. A
-    /// message still being written has no copy yet.
+    /// message still being written has no copy yet. An answer has the key at its bottom, where a
+    /// reader of a long one ends up.
     func copiesMessage(
-        _ text: String?, preview: some Shape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous),
+        _ text: String?, at edge: VerticalEdge = .top,
+        preview: some Shape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous),
     ) -> some View {
-        modifier(MessageCopy(text: text, preview: AnyShape(preview)))
+        modifier(MessageCopy(text: text, edge: edge, preview: AnyShape(preview)))
     }
 }
 
@@ -39,6 +41,7 @@ private struct MessageTextSelection: ViewModifier {
 private struct MessageCopy: ViewModifier {
     @Environment(\.theme) private var theme
     let text: String?
+    let edge: VerticalEdge
     let preview: AnyShape
     #if os(macOS)
         @State private var hovered = false
@@ -50,10 +53,10 @@ private struct MessageCopy: ViewModifier {
         #if os(macOS)
             content
                 .contentShape(Rectangle())
-                .overlay(alignment: .topTrailing) {
+                .overlay(alignment: edge == .top ? .topTrailing : .bottomTrailing) {
                     if hovered, let text {
                         MessageCopyKey(text: text)
-                            .offset(y: -10)
+                            .offset(y: edge == .top ? -10 : 10)
                             .transition(.opacity.combined(with: .scale(scale: 0.94, anchor: .trailing)))
                     }
                 }
