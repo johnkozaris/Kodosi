@@ -92,7 +92,10 @@ impl Tap {
     }
 }
 
-/// Input that the helper posted itself carries its process; everything else is the person's.
+/// Marks the input that the helper posts, so that the tap tells it from the person's.
+pub(super) const MARK: i64 = 0x4b6f_646f_7369;
+
+/// Input without the helper's mark is the person's.
 unsafe extern "C-unwind" fn heard(
     _proxy: CGEventTapProxy,
     kind: CGEventType,
@@ -108,9 +111,7 @@ unsafe extern "C-unwind" fn heard(
     }
     // SAFETY: the event is valid during the call.
     let event_ref = unsafe { event.as_ref() };
-    let process =
-        CGEvent::integer_value_field(Some(event_ref), CGEventField::EventSourceUnixProcessID);
-    if process != i64::from(std::process::id()) {
+    if CGEvent::integer_value_field(Some(event_ref), CGEventField::EventSourceUserData) != MARK {
         LOCAL.store(now().max(1), Ordering::Relaxed);
     }
     event.as_ptr()

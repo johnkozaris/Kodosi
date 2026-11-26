@@ -9,7 +9,7 @@ use objc2_core_graphics::{
 };
 use stream::viewer::{Input, KeyAction, MouseAction, MouseButton};
 
-use super::{keys, layout};
+use super::{hand, keys, layout};
 
 /// `CGEventKeyboardSetUnicodeString` takes this many UTF-16 units per event at most.
 const TEXT_CHUNK: usize = 20;
@@ -192,6 +192,7 @@ fn set_text(event: &CGEvent, units: &[u16]) {
 }
 
 fn post(event: &CGEvent) {
+    CGEvent::set_integer_value_field(Some(event), CGEventField::EventSourceUserData, hand::MARK);
     CGEvent::post(CGEventTapLocation::HIDEventTap, Some(event));
 }
 

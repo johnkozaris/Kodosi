@@ -502,6 +502,8 @@ impl Live {
                 }
                 FromHelper::Access { access } => {
                     self.access = access;
+                    self.capture_failed_at = None;
+                    self.update_capture();
                     self.dirty = true;
                 }
                 FromHelper::Away { away } => {
@@ -734,8 +736,10 @@ impl Live {
         }
     }
 
+    /// Nothing captures a screen that nobody can see or that macOS does not let the helper
+    /// record, until that changes.
     fn wanted_capture(&self) -> Option<Capture> {
-        if self.away.is_some() {
+        if self.away.is_some() || !self.access.screen {
             return None;
         }
         if self.capture_failed_at.is_some() {
