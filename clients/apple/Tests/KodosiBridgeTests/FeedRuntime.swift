@@ -61,16 +61,22 @@ final class FeedRuntime {
 
     static let terminalId = "01992e43-53db-7040-8e02-f6ebf4149b28"
 
-    static func terminal() throws -> RuntimeSession {
+    /// A terminal of this computer, or of another one that may be offline, whose canvas shows the
+    /// browser in `browser` state, and the computer's screen when `shared` says whether it is shared.
+    static func terminal(remote: Bool = false, offline: Bool = false, browser: String = "awake", shared: Bool? = nil) throws -> RuntimeSession {
+        var canvas: [String: Any] = [
+            "sequence": 2,
+            "items": [["key": "/tmp/work/plan.md", "name": "plan.md", "kind": "page", "revision": 1, "bytes": 1, "changed": 1]],
+            "browser": ["state": browser, "changed": 2, "width": 1280, "height": 720],
+        ]
+        if let shared {
+            canvas["screen"] = ["shared": shared]
+        }
         let fields: [String: Any] = [
-            "id": terminalId, "incarnationId": "01992e43-53db-7040-8e02-f6ebf4149b29", "kind": "local", "name": "checkout",
-            "isOwner": true, "status": "running", "attention": false, "hidden": false, "working": false,
-            "connectionState": "local", "sharedWith": [Any](),
-            "canvas": [
-                "sequence": 2,
-                "items": [["key": "/tmp/work/plan.md", "name": "plan.md", "kind": "page", "revision": 1, "bytes": 1, "changed": 1]],
-                "browser": ["state": "awake", "changed": 2, "width": 1280, "height": 720],
-            ],
+            "id": terminalId, "incarnationId": "01992e43-53db-7040-8e02-f6ebf4149b29", "kind": remote ? "remote" : "local",
+            "name": "checkout", "hostName": "Mac mini", "isOwner": true, "status": offline ? "offline" : "running", "attention": false,
+            "hidden": false, "working": false, "connectionState": remote ? "connected" : "local", "sharedWith": [Any](),
+            "canvas": canvas,
         ]
         return try JSONDecoder().decode(RuntimeSession.self, from: JSONSerialization.data(withJSONObject: fields))
     }
@@ -146,8 +152,41 @@ final class FeedRuntime {
         }
     }
 
-    func lose(_ pipe: String) throws {
-        try deliver("document.lost", ["pipe": pipe])
+    func lose(_ pipe: String, saying message: String? = nil) throws {
+        var fields: [String: Any] = ["pipe": pipe]
+        if let message {
+            fields["message"] = message
+        }
+        try deliver("document.lost", fields)
+    }
+
+    /// Waits for the feed to close its pipe.
+    func closed() async throws {
+        _ = try await log.next("document.close")
+        pipe = nil
+    }
+
+    /// Whether the feed asked to open a pipe since the last time.
+    func opening() -> Bool {
+        log.take("document.open") != nil
+    }
+
+    /// Answers the next request that the canvas makes, and returns what it asked.
+    func answer() async throws -> [String: Any] {
+        let request = try await log.next("canvas.request")
+        try commands.receive(Self.event("canvas.result", [
+            "requestId": request["requestId"] ?? "", "operation": "canvas.request", "answer": ["answer": "done"],
+        ]))
+        return request["request"] as? [String: Any] ?? [:]
+    }
+
+    /// The requests that the canvas made and that nothing answered yet.
+    func unanswered() -> Int {
+        var count = 0
+        while log.take("canvas.request") != nil {
+            count += 1
+        }
+        return count
     }
 
     func messages() -> [String?] {

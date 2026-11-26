@@ -30,7 +30,8 @@ The canvas opens full screen on demand and never interrupts you automatically. W
 or updates something, a banner names the item so you can tap to open it.
 
 On a terminal of one of your Macs, the canvas can show that Mac's screen. One finger taps, drags,
-and scrolls as in the shared browser, and two fingers zoom and move the view.
+and scrolls as in the shared browser, and two fingers zoom and move the view. Text copied on the
+Mac is on your clipboard too, and pasting there brings your clipboard along.
 
 While the iPhone or iPad runs hot, the shared browser and the screen show a softer picture, and a
 sharp one again once it cools down.

@@ -10,6 +10,18 @@ struct ScreenInputArea {
     let inside: Binding<Bool>
 }
 
+extension ScreenFeed {
+    /// The computer takes this device's clipboard, then pastes it with ⌘V.
+    func paste(_ text: String?) {
+        if let text {
+            sendClipboard(text)
+        }
+        guard let key = ViewerKeys.key(macKeyCode: 9) else { return }
+        press(key, typed: "v", down: true, modifiers: .meta)
+        press(key, typed: "v", down: false, modifiers: .meta)
+    }
+}
+
 #if os(macOS)
     import AppKit
 
@@ -104,6 +116,7 @@ struct ScreenInputArea {
             super.viewDidMoveToWindow()
             if window == nil {
                 stopPanning()
+                releaseKeys()
             }
             NotificationCenter.default.removeObserver(self, name: NSWindow.didResignKeyNotification, object: nil)
             if let window {
@@ -233,6 +246,11 @@ struct ScreenInputArea {
             } else if let side = Self.sides[event.keyCode] {
                 send(key, code: event.keyCode, typed: nil, down: event.modifierFlags.rawValue & side != 0, modifiers: held)
             }
+        }
+
+        /// macOS skips the pasteboard permission prompt only when reading inside a `paste:` action.
+        @objc func paste(_: Any?) {
+            feed.paste(NSPasteboard.general.string(forType: .string))
         }
 
         func stopPanning() {
@@ -380,6 +398,15 @@ struct ScreenInputArea {
 
         func gestureRecognizer(_ gesture: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
             [pinch, move].contains(gesture) && [pinch, move].contains(other)
+        }
+
+        /// ⌘V and the keyboard's Paste come here while this device's clipboard has text.
+        override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+            action == #selector(paste(_:)) ? UIPasteboard.general.hasStrings : super.canPerformAction(action, withSender: sender)
+        }
+
+        override func paste(_: Any?) {
+            feed.paste(UIPasteboard.general.string)
         }
     }
 #endif

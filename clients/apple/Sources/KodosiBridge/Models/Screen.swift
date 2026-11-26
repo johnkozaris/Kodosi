@@ -67,6 +67,14 @@ public struct ScreenAccess: Decodable, Equatable, Sendable {
     }
 }
 
+/// Why nobody at the computer sees its screen for now. Its capture stops meanwhile and starts again
+/// by itself.
+public enum ScreenAway: String, Decodable, Sendable {
+    case locked
+    case asleep
+    case anotherAccount
+}
+
 /// Where the computer's pointer is, in the shown source's points, and the shape it has.
 public struct ScreenPointer: Decodable, Equatable, Sendable {
     public let x: Double
@@ -151,8 +159,11 @@ struct ScreenMessage: Decodable, Sendable {
     /// Pointer pictures that this viewer has not had yet.
     let shapes: [Shape]
     let access: ScreenAccess
+    let away: ScreenAway?
     /// True while the capture's size follows this viewer's view.
     let control: Bool
+    /// Text copied on the computer, which only the viewer in control gets, once.
+    let copied: String?
 
     init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -163,10 +174,13 @@ struct ScreenMessage: Decodable, Sendable {
         pointer = try container.decodeIfPresent(ScreenPointer.self, forKey: .pointer)
         shapes = try container.decodeIfPresent([Shape].self, forKey: .shapes) ?? []
         access = try container.decode(ScreenAccess.self, forKey: .access)
+        // A kind of away that this app does not know yet shows the screen as it can.
+        away = try? container.decodeIfPresent(ScreenAway.self, forKey: .away)
         control = try container.decode(Bool.self, forKey: .control)
+        copied = try container.decodeIfPresent(String.self, forKey: .copied)
     }
 
-    private enum CodingKeys: String, CodingKey { case sources, source, width, height, pointer, shapes, access, control }
+    private enum CodingKeys: String, CodingKey { case sources, source, width, height, pointer, shapes, access, away, control, copied }
 }
 
 /// Whether this computer lets its owner's other devices see and control its screen, which only

@@ -2,6 +2,7 @@ import CoreGraphics
 import Foundation
 import ImageIO
 import Observation
+import os
 
 /// The shared browser of a terminal's canvas: its video on the `VideoChannel`, and its tabs,
 /// pointers, menus and dialogs in pipe order on the main actor.
@@ -18,7 +19,12 @@ public final class BrowserFeed {
     public private(set) var window = BrowserWindow()
     public private(set) var icons: [String: CGImage] = [:]
     public private(set) var picture = VideoPicture.waiting
+    /// What broke unexpectedly, which the view does not say but lets the person try again.
     public private(set) var failure: String?
+    /// Why the browser did not start, as the canvas says.
+    public private(set) var problem: String?
+    public private(set) var offline = false
+    public var still: VideoStill?
     /// Incremented for each local user input event (excluding plain pointer moves).
     public private(set) var touches = 0
     @ObservationIgnored public var copied: (String) -> Void = { _ in }
@@ -54,15 +60,32 @@ public final class BrowserFeed {
     /// Returning to screen or reconnecting leaves `opened` false so another active device keeps
     /// control of the page size.
     @ObservationIgnored private var opened = false
+    @ObservationIgnored private var asleep = false
+    /// Set once the browser was woken since it last fell asleep.
+    @ObservationIgnored private var woken = false
 
     init(store: CanvasStore, session: String) {
         self.store = store
         self.session = session
     }
 
+    public var showing: VideoShowing {
+        if offline {
+            return .away(.offline)
+        }
+        if failure != nil || problem != nil {
+            return .failed
+        }
+        if picture == .live {
+            return .live
+        }
+        return picture == .kept || still != nil ? .resting : .opening
+    }
+
     public func watch() async {
         let link = store.browser(of: session)
         guard let heard = channel.start(link) else { return }
+        failure = nil
         defer {
             channel.stop()
             joined = false
@@ -116,11 +139,14 @@ public final class BrowserFeed {
         }
     }
 
-    /// Detaches a surface that goes away, so that its display goes with it.
-    public func hide(from surface: AnyObject) {
-        guard surface === self.surface else { return }
+    /// Detaches a surface that goes away, so that its display goes with it. Returns whether the
+    /// surface was the one that showed the feed.
+    @discardableResult
+    public func hide(from surface: AnyObject) -> Bool {
+        guard surface === self.surface else { return false }
         self.surface = nil
         channel.hide()
+        return true
     }
 
     public func wake() async {
@@ -128,10 +154,34 @@ public final class BrowserFeed {
         await run(.wake)
     }
 
+    /// Wakes the browser while someone looks at it, once for each time that it fell asleep.
+    public func wakeIfAsleep() async {
+        guard asleep, problem == nil, !woken else { return }
+        woken = true
+        await run(.wake)
+    }
+
+    /// What the canvas says about the browser and its computer.
+    func see(_ session: RuntimeSession) {
+        let browser = session.canvas?.browser
+        asleep = browser?.state == .asleep
+        if !asleep {
+            woken = false
+        }
+        if browser?.problem != problem {
+            problem = browser?.problem
+        }
+        if session.hostOffline != offline {
+            offline = session.hostOffline
+        }
+    }
+
     public func run(_ act: BrowserAct) async {
         do {
             try await store.act(act, in: session)
             failure = nil
+        } catch is CancellationError {
+            // The view that asked went away, which is not a failure of the browser.
         } catch {
             failure = error.localizedDescription
         }
@@ -167,7 +217,7 @@ public final class BrowserFeed {
                 }
             }
         } catch {
-            failure = error.localizedDescription
+            Logger.app.error("A file did not go to the shared browser: \(error.localizedDescription, privacy: .public)")
         }
         send(.files(paths))
     }
@@ -247,6 +297,7 @@ public final class BrowserFeed {
             window = state
             if state.layer != nil {
                 picture = .live
+                still = nil
             }
             keep(state.icons, of: state.tabs)
             if let words = state.copied {
@@ -255,8 +306,9 @@ public final class BrowserFeed {
         case let .shown(number):
             if number == surfaces {
                 picture = .live
+                still = nil
             }
-        case .news(.open), .news(.closed):
+        case .news(.open), .news(.closed), .region:
             break
         }
     }

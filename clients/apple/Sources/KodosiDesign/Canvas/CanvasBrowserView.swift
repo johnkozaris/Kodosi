@@ -15,6 +15,8 @@ public struct CanvasBrowserView: View {
     @Namespace private var thumb
     let browser: CanvasBrowser
     let feed: BrowserFeed
+    /// The computer that runs the browser.
+    let computer: String
     var typing = false
     var ask: CanvasAsk?
     @Environment(\.displayScale) private var displayScale
@@ -23,37 +25,39 @@ public struct CanvasBrowserView: View {
     @State private var choice = 0
     @State private var picking = false
     @State private var tries = 0
+    @State private var copies = 0
     @FocusState private var editing: Bool
 
-    public init(browser: CanvasBrowser, feed: BrowserFeed, typing: Bool = false, ask: CanvasAsk? = nil) {
+    public init(browser: CanvasBrowser, feed: BrowserFeed, computer: String, typing: Bool = false, ask: CanvasAsk? = nil) {
         self.browser = browser
         self.feed = feed
+        self.computer = computer
         self.typing = typing
         self.ask = ask
     }
 
-    /// Keeps the last frame visible while waking or navigating away from `about:blank`; only shows
-    /// the blank placeholder when idle on `about:blank` or before the first frame arrives.
+    /// The active tab is idle on `about:blank`, so the view shows the blank placeholder instead of
+    /// the page's picture.
     private var blank: Bool {
-        guard let tab = tabs.first(where: \.active) else { return feed.picture == .waiting }
+        guard let tab = tabs.first(where: \.active) else { return false }
         return (tab.address.isEmpty || tab.address == Self.blankPage) && !tab.loading
     }
 
     private static let blankPage = "about:blank"
-
-    /// Why the browser did not open or broke, which shows with a way to try again in place of any
-    /// picture that is not live.
-    private var failure: String? {
-        guard browser.state == .awake, browser.problem == nil, feed.picture != .live else { return nil }
-        return feed.failure
-    }
 
     private struct Watch: Equatable {
         let watching: Bool
         let tries: Int
     }
 
+    private struct Wake: Equatable {
+        let asleep: Bool
+        let onScreen: Bool
+    }
+
     public var body: some View {
+        let showing = feed.showing
+        let pictured = showing == .live || showing == .resting
         VStack(spacing: 0) {
             if browser.state == .awake {
                 tabStrip.transition(.opacity)
@@ -61,43 +65,55 @@ public struct CanvasBrowserView: View {
             bar.zIndex(1)
             ZStack {
                 theme.colors.terminal
-                BrowserPicture(browser: browser, feed: feed, blank: blank || failure != nil)
-                if let failure {
-                    TerminalStateCard(symbol: "globe", title: String(localized: "This did not load", bundle: .module), message: failure,
-                                      working: false)
-                    {
-                        Button { tries += 1 } label: { Text("Try again", bundle: .module) }.buttonStyle(.kodosi(.secondary))
-                            .accessibilityIdentifier("canvas.browser.retry")
-                    }
-                    // Above the input area, which would take its taps.
-                    .zIndex(1)
-                } else if blank, browser.state == .awake {
-                    Image(systemName: "globe").font(.system(size: 34, weight: .light))
-                        .foregroundStyle(theme.colors.inkFaint.opacity(0.6))
-                        .transition(.opacity)
-                } else if feed.picture == .waiting, browser.state == .awake {
-                    BrowserWaiting().transition(.opacity)
-                }
-                if browser.state == .awake {
+                BrowserPicture(feed: feed, shows: pictured && !blank, resting: showing == .resting)
+                if pictured, browser.state == .awake {
                     BrowserInputArea(feed: feed, typing: typing, ask: ask)
                     BrowserPointersLayer(feed: feed)
                     AgentPointerLayer(browser: browser, feed: feed)
-                    BrowserReconnecting(kept: feed.picture == .kept && failure == nil)
                     BrowserPartsLayer(feed: feed, ask: ask)
-                } else {
-                    sleeping.transition(.opacity)
                 }
+                if !showing.speaks, blank, browser.state == .awake {
+                    Image(systemName: "globe").font(.system(size: 34, weight: .light))
+                        .foregroundStyle(theme.colors.inkFaint.opacity(0.6))
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
+                } else if !showing.speaks, browser.state == .starting, let getting = browser.getting {
+                    GettingBrowser(percent: getting).transition(.opacity)
+                } else {
+                    VideoCover(showing: showing, computer: computer, failed: String(localized: "Can't show the page", bundle: .module),
+                               failure: feed.failure ?? feed.problem, identifier: "canvas.browser")
+                    {
+                        tries += 1
+                        Task { await feed.wake() }
+                    }
+                }
+                CopiedNotice(copies: copies)
             }
-            .animation(theme.motion.fade, value: feed.picture)
+            .animation(theme.motion.fade, value: showing)
             .clipped()
             .onGeometryChange(for: CGSize.self) { $0.size } action: { feed.viewSize = $0 }
             .onChange(of: displayScale, initial: true) { _, scale in feed.viewScale = scale }
             // Stop watching when off-screen so the host does not encode video or hold this
             // device's viewport size while nobody is looking.
+            // The runtime keeps the pipe waiting while the computer is offline; one that broke
+            // meanwhile opens again once the computer is back.
+            .onChange(of: feed.offline) { _, offline in
+                if !offline, feed.failure != nil {
+                    tries += 1
+                }
+            }
             .task(id: Watch(watching: browser.problem == nil && onScreen, tries: tries)) {
                 if browser.problem == nil, onScreen {
-                    feed.copied = Pasteboard.copy
+                    feed.copied = { words in
+                        Pasteboard.copy(words)
+                        copies += 1
+                    }
                     await feed.watch()
+                }
+            }
+            .task(id: Wake(asleep: browser.state == .asleep, onScreen: onScreen)) {
+                if browser.state == .asleep, onScreen {
+                    await feed.wakeIfAsleep()
                 }
             }
             .onChange(of: feed.window.chooser) { _, chooser in picking = chooser != nil }
@@ -262,9 +278,6 @@ public struct CanvasBrowserView: View {
             if browser.ownSignIns {
                 SharedBrowserKey(height: control - 6)
             }
-            if let failure = feed.failure ?? browser.problem {
-                ProblemKey(problem: failure, size: control - 6, identifier: "canvas.browser.problem")
-            }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 6).frame(height: control + 8)
@@ -418,36 +431,6 @@ public struct CanvasBrowserView: View {
         return .handled
     }
 
-    @ContentBuilder
-    private var sleeping: some View {
-        switch browser.state {
-        case .starting:
-            VStack(spacing: 10) {
-                Spinner(size: 18)
-                if let getting = browser.getting {
-                    Text("Getting the browser, \(getting)%", bundle: .module)
-                        .appTextStyle(.footnote).monospacedDigit().foregroundStyle(theme.colors.inkMuted)
-                }
-            }
-        case .asleep:
-            Button { Task { await feed.wake() } } label: {
-                HStack(spacing: 7) {
-                    Image(systemName: "moon.zzz.fill").font(scaled: 12, weight: .semibold)
-                        .foregroundStyle(theme.colors.inkMuted)
-                    Text("Wake", bundle: .module).appTextStyle(.footnote).fontWeight(.semibold).foregroundStyle(theme.colors.ink)
-                }
-                .padding(.horizontal, 14).frame(height: 32)
-                .raisedCapsule(fill: theme.colors.lifted, elevation: .lifted)
-                .contentShape(Capsule())
-            }
-            .buttonStyle(PressScaleStyle())
-            .help(browser.problem ?? String(localized: "The browser is asleep. It opens its last page again.", bundle: .module))
-            .accessibilityIdentifier("canvas.browser.wake")
-        case .awake:
-            EmptyView()
-        }
-    }
-
     private func open(_ suggestion: Suggestion?) {
         let target = switch suggestion {
         case let .page(page): page.address
@@ -461,32 +444,17 @@ public struct CanvasBrowserView: View {
     }
 }
 
-private struct BrowserWaiting: View {
+/// The engine's first download, before the browser can start.
+private struct GettingBrowser: View {
     @Environment(\.theme) private var theme
+    let percent: Int
 
     var body: some View {
         VStack(spacing: 10) {
             Spinner(size: 18)
-            Text("Waiting for the page", bundle: .module).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+            Text("Getting the browser, \(percent)%", bundle: .module)
+                .appTextStyle(.footnote).monospacedDigit().foregroundStyle(theme.colors.inkMuted)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("canvas.browser.waiting")
-    }
-}
-
-private struct BrowserReconnecting: View {
-    @Environment(\.theme) private var theme
-    let kept: Bool
-
-    var body: some View {
-        ZStack {
-            if kept {
-                ReconnectingNotice(identifier: "canvas.browser.reconnecting")
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .padding(.top, 10)
-        .animation(theme.motion.spring, value: kept)
     }
 }
 

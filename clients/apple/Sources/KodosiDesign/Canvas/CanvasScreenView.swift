@@ -4,7 +4,7 @@ import SwiftUI
 private let control = CanvasBar.key
 
 /// The screen of the terminal's computer, which its owner watches and controls from their other
-/// devices. The computer itself only says that the screen is on its canvas.
+/// devices. The computer itself only says that the screen is on its canvas, and whether it shares it.
 public struct CanvasScreenView: View {
     let session: RuntimeSession
     let feed: ScreenFeed
@@ -18,18 +18,42 @@ public struct CanvasScreenView: View {
 
     public var body: some View {
         if session.kind == .local {
-            TerminalStateCard(symbol: "display", title: String(localized: "This Mac's screen", bundle: .module),
-                              message: String(localized: "Your other devices show it on this canvas.", bundle: .module), working: false)
-            {
-                EmptyView()
-            }
-            .accessibilityIdentifier("canvas.screen.here")
+            ThisScreen(shared: session.canvas?.screen?.shared ?? false, feed: feed)
         } else {
             VStack(spacing: 0) {
                 ScreenBar(computer: session.hostLabel, feed: feed).zIndex(1)
                 ScreenStage(computer: session.hostLabel, feed: feed, typing: typing)
             }
         }
+    }
+}
+
+private struct ThisScreen: View {
+    let shared: Bool
+    let feed: ScreenFeed
+    @State private var turning = false
+
+    var body: some View {
+        TerminalStateCard(symbol: "display", title: String(localized: "This Mac's screen", bundle: .module),
+                          message: shared ? String(localized: "Your other devices show it on this canvas.", bundle: .module)
+                              : String(localized: "Sharing is off", bundle: .module), working: false)
+        {
+            if !shared {
+                Button {
+                    turning = true
+                    Task {
+                        await feed.share()
+                        turning = false
+                    }
+                } label: {
+                    Text("Turn on", bundle: .module)
+                }
+                .buttonStyle(.kodosi(.secondary))
+                .disabled(turning)
+                .accessibilityIdentifier("canvas.screen.turnOn")
+            }
+        }
+        .accessibilityIdentifier("canvas.screen.here")
     }
 }
 
@@ -42,35 +66,38 @@ private struct ScreenStage: View {
     let typing: Bool
     @State private var inside = false
     @State private var tries = 0
+    @State private var copies = 0
 
+    /// The screen is watched only while it shows here and is shared, and at once when either
+    /// comes back.
     private struct Watch: Equatable {
         let onScreen: Bool
+        let shared: Bool
         let tries: Int
     }
 
-    /// Why the screen did not open or broke, which shows with a way to try again in place of any
-    /// picture that is not live.
-    private var failure: String? {
-        feed.picture == .live ? nil : feed.failure
-    }
-
     var body: some View {
+        let showing = feed.showing
+        let pictured = showing == .live || showing == .resting
         GeometryReader { area in
             let placement = feed.placement(in: area.size)
-            let records = feed.access?.screen != false
             ZStack {
                 theme.colors.terminal
-                VideoView(feed: feed, placement: placement)
-                    .opacity(feed.picture != .waiting && failure == nil && records ? 1 : 0)
-                if feed.access?.input != false {
+                VideoView(feed: feed, placement: placement, resting: showing == .resting)
+                    .opacity(pictured ? 1 : 0)
+                if pictured, feed.access?.input != false {
                     ScreenInputArea(feed: feed, typing: typing, inside: $inside)
                 }
-                ScreenPointer(feed: feed, placement: placement, size: area.size)
-                    .opacity(inside || !records ? 0 : 1)
-                cover(records: records)
+                if pictured {
+                    ScreenPointer(feed: feed, placement: placement, size: area.size)
+                        .opacity(inside ? 0 : 1)
+                }
+                VideoCover(showing: showing, computer: computer, failed: String(localized: "Can't show the screen", bundle: .module),
+                           failure: feed.failure, identifier: "canvas.screen") { tries += 1 }
+                CopiedNotice(copies: copies)
             }
         }
-        .animation(theme.motion.fade, value: feed.picture)
+        .animation(theme.motion.fade, value: showing)
         .clipped()
         .onGeometryChange(for: CGSize.self) { $0.size } action: { feed.viewSize = $0 }
         .onChange(of: displayScale, initial: true) { _, scale in feed.viewScale = scale }
@@ -80,46 +107,21 @@ private struct ScreenStage: View {
                 inside = false
             }
         }
-        // Stop watching when off-screen so the computer does not capture for nobody.
-        .task(id: Watch(onScreen: onScreen, tries: tries)) {
-            if onScreen {
-                await feed.watch()
+        // The runtime keeps the pipe waiting while the computer is offline; one that broke meanwhile
+        // opens again once the computer is back.
+        .onChange(of: feed.offline) { _, offline in
+            if !offline, feed.failure != nil {
+                tries += 1
             }
         }
-    }
-
-    @ContentBuilder
-    private func cover(records: Bool) -> some View {
-        if !records {
-            let message = String(
-                localized: "On \(computer), turn on Kodosi Screen in System Settings, under Privacy & Security, Screen & System Audio Recording.",
-                bundle: .module,
-            )
-            TerminalStateCard(symbol: "eye.slash", title: String(localized: "Kodosi Screen cannot record \(computer)", bundle: .module),
-                              message: message, working: false)
-            {
-                EmptyView()
+        .task(id: Watch(onScreen: onScreen, shared: feed.shared, tries: tries)) {
+            if onScreen, feed.shared {
+                feed.copied = { words in
+                    Pasteboard.copy(words)
+                    copies += 1
+                }
+                await feed.watch()
             }
-            .accessibilityIdentifier("canvas.screen.unrecorded")
-        } else if let failure {
-            TerminalStateCard(symbol: "display", title: String(localized: "The screen did not open", bundle: .module), message: failure,
-                              working: false)
-            {
-                Button { tries += 1 } label: { Text("Try again", bundle: .module) }.buttonStyle(.kodosi(.secondary))
-                    .accessibilityIdentifier("canvas.screen.retry")
-            }
-        } else if feed.picture == .waiting {
-            VStack(spacing: 10) {
-                Spinner(size: 18)
-                Text("Waiting for the screen", bundle: .module).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("canvas.screen.waiting")
-            .transition(.opacity)
-        } else if feed.picture == .kept {
-            ReconnectingNotice(identifier: "canvas.screen.reconnecting")
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .padding(.top, 10)
         }
     }
 }
@@ -166,7 +168,7 @@ private struct ScreenBar: View {
                 .transition(.opacity)
             }
             if feed.access?.input == false {
-                ExplainedKey(words: viewOnly) {
+                ExplainedKey(words: String(localized: "Allow control on \(computer)", bundle: .module)) {
                     Text("View only", bundle: .module)
                         .appTextStyle(.footnote).fontWeight(.medium).foregroundStyle(theme.colors.caution)
                         .padding(.horizontal, 9).frame(height: control - 6)
@@ -175,18 +177,10 @@ private struct ScreenBar: View {
                 }
                 .accessibilityIdentifier("canvas.screen.viewOnly")
             }
-            if let failure = feed.failure, feed.picture != .waiting {
-                ProblemKey(problem: failure, size: control - 6, identifier: "canvas.screen.problem")
-            }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 6).frame(height: control + 8)
         .animation(theme.motion.snappy, value: feed.zoom > 1)
-    }
-
-    private var viewOnly: String {
-        String(localized: "To control \(computer) from here, turn on Kodosi Screen there in System Settings, under Privacy & Security, Accessibility.",
-               bundle: .module)
     }
 
     private var sourceFace: some View {

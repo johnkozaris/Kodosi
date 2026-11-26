@@ -45,6 +45,37 @@ final class VideoPlayer: VideoDisplay, @unchecked Sendable {
         pictures.withLock { $0.newest = nil }
     }
 
+    /// Shows a feed's still picture until the feed's own frames come.
+    func seed(_ still: VideoStill?) {
+        guard let still else { return }
+        let seeded = pictures.withLock { pictures in
+            guard pictures.newest == nil, pictures.shown == nil else { return false }
+            pictures.shown = Picture(buffer: still.picture, region: still.region)
+            return true
+        }
+        if seeded {
+            redraw()
+        }
+    }
+
+    /// The picture on screen, copied out of its decoder's pool so that keeping it keeps nothing
+    /// else of the decoder.
+    func still() -> VideoStill? {
+        guard let picture = pictures.withLock({ $0.newest ?? $0.shown }), let copy = Self.copy(picture.buffer) else { return nil }
+        return VideoStill(picture: copy, region: picture.region)
+    }
+
+    /// Dims the picture while the video rests.
+    func rest(_ resting: Bool) {
+        let changed = pictures.withLock { pictures in
+            defer { pictures.resting = resting }
+            return pictures.resting != resting
+        }
+        if changed {
+            redraw()
+        }
+    }
+
     /// Places each picture where its part of the source shows; `nil` fits each picture whole into
     /// the layer.
     func place(_ placement: VideoPlacement?) {
@@ -74,10 +105,38 @@ final class VideoPlayer: VideoDisplay, @unchecked Sendable {
         }
         guard !waiting else { return }
         drawing.async { [self] in
-            let (picture, placement) = pictures.withLock { ($0.take(), $0.placement) }
+            let (picture, placement, resting) = pictures.withLock { ($0.take(), $0.placement, $0.resting) }
             guard let picture, let gpu = VideoGPU.shared else { return }
-            gpu.draw(picture, placement, on: layer)
+            gpu.draw(picture, placement, resting: resting, on: layer)
         }
+    }
+
+    private static func copy(_ picture: CVPixelBuffer) -> CVPixelBuffer? {
+        let attributes: [CFString: Any] = [
+            kCVPixelBufferMetalCompatibilityKey: true,
+            kCVPixelBufferIOSurfacePropertiesKey: [CFString: Any](),
+        ]
+        var created: CVPixelBuffer?
+        guard CVPixelBufferCreate(nil, CVPixelBufferGetWidth(picture), CVPixelBufferGetHeight(picture),
+                                  CVPixelBufferGetPixelFormatType(picture), attributes as CFDictionary, &created) == kCVReturnSuccess,
+            let copy = created
+        else { return nil }
+        CVPixelBufferLockBaseAddress(picture, .readOnly)
+        CVPixelBufferLockBaseAddress(copy, [])
+        defer {
+            CVPixelBufferUnlockBaseAddress(copy, [])
+            CVPixelBufferUnlockBaseAddress(picture, .readOnly)
+        }
+        for plane in 0 ..< CVPixelBufferGetPlaneCount(picture) {
+            guard let from = CVPixelBufferGetBaseAddressOfPlane(picture, plane), let to = CVPixelBufferGetBaseAddressOfPlane(copy, plane)
+            else { return nil }
+            let fromRow = CVPixelBufferGetBytesPerRowOfPlane(picture, plane)
+            let toRow = CVPixelBufferGetBytesPerRowOfPlane(copy, plane)
+            for row in 0 ..< CVPixelBufferGetHeightOfPlane(picture, plane) {
+                memcpy(to + row * toRow, from + row * fromRow, min(fromRow, toRow))
+            }
+        }
+        return copy
     }
 }
 
@@ -85,6 +144,7 @@ private struct Pictures {
     var newest: Picture?
     var shown: Picture?
     var placement: VideoPlacement?
+    var resting = false
     var drawing = false
 
     /// The newest picture, or the one on screen again when nothing newer came.
@@ -193,14 +253,18 @@ private final class VideoGPU: @unchecked Sendable {
         return { float4(mix(rect.x, rect.z, at.x), mix(rect.y, rect.w, at.y), 0, 1), at };
     }
 
-    // BT.709 limited range, as every Kodosi encoder writes it.
+    // BT.709 limited range, as every Kodosi encoder writes it. `look` is the brightness and the
+    // saturation, which dim a picture that rests.
     fragment float4 colour(Corner in [[stage_in]],
                            texture2d<float> luma [[texture(0)]],
-                           texture2d<float> chroma [[texture(1)]]) {
+                           texture2d<float> chroma [[texture(1)]],
+                           constant float2 &look [[buffer(0)]]) {
         constexpr sampler smooth(filter::linear);
         float y = (luma.sample(smooth, in.at).r - 16.0 / 255.0) * (255.0 / 219.0);
         float2 c = (chroma.sample(smooth, in.at).rg - 128.0 / 255.0) * (255.0 / 224.0);
-        return float4(y + 1.5748 * c.y, y - 0.1873 * c.x - 0.4681 * c.y, y + 1.8556 * c.x, 1);
+        float3 rgb = float3(y + 1.5748 * c.y, y - 0.1873 * c.x - 0.4681 * c.y, y + 1.8556 * c.x);
+        float grey = dot(rgb, float3(0.2126, 0.7152, 0.0722));
+        return float4(mix(float3(grey), rgb, look.y) * look.x, 1);
     }
     """
 
@@ -225,9 +289,11 @@ private final class VideoGPU: @unchecked Sendable {
         self.textures = textures
     }
 
+    private static let resting = SIMD2<Float>(0.5, 0.55)
+
     /// Draws the picture where `placement` puts its part of the source, or aspect-fits it into the
     /// layer's drawable without one, and presents it at once.
-    func draw(_ picture: Picture, _ placement: VideoPlacement?, on layer: CAMetalLayer) {
+    func draw(_ picture: Picture, _ placement: VideoPlacement?, resting: Bool, on layer: CAMetalLayer) {
         guard let luma = texture(picture.buffer, plane: 0, format: .r8Unorm),
               let chroma = texture(picture.buffer, plane: 1, format: .rg8Unorm),
               let drawable = layer.nextDrawable(), let commands = queue.makeCommandBuffer()
@@ -246,6 +312,8 @@ private final class VideoGPU: @unchecked Sendable {
         encoder.setRenderPipelineState(pipeline)
         encoder.setFragmentTexture(CVMetalTextureGetTexture(luma.texture), index: 0)
         encoder.setFragmentTexture(CVMetalTextureGetTexture(chroma.texture), index: 1)
+        var look = resting ? Self.resting : SIMD2<Float>(1, 1)
+        encoder.setFragmentBytes(&look, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         encoder.endEncoding()
         commands.present(drawable)

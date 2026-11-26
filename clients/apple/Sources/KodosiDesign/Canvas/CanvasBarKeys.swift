@@ -35,24 +35,6 @@ struct SharedBrowserKey: View {
     }
 }
 
-struct ProblemKey: View {
-    @Environment(\.theme) private var theme
-    let problem: String
-    let size: CGFloat
-    let identifier: String
-
-    var body: some View {
-        ExplainedKey(words: problem) {
-            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(theme.colors.caution)
-                .frame(width: size, height: size)
-                .touchTarget(Rectangle())
-        }
-        .accessibilityLabel(Text(problem))
-        .accessibilityIdentifier(identifier)
-    }
-}
-
 /// Shows explanation text in a popover on tap as well as a tooltip, since touch devices have no
 /// hover tooltips.
 struct ExplainedKey<Face: View>: View {

@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import Observation
+import os
 
 /// The screen of a terminal's computer on its canvas: the video of the display or window that it
 /// shows, its pointer, and the zoom of this view. Input and pointer positions are in the shown
@@ -13,9 +14,23 @@ public final class ScreenFeed {
     private static let lookEvery = Duration.milliseconds(200)
     /// The closest view, in view points per source point.
     private static let closest: CGFloat = 4
+    /// The most clipboard text that the computer takes, in UTF-8 bytes.
+    private static let mostClipboard = 1024 * 1024
 
     public private(set) var picture = VideoPicture.waiting
+    /// What broke unexpectedly, which the view does not say but lets the person try again.
     public private(set) var failure: String?
+    /// False while the person at the computer does not share its screen, when nothing watches it.
+    public private(set) var shared = true
+    public private(set) var offline = false
+    public private(set) var away: ScreenAway?
+    /// False while another device drives the capture, whose view this one shows.
+    public private(set) var control = true
+    /// The part of the source that the frames show while another device drives the capture.
+    private var followed: CGRect?
+    public var still: VideoStill?
+    /// Text copied on the computer, for this device's clipboard.
+    @ObservationIgnored public var copied: (String) -> Void = { _ in }
     public private(set) var sources = ScreenSources()
     public private(set) var source: ScreenSource?
     /// The shown source's size in points.
@@ -57,6 +72,8 @@ public final class ScreenFeed {
     @ObservationIgnored private var lookSent: ContinuousClock.Instant?
     @ObservationIgnored private var looking: Task<Void, Never>?
     @ObservationIgnored private var holding = false
+    /// Set when this view acts, until the screen says that this device drives the capture.
+    @ObservationIgnored private var taking = false
     @ObservationIgnored private var joined = false
     /// Set when the person opens the screen here, so that its capture follows this view.
     @ObservationIgnored private var opened = false
@@ -66,9 +83,37 @@ public final class ScreenFeed {
         self.session = session
     }
 
+    public var showing: VideoShowing {
+        if !shared {
+            return .away(.sharingOff)
+        }
+        if offline {
+            return .away(.offline)
+        }
+        switch away {
+        case .locked: return .away(.locked)
+        case .anotherAccount: return .away(.anotherAccount)
+        case .asleep: return .away(.asleep)
+        case nil: break
+        }
+        if access?.screen == false {
+            return .away(.unrecorded)
+        }
+        if failure != nil {
+            return .failed
+        }
+        if picture == .live {
+            return .live
+        }
+        return picture == .kept || still != nil ? .resting : .opening
+    }
+
+    /// Watches while the screen is shared; a screen that stops being shared ends the watch.
     public func watch() async {
+        guard shared else { return }
         let link = store.screen(of: session)
         guard let heard = channel.start(link) else { return }
+        failure = nil
         defer {
             channel.stop()
             joined = false
@@ -91,6 +136,7 @@ public final class ScreenFeed {
             case .news(.open):
                 // A new pipe is a new seat at the screen, which shows the whole source.
                 sentLook = nil
+                taking = false
                 join()
             case .news(.closed):
                 return
@@ -121,11 +167,14 @@ public final class ScreenFeed {
         }
     }
 
-    /// Detaches a surface that goes away, so that its display goes with it.
-    public func hide(from surface: AnyObject) {
-        guard surface === self.surface else { return }
+    /// Detaches a surface that goes away, so that its display goes with it. Returns whether the
+    /// surface was the one that showed the feed.
+    @discardableResult
+    public func hide(from surface: AnyObject) -> Bool {
+        guard surface === self.surface else { return false }
         self.surface = nil
         channel.hide()
+        return true
     }
 
     public func send(_ input: ViewerInput) {
@@ -137,8 +186,41 @@ public final class ScreenFeed {
                 holding = false
             }
         }
+        if input.acts {
+            takeControl()
+        }
         if !input.isPlainMove {
             sendSize()
+        }
+    }
+
+    /// Gives the computer this device's clipboard, which it pastes next.
+    public func sendClipboard(_ text: String) {
+        guard !text.isEmpty, text.utf8.count <= Self.mostClipboard else { return }
+        channel.post(ToScreen.clipboard(text))
+    }
+
+    /// Turns the sharing of this computer's own screen on, which has macOS ask for what Kodosi
+    /// Screen may not do yet.
+    public func share() async {
+        do {
+            try await store.shareScreen()
+        } catch {
+            Logger.app.error("The screen was not shared: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// What the canvas says about the screen and its computer.
+    func see(_ session: RuntimeSession) {
+        let shared = session.canvas?.screen?.shared ?? false
+        if shared != self.shared {
+            self.shared = shared
+            if !shared {
+                channel.stop()
+            }
+        }
+        if session.hostOffline != offline {
+            offline = session.hostOffline
         }
     }
 
@@ -147,9 +229,11 @@ public final class ScreenFeed {
     }
 
     /// Where the source shows in a view of `view` size, or `nil` before the screen said its size.
+    /// While another device drives the capture, the view shows what that device shows.
     public func placement(in view: CGSize) -> VideoPlacement? {
         guard size.width > 0, size.height > 0, view.width > 0, view.height > 0 else { return nil }
         let whole = CGRect(origin: .zero, size: size)
+        guard control else { return VideoPlacement(source: size, look: followed ?? whole) }
         guard zoom > 1 else { return VideoPlacement(source: size, look: whole) }
         let fit = Self.fit(size, in: view) * zoom
         let width = min(view.width / fit, size.width)
@@ -171,6 +255,7 @@ public final class ScreenFeed {
         let most = max(1, Self.closest / Self.fit(size, in: view))
         let zoom = min(max(zoom * factor, 1), most)
         guard zoom != self.zoom else { return }
+        takeControl()
         self.zoom = zoom
         let fit = Self.fit(size, in: view) * zoom
         center = CGPoint(x: held.x - (anchor.x - view.width / 2) / fit, y: held.y - (anchor.y - view.height / 2) / fit)
@@ -180,6 +265,7 @@ public final class ScreenFeed {
     /// Moves a zoomed view by `distance` in view points.
     public func pan(by distance: CGSize, in view: CGSize) {
         guard zoom > 1 else { return }
+        takeControl()
         let fit = Self.fit(size, in: view) * zoom
         center = CGPoint(x: center.x + distance.width / fit, y: center.y + distance.height / fit)
         looked(in: view)
@@ -187,8 +273,17 @@ public final class ScreenFeed {
 
     public func showWhole() {
         guard zoom > 1 else { return }
+        takeControl()
         zoom = 1
         sendLook()
+    }
+
+    /// Acting here takes the capture over, so this view shows its own look at once.
+    private func takeControl() {
+        taking = true
+        if !control {
+            control = true
+        }
     }
 
     private static func fit(_ source: CGSize, in view: CGSize) -> CGFloat {
@@ -209,9 +304,8 @@ public final class ScreenFeed {
         channel.rejoin()
         let size = currentSize
         sentSize = size
-        channel.post(ToScreen.watch(size, decoders: DeviceDecoder.here, opened: opened))
+        channel.post(ToScreen.watch(size, decoders: DeviceDecoder.here, opened: opened, commandKey: true))
         opened = false
-        sendLook()
     }
 
     private var currentSize: VideoSize {
@@ -237,9 +331,10 @@ public final class ScreenFeed {
 
     /// Sends what the view shows at most every `lookEvery`, and the last of a zoom or pan once
     /// it ends. Each look names its source, so the screen leaves one that comes after another
-    /// source took its place.
+    /// source took its place. A look takes the capture over, so a device sends one only while it
+    /// drives the capture or acts.
     private func sendLook() {
-        guard joined, let source else { return }
+        guard joined, control, let source else { return }
         let look = zoom > 1 ? placement(in: viewSize)?.look : nil
         guard look != sentLook else { return }
         looking?.cancel()
@@ -270,7 +365,10 @@ public final class ScreenFeed {
         case let .shown(number):
             if number == surfaces {
                 picture = .live
+                still = nil
             }
+        case let .region(region):
+            followed = region
         case .news(.open), .news(.closed):
             break
         }
@@ -296,28 +394,53 @@ public final class ScreenFeed {
         if message.access != access {
             access = message.access
         }
+        if message.away != away {
+            away = message.away
+            // The picture rests from now on, until the screen comes back with new frames.
+            if away != nil, picture == .live {
+                picture = .kept
+                channel.rest()
+            }
+        }
+        if message.control {
+            taking = false
+        }
+        let control = message.control || taking
+        if control != self.control {
+            self.control = control
+        }
+        if control {
+            sendLook()
+        }
         for shape in message.shapes {
             shapes[shape.id] = shape.picture
+        }
+        if let text = message.copied {
+            copied(text)
         }
     }
 }
 
 private enum ToScreen: Encodable {
-    case watch(VideoSize, decoders: [DeviceDecoder], opened: Bool)
+    /// `commandKey` says that this device's keyboard has ⌘, which a computer that is not a Mac
+    /// takes as Control in shortcuts.
+    case watch(VideoSize, decoders: [DeviceDecoder], opened: Bool, commandKey: Bool)
     case size(VideoSize)
     case input(ViewerInput)
     case show(ScreenSource)
     case look(CGRect?, of: ScreenSource)
+    case clipboard(String)
 
     func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: Field.self)
         switch self {
-        case let .watch(size, decoders, opened):
+        case let .watch(size, decoders, opened, commandKey):
             try container.encode("watch", forKey: .type)
             try container.encode(size, forKey: .size)
             try container.encode(decoders, forKey: .decoders)
             try container.encode(true, forKey: .anchors)
             try container.encode(opened, forKey: .opened)
+            try container.encode(commandKey, forKey: .commandKey)
         case let .size(size):
             try container.encode("size", forKey: .type)
             try container.encode(size, forKey: .size)
@@ -331,10 +454,13 @@ private enum ToScreen: Encodable {
             try container.encode("look", forKey: .type)
             try container.encode(source, forKey: .source)
             try container.encode(look.map(Region.init), forKey: .region)
+        case let .clipboard(text):
+            try container.encode("clipboard", forKey: .type)
+            try container.encode(text, forKey: .text)
         }
     }
 
-    private enum Field: String, CodingKey { case type, size, decoders, anchors, opened, input, source, region }
+    private enum Field: String, CodingKey { case type, size, decoders, anchors, opened, commandKey, input, source, region, text }
 }
 
 private struct Region: Encodable {

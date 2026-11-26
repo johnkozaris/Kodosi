@@ -86,6 +86,85 @@ import Testing
 }
 
 @MainActor
+@Test func `the screen says only the first reason that it does not show, and shows again as each reason clears`() async throws {
+    let runtime = FeedRuntime()
+    try runtime.store.observe([FeedRuntime.terminal(remote: true, shared: true)])
+    runtime.screen.show(on: NSObject(), Shown())
+    let watching = Task { await runtime.screen.watch() }
+    defer { watching.cancel() }
+    let pipe = try await runtime.open()
+    #expect(runtime.screen.showing == .opening)
+    try runtime.send(FeedRuntime.keyFrame, on: pipe)
+    await eventually { runtime.screen.showing == .live }
+
+    try runtime.lose(pipe, saying: "The screen stopped.")
+    await eventually { runtime.screen.showing == .failed }
+    try runtime.say(screenState(recording: false), on: pipe)
+    await eventually { runtime.screen.showing == .away(.unrecorded) }
+    try runtime.say(screenState(recording: false, away: "locked"), on: pipe)
+    await eventually { runtime.screen.showing == .away(.locked) }
+    try runtime.store.observe([FeedRuntime.terminal(remote: true, offline: true, shared: true)])
+    #expect(runtime.screen.showing == .away(.offline))
+    try runtime.store.observe([FeedRuntime.terminal(remote: true, offline: true, shared: false)])
+    #expect(runtime.screen.showing == .away(.sharingOff))
+
+    try runtime.store.observe([FeedRuntime.terminal(remote: true, offline: true, shared: true)])
+    #expect(runtime.screen.showing == .away(.offline))
+    try runtime.store.observe([FeedRuntime.terminal(remote: true, shared: true)])
+    #expect(runtime.screen.showing == .away(.locked))
+}
+
+@MainActor
+@Test func `the screen's pipe closes while its computer does not share it, and opens once it does`() async throws {
+    let runtime = FeedRuntime()
+    try runtime.store.observe([FeedRuntime.terminal(remote: true, shared: true)])
+    let watching = Task { await runtime.screen.watch() }
+    _ = try await runtime.open()
+
+    try runtime.store.observe([FeedRuntime.terminal(remote: true, shared: false)])
+    try await runtime.closed()
+    await watching.value
+    await runtime.screen.watch()
+    #expect(!runtime.opening())
+
+    try runtime.store.observe([FeedRuntime.terminal(remote: true, shared: true)])
+    let again = Task { await runtime.screen.watch() }
+    defer { again.cancel() }
+    _ = try await runtime.open()
+}
+
+@MainActor
+@Test func `text copied on the computer goes to this device's clipboard once`() async throws {
+    let runtime = FeedRuntime()
+    let copied = Copied()
+    runtime.screen.copied = { copied.words.append($0) }
+    let watching = Task { await runtime.screen.watch() }
+    defer { watching.cancel() }
+    let pipe = try await runtime.open()
+
+    try runtime.say(screenState(copied: "ls -la"), on: pipe)
+    try runtime.say(screenState(width: 1440), on: pipe)
+    await eventually { runtime.screen.size.width == 1440 }
+    #expect(copied.words == ["ls -la"])
+}
+
+/// What the screen tells a viewer that controls it, which shows a display of `width` points.
+private func screenState(width: Double = 1600, recording: Bool = true, away: String? = nil, copied: String? = nil) -> [String: Any] {
+    var state: [String: Any] = [
+        "source": ["kind": "display", "id": 1], "width": width, "height": 1000, "access": ["screen": recording, "input": true],
+        "control": true,
+    ]
+    state["away"] = away
+    state["copied"] = copied
+    return state
+}
+
+@MainActor
+private final class Copied {
+    var words: [String] = []
+}
+
+@MainActor
 private func eventually(_ done: () -> Bool) async {
     let deadline = ContinuousClock.now + .seconds(2)
     while !done(), ContinuousClock.now < deadline {

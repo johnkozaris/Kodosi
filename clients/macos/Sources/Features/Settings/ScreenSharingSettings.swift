@@ -10,10 +10,16 @@ struct ScreenSharingGroup: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
     @State private var sharing: ScreenSharing?
+    /// Where the switch went, while this Mac answers, which waits for Kodosi Screen to start.
+    @State private var turning: Bool?
     @State private var problem: String?
 
+    private var allowed: Bool {
+        turning ?? sharing?.allowed ?? false
+    }
+
     private var footer: LocalizedStringKey {
-        guard sharing?.allowed == true else {
+        guard allowed else {
             return "Your phone and your other computers can show this Mac's screen on the canvas of its terminals."
         }
         return """
@@ -27,9 +33,9 @@ struct ScreenSharingGroup: View {
             if let sharing, sharing.available {
                 ListGroup(title: "Screen", footer: footer) {
                     SwitchRow(String(localized: "Let my other devices see and control this Mac"), symbol: CanvasSymbol.screen,
-                              tint: TileTint.blue, isOn: Binding { sharing.allowed } set: { allow($0) })
+                              tint: TileTint.blue, isOn: Binding { allowed } set: { allow($0) })
                         .accessibilityIdentifier("settings.screen.share")
-                    if sharing.allowed {
+                    if allowed {
                         ScreenGrantRow(pane: .screenRecording, title: String(localized: "Screen & System Audio Recording"),
                                        use: String(localized: "For Kodosi Screen to see this Mac"), symbol: "record.circle",
                                        tint: TileTint.purple, granted: sharing.access?.screen,
@@ -44,7 +50,7 @@ struct ScreenSharingGroup: View {
                 ErrorNote(message: problem)
             }
         }
-        .animation(theme.motion.spring, value: sharing?.allowed)
+        .animation(theme.motion.spring, value: allowed)
         .task { await refresh() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             Task { await refresh() }
@@ -54,13 +60,16 @@ struct ScreenSharingGroup: View {
     private func refresh() async {
         do {
             sharing = try await deps.commandSink.screenSharing()
+            problem = nil
         } catch {
             problem = error.localizedDescription
         }
     }
 
     private func allow(_ allowed: Bool) {
+        turning = allowed
         Task {
+            defer { turning = nil }
             do {
                 sharing = try await deps.commandSink.shareScreen(allowed)
                 problem = nil

@@ -1,5 +1,6 @@
 import CoreGraphics
 import CoreMedia
+import CoreVideo
 import Foundation
 import Synchronization
 import VideoToolbox
@@ -10,6 +11,42 @@ public enum VideoPicture: Sendable {
     case live
     /// Retains the last rendered frame while reconnecting until a fresh frame arrives.
     case kept
+}
+
+/// The one state that a view of a canvas video shows, on its picture. Kodosi handles what comes
+/// back by itself, so only `away` says why and only `failed` offers to try again.
+public enum VideoShowing: Equatable, Sendable {
+    case away(VideoAway)
+    /// Something unexpected broke.
+    case failed
+    case live
+    /// The last picture, dimmed while the video comes back.
+    case resting
+    /// No picture yet.
+    case opening
+}
+
+/// Why a video shows nothing for now. Each clears by itself once its cause does.
+public enum VideoAway: Equatable, Sendable {
+    case sharingOff
+    case offline
+    case locked
+    case anotherAccount
+    case asleep
+    case unrecorded
+}
+
+/// The last picture that a feed showed, out of its decoder's pool, which a new view of the feed
+/// shows resting until the video is live again.
+public struct VideoStill {
+    public let picture: CVPixelBuffer
+    /// The part of the source that the picture shows, when only a part.
+    public let region: CGRect?
+
+    public init(picture: CVPixelBuffer, region: CGRect?) {
+        self.picture = picture
+        self.region = region
+    }
 }
 
 /// A frame on its way to a surface, with the part of the source that it shows when it shows only
@@ -37,6 +74,8 @@ final class VideoChannel<Message: Decodable & Sendable>: Sendable {
         case message(Message)
         /// The surface generation that rendered a frame.
         case shown(Int)
+        /// The part of the source that the frames show from now on, or `nil` for all of it.
+        case region(CGRect?)
     }
 
     private struct State {
@@ -48,6 +87,7 @@ final class VideoChannel<Message: Decodable & Sendable>: Sendable {
         var samples = VideoSamples()
         var lastFrame: UInt32 = 0
         var holds = Holds.nothing
+        var region: CGRect?
     }
 
     private let state = Mutex(State())
@@ -109,6 +149,11 @@ final class VideoChannel<Message: Decodable & Sendable>: Sendable {
         state.withLock { $0.holds = .nothing }
     }
 
+    /// The next frame counts as shown again, after a while without frames.
+    func rest() {
+        state.withLock { $0.shown = false }
+    }
+
     func post(_ message: some Encodable) {
         guard let body = try? JSONEncoder().encode(message) else { return }
         state.withLock { $0.link }?.send(Data([Wire.messageTag]) + body)
@@ -151,34 +196,42 @@ final class VideoChannel<Message: Decodable & Sendable>: Sendable {
         guard let codec = VideoCodec(rawValue: header[6]),
               let (region, data) = Self.picture(message.dropFirst(Wire.frameHeader), regional: header[5] & Wire.regionFlag != 0)
         else { return }
-        let (restarts, shown) = state.withLock { state -> (Bool, Heard?) in
+        let (restarts, told) = state.withLock { state -> (Bool, [Heard]) in
             // A frame still on its way when the watch stopped would start the stopped decoder again.
-            guard state.link != nil else { return (false, nil) }
+            guard state.link != nil else { return (false, []) }
             if state.holds == .stream, id != state.lastFrame &+ 1 {
                 state.holds = .gap
             }
             state.lastFrame = id
             switch state.holds {
             case .nothing where !key:
-                return (false, nil)
+                return (false, [])
             case .gap where !key && !anchor:
-                return (true, nil)
+                return (true, [])
             default:
                 break
             }
             guard let sample = state.samples.sample(of: data, codec: codec) else {
-                return (false, nil)
+                return (false, [])
             }
             state.holds = .stream
+            var told: [Heard] = []
+            if region != state.region {
+                state.region = region
+                told.append(.region(region))
+            }
             let going = state.display?.enqueue(VideoSample(buffer: sample, region: region)) ?? true
-            defer { state.shown = true }
-            return (!going, state.shown ? nil : .shown(state.surface))
+            if !state.shown {
+                state.shown = true
+                told.append(.shown(state.surface))
+            }
+            return (!going, told)
         }
         if restarts {
             restart()
         }
-        if let shown {
-            tell(shown)
+        for heard in told {
+            tell(heard)
         }
     }
 

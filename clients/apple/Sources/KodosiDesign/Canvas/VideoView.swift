@@ -2,11 +2,13 @@ import KodosiBridge
 import QuartzCore
 import SwiftUI
 
-/// A feed whose frames a `VideoSurface` shows.
+/// A feed whose frames a `VideoSurface` shows. Its still picture outlives the surface, so that
+/// the next view of the feed shows it until the feed is live again.
 @MainActor
 protocol VideoFeed: AnyObject {
+    var still: VideoStill? { get set }
     func show(on surface: AnyObject, _ display: any VideoDisplay)
-    func hide(from surface: AnyObject)
+    func hide(from surface: AnyObject) -> Bool
 }
 
 extension BrowserFeed: VideoFeed {}
@@ -17,6 +19,7 @@ extension ScreenFeed: VideoFeed {}
     struct VideoView: NSViewRepresentable {
         let feed: any VideoFeed
         var placement: VideoPlacement?
+        var resting = false
 
         func makeNSView(context _: Context) -> VideoSurface {
             VideoSurface(feed: feed)
@@ -24,11 +27,11 @@ extension ScreenFeed: VideoFeed {}
 
         func updateNSView(_ view: VideoSurface, context _: Context) {
             view.show(feed)
-            view.place(placement)
+            view.place(placement, resting: resting)
         }
 
         static func dismantleNSView(_ view: VideoSurface, coordinator _: ()) {
-            view.feed?.hide(from: view)
+            view.leave()
         }
     }
 
@@ -41,6 +44,7 @@ extension ScreenFeed: VideoFeed {}
             layer = player.layer
             wantsLayer = true
             show(feed)
+            player.seed(feed.still)
         }
 
         @available(*, unavailable)
@@ -63,8 +67,16 @@ extension ScreenFeed: VideoFeed {}
             feed.show(on: self, player)
         }
 
-        func place(_ placement: VideoPlacement?) {
+        func place(_ placement: VideoPlacement?, resting: Bool) {
             player.place(placement)
+            player.rest(resting)
+        }
+
+        /// The feed keeps the picture on screen when this view goes.
+        func leave() {
+            if feed?.hide(from: self) == true, let still = player.still() {
+                feed?.still = still
+            }
         }
 
         private func fit() {
@@ -77,6 +89,7 @@ extension ScreenFeed: VideoFeed {}
     struct VideoView: UIViewRepresentable {
         let feed: any VideoFeed
         var placement: VideoPlacement?
+        var resting = false
 
         func makeUIView(context _: Context) -> VideoSurface {
             VideoSurface(feed: feed)
@@ -84,11 +97,11 @@ extension ScreenFeed: VideoFeed {}
 
         func updateUIView(_ view: VideoSurface, context _: Context) {
             view.show(feed)
-            view.place(placement)
+            view.place(placement, resting: resting)
         }
 
         static func dismantleUIView(_ view: VideoSurface, coordinator _: ()) {
-            view.feed?.hide(from: view)
+            view.leave()
         }
     }
 
@@ -104,6 +117,7 @@ extension ScreenFeed: VideoFeed {}
         init(feed: any VideoFeed) {
             super.init(frame: .zero)
             show(feed)
+            player.seed(feed.still)
         }
 
         @available(*, unavailable)
@@ -121,8 +135,16 @@ extension ScreenFeed: VideoFeed {}
             feed.show(on: self, player)
         }
 
-        func place(_ placement: VideoPlacement?) {
+        func place(_ placement: VideoPlacement?, resting: Bool) {
             player.place(placement)
+            player.rest(resting)
+        }
+
+        /// The feed keeps the picture on screen when this view goes.
+        func leave() {
+            if feed?.hide(from: self) == true, let still = player.still() {
+                feed?.still = still
+            }
         }
     }
 #endif

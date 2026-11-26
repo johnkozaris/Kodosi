@@ -35,7 +35,7 @@ public struct CanvasItemView: View {
     public var body: some View {
         switch shown {
         case let .browser(browser):
-            CanvasBrowserView(browser: browser, feed: store.feed(session.id), typing: typing, ask: ask)
+            CanvasBrowserView(browser: browser, feed: store.feed(session.id), computer: session.hostLabel, typing: typing, ask: ask)
         case .screen:
             CanvasScreenView(session: session, feed: store.screenFeed(session.id), typing: typing)
         case let .item(item):

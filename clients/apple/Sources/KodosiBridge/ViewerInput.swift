@@ -43,6 +43,15 @@ public enum ViewerInput: Encodable, Equatable, Sendable {
         return false
     }
 
+    /// Hovering, letting go and lifting a key follow what the viewer did before, so only the rest
+    /// acts, which takes a screen's capture over.
+    var acts: Bool {
+        switch self {
+        case .mouse(.mouseMoved, _, _, _, _, _, _, _), .mouse(.mouseReleased, _, _, _, _, _, _, _), .key(.keyUp, _, _, _, _, _): false
+        default: true
+        }
+    }
+
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: Field.self)
         switch self {

@@ -60,6 +60,8 @@ public final class CanvasStore {
     @ObservationIgnored private var reading: [Stored: Task<(UInt64, Data), any Error>] = [:]
     @ObservationIgnored private var feeds: [String: BrowserFeed] = [:]
     @ObservationIgnored private var screens: [String: ScreenFeed] = [:]
+    /// The sessions as last observed, which tell a new feed about its browser or screen.
+    @ObservationIgnored private var seen: [String: RuntimeSession] = [:]
     @ObservationIgnored private var chats: [String: TerminalChat] = [:]
     @ObservationIgnored private let documents = NSHashTable<DocumentLink>.weakObjects()
     /// While the device is hot, video feeds ask for fewer pixels.
@@ -78,6 +80,8 @@ public final class CanvasStore {
     #if os(iOS)
         @ObservationIgnored private var heat: any NSObjectProtocol?
     #endif
+    /// Lets go of the feeds' still pictures when the device runs short of memory.
+    @ObservationIgnored private let pressure = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
 
     public init(commands: CommandSink, videoPipes: VideoPipes = VideoPipes(),
                 started: UInt64 = UInt64(Date.now.timeIntervalSince1970 * 1000))
@@ -93,19 +97,35 @@ public final class CanvasStore {
                 MainActor.assumeIsolated { self?.hot = Self.heated }
             }
         #endif
+        pressure.setEventHandler { [weak self] in
+            MainActor.assumeIsolated { self?.forgetStills() }
+        }
+        pressure.resume()
     }
 
-    #if os(iOS)
-        isolated deinit {
+    isolated deinit {
+        pressure.cancel()
+        #if os(iOS)
             if let heat {
                 NotificationCenter.default.removeObserver(heat)
             }
-        }
+        #endif
+    }
 
+    #if os(iOS)
         private static var heated: Bool {
             [.serious, .critical].contains(ProcessInfo.processInfo.thermalState)
         }
     #endif
+
+    private func forgetStills() {
+        for feed in feeds.values {
+            feed.still = nil
+        }
+        for screen in screens.values {
+            screen.still = nil
+        }
+    }
 
     /// Managed by `videoPipes` rather than `documents` so frames stay off the main actor.
     func browser(of session: String) -> DocumentLink {
@@ -154,6 +174,7 @@ public final class CanvasStore {
 
     public func observe(_ sessions: [RuntimeSession]) {
         let ids = Set(sessions.map(\.id))
+        seen = Dictionary(sessions.map { ($0.id, $0) }) { _, last in last }
         for session in sessions where firstSeen[session.id] == nil {
             firstSeen[session.id] = session.canvas?.newest?.changed ?? 0
         }
@@ -183,6 +204,10 @@ public final class CanvasStore {
         feeds = feeds.filter { browsing.contains($0.key) }
         let watching = Set(sessions.filter { $0.canvas?.screen != nil }.map(\.id))
         screens = screens.filter { watching.contains($0.key) }
+        for session in sessions {
+            feeds[session.id]?.see(session)
+            screens[session.id]?.see(session)
+        }
         chats = chats.filter { ids.contains($0.key) }
         for key in stored.keys where !ids.contains(key.session) {
             forget(key)
@@ -325,6 +350,7 @@ public final class CanvasStore {
             return feed
         }
         let feed = BrowserFeed(store: self, session: session)
+        seen[session].map(feed.see)
         feeds[session] = feed
         return feed
     }
@@ -334,6 +360,7 @@ public final class CanvasStore {
             return feed
         }
         let feed = ScreenFeed(store: self, session: session)
+        seen[session].map(feed.see)
         screens[session] = feed
         return feed
     }
@@ -467,6 +494,10 @@ public final class CanvasStore {
             opening[session.id] = nil
             throw error
         }
+    }
+
+    func shareScreen() async throws {
+        _ = try await commands.shareScreen(true)
     }
 
     public func act(_ act: BrowserAct, in session: String) async throws {

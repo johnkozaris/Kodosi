@@ -100,6 +100,31 @@ import Testing
 }
 
 @MainActor
+@Test func `a browser that someone looks at wakes once each time that it falls asleep`() async throws {
+    let runtime = FeedRuntime()
+    try runtime.store.observe([FeedRuntime.terminal(browser: "asleep")])
+    let first = Task { await runtime.feed.wakeIfAsleep() }
+    #expect(try await runtime.answer()["action"] as? [String: String] == ["do": "wake"])
+    await first.value
+    await expectNoWake(runtime)
+
+    try runtime.store.observe([FeedRuntime.terminal(browser: "awake")])
+    await expectNoWake(runtime)
+    try runtime.store.observe([FeedRuntime.terminal(browser: "asleep")])
+    let again = Task { await runtime.feed.wakeIfAsleep() }
+    #expect(try await runtime.answer()["action"] as? [String: String] == ["do": "wake"])
+    await again.value
+}
+
+@MainActor
+private func expectNoWake(_ runtime: FeedRuntime) async {
+    let waking = Task { await runtime.feed.wakeIfAsleep() }
+    await Task.yield()
+    #expect(runtime.unanswered() == 0)
+    waking.cancel()
+}
+
+@MainActor
 @Test func `a watch that ends stops the display, so that it lets go of its decoder`() async throws {
     let runtime = FeedRuntime()
     let shown = Shown()

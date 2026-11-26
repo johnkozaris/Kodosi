@@ -5,10 +5,10 @@ import SwiftUI
 /// fallback still. While the layer is active, the video view matches the page's aspect ratio so a
 /// previous-size still cannot peek out beside the layer.
 struct BrowserPicture: View {
-    @Environment(\.theme) private var theme
-    let browser: CanvasBrowser
     let feed: BrowserFeed
-    let blank: Bool
+    /// False while the view says something in place of the page, or the page is blank.
+    let shows: Bool
+    let resting: Bool
 
     /// Returns `nil` in video-only mode so the video view fits each picture itself, without lagging
     /// behind frame size changes by a SwiftUI layout pass.
@@ -22,15 +22,13 @@ struct BrowserPicture: View {
 
     var body: some View {
         GeometryReader { area in
-            VideoView(feed: feed)
+            VideoView(feed: feed, resting: resting)
                 .aspectRatio(layerRatio ?? Self.ratio(of: area.size), contentMode: .fit)
                 .frame(width: area.size.width, height: area.size.height)
         }
-        .opacity(feed.picture != .waiting && !blank ? 1 : 0)
-        .grayscale(browser.state == .awake ? 0 : 1)
-        .animation(theme.motion.fade, value: browser.state)
+        .opacity(shows ? 1 : 0)
         #if os(macOS)
-            if let layer = feed.window.layer, !blank {
+            if let layer = feed.window.layer, shows {
                 BrowserLayerView(context: layer, page: feed.window.size)
             }
         #endif
