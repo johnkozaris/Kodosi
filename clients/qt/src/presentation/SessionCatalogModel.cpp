@@ -369,6 +369,8 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
         { QStringLiteral("connectionState"), s->connectionState }, { QStringLiteral("stalled"), !local && s->stalled },
         { QStringLiteral("direct"), !local && s->direct }, { QStringLiteral("look"), s->look },
         { QStringLiteral("face"), s->face }, { QStringLiteral("helpers"), s->helpers },
+        { QStringLiteral("offersContinue"), s->stopped && p.canType && !s->working },
+        { QStringLiteral("added"), s->added }, { QStringLiteral("removed"), s->removed },
         { QStringLiteral("isOwner"), s->isOwner }, { QStringLiteral("hostDeviceId"), local ? QString {} : s->hostDeviceId },
         { QStringLiteral("sharedWith"), s->sharedWith }, { QStringLiteral("canControl"), p.canType },
         { QStringLiteral("canClose"), p.canType || (!local && p.away) }, { QStringLiteral("hidden"), s->hidden },
@@ -455,6 +457,21 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
     if (!direct.isUndefined() && !direct.isBool())
         return std::nullopt;
     s.direct = direct.toBool();
+    const auto stopped = o.value(QStringLiteral("stopped"));
+    if (!stopped.isUndefined() && !stopped.isBool())
+        return std::nullopt;
+    s.stopped = stopped.toBool();
+    const auto changes = o.value(QStringLiteral("changes"));
+    if (!changes.isUndefined() && !changes.isNull()) {
+        const auto lines = changes.toObject();
+        const auto added = lines.value(QStringLiteral("added"));
+        const auto removed = lines.value(QStringLiteral("removed"));
+        if (!changes.isObject() || !added.isDouble() || !removed.isDouble() || added.toDouble() < 0
+            || removed.toDouble() < 0 || added.toDouble() > 4294967295.0 || removed.toDouble() > 4294967295.0)
+            return std::nullopt;
+        s.added = static_cast<int>(std::min(added.toDouble(), 2147483647.0));
+        s.removed = static_cast<int>(std::min(removed.toDouble(), 2147483647.0));
+    }
     const auto look = o.value(QStringLiteral("look"));
     if (!look.isUndefined() && look != QJsonValue(QStringLiteral("dark")) && look != QJsonValue(QStringLiteral("light")))
         return std::nullopt;

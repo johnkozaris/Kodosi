@@ -16,7 +16,7 @@ extension AppModel {
 /// Unified placeholder covering both connection and render states so covers never stack.
 struct TerminalCover: Equatable {
     enum Action: Equatable {
-        case connect, reconnect, retry
+        case connect, reconnect, retry, wake, waking
     }
 
     let symbol: String?
@@ -30,7 +30,9 @@ struct TerminalCover: Equatable {
                                           identifier: "terminal.state.connecting")
 
     /// Returns `nil` once the terminal draws; `render` is `nil` until the terminal has a surface.
-    static func of(_ session: RuntimeSession, unreachable: Bool, opening: Bool, failure: String?, render: TerminalRenderState?) -> TerminalCover? {
+    static func of(
+        _ session: RuntimeSession, unreachable: Bool, opening: Bool, failure: String?, power: ComputerPower?, render: TerminalRenderState?,
+    ) -> TerminalCover? {
         switch session.connectionState {
         case .blocked:
             TerminalCover(symbol: "lock", title: session.statusLabel, message: session.message, working: false, action: nil,
@@ -40,8 +42,10 @@ struct TerminalCover: Equatable {
                           message: String(localized: "The terminal opens when the connection is back."), working: false, action: .reconnect,
                           identifier: "terminal.state.unreachable")
         case .offline where session.status == .offline:
-            TerminalCover(symbol: "wifi.slash", title: session.statusLabel, message: String(localized: "The terminal opens when its computer is back."),
-                          working: false, action: nil, identifier: "terminal.state.away")
+            TerminalCover(symbol: "wifi.slash", title: session.statusLabel,
+                          message: power?.problem ?? String(localized: "The terminal opens when its computer is back."),
+                          working: power?.busy == .waking, action: power?.busy == .waking ? .waking : power?.canWake == true ? .wake : nil,
+                          identifier: "terminal.state.away")
         case .offline where !opening:
             TerminalCover(symbol: "wifi.slash", title: session.statusLabel, message: failure ?? session.message, working: false,
                           action: session.canOpen ? .connect : nil, identifier: "terminal.state.offline")
@@ -69,10 +73,16 @@ struct TerminalCoverCard: View {
     let connect: () -> Void
     let reconnect: () -> Void
     let retry: () -> Void
+    let wake: () -> Void
 
     var body: some View {
         TerminalStateCard(symbol: cover.symbol, title: cover.title, message: cover.message, working: cover.working) {
             switch cover.action {
+            case .wake, .waking:
+                Button(cover.action == .wake ? "Wake" : "Waking…", action: wake)
+                    .buttonStyle(.kodosi(.primary))
+                    .disabled(cover.action == .waking)
+                    .accessibilityIdentifier("terminal.wake")
             case .connect:
                 Button("Connect", action: connect)
                     .buttonStyle(.kodosi(.primary))

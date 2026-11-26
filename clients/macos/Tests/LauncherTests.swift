@@ -1,6 +1,8 @@
+import AppKit
 import Foundation
 import KodosiBridge
 @testable import KodosiDesktop
+import SwiftUI
 import Testing
 
 private func launcherApp(_ prefix: String) throws -> (AppDependencies, () -> [[String: JSONValue]]) {
@@ -134,4 +136,64 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     try Data("#!/bin/sh\n".utf8).write(to: link)
     #expect(CommandLineTool.keepLinked(home: home) == nil)
     #expect(try String(contentsOf: link, encoding: .utf8) == "#!/bin/sh\n")
+}
+
+@Test func `a pasted block of lines becomes one line that Undo takes back`() throws {
+    let draft = PromptDraft()
+    let (window, view) = try prompt(draft)
+    defer { window.close() }
+    let board = NSPasteboard(name: NSPasteboard.Name("kodosi-tests-\(UUID().uuidString)"))
+    defer { board.releaseGlobally() }
+    board.declareTypes([.string], owner: nil)
+    board.setString("fix\n\nthe\t\ttests\r\n", forType: .string)
+
+    #expect(view.readSelection(from: board, type: .string))
+    #expect(view.string == "fix the tests ")
+    #expect(draft.text == "fix the tests ")
+    view.undoManager?.undo()
+    #expect(view.string.isEmpty)
+    #expect(draft.text.isEmpty)
+}
+
+@Test func `the prompt keeps its Undo to itself and starts it over when its text changes from outside`() async throws {
+    let draft = PromptDraft()
+    let (window, view) = try prompt(draft)
+    defer { window.close() }
+    view.insertText("claude", replacementRange: NSRange(location: NSNotFound, length: 0))
+    try await Task.sleep(for: .milliseconds(50))
+    #expect(view.undoManager?.canUndo == true)
+    #expect(window.undoManager?.canUndo != true)
+
+    draft.text = ""
+    for _ in 0 ..< 500 where !view.string.isEmpty {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(view.string.isEmpty)
+    #expect(view.undoManager?.canUndo == false)
+}
+
+@Observable
+private final class PromptDraft {
+    var text = ""
+}
+
+private struct PromptHost: View {
+    @Bindable var draft: PromptDraft
+
+    var body: some View {
+        PromptField(text: $draft.text, hint: "", label: "Prompt", submit: {})
+    }
+}
+
+private func prompt(_ draft: PromptDraft) throws -> (NSWindow, PromptTextView) {
+    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 120), styleMask: [.titled], backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    window.contentView = NSHostingView(rootView: PromptHost(draft: draft))
+    window.contentView?.layoutSubtreeIfNeeded()
+    return try (window, #require(promptView(in: window.contentView)))
+}
+
+private func promptView(in view: NSView?) -> PromptTextView? {
+    guard let view else { return nil }
+    return view as? PromptTextView ?? view.subviews.lazy.compactMap { promptView(in: $0) }.first
 }

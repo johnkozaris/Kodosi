@@ -69,7 +69,7 @@ final class NewTerminal {
                 terminals.pick(.chat, of: started, over: nil)
             }
             return started
-        } catch is CancellationError {
+        } catch is CancellationError, RuntimeError.refused {
             return nil
         } catch {
             failure = error.localizedDescription

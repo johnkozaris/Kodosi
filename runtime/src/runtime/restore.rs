@@ -18,6 +18,11 @@ use crate::{
 use super::saver::Saver;
 
 const FILE: &str = "terminals.json";
+/// Written when the host stops to install an update, so the next host knows why it starts.
+const UPDATING: &str = "updating.json";
+/// An update that takes longer than this to come back counts as any other restart: the person
+/// may have moved on, so agents wait for them instead of continuing.
+const UPDATE_RETURN: Duration = Duration::from_mins(10);
 const MOST_BYTES: usize = 1024 * 1024;
 const SCREENS: &str = "screens";
 const SCREEN_MOST_BYTES: usize = 1024 * 1024;
@@ -37,6 +42,10 @@ pub(super) struct Saved {
     pub folder: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sharing: Option<Sharing>,
+    /// The account whose terminal it was, so that a sign-in after a restart knows whom it takes
+    /// the terminal from.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub line: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -50,6 +59,24 @@ pub(super) struct Saved {
     pub screen: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quiet_settings: Option<PathBuf>,
+    /// The agent worked or waited for an answer when the host saved the terminal.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub busy: bool,
+}
+
+/// What a restored agent that stopped in the middle of a task does.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Unfinished {
+    /// The host stopped for an update and came right back, so the agent goes on by itself.
+    Continue,
+    /// Anything else stopped it, so the agent waits until someone asks it to go on.
+    Offer,
+}
+
+/// When the host stopped for an update, in milliseconds since the Unix epoch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+struct Updating {
+    at: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -79,6 +106,9 @@ impl Sharing {
 
 pub(super) struct Restore {
     screens: PathBuf,
+    updating: PathBuf,
+    /// The last host stopped for an update and this one started soon after.
+    updated: bool,
     pending: Vec<Saved>,
     pub starting: BTreeMap<Uuid, Saved>,
     written: Vec<Saved>,
@@ -93,8 +123,16 @@ impl Restore {
             .filter(|bytes| bytes.len() <= MOST_BYTES)
             .and_then(|bytes| serde_json::from_slice(&bytes).ok())
             .unwrap_or_default();
+        let updating = data_root.join(UPDATING);
+        let updated = std::fs::read(&updating)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<Updating>(&bytes).ok())
+            .is_some_and(|updating| came_back(updating.at, crate::identity::now_ms()));
+        drop(std::fs::remove_file(&updating));
         Self {
             screens: data_root.join(SCREENS),
+            updating,
+            updated,
             written: pending.clone(),
             pending,
             starting: BTreeMap::new(),
@@ -102,8 +140,35 @@ impl Restore {
         }
     }
 
+    /// Notes that the host stops to install an update.
+    pub(super) fn stop_for_update(&self) {
+        let record = Updating {
+            at: crate::identity::now_ms(),
+        };
+        let written = serde_json::to_vec(&record)
+            .map_err(std::io::Error::other)
+            .and_then(|bytes| kodosi_os::fs::write_private(&self.updating, &bytes));
+        if let Err(error) = written {
+            tracing::warn!(%error, "could not note that the host stops for an update");
+        }
+    }
+
+    pub(super) fn unfinished(&self, saved: &Saved) -> Option<Unfinished> {
+        (saved.busy && saved.line.is_some()).then_some(if self.updated {
+            Unfinished::Continue
+        } else {
+            Unfinished::Offer
+        })
+    }
+
     pub(super) fn take(&mut self) -> Vec<Saved> {
         std::mem::take(&mut self.pending)
+    }
+
+    pub(super) fn owner(&self) -> Option<String> {
+        self.pending
+            .iter()
+            .find_map(|terminal| terminal.owner.clone())
     }
 
     pub(super) fn returning(&self) -> HashSet<Uuid> {
@@ -456,6 +521,10 @@ pub(super) fn resume_words(agent: Agent, conversation: Option<&str>) -> Option<V
         (Agent::Codex, None) => vec!["resume".to_owned()],
         (Agent::Cursor | Agent::Opencode | Agent::Antigravity, _) => return None,
     })
+}
+
+fn came_back(stopped: u64, now: u64) -> bool {
+    u128::from(now.abs_diff(stopped)) <= UPDATE_RETURN.as_millis()
 }
 
 pub(super) fn nearest_folder(folder: Option<&str>) -> Option<String> {

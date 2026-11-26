@@ -57,6 +57,7 @@ struct DevicesSection: View {
 
 struct DeviceRow: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.theme) private var theme
     @State private var confirmingRemoval = false
     let device: MyDeviceEntry
 
@@ -72,43 +73,69 @@ struct DeviceRow: View {
         account.canRemove(device)
     }
 
+    private var power: ComputerPower? {
+        model.power.computers[device.deviceId]
+    }
+
     private var addedAt: Date {
         Date(timeIntervalSince1970: TimeInterval(device.certIssuedAtMs) / 1000)
     }
 
     private var subtitle: String {
         if device.recoveryKey {
-            String(localized: "Approves a new device when you have no other device")
-        } else if isThisDevice {
-            ThisDevice.title
-        } else {
-            String(localized: "Added \(addedAt, format: .dateTime.day().month().year())")
+            return String(localized: "Approves a new device when you have no other device")
         }
+        if isThisDevice {
+            return ThisDevice.title
+        }
+        let awake: String? = switch power?.keepAwake {
+        case .always?: String(localized: "Always awake")
+        case .never?: String(localized: "Can sleep while agents work")
+        case .agents?, nil: nil
+        }
+        let parts = [awake, power?.problem ?? power?.note].compactMap(\.self)
+        return parts.isEmpty ? String(localized: "Added \(addedAt, format: .dateTime.day().month().year())") : parts.joined(separator: " · ")
     }
 
     var body: some View {
-        ListRow(device.title, subtitle: subtitle, symbol: device.recoveryKey ? "key.fill" : DeviceGlyph.symbol(for: device.label),
-                tint: isThisDevice ? TileTint.orange : TileTint.graphite)
-        {
-            if removable {
-                Button("Remove…") { confirmingRemoval = true }
-                    .buttonStyle(.kodosi(.ghost, size: .small))
-                    .accessibilityLabel(Text("Remove \(device.title)"))
-                    .accessibilityIdentifier("settings.devices.remove.\(device.deviceId)")
+        if let power, !isThisDevice {
+            NavigationLink(value: ComputerRoute(deviceId: device.deviceId)) {
+                ListRow(device.title, subtitle: subtitle, symbol: DeviceGlyph.symbol(for: device.label), tint: TileTint.graphite) {
+                    if let busy = power.busy {
+                        Text(busy == .waking ? "Waking…" : "Testing…").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                            .accessibilityIdentifier("settings.devices.busy.\(device.deviceId)")
+                    }
+                    Disclosure()
+                }
+                .wholeSubtitle()
             }
-        }
-        .contextMenu {
-            if removable {
-                Button(role: .destructive) { confirmingRemoval = true } label: {
-                    Label("Remove…", systemImage: "minus.circle")
+            .buttonStyle(ListRowButtonStyle())
+            .accessibilityIdentifier("settings.devices.open.\(device.deviceId)")
+        } else {
+            ListRow(device.title, subtitle: subtitle, symbol: device.recoveryKey ? "key.fill" : DeviceGlyph.symbol(for: device.label),
+                    tint: isThisDevice ? TileTint.orange : TileTint.graphite)
+            {
+                if removable {
+                    Button("Remove…") { confirmingRemoval = true }
+                        .buttonStyle(.kodosi(.ghost, size: .small))
+                        .accessibilityLabel(Text("Remove \(device.title)"))
+                        .accessibilityIdentifier("settings.devices.remove.\(device.deviceId)")
                 }
             }
-        }
-        .confirmationDialog(Text("Remove \(device.title)?"), isPresented: $confirmingRemoval, titleVisibility: .visible) {
-            Button("Remove", role: .destructive) { account.revokeDevice(device) }
-                .accessibilityIdentifier("settings.devices.confirmRemove")
-        } message: {
-            Text(device.removalMessage(hasRecoveryKey: account.hasRecoveryKey))
+            .wholeSubtitle()
+            .contextMenu {
+                if removable {
+                    Button(role: .destructive) { confirmingRemoval = true } label: {
+                        Label("Remove…", systemImage: "minus.circle")
+                    }
+                }
+            }
+            .confirmationDialog(Text("Remove \(device.title)?"), isPresented: $confirmingRemoval, titleVisibility: .visible) {
+                Button("Remove", role: .destructive) { account.revokeDevice(device) }
+                    .accessibilityIdentifier("settings.devices.confirmRemove")
+            } message: {
+                Text(device.removalMessage(hasRecoveryKey: account.hasRecoveryKey))
+            }
         }
     }
 }

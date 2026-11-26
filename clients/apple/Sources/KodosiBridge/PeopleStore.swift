@@ -19,6 +19,7 @@ public final class PeopleStore {
 
     @ObservationIgnored private let commands: CommandSink
     @ObservationIgnored private var settleTask: Task<Void, Never>?
+    @ObservationIgnored private var settleBy: ContinuousClock.Instant?
 
     public init(commands: CommandSink) {
         self.commands = commands
@@ -108,14 +109,13 @@ public final class PeopleStore {
         return text
     }
 
-    @discardableResult
-    public func add(_ text: String) -> Bool {
+    /// Ends when the request went out, after the owner answered the runtime's question.
+    public func add(_ text: String) async throws {
         let username = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !username.isEmpty else { return false }
+        guard !username.isEmpty else { return }
         sendingRequest = true
-        commands.perform("friends.request.send", ["username": .string(username), "requestId": .string(UUIDv7.generate())])
-        armSettle()
-        return true
+        defer { sendingRequest = false }
+        _ = try await commands.request("friends.request.send", ["username": .string(username)])
     }
 
     public func accept(_ request: FriendRequestEntry) {
@@ -162,14 +162,26 @@ public final class PeopleStore {
         var fields = fields
         fields["username"] = .string(handle)
         inFlight.insert(handle.lowercased())
-        commands.perform(type, fields)
-        armSettle()
+        send(type, fields)
     }
 
-    private func armSettle() {
+    /// These wait for the owner's answer to the runtime's question before the runtime answers them.
+    private static let askingOwner: Set<String> = ["friends.request.accept", "friends.identity.trust", "friends.verify"]
+
+    private func send(_ type: String, _ fields: [String: JSONValue]) {
+        commands.perform(type, fields)
+        armSettle(after: Self.askingOwner.contains(type) ? SharingApprovals.longestWait : .seconds(20))
+    }
+
+    private func armSettle(after wait: Duration = .seconds(20)) {
+        let deadline = ContinuousClock.now + wait
+        if settleTask != nil, let settleBy, settleBy > deadline {
+            return
+        }
+        settleBy = deadline
         settleTask?.cancel()
         settleTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(20))
+            try? await Task.sleep(until: deadline)
             guard !Task.isCancelled else { return }
             self?.settle()
         }
@@ -178,6 +190,7 @@ public final class PeopleStore {
     private func settle() {
         settleTask?.cancel()
         settleTask = nil
+        settleBy = nil
         inFlight = []
         sendingRequest = false
         fetchingInvite = false

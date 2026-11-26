@@ -37,11 +37,13 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 111;
+pub const VERSION: u32 = 115;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 /// The words that name a window for `kodosi show window`, at most.
 const MOST_WINDOW_WORDS: usize = 512;
+/// How long a command that lets someone new in waits for the owner's answer in the app.
+pub const APPROVAL_WAIT: std::time::Duration = std::time::Duration::from_mins(5);
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
 pub(crate) const REPORT_NOTE_BYTES: usize = 1000;
 const DEVICE_CODE_BYTES: usize = 256;
@@ -349,6 +351,26 @@ pub enum Command {
         #[serde(rename = "expectedRuntimeIncarnationId")]
         expected_runtime_incarnation_id: String,
     },
+    /// Lets the terminal's agent go on with the task that a stop of its computer's Kodosi cut off.
+    #[serde(rename = "session.continue")]
+    ContinueSession {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "expectedRuntimeIncarnationId")]
+        expected_runtime_incarnation_id: String,
+    },
+    /// Shows what the terminal's branch folder changed on the terminal's canvas.
+    #[serde(rename = "session.changes")]
+    ShowChanges {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "expectedRuntimeIncarnationId")]
+        expected_runtime_incarnation_id: String,
+    },
     #[serde(rename = "session.run")]
     RunInSession {
         #[serde(rename = "requestId")]
@@ -530,6 +552,15 @@ pub enum Command {
         #[serde(rename = "projectId")]
         project_id: Option<String>,
     },
+    /// The owner's answer to `sharing.approval`. Only an app of this device can send it.
+    #[serde(rename = "sharing.answer")]
+    AnswerSharing {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "approvalId")]
+        approval_id: String,
+        allow: bool,
+    },
     #[serde(rename = "project.act")]
     ActInProject {
         #[serde(rename = "requestId")]
@@ -607,6 +638,17 @@ pub enum Command {
     BrowserGet {
         #[serde(rename = "requestId")]
         request_id: String,
+    },
+    /// Chooses what the browser of this computer shares beyond the pages that people open. Its
+    /// engines start again with the choice, so their open pages load again.
+    #[serde(rename = "browser.set")]
+    BrowserSet {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "formPredictions")]
+        form_predictions: bool,
+        #[serde(rename = "crossSiteCookies")]
+        cross_site_cookies: bool,
     },
     /// Whether this computer shares its screen with its owner's other devices. Only the person
     /// at the computer decides, so its own app alone asks and changes it.
@@ -806,6 +848,59 @@ pub enum Command {
         request_id: String,
         #[serde(default)]
         path: Option<String>,
+    },
+    /// Puts the computer that takes the command to sleep.
+    #[serde(rename = "power.sleep")]
+    Sleep {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    /// When the computer that takes the command stays awake.
+    #[serde(rename = "power.keepAwake")]
+    KeepAwake {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "keepAwake")]
+        keep_awake: KeepAwake,
+    },
+    /// Wakes a sleeping computer of the person. This device sends the wake signal when it is on
+    /// the network of that computer, and asks each awake computer of the person to do the same.
+    #[serde(rename = "power.wake")]
+    Wake {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "deviceId")]
+        device_id: String,
+    },
+    /// Puts a computer of the person to sleep, wakes it, and records on it whether it woke.
+    #[serde(rename = "power.test")]
+    TestWake {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "deviceId")]
+        device_id: String,
+    },
+    /// Asks the computer that takes the command how it wakes.
+    #[serde(rename = "power.describe")]
+    DescribeWake {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    /// The computer that takes the command sends the wake signal for a sleeping computer, when
+    /// it is on the network of that computer.
+    #[serde(rename = "power.signal")]
+    SignalWake {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        sleeper: WakeDetails,
+    },
+    /// Tells the computer that takes the command whether a test woke it through a card.
+    #[serde(rename = "power.tested")]
+    RecordWakeTest {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        hardware: String,
+        woke: bool,
     },
     #[serde(rename = "repositories.list")]
     ListRepositories {
@@ -1070,6 +1165,13 @@ pub struct SessionEntry {
     pub shared_with: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub restored_from: Option<String>,
+    /// The agent stopped in the middle of a task when its computer's Kodosi stopped, so the apps
+    /// offer to let it go on.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub stopped: bool,
+    /// What the terminal's branch folder changed since its branch started.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub changes: Option<crate::worktree::WorktreeChanges>,
 }
 
 /// In the order from the least to the most present.
@@ -1152,6 +1254,10 @@ pub enum EventBody {
     },
     #[serde(rename = "system.updateRequired")]
     SystemUpdateRequired {},
+    /// Whether restarting this computer's Kodosi now loses nothing while nobody uses its terminals,
+    /// and how many terminals would lose a program that does not come back.
+    #[serde(rename = "system.restart")]
+    SystemRestart { quiet: bool, stops: u32 },
     /// Whether the account reaches the server. A short drop, such as when the computer wakes,
     /// keeps it online.
     #[serde(rename = "connection.state")]
@@ -1225,6 +1331,10 @@ pub enum EventBody {
         request_id: String,
         operation: String,
         message: Text,
+        /// The owner refused the request in the app, or did not answer in time, so an app ends it
+        /// without showing an error.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        refused: bool,
     },
     #[serde(rename = "friends.snapshot")]
     FriendsSnapshot {
@@ -1248,6 +1358,10 @@ pub enum EventBody {
         request_id: String,
         operation: String,
         message: Text,
+        /// The owner refused the request in the app, or did not answer in time, so an app ends it
+        /// without showing an error.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        refused: bool,
     },
     #[serde(rename = "devices.list")]
     DevicesList {
@@ -1302,6 +1416,10 @@ pub enum EventBody {
         request_id: String,
         operation: String,
         message: Text,
+        /// The owner refused the request in the app, or did not answer in time, so an app ends it
+        /// without showing an error.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        refused: bool,
     },
     #[serde(rename = "push.result")]
     PushResult {
@@ -1349,6 +1467,10 @@ pub enum EventBody {
         message: Text,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         session_id: Option<String>,
+        /// The owner refused the request in the app, or did not answer in time, so an app ends it
+        /// without showing an error.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        refused: bool,
     },
     #[serde(rename = "project.snapshot")]
     ProjectSnapshot { content: crate::projects::Snapshot },
@@ -1389,6 +1511,44 @@ pub enum EventBody {
         message: Text,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         project_id: Option<String>,
+        /// The owner refused the request in the app, or did not answer in time, so an app ends it
+        /// without showing an error.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        refused: bool,
+    },
+    /// A command waits for the owner's OK, so each app of this device shows the question with the
+    /// confirm button and a Cancel button, as the runtime words them.
+    #[serde(rename = "sharing.approval")]
+    SharingApproval {
+        approval_id: String,
+        operation: String,
+        title: Text,
+        message: Text,
+        confirm: Text,
+        from: ClientKind,
+    },
+    #[serde(rename = "sharing.approvalEnded")]
+    SharingApprovalEnded {
+        approval_id: String,
+        outcome: ApprovalOutcome,
+    },
+    /// The command of a client that is not the app waits for the owner's OK in the app.
+    #[serde(rename = "sharing.waiting")]
+    SharingWaiting {
+        request_id: String,
+        operation: String,
+        message: Text,
+    },
+    #[serde(rename = "sharing.result")]
+    SharingResult {
+        request_id: String,
+        operation: String,
+    },
+    #[serde(rename = "sharing.error")]
+    SharingError {
+        request_id: String,
+        operation: String,
+        message: Text,
     },
     #[serde(rename = "canvas.result")]
     CanvasResult {
@@ -1417,6 +1577,10 @@ pub enum EventBody {
         engine: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         getting: Option<u8>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        form_predictions: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cross_site_cookies: Option<bool>,
     },
     #[serde(rename = "browser.error")]
     BrowserError {
@@ -1497,6 +1661,30 @@ pub enum EventBody {
     },
     #[serde(rename = "folders.error")]
     FoldersError {
+        request_id: String,
+        operation: String,
+        message: Text,
+    },
+    #[serde(rename = "power.state")]
+    PowerState {
+        /// When this computer stays awake. A device that hosts no terminals has no such setting.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        keep_awake: Option<KeepAwake>,
+        /// The computers of the person whose wake this device knows.
+        #[serde(default)]
+        computers: Vec<ComputerPower>,
+    },
+    #[serde(rename = "power.result")]
+    PowerResult {
+        request_id: String,
+        operation: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        wake: Option<WakeDetails>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        signal: Option<WakeSignal>,
+    },
+    #[serde(rename = "power.error")]
+    PowerError {
         request_id: String,
         operation: String,
         message: Text,
@@ -1631,6 +1819,23 @@ pub enum DeviceLinkOutcome {
     Expired,
 }
 
+/// What kind of program on this computer sends commands to its host.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum ClientKind {
+    App,
+    /// The `kodosi` command or another program.
+    Command,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum ApprovalOutcome {
+    Allowed,
+    Refused,
+    Expired,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FriendEntry {
@@ -1706,6 +1911,170 @@ impl SessionFolder {
     pub(crate) fn is_valid(&self) -> bool {
         parse_id(&self.session_id).is_ok() && crate::terminal::is_valid_folder(&self.working_dir)
     }
+}
+
+/// When a computer holds off the sleep that its system starts by itself when nobody uses it. A
+/// person can put it to sleep in each case.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum KeepAwake {
+    /// While an agent or one of its helpers works on it, and for a short time after. An agent
+    /// that waits for its person does not count.
+    #[default]
+    Agents,
+    /// The whole time that Kodosi runs on it.
+    Always,
+    Never,
+}
+
+pub(crate) const WAKE_LINKS_MOST: usize = 8;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum ComputerSystem {
+    Mac,
+    Windows,
+    Linux,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum WakeMedium {
+    Cable,
+    Radio,
+}
+
+/// Whether the operating system lets a packet from the network wake the computer through a card.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum WakeSetting {
+    On,
+    Off,
+    Unknown,
+}
+
+/// A connected network card of a computer. The addresses are text: six hexadecimal bytes with
+/// colons for hardware, four decimal numbers with dots for IPv4.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WakeLink {
+    pub hardware: String,
+    pub medium: WakeMedium,
+    pub address: String,
+    pub prefix: u8,
+    /// The hardware address of the router, which tells one network from another network with
+    /// the same addresses.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub router: Option<String>,
+    pub wakes: WakeSetting,
+}
+
+/// A test put the computer to sleep and sent the wake signal to this card.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WakeTest {
+    pub hardware: String,
+    pub woke: bool,
+}
+
+/// What a computer reads about its own wake while it is awake. The person's other devices keep
+/// it, because a sleeping computer answers nothing. The server never gets it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WakeDetails {
+    pub system: ComputerSystem,
+    pub links: Vec<WakeLink>,
+    /// The public IPv4 address, for a device that cannot read the hardware address of its router.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub public: Option<String>,
+    /// Windows with Fast Startup does not wake after a shutdown.
+    #[serde(default)]
+    pub fast_startup: bool,
+    /// Windows with Modern Standby does not show apps when it sleeps, so a wake test has no
+    /// result there.
+    #[serde(default)]
+    pub standby: bool,
+    #[serde(default)]
+    pub keep_awake: KeepAwake,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tested: Option<WakeTest>,
+}
+
+impl WakeDetails {
+    pub(crate) fn validate(&self) -> Result<()> {
+        let hardware = |text: &str| {
+            crate::wake::hardware(text)
+                .map(drop)
+                .ok_or_else(|| Error::Invalid("a hardware address is not valid".to_owned()))
+        };
+        if self.links.len() > WAKE_LINKS_MOST {
+            return Err(Error::Invalid("too many network cards".to_owned()));
+        }
+        for link in &self.links {
+            hardware(&link.hardware)?;
+            if let Some(router) = &link.router {
+                hardware(router)?;
+            }
+            if link.address.parse::<std::net::Ipv4Addr>().is_err()
+                || !(1..=30).contains(&link.prefix)
+            {
+                return Err(Error::Invalid("a network address is not valid".to_owned()));
+            }
+        }
+        if let Some(public) = &self.public
+            && public.parse::<std::net::Ipv4Addr>().is_err()
+        {
+            return Err(Error::Invalid("the public address is not valid".to_owned()));
+        }
+        if let Some(test) = &self.tested {
+            hardware(&test.hardware)?;
+        }
+        Ok(())
+    }
+}
+
+/// What a computer did with a request to send the wake signal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum WakeSignal {
+    Sent,
+    /// The computer is not on the network of the sleeping computer.
+    Elsewhere,
+    /// The operating system of the computer did not let Kodosi send on the local network.
+    Refused,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum PowerBusy {
+    Waking,
+    Testing,
+}
+
+/// How one computer of the person wakes, as this device knows it now.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ComputerPower {
+    pub device_id: String,
+    /// What the person can expect of a wake, or the one setting to change for it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<Text>,
+    /// Why this computer does not wake now, with the one thing to do. The apps show it where
+    /// they show that the computer is offline.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub problem: Option<Text>,
+    /// Why Kodosi may not wake the computer after it goes to sleep. The apps show it before they
+    /// put the computer to sleep.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sleep_warning: Option<Text>,
+    /// This device can ask for a wake now: the computer is offline, and a device of the person is
+    /// awake on its network.
+    pub can_wake: bool,
+    pub can_test: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub busy: Option<PowerBusy>,
+    /// When the computer stays awake, as it said the last time that this device asked.
+    pub keep_awake: KeepAwake,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -1867,6 +2236,9 @@ impl EventBody {
             | Self::SessionError { request_id, .. }
             | Self::ProjectResult { request_id, .. }
             | Self::ProjectError { request_id, .. }
+            | Self::SharingWaiting { request_id, .. }
+            | Self::SharingResult { request_id, .. }
+            | Self::SharingError { request_id, .. }
             | Self::ProviderResult { request_id, .. }
             | Self::ProviderError { request_id, .. }
             | Self::FoldersResult { request_id, .. }
@@ -1881,6 +2253,8 @@ impl EventBody {
             | Self::ScreenError { request_id, .. }
             | Self::DocumentResult { request_id, .. }
             | Self::DocumentError { request_id, .. }
+            | Self::PowerResult { request_id, .. }
+            | Self::PowerError { request_id, .. }
             | Self::RepositoriesResult { request_id, .. }
             | Self::RepositoriesError { request_id, .. } => Some(request_id),
             _ => None,
@@ -1895,6 +2269,7 @@ impl EventBody {
         match self {
             Self::SystemReady { .. } => "system.ready",
             Self::SystemUpdateRequired {} => "system.updateRequired",
+            Self::SystemRestart { .. } => "system.restart",
             Self::Connection { .. } => "connection.state",
             Self::ConnectionResult { .. } => "connection.result",
             Self::ConnectionError { .. } => "connection.error",
@@ -1931,10 +2306,18 @@ impl EventBody {
             Self::ProjectsSnapshot { .. } => "projects.snapshot",
             Self::ProjectResult { .. } => "project.result",
             Self::ProjectError { .. } => "project.error",
+            Self::SharingApproval { .. } => "sharing.approval",
+            Self::SharingApprovalEnded { .. } => "sharing.approvalEnded",
+            Self::SharingWaiting { .. } => "sharing.waiting",
+            Self::SharingResult { .. } => "sharing.result",
+            Self::SharingError { .. } => "sharing.error",
             Self::ProviderResult { .. } => "provider.result",
             Self::ProviderError { .. } => "provider.error",
             Self::FoldersResult { .. } => "folders.result",
             Self::FoldersError { .. } => "folders.error",
+            Self::PowerState { .. } => "power.state",
+            Self::PowerResult { .. } => "power.result",
+            Self::PowerError { .. } => "power.error",
             Self::RepositoriesResult { .. } => "repositories.result",
             Self::RepositoriesError { .. } => "repositories.error",
             Self::ProjectShow { .. } => "project.show",
@@ -2050,6 +2433,8 @@ impl Command {
             Self::RenameSession { .. } => "session.rename",
             Self::CloseSession { .. } => "session.close",
             Self::InterruptSession { .. } => "session.interrupt",
+            Self::ContinueSession { .. } => "session.continue",
+            Self::ShowChanges { .. } => "session.changes",
             Self::RunInSession { .. } => "session.run",
             Self::Input { .. } => "session.input",
             Self::Picture { .. } => "session.picture",
@@ -2069,6 +2454,7 @@ impl Command {
             Self::LeaveSession { .. } => "session.leave",
             Self::HideSession { .. } => "session.hide",
             Self::AttachSession { .. } => "session.attachProject",
+            Self::AnswerSharing { .. } => "sharing.answer",
             Self::ActInProject { .. } => "project.act",
             Self::CanvasShow { .. } => "canvas.show",
             Self::CanvasBrowse { .. } => "canvas.browser",
@@ -2079,6 +2465,7 @@ impl Command {
             Self::BrowserForget { .. } => "browser.forget",
             Self::BrowserClear { .. } => "browser.clear",
             Self::BrowserGet { .. } => "browser.get",
+            Self::BrowserSet { .. } => "browser.set",
             Self::ScreenStatus { .. } => "screen.status",
             Self::ScreenAllow { .. } => "screen.allow",
             Self::DocumentOpen { .. } => "document.open",
@@ -2105,6 +2492,13 @@ impl Command {
             Self::AddAgentAccount { .. } => "provider.addAccount",
             Self::ChooseAgent { .. } => "provider.choose",
             Self::ListFolders { .. } => "folders.list",
+            Self::Sleep { .. } => "power.sleep",
+            Self::KeepAwake { .. } => "power.keepAwake",
+            Self::Wake { .. } => "power.wake",
+            Self::TestWake { .. } => "power.test",
+            Self::DescribeWake { .. } => "power.describe",
+            Self::SignalWake { .. } => "power.signal",
+            Self::RecordWakeTest { .. } => "power.tested",
             Self::ListRepositories { .. } => "repositories.list",
             Self::DosiSend { .. } => "dosi.send",
             Self::DosiStop { .. } => "dosi.stop",
@@ -2150,6 +2544,12 @@ impl Command {
                 | Self::ListFolders { .. }
                 | Self::ListSessionFolders { .. }
                 | Self::CreateSession { resume: None, .. }
+                | Self::ShareSession { .. }
+                | Self::Sleep { .. }
+                | Self::KeepAwake { .. }
+                | Self::DescribeWake { .. }
+                | Self::SignalWake { .. }
+                | Self::RecordWakeTest { .. }
         )
     }
 
@@ -2199,6 +2599,8 @@ impl Command {
             | Self::RenameSession { request_id, .. }
             | Self::CloseSession { request_id, .. }
             | Self::InterruptSession { request_id, .. }
+            | Self::ContinueSession { request_id, .. }
+            | Self::ShowChanges { request_id, .. }
             | Self::RunInSession { request_id, .. }
             | Self::Input { request_id, .. }
             | Self::Picture { request_id, .. }
@@ -2218,6 +2620,7 @@ impl Command {
             | Self::LeaveSession { request_id, .. }
             | Self::HideSession { request_id, .. }
             | Self::AttachSession { request_id, .. }
+            | Self::AnswerSharing { request_id, .. }
             | Self::ActInProject { request_id, .. }
             | Self::CanvasShow { request_id, .. }
             | Self::CanvasBrowse { request_id, .. }
@@ -2228,6 +2631,7 @@ impl Command {
             | Self::BrowserForget { request_id }
             | Self::BrowserClear { request_id }
             | Self::BrowserGet { request_id }
+            | Self::BrowserSet { request_id, .. }
             | Self::ScreenStatus { request_id }
             | Self::ScreenAllow { request_id, .. }
             | Self::DocumentOpen { request_id, .. }
@@ -2254,6 +2658,13 @@ impl Command {
             | Self::AddAgentAccount { request_id, .. }
             | Self::ChooseAgent { request_id, .. }
             | Self::ListFolders { request_id, .. }
+            | Self::Sleep { request_id }
+            | Self::KeepAwake { request_id, .. }
+            | Self::Wake { request_id, .. }
+            | Self::TestWake { request_id, .. }
+            | Self::DescribeWake { request_id }
+            | Self::SignalWake { request_id, .. }
+            | Self::RecordWakeTest { request_id, .. }
             | Self::ListRepositories { request_id, .. }
             | Self::DosiSend { request_id, .. }
             | Self::DosiStop { request_id }
@@ -2275,6 +2686,8 @@ impl Command {
             Self::RenameSession { session_id, .. }
             | Self::CloseSession { session_id, .. }
             | Self::InterruptSession { session_id, .. }
+            | Self::ContinueSession { session_id, .. }
+            | Self::ShowChanges { session_id, .. }
             | Self::RunInSession { session_id, .. }
             | Self::Input { session_id, .. }
             | Self::Picture { session_id, .. }
@@ -2299,6 +2712,10 @@ impl Command {
             _ => None,
         }
     }
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one check for every command that names a terminal"
+    )]
     fn validate_resource_ids(&self) -> Result<()> {
         match self {
             Self::RenameSession {
@@ -2310,6 +2727,14 @@ impl Command {
                 ..
             }
             | Self::InterruptSession {
+                expected_runtime_incarnation_id,
+                ..
+            }
+            | Self::ContinueSession {
+                expected_runtime_incarnation_id,
+                ..
+            }
+            | Self::ShowChanges {
                 expected_runtime_incarnation_id,
                 ..
             }
@@ -2738,14 +3163,27 @@ impl Command {
         self.validate_dosi()?;
         self.validate_canvas()?;
         match self {
-            Self::RevokeDevice { device_id, .. } => text(device_id, "deviceId", 1024)?,
+            Self::RevokeDevice { device_id, .. }
+            | Self::Wake { device_id, .. }
+            | Self::TestWake { device_id, .. } => text(device_id, "deviceId", 1024)?,
+            Self::SignalWake { sleeper, .. } => sleeper.validate()?,
+            Self::RecordWakeTest { hardware, .. } => {
+                crate::wake::hardware(hardware)
+                    .map(drop)
+                    .ok_or_else(|| Error::Invalid("a hardware address is not valid".to_owned()))?;
+            }
             Self::RegisterPush {
                 platform,
                 token,
                 environment,
                 ..
             } => push_token(*platform, token, *environment)?,
-            Self::CancelReset { reset_id, .. } => parse_id(reset_id).map(drop)?,
+            Self::CancelReset { reset_id: id, .. }
+            | Self::AnswerSharing {
+                approval_id: id, ..
+            } => {
+                parse_id(id).map(drop)?;
+            }
             Self::FinishLogin { url, .. } => text(url, "url", 8192)?,
             Self::CheckDevice { code, .. }
             | Self::ApproveDevice { code, .. }
@@ -3187,7 +3625,9 @@ pub(crate) mod tests {
             json!({"type":"screen.status","requestId":ID}),
             json!({"type":"screen.allow","requestId":ID,"allowed":true}),
             json!({"type":"session.share","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"userIds":[ID]}),
+            json!({"type":"session.share","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"userIds":[ID],"expectedUserIds":[]}),
             json!({"type":"session.attachProject","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"projectId":null}),
+            json!({"type":"sharing.answer","requestId":ID,"approvalId":ID,"allow":true}),
             json!({"type":"session.hide","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID}),
             json!({"type":"project.create","requestId":ID,"name":"Release"}),
             json!({"type":"project.rename","requestId":ID,"projectId":ID,"name":"Renamed"}),
@@ -3195,6 +3635,13 @@ pub(crate) mod tests {
             json!({"type":"provider.readConversation","requestId":ID,"provider":"copilot","workingDirectory":DIRECTORY,"nativeConversationId":ID,"beforeByte":123,"limit":2,"maxBytes":4096}),
             json!({"type":"provider.inspect","requestId":ID,"provider":"claude"}),
             json!({"type":"folders.list","requestId":ID,"path":DIRECTORY}),
+            json!({"type":"power.sleep","requestId":ID}),
+            json!({"type":"power.keepAwake","requestId":ID,"keepAwake":"always"}),
+            json!({"type":"power.wake","requestId":ID,"deviceId":ID}),
+            json!({"type":"power.test","requestId":ID,"deviceId":ID}),
+            json!({"type":"power.describe","requestId":ID}),
+            json!({"type":"power.signal","requestId":ID,"sleeper":{"system":"linux","links":[{"hardware":"02:00:5e:10:20:30","medium":"cable","address":"192.168.1.20","prefix":24,"router":"02:00:5e:00:00:01","wakes":"on"}],"public":"203.0.113.7","fastStartup":false}}),
+            json!({"type":"power.tested","requestId":ID,"hardware":"02:00:5e:10:20:30","woke":true}),
             resize(),
             json!({"type":"project.show","requestId":ID,"projectId":ID}),
             json!({"type":"dosi.send","requestId":ID,"text":"What needs me?\nAnd why?","context":{"terminal":ID,"project":null}}),

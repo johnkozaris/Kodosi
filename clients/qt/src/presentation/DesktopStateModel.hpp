@@ -78,6 +78,7 @@ public:
     void attachCanvas(CanvasModel* canvas);
     void attachWindow(QWindow* window, std::optional<QSize> sizeOverride = std::nullopt);
     Q_INVOKABLE void bringToFront(const QString& activationToken = {});
+    void askForAttention();
     Q_INVOKABLE bool selectSession(const QString& id);
     bool stageSession(const QString& id, bool revealStage = true);
     bool unstageSession(const QString& id);

@@ -22,6 +22,20 @@ data class Device(val deviceId: String, val label: String, val recoveryKey: Bool
 data class DeviceRequest(val deviceLabel: String)
 
 @Serializable
+data class ComputerPower(
+    val deviceId: String,
+    val note: String? = null,
+    val problem: String? = null,
+    val sleepWarning: String? = null,
+    val canWake: Boolean = false,
+    val canTest: Boolean = false,
+    val busy: String? = null,
+    val keepAwake: String = "agents"
+) {
+    val waking: Boolean get() = busy == "waking"
+}
+
+@Serializable
 data class DeviceReset(val resetId: String, val deviceLabel: String, val thisDevice: Boolean, val readyAtMs: Long)
 
 data class AccountState(
@@ -34,6 +48,7 @@ data class AccountState(
     val signInPage: String? = null,
     val devices: List<Device> = emptyList(),
     val onlineHosts: Set<String> = emptySet(),
+    val power: Map<String, ComputerPower> = emptyMap(),
     val restoring: String? = null,
     val online: Boolean = true,
     val requests: List<DeviceRequest> = emptyList(),
@@ -46,6 +61,9 @@ data class AccountState(
     val computers: List<Device> get() = devices.filter {
         it.deviceId in onlineHosts && it.deviceId != selfDeviceId &&
             !it.recoveryKey
+    }.sortedWith(byName(Device::label, Device::deviceId))
+    val asleep: List<Device> get() = devices.filter { device ->
+        power[device.deviceId]?.let { it.canWake || it.waking } == true
     }.sortedWith(byName(Device::label, Device::deviceId))
 }
 
@@ -126,6 +144,13 @@ class AccountStore(private val commands: CommandSink, private val words: Words, 
             }
 
             event.type == "devices.link.resolved" -> commands.perform("devices.refresh")
+        }
+    }
+
+    fun receivePower(event: RuntimeEvent) {
+        if (event.type == "power.state") {
+            val computers: List<ComputerPower> = event.value("computers")
+            state.update { it.copy(power = computers.associateBy(ComputerPower::deviceId)) }
         }
     }
 
@@ -263,6 +288,22 @@ class AccountStore(private val commands: CommandSink, private val words: Words, 
     suspend fun revokeDevice(device: Device) {
         if (device.deviceId == state.value.selfDeviceId) return
         commands.request("devices.revoke", fields("deviceId" to device.deviceId))
+    }
+
+    suspend fun sleepComputer(device: Device) {
+        commands.request("power.sleep", fields("computer" to device.deviceId))
+    }
+
+    fun wakeComputer(deviceId: String) {
+        commands.perform("power.wake", fields("deviceId" to deviceId))
+    }
+
+    fun testWake(device: Device) {
+        commands.perform("power.test", fields("deviceId" to device.deviceId))
+    }
+
+    fun keepAwake(deviceId: String, choice: String) {
+        commands.perform("power.keepAwake", fields("keepAwake" to choice, "computer" to deviceId))
     }
 
     suspend fun createRecoveryKey(): String? = commands.request("devices.recovery.create").string("key")

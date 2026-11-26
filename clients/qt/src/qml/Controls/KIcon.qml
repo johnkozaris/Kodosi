@@ -86,6 +86,7 @@ Item {
         case "cube": return "M12 3.5 L20 7.5 V16.5 L12 20.5 L4 16.5 V7.5 Z M4 7.5 L12 11.5 L20 7.5 M12 11.5 V20.5"
         case "info": return "M12 4 A8 8 0 1 0 12 20 A8 8 0 1 0 12 4 M12 11 V16 M12 8 V8.1"
         case "prompt": return "M8 6 L14 12 L8 18"
+        case "power": return "M12 3 V11 M7.1 6.3 A7.5 7.5 0 1 0 16.9 6.3"
         case "moon": return "M20 14.5 A8 8 0 1 1 9.5 4 A6.5 6.5 0 0 0 20 14.5 Z"
         case "sun": return "M12 8 A4 4 0 1 0 12 16 A4 4 0 1 0 12 8 M12 2.5 V5 M12 19 V21.5 M2.5 12 H5 M19 12 H21.5 M5.3 5.3 L7 7 M17 17 L18.7 18.7 M18.7 5.3 L17 7 M7 17 L5.3 18.7"
         case "leave": return "M14 4 H7 Q5 4 5 6 V18 Q5 20 7 20 H14 M10 12 H20 M16.5 8.5 L20 12 L16.5 15.5"

@@ -95,6 +95,9 @@ latérale, cliquez sur le bouton de branche et saisissez un nom de branche. Kodo
 dans un nouveau worktree Git et le supprime automatiquement à la fermeture du terminal si rien n'a
 changé. Vous pouvez choisir où sont stockés les worktrees dans **Réglages › Terminal**.
 
+L'en-tête du terminal indique combien de lignes la branche a ajoutées et supprimées. Cliquez sur les
+chiffres pour voir les modifications dans le canvas.
+
 Chaque terminal est clair ou sombre comme Kodosi sur son ordinateur hôte, sur tous les appareils
 qui l'affichent. Les programmes à l'intérieur du terminal reçoivent les notifications de thème, de
 sorte que des outils comme Claude Code (avec `/theme` réglé sur Auto) s'adaptent automatiquement.
@@ -118,6 +121,12 @@ automatiquement leurs conversations, et conservent également sous macOS et Linu
 l'effort, le mode rapide, les autorisations et la verbosité choisis. Si Kodosi ne parvient pas à
 identifier la conversation qu'exécutait un agent, celui-ci affiche la liste de ses conversations
 pour vous laisser en sélectionner une.
+
+Kodosi installe les mises à jour tout seul lorsque personne ne l'utilise, qu'aucun agent n'est
+occupé et qu'aucun autre programme ne tourne dans un terminal. Pour choisir vous-même le moment,
+désactivez **Mettre à jour automatiquement** dans **Réglages › Général**. Si vous redémarrez
+vous-même pour une mise à jour, les agents qui étaient au milieu d'une tâche continuent ensuite.
+Après tout autre arrêt, un tel agent attend que vous appuyiez sur **Continuer** dans son terminal.
 
 Sur macOS, les programmes lancés dans Kodosi héritent des autorisations macOS accordées à Kodosi,
 comme dans toute autre app de terminal. Si macOS empêche un programme de modifier une autre app,
@@ -163,6 +172,16 @@ messages, les réponses et l'activité des outils de l'agent, ainsi que ses ques
 des boutons cliquables. Vous pouvez répondre à l'agent ou l'arrêter directement depuis le chat ;
 si vous saisissez un texte libre pendant qu'il pose une question, cela lui indique quoi faire à la
 place. Tout ce que vous faites dans le chat se répercute aussi dans le terminal sous-jacent.
+
+Avec Claude Code, la roue dentée sous le champ de message, ou `/config`, ouvre les réglages de
+Claude Code. Claude Code vérifie et enregistre chaque modification, et dit pourquoi quand il en
+refuse une.
+
+Sur Mac, iPhone, iPad et Android, cliquez sur le micro à côté du champ de message, ou touchez-le,
+pour parler au lieu de taper. Vos mots s'affichent comme votre message pendant que vous parlez et
+partent après une longue pause, pour vous laisser le temps de réfléchir ; cliquez sur **Envoyer**,
+ou touchez-le, pour les envoyer plus tôt. La voix est convertie en texte sur votre appareil, et
+aucun son ne le quitte.
 
 ## 4. Voir ce qu'un agent affiche sur le canvas
 
@@ -226,6 +245,12 @@ Dès que le canvas contient un élément, l'en-tête du terminal ajoute les bout
   données de sites dans vos terminaux privés. Sur macOS, si le système restreint l'accès aux données
   d'un navigateur (comme Safari), cliquez sur **Autoriser…** à côté de ce navigateur pour accorder
   l'accès complet au disque.
+- Également dans **Réglages › Navigateur**, **Prédictions de formulaires par Google** permet à
+  Kodosi Browser de demander à Google à quoi servent les champs d'un formulaire, et
+  **Cookies intersites** permet à un site affiché dans la page d'un autre site, comme une vidéo
+  YouTube, de vous y reconnaître. Les deux options restent désactivées tant que vous ne les activez
+  pas. Kodosi Browser redémarre quand vous modifiez l'une d'elles, et ses pages ouvertes se
+  rechargent.
 - Toute personne ayant accès à un terminal voit son canvas et partage son navigateur. Fermer le
   terminal vide son canvas et supprime les connexions du navigateur du terminal partagé.
 
@@ -312,6 +337,49 @@ navigateur circule en pair à pair pour réduire la latence. Sur un réseau loca
 Android demandent une fois l'autorisation d'accès au réseau local ; si vous la refusez, le trafic
 passe par le serveur relais.
 
+### Mise en veille et maintien en éveil
+
+Un ordinateur ne se met pas en veille de lui-même pendant qu'un agent travaille dans l'un de ses
+terminaux, et il peut de nouveau se mettre en veille quelques minutes après l'arrêt de ses agents.
+Un agent qui attend votre réponse ne le garde pas éveillé. Pour changer cela, choisissez une option
+pour **Rester éveillé** dans **Réglages › Général** sur cet ordinateur : **Pendant le travail des
+agents**, **Toujours** ou **Jamais**. **Toujours** ne garde un ordinateur éveillé que lorsqu'il est
+branché ; sur batterie, il reste éveillé pendant le travail des agents. Vous pouvez toujours mettre
+un ordinateur en veille vous-même.
+
+Pour mettre en veille un autre de vos ordinateurs, ouvrez **Réglages**, cliquez sur **⋯** à côté de
+lui, sous **Vos appareils**, puis choisissez **Mettre en veille…**. Sur un téléphone, touchez
+l'ordinateur pour ouvrir sa page. Ses terminaux sont en pause jusqu'à son réveil. Si rien ne pouvait
+le réveiller ensuite, Kodosi vous le dit avant. Le même menu, ou la page, choisit quand cet
+ordinateur reste éveillé.
+
+### Réveiller un ordinateur
+
+Pour réveiller un ordinateur en veille, cliquez sur **Réveiller** à côté de lui dans **Réglages**
+(sur un téléphone, sur sa page), sur l'un de ses terminaux ou dans la liste des ordinateurs d'un
+nouveau terminal. Le signal de réveil doit partir du réseau de l'ordinateur en veille. Kodosi
+l'envoie depuis l'appareil que vous utilisez lorsqu'il est sur le même réseau, et sinon depuis un
+autre de vos ordinateurs éveillés sur ce réseau. Un iPhone ou un iPad le demande toujours à l'un de
+vos ordinateurs.
+
+Un ordinateur se réveille par un câble réseau, pas en Wi-Fi, et seulement si son système
+l'autorise. **Réglages** indique pour chaque ordinateur ce que Kodosi attend, ou le seul réglage à
+modifier :
+
+- Sur un Mac, activez **Réactiver lors des accès réseau** dans Réglages Système.
+- Sous Windows, autorisez la carte réseau à sortir l'ordinateur de veille, dans le Gestionnaire de
+  périphériques.
+- Sous Linux, activez Wake-on-LAN pour la connexion filaire.
+
+Un Mac n'envoie le signal de réveil que si Kodosi peut utiliser le réseau local. Autorisez-le dans
+Réglages Système, sous **Confidentialité et sécurité**.
+
+Pour en être sûr, choisissez **Tester le réveil…** dans le menu d'un ordinateur éveillé (sur un
+téléphone, sur sa page). Kodosi le met en veille, le réveille et garde le résultat. Restez près de
+l'ordinateur pour le premier test : s'il ne se réveille pas, réveillez-le à la main. Un PC Windows
+avec Modern Standby n'a pas **Tester le réveil…**, car Windows ne montre pas aux apps quand il se
+met en veille.
+
 ### Clés de récupération
 
 Créez une clé de récupération dans **Réglages** et conservez-la en lieu sûr. Si vous perdez tous
@@ -333,8 +401,11 @@ même sa confiance avant l'envoi de la demande.
 ### Partager un terminal
 
 Ouvrez le menu d'actions dans l'en-tête d'un terminal, cliquez sur **Partager**, puis sélectionnez
-des amis ou des projets. Toute personne avec qui vous le partagez en obtient le contrôle total,
-avec vos autorisations système sur cette machine. Vos autres terminaux restent privés.
+des amis ou des projets. Toute personne avec qui vous le partagez en obtient le contrôle total, avec
+vos autorisations système sur cette machine. Vos autres terminaux restent privés. Vous pouvez
+partager depuis n'importe lequel de vos appareils, y compris votre téléphone, tant que l'ordinateur
+qui exécute le terminal est en ligne. Kodosi vous demande de confirmer chaque fois que quelqu'un de
+nouveau obtient l'accès.
 
 ### Projets
 
@@ -391,6 +462,8 @@ immédiatement dans l'app.
 | `kodosi browser open <address>` | Ouvre une URL dans le navigateur partagé de ce terminal (toutes les autres commandes d'agent-browser fonctionnent aussi). |
 | `kodosi skill` | Affiche le skill permettant à un agent de collaborer dans Kodosi ; `kodosi skill canvas` affiche le skill du canvas. |
 | `kodosi dosi skill` | Affiche le skill permettant à un autre agent d'agir comme Dosi. |
+| `kodosi devices sleep <computer>` | Met en veille un autre de vos ordinateurs. Ses terminaux sont en pause jusqu'à son réveil. `kodosi devices keep-awake` avec `agents`, `always` ou `never` choisit quand cet ordinateur reste éveillé. |
+| `kodosi devices wake <computer>` | Réveille l'un de vos ordinateurs en veille et attend qu'il soit en ligne. `kodosi devices test-wake <computer>` met un ordinateur en veille, le réveille et garde le résultat. `kodosi devices list` indique ce que Kodosi attend de chaque ordinateur. |
 | `kodosi host` | Exécute l'hôte de façon indépendante afin que vos terminaux restent actifs après avoir quitté l'app. Utilisez `kodosi host stop` pour arrêter un hôte en arrière-plan. |
 
 `message`, `input` et `keys` refusent de s'exécuter pendant que vous tapez activement dans ce

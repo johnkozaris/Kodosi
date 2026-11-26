@@ -21,8 +21,15 @@ struct TerminalsHome: View {
         let placeholder = Placeholder(isEmpty: sessions.isEmpty, listed: store.loaded && store.listed, searching: !query.isEmpty)
         List {
             ForEach(computers) { computer in
-                ComputerHeader(group: computer, newTerminal: starting(TerminalCatalog.newTerminal(on: computer, online: online)))
-                    .cardRow(top: computer.id == computers.first?.id ? 4 : 18, bottom: 0)
+                let power = computer.computerId.flatMap { model.power.computers[$0] }
+                ComputerHeader(group: computer, newTerminal: starting(TerminalCatalog.newTerminal(on: computer, online: online)),
+                               power: power, open: power.map { power in { openRoute(ComputerRoute(deviceId: power.deviceId)) } })
+                {
+                    if let id = computer.computerId {
+                        model.power.wake(id)
+                    }
+                }
+                .cardRow(top: computer.id == computers.first?.id ? 4 : 18, bottom: 0)
                 ForEach(computer.folders) { folder in
                     if folder.directory != nil {
                         FolderHeader(folder: folder, newTerminal: starting(TerminalCatalog.newTerminal(in: folder, online: online)))
@@ -55,6 +62,9 @@ struct TerminalsHome: View {
         .refreshable { await store.refresh() }
         .navigationDestination(for: TerminalRoute.self) { route in
             TerminalScreen(sessionId: route.sessionId)
+        }
+        .navigationDestination(for: ComputerRoute.self) { route in
+            ComputerDetailView(deviceId: route.deviceId)
         }
         .terminalPrompts($prompt)
         .newTerminalSheet($newTerminal)
@@ -161,23 +171,33 @@ private struct ComputerHeader: View {
     @Environment(\.theme) private var theme
     let group: SessionComputerGroup
     let newTerminal: (() -> Void)?
+    let power: ComputerPower?
+    let open: (() -> Void)?
+    let wake: () -> Void
 
     var body: some View {
-        let count = group.sessions.count
         HStack(spacing: 7) {
-            HStack(spacing: 7) {
-                ComputerCaption(title: group.title, ownerName: group.owner?.name, ownerKey: group.owner?.userId, away: group.away, size: 18,
-                                style: .subhead)
-                Text(count, format: .number)
-                    .appTextStyle(.caption)
-                    .monospacedDigit()
-                    .foregroundStyle(theme.colors.inkFaint)
-                    .fixedSize()
+            Group {
+                if let open {
+                    Button(action: open) { caption.contentShape(Rectangle()) }
+                        .buttonStyle(PressScaleStyle(scale: 0.97))
+                } else {
+                    caption
+                }
             }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isHeader)
             .accessibilityIdentifier("terminals.computer.\(AccessibilityIdentifier.token(group.id))")
             Spacer(minLength: 0)
+            if power?.busy == .waking {
+                Text("Waking…").appTextStyle(.caption)
+                    .accessibilityIdentifier("terminals.group.waking.\(AccessibilityIdentifier.token(group.id))")
+            } else if power?.canWake == true {
+                Button("Wake", action: wake)
+                    .buttonStyle(.kodosi(.ghost, size: .small))
+                    .accessibilityLabel(Text("Wake \(group.title)"))
+                    .accessibilityIdentifier("terminals.group.wake.\(AccessibilityIdentifier.token(group.id))")
+            }
             if let newTerminal {
                 IconButton(
                     title: "New terminal", symbol: "plus", identifier: "terminals.group.new.\(AccessibilityIdentifier.token(group.id))", size: 28,
@@ -188,6 +208,23 @@ private struct ComputerHeader: View {
         }
         .foregroundStyle(theme.colors.inkMuted)
         .frame(minHeight: 44)
+    }
+
+    private var caption: some View {
+        HStack(spacing: 7) {
+            ComputerCaption(title: group.title, ownerName: group.owner?.name, ownerKey: group.owner?.userId, away: group.away, size: 18,
+                            style: .subhead)
+            Text(group.sessions.count, format: .number)
+                .appTextStyle(.caption)
+                .monospacedDigit()
+                .foregroundStyle(theme.colors.inkFaint)
+                .fixedSize()
+            if open != nil {
+                Image(systemName: "chevron.right")
+                    .font(scaled: 10, weight: .semibold)
+                    .foregroundStyle(theme.colors.inkFaint)
+            }
+        }
     }
 }
 

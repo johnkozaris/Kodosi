@@ -5,6 +5,7 @@ import android.icu.text.MeasureFormat
 import android.icu.util.Measure
 import android.icu.util.MeasureUnit
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -97,15 +98,39 @@ internal fun ChatCommandList(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text("/${command.name}", style = ChatType.mono, color = colors.ink, maxLines = 1, softWrap = false)
-                Text(
-                    command.description,
-                    style = KodosiType.footnote,
-                    color = colors.inkMuted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                if (command.terminal) {
+                    NeedsTerminalView()
+                } else {
+                    Text(
+                        command.description,
+                        style = KodosiType.footnote,
+                        color = colors.inkMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+internal fun NeedsTerminalView(modifier: Modifier = Modifier) {
+    val colors = KodosiTheme.colors
+    Row(
+        modifier.background(colors.accentSoft, CircleShape).padding(horizontal = 10.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AppIcon(AppSymbol.TERMINAL, Modifier.size(11.dp), tint = colors.accentStrong)
+        Spacer(Modifier.width(5.dp))
+        Text(
+            stringResource(R.string.chat_needs_terminal_view),
+            style = KodosiType.caption,
+            fontWeight = FontWeight.Medium,
+            color = colors.accentStrong,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 

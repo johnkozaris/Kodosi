@@ -1130,6 +1130,138 @@ async fn an_app_sign_in_takes_only_the_answer_of_its_own_page() {
 }
 
 #[tokio::test]
+async fn a_sign_in_that_the_owner_did_not_allow_ends_without_an_error_to_show() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = format!("http://{}", listener.local_addr().unwrap());
+    let server = scripted_backend(
+        listener,
+        vec![
+            compatible_server(),
+            (200, json!({"id":"intruder","handle":"intruder"})),
+        ],
+    );
+    let root = tempfile::tempdir().unwrap();
+    let network = BackendClient::new(BackendConfig {
+        api_url: format!("{address}/").parse().unwrap(),
+        issuer: address.clone(),
+        client_id: "kodosi-app".into(),
+        scopes: vec![],
+        data_root: root.path().to_owned(),
+        secret_service: "test".into(),
+        isolated: true,
+    })
+    .unwrap();
+    let mut sign_ins = network.hear_sign_ins();
+    let mut events = network.events();
+    let tokens = Tokens {
+        access_token: "token".into(),
+        refresh_token: None,
+        expires_at: 0,
+    };
+    let login = tokio::spawn({
+        let network = network.clone();
+        async move {
+            let generation = network.generation();
+            network
+                .complete_login(
+                    std::future::ready(Ok(tokens)),
+                    CancellationToken::new(),
+                    generation,
+                    REQUEST.to_owned(),
+                )
+                .await;
+        }
+    });
+    let asked = sign_ins.recv().await.unwrap();
+    assert_eq!(
+        (asked.user_id.as_str(), asked.handle.as_str()),
+        ("intruder", "intruder")
+    );
+    asked
+        .reply
+        .send(Err(Error::NotAllowed(text!(
+            "You did not allow this in Kodosi."
+        ))))
+        .unwrap();
+    login.await.unwrap();
+    let mut answer = events.recv().await.unwrap().event;
+    crate::text::render(&mut answer, crate::text::Language::English);
+    assert_eq!(
+        answer,
+        json!({"type":"auth.error","requestId":REQUEST,"operation":"auth.login.start",
+            "message":"You did not allow this in Kodosi.","refused":true})
+    );
+    assert!(network.identity().is_none(), "the account never signed in");
+    assert_eq!(server.await.unwrap().len(), 2);
+}
+
+#[cfg(feature = "host")]
+#[tokio::test]
+async fn a_stranger_who_tries_again_and_again_makes_this_device_fetch_the_friend_list_once() {
+    use tokio::io::{AsyncBufReadExt as _, AsyncWriteExt as _};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = format!("http://{}", listener.local_addr().unwrap());
+    let asked = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let counted = Arc::clone(&asked);
+    tokio::spawn(async move {
+        while let Ok((stream, _)) = listener.accept().await {
+            counted.fetch_add(1, Ordering::SeqCst);
+            let mut reader = tokio::io::BufReader::new(stream);
+            loop {
+                let mut line = String::new();
+                if reader.read_line(&mut line).await.unwrap_or(0) == 0 || line == "\r\n" {
+                    break;
+                }
+            }
+            drop(
+                reader
+                    .into_inner()
+                    .write_all(b"HTTP/1.1 503 Service Unavailable\r\ncontent-length: 0\r\nconnection: close\r\n\r\n")
+                    .await,
+            );
+        }
+    });
+    let root = tempfile::tempdir().unwrap();
+    let network = BackendClient::new(BackendConfig {
+        api_url: format!("{address}/").parse().unwrap(),
+        issuer: address.clone(),
+        client_id: "kodosi-app".into(),
+        scopes: vec![],
+        data_root: root.path().to_owned(),
+        secret_service: "test".into(),
+        isolated: true,
+    })
+    .unwrap();
+    network.assume_identity(Identity {
+        user_id: "owner".into(),
+        device_id: "laptop".into(),
+        display_name: "Owner".into(),
+        enrolled: true,
+    });
+    network.sign_friends(&["friend"]).await;
+    let credentials = network.credentials().unwrap();
+    for _ in 0..5 {
+        assert!(!network.signed_friend(&credentials, "stranger").await);
+    }
+    assert_eq!(
+        asked.load(Ordering::SeqCst),
+        1,
+        "tries within a short while ask the server once"
+    );
+    network.sign_friends(&["friend", "stranger"]).await;
+    assert!(
+        network.signed_friend(&credentials, "stranger").await,
+        "a friend whom the kept list has gets in at once"
+    );
+    assert!(!network.signed_friend(&credentials, "newcomer").await);
+    assert_eq!(
+        asked.load(Ordering::SeqCst),
+        2,
+        "the first try of another person still asks the server"
+    );
+}
+
+#[tokio::test]
 async fn a_renewed_sign_in_that_cannot_be_saved_is_used_and_saved_later() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = format!("http://{}", listener.local_addr().unwrap());

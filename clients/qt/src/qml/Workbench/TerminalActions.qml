@@ -12,7 +12,7 @@ KMenu {
     required property string sessionId
     property string identifier: ""
     property bool agentOnly: false
-    readonly property bool shareable: session.kind === "local" && session.isOwner === true
+    readonly property bool shareable: session.isOwner === true
     readonly property bool changesAgent: agentChanges.shown
     readonly property var launcher: agentChanges.launcher
 

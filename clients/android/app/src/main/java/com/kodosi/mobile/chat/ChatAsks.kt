@@ -114,7 +114,9 @@ internal fun ChatAskCard(chat: TerminalChat, view: ChatView, ask: ChatAsk, agent
                 },
                 body = {
                     if (body.text.isNotEmpty()) {
-                        Box(Modifier.verticalScroll(rememberScrollState())) { ChatProse(body.text, live = false) }
+                        Box(Modifier.verticalScroll(rememberScrollState())) {
+                            SelectionContainer { ChatProse(body.text, live = false) }
+                        }
                     }
                 },
                 keys = { PlanKeys(chat, view, ask, body.choices) },

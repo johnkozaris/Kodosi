@@ -439,7 +439,13 @@ public final class CanvasStore {
     public func browserStatus() async throws -> BrowserStatus {
         let event = try await commands.request("browser.status", [:])
         return try BrowserStatus(sources: event.value("sources"), sites: event.value("sites"), engine: event.string("engine"),
-                                 getting: try? event.value("getting", as: Int.self))
+                                 getting: try? event.value("getting", as: Int.self),
+                                 formPredictions: event.value("formPredictions"), crossSiteCookies: event.value("crossSiteCookies"))
+    }
+
+    public func setBrowserPrivacy(formPredictions: Bool, crossSiteCookies: Bool) async throws {
+        _ = try await commands.request("browser.set", ["formPredictions": .bool(formPredictions),
+                                                       "crossSiteCookies": .bool(crossSiteCookies)])
     }
 
     public func getBrowser() async throws {

@@ -42,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -75,6 +76,7 @@ import com.kodosi.mobile.people.FriendScreen
 import com.kodosi.mobile.people.PeopleScreen
 import com.kodosi.mobile.projects.ProjectScreen
 import com.kodosi.mobile.projects.ProjectsScreen
+import com.kodosi.mobile.settings.ComputerScreen
 import com.kodosi.mobile.settings.LicensesScreen
 import com.kodosi.mobile.settings.SettingsScreen
 import com.kodosi.mobile.terminals.NewTerminalRequest
@@ -319,9 +321,7 @@ private fun Home(model: AppModel) {
         shown?.let { openTerminal(it.id, 0) }
         if (model.terminalTarget.value == requested) model.terminalTarget.value = null
     }
-    val invite by model.friendInvite.collectAsStateWithLifecycle()
-    LaunchedEffect(invite != null) {
-        if (invite == null) return@LaunchedEffect
+    fun showFriends() {
         tab = 3
         val settings = stacks[3]
         if ((settings.lastOrNull() as? Destination)?.kind != "friends") {
@@ -329,6 +329,11 @@ private fun Home(model: AppModel) {
             settings.add(Destination("friends"))
         }
     }
+    val invite by model.friendInvite.collectAsStateWithLifecycle()
+    LaunchedEffect(invite != null) {
+        if (invite != null) showFriends()
+    }
+    var addingFriend by rememberSaveable { mutableStateOf(false) }
     val back = {
         if (stack.size > 1) stack.removeAt(stack.lastIndex)
         Unit
@@ -359,9 +364,12 @@ private fun Home(model: AppModel) {
                             account.computers.map {
                                 it.deviceId
                             }.toSet(),
+                            account.power,
+                            model.account::wakeComputer,
                             account.online,
                             summaryFirst = preferences.summaryFirst,
                             open = terminal,
+                            computer = { stack.add(Destination("computer", it)) },
                             start = {
                                 starting = it
                             }
@@ -374,7 +382,12 @@ private fun Home(model: AppModel) {
                                 NewTerminalRequest(project = it)
                         }
 
-                        "friends" -> PeopleScreen(model, back) { stack.add(Destination("friend", it)) }
+                        "friends" -> PeopleScreen(
+                            model,
+                            back,
+                            addFriend = addingFriend,
+                            addFriendOpened = { addingFriend = false }
+                        ) { stack.add(Destination("friend", it)) }
 
                         "friend" -> FriendScreen(model, destination.id, back, terminal)
 
@@ -399,20 +412,34 @@ private fun Home(model: AppModel) {
                         "settings" -> SettingsScreen(
                             model,
                             friends = { stack.add(Destination("friends")) },
-                            licenses = { stack.add(Destination("licenses")) }
+                            licenses = { stack.add(Destination("licenses")) },
+                            computer = { stack.add(Destination("computer", it)) }
                         )
+
+                        "computer" -> ComputerScreen(model, destination.id, back)
 
                         "licenses" -> LicensesScreen(back)
 
-                        "terminal" -> TerminalScreen(model, destination.id, account.online, back, canvas = { at ->
-                            val current = model.terminals.state.value.sessions.firstOrNull { it.id == destination.id }
-                            val selected = current?.canvas?.openKey(
-                                at,
-                                model.preferences.state.value.closedCanvasParts(destination.id, current.canvas)
-                            ) ?: at ?: "browser"
-                            model.preferences.canvasPart(destination.id, canvasPart(selected), true)
-                            stack.add(Destination("canvas", destination.id, selected))
-                        })
+                        "terminal" -> TerminalScreen(
+                            model,
+                            destination.id,
+                            account.online,
+                            back,
+                            addFriend = {
+                                addingFriend = true
+                                showFriends()
+                            },
+                            canvas = { at ->
+                                val current =
+                                    model.terminals.state.value.sessions.firstOrNull { it.id == destination.id }
+                                val selected = current?.canvas?.openKey(
+                                    at,
+                                    model.preferences.state.value.closedCanvasParts(destination.id, current.canvas)
+                                ) ?: at ?: "browser"
+                                model.preferences.canvasPart(destination.id, canvasPart(selected), true)
+                                stack.add(Destination("canvas", destination.id, selected))
+                            }
+                        )
 
                         "canvas" -> CanvasScreen(model, destination.id, back, ask = back, initialKey = destination.part)
                     }
@@ -464,6 +491,18 @@ private fun Home(model: AppModel) {
     }
     starting?.let { request ->
         NewTerminalSheet(model, request, dismiss = { starting = null }, started = terminal)
+    }
+    val approvals by model.sharing.waiting.collectAsStateWithLifecycle()
+    approvals.firstOrNull()?.let { approval ->
+        key(approval.approvalId) {
+            ConfirmDialog(
+                approval.title,
+                approval.message,
+                approval.confirm,
+                dismiss = { model.sharing.answer(approval, allow = false) },
+                confirm = { model.sharing.answer(approval, allow = true) }
+            )
+        }
     }
 }
 

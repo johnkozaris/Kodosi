@@ -15,10 +15,12 @@ final class AppDependencies {
     let workbench: WorkbenchState
     let launcher: LauncherState
     let account: AccountStore
+    let power: PowerStore
     let people: PeopleStore
     let dosi: DosiStore
     let canvas: CanvasStore
     let projects: ProjectStore
+    let approvals: SharingApprovals
     let documentPages = CanvasDocumentPages()
     var sessions: [RuntimeSession] = []
     var inviteRequested: ContinuousClock.Instant?
@@ -48,6 +50,8 @@ final class AppDependencies {
     var errorMessage: String?
     var doneMessage: String?
     let updater = AppUpdater()
+    /// How many terminals would lose a running program if Kodosi restarted now.
+    var restartStops = 0
     var updateRequired = false
     var updateNoticeDismissed = false
     var commandLink: String?
@@ -108,9 +112,11 @@ final class AppDependencies {
         self.canvas = canvas
         workbench = WorkbenchState(defaults: defaults, canvas: canvas)
         account = AccountStore(commands: commands, browser: "system")
+        power = PowerStore(commands: commands)
         people = PeopleStore(commands: commands)
         dosi = DosiStore(commands: commands)
         projects = ProjectStore(commands: commands)
+        approvals = SharingApprovals(commands: commands)
         launcher = LauncherState(commands: commands)
         let focus = TerminalProcessFocusCoordinator(commands: commands)
         terminalFocus = focus
@@ -125,6 +131,7 @@ final class AppDependencies {
         account.notify = { [weak self] message in self?.errorMessage = message }
         projects.notify = { [weak self] message in self?.errorMessage = message }
         projects.isFront = { [weak self] in self?.isFront() == true }
+        approvals.notify = { [weak self] message in self?.errorMessage = message }
     }
 
     func start() {
@@ -242,6 +249,7 @@ final class AppDependencies {
             terminalFocus.releaseSession(sessionId: session.id); terminalManager.releaseSession(for: session.id)
         }
         typeAhead.drop()
+        approvals.reset()
         commandSink.cancelPending()
         commandSink.transport = nil
         otherLaunchers.removeAll()
@@ -255,6 +263,7 @@ final class AppDependencies {
     private func catchUp() {
         commandSink.abandonPending()
         canvas.renewPipes()
+        approvals.reset()
         commandSink.send("app.resync")
     }
 
@@ -391,6 +400,20 @@ final class AppDependencies {
 
     func mutateSession(_ operation: String, session target: RuntimeSession, fields: [String: JSONValue] = [:]) async throws {
         try await commandSink.mutate(operation, session: target, current: session(target.id), fields: fields)
+    }
+
+    /// Lets the terminal's agent go on with the task that a restart cut off.
+    func continueTask(_ session: RuntimeSession) {
+        Task {
+            do { try await mutateSession("session.continue", session: session) } catch { errorMessage = error.localizedDescription }
+        }
+    }
+
+    /// Shows what the terminal's branch folder changed on its canvas.
+    func showChanges(_ session: RuntimeSession) {
+        Task {
+            do { try await mutateSession("session.changes", session: session) } catch { errorMessage = error.localizedDescription }
+        }
     }
 
     func openProject(_ project: ProjectEntry) {

@@ -58,9 +58,19 @@ struct SessionTileHeader: View {
                     TerminalLocation(host: session.hostLabel, glyph: "folder", name: nil).layoutPriority(1)
                 }
             }
+            if let changes = session.changes {
+                BranchChangesKey(changes: changes) { deps.showChanges(session) }
+                    .accessibilityIdentifier("\(stageId).changes")
+            }
             Color.clear.frame(minWidth: 4, maxWidth: .infinity).titleBarGap().layoutPriority(-1)
             if deps.workbench.dosiOn, let (item, question) = deps.dosi.question(forTerminal: session) {
                 DosiKeys(sessionId: session.id, item: item, question: question).transition(AnyTransition.pop)
+            }
+            if session.offersContinue {
+                Button("Continue") { deps.continueTask(session) }
+                    .buttonStyle(.kodosi(.secondary, size: .small))
+                    .accessibilityIdentifier("\(stageId).continue")
+                    .transition(AnyTransition.pop)
             }
             status
             if session.face != nil || face.wrappedValue == .chat {
@@ -99,8 +109,17 @@ struct SessionTileHeader: View {
                 .accessibilityIdentifier("\(stageId).unreachable.retry")
         } else {
             if session.kind == .remote, session.isConnected, session.status == .offline {
-                Text(session.statusLabel).appTextStyle(.caption).foregroundStyle(theme.colors.caution).lineLimit(1)
+                let power = session.hostDeviceId.flatMap { deps.power.computers[$0] }
+                Text(power?.problem ?? session.statusLabel).appTextStyle(.caption).foregroundStyle(theme.colors.caution).lineLimit(1)
+                    .help(power?.problem ?? "")
                     .accessibilityIdentifier("\(stageId).offline")
+                if let power, power.canWake || power.busy == .waking {
+                    Button(power.canWake ? "Wake" : "Waking…") { deps.power.wake(power.deviceId) }
+                        .buttonStyle(.kodosi(.ghost, size: .small))
+                        .disabled(!power.canWake)
+                        .opacity(showsActions ? 1 : 0.28)
+                        .accessibilityIdentifier("\(stageId).offline.wake")
+                }
             }
             if session.kind == .remote, session.isConnected, let notice = session.message {
                 Text(notice).appTextStyle(.caption).foregroundStyle(theme.colors.caution).lineLimit(1)
@@ -258,7 +277,7 @@ private struct TerminalActions: View {
                 PanelMenuDivider()
             }
             PanelMenuHeader(title: "Terminal")
-            if session.kind == .local, session.isOwner {
+            if session.isOwner {
                 PanelMenuRow(Text("Share…"), icon: .symbol("person.badge.plus"), identifier: "\(stageId).share") {
                     deps.workbench.sharingSessionId = session.id
                 }

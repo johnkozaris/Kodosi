@@ -106,7 +106,7 @@ private struct TerminalScreenContent: View {
             if let session, !chatting {
                 TerminalControls(
                     controller: controller, session: session, input: input, compact: compact, composing: $composing,
-                    actions: inputActions,
+                    actions: inputActions, goOn: { model.terminals.continueTask(session) },
                     menu: input.showsHeader(compact: compact)
                         ? nil
                         : TerminalMenu(session: session, prompt: $prompt, showsSharing: $showsSharing, capped: true,
@@ -131,6 +131,7 @@ private struct TerminalScreenContent: View {
                     TerminalTitle(
                         session: session, sign: model.terminals.sign(of: session), unreachable: model.unreachable(session),
                         rename: session.isOwner ? { prompt = .rename(session) } : nil, reconnect: model.account.retryConnection,
+                        showChanges: { model.terminals.showChanges(session) },
                     )
                 }
             }
@@ -328,11 +329,14 @@ private struct TerminalScreenContent: View {
             let surface = session.isConnected && !chatting ? controller.surface : nil
             let cover = chatting && session.isConnected ? nil
                 : TerminalCover.of(session, unreachable: model.unreachable(session), opening: controller.opening,
-                                   failure: controller.openFailure, render: surface.map { _ in controller.renderState })
+                                   failure: controller.openFailure, power: session.hostDeviceId.flatMap { model.power.computers[$0] },
+                                   render: surface.map { _ in controller.renderState })
             ZStack {
                 if chatting, session.isConnected {
                     TerminalChatView(chat: model.terminals.canvas.chat(session.id), agent: session.agent, me: model.terminals.userId,
-                                     otherComputer: session.otherComputer)
+                                     otherComputer: session.otherComputer,
+                                     names: [session.name, session.projectName, session.folderName].compactMap(\.self),
+                                     goOn: session.offersContinue ? { model.terminals.continueTask(session) } : nil)
                     {
                         model.terminals.pick(.terminal, of: session.id, over: session.face)
                     } modelKey: { name, effort, open in
@@ -367,9 +371,13 @@ private struct TerminalScreenContent: View {
                     .transition(.identity)
                 }
                 if let cover {
-                    TerminalCoverCard(cover: cover, connect: controller.open, reconnect: model.account.retryConnection, retry: controller.retry)
-                        .clipShape(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous))
-                        .transition(.opacity)
+                    TerminalCoverCard(cover: cover, connect: controller.open, reconnect: model.account.retryConnection, retry: controller.retry) {
+                        if let host = session.hostDeviceId {
+                            model.power.wake(host)
+                        }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous))
+                    .transition(.opacity)
                 }
             }
             .animation(theme.motion.fade, value: cover)

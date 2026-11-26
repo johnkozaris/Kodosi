@@ -243,13 +243,29 @@ fun KodosiSendKey(enabled: Boolean, working: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-fun KodosiStopKey(onClick: () -> Unit) {
+fun KodosiStopKey(
+    onClick: () -> Unit,
+    description: String = stringResource(R.string.stop),
+    tint: Color = KodosiTheme.colors.ink
+) {
     val colors = KodosiTheme.colors
-    val label = stringResource(R.string.stop)
     ComposerKey(onClick, enabled = true, fill = colors.lifted, quiet = true, ring = false) {
         Box(
-            Modifier.size(9.dp).background(colors.ink, RoundedCornerShape(2.dp))
-                .semantics { contentDescription = label }
+            Modifier.size(9.dp).background(tint, RoundedCornerShape(2.dp))
+                .semantics { contentDescription = description }
+        )
+    }
+}
+
+@Composable
+fun KodosiQuietKey(symbol: AppSymbol, description: String, onClick: () -> Unit, enabled: Boolean = true) {
+    val colors = KodosiTheme.colors
+    ComposerKey(onClick, enabled = enabled, fill = colors.lifted, quiet = true, ring = false) {
+        AppIcon(
+            symbol,
+            Modifier.size(14.dp),
+            description = description,
+            tint = if (enabled) colors.ink else colors.inkFaint
         )
     }
 }
@@ -408,7 +424,9 @@ fun CheckRow(
     title: String,
     checked: Boolean,
     change: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    subtitle: String? = null,
     leading: (@Composable () -> Unit)? = null
 ) {
     val colors = KodosiTheme.colors
@@ -416,7 +434,7 @@ fun CheckRow(
     val focused by interaction.collectIsFocusedAsState()
     val pressed by interaction.collectIsPressedAsState()
     Box(
-        Modifier.fillMaxWidth()
+        modifier.fillMaxWidth()
             .background(if (pressed || focused) colors.lifted else Color.Transparent, RoundedCornerShape(Radius.sm))
             .toggleable(
                 checked,
@@ -427,7 +445,7 @@ fun CheckRow(
                 onValueChange = change
             )
     ) {
-        ListLine(title, leading = leading) {
+        ListLine(title, subtitle = subtitle, leading = leading) {
             val shape = RoundedCornerShape(5.dp)
             Box(
                 Modifier.size(20.dp).well(colors, shape)

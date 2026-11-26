@@ -32,7 +32,6 @@ pub use picture::{Picture, PictureFormat, TERMINAL_PICTURE_MAX_BYTES};
 pub(crate) use remote::RemoteTerminal;
 #[cfg(feature = "host")]
 pub(crate) use session::{TerminalSession, pipe};
-#[cfg(feature = "host")]
 pub(crate) use status::display_text;
 pub use status::{BlockedKind, ProgramState, ProgramStatus, Waiting};
 pub use subscribers::{ControlFrame, DataFrame, Frame, RefreshRetry, Subscription};
@@ -135,6 +134,16 @@ pub(crate) enum SessionChange {
         id: Uuid,
         face: Option<TerminalFace>,
         helpers: u8,
+    },
+    #[cfg(feature = "host")]
+    Stopped {
+        id: Uuid,
+        stopped: bool,
+    },
+    /// A view on another computer asks to see what the terminal's branch folder changed.
+    #[cfg(feature = "host")]
+    ShowChanges {
+        id: Uuid,
     },
     #[cfg(feature = "host")]
     Ended {

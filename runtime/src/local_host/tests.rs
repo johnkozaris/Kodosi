@@ -25,12 +25,8 @@ async fn a_host_names_itself_to_another_version_and_stops_for_it() {
     let mut stream = kodosi_os::ipc::connect(&endpoint(&root).unwrap())
         .await
         .unwrap();
-    let hello = Hello {
-        version: VERSION + 1,
-        root: root_identity(&root),
-        session_id: None,
-    };
-    write_json(&mut stream, &hello).await.unwrap();
+    let older = json!({"version":VERSION - 1,"root":root_identity(&root),"sessionId":null});
+    write_json(&mut stream, &older).await.unwrap();
     let welcome: Welcome = read_json(&mut FrameReader::new(&mut stream)).await.unwrap();
     assert!(welcome.error.is_some());
     assert_eq!(welcome.terminals, 0);
@@ -41,9 +37,15 @@ async fn a_host_names_itself_to_another_version_and_stops_for_it() {
             kind: HostKind::Background
         })
     );
-    write_json(&mut stream, &ClientRequest::Stop { force: false })
-        .await
-        .unwrap();
+    write_json(
+        &mut stream,
+        &ClientRequest::Stop {
+            force: false,
+            update: false,
+        },
+    )
+    .await
+    .unwrap();
     let reply: Value = read_json(&mut FrameReader::new(&mut stream)).await.unwrap();
     assert_eq!(reply["kind"], "stopping");
     tokio::time::timeout(Duration::from_secs(10), handle.stopped())
@@ -75,7 +77,7 @@ async fn a_client_names_an_older_host() {
         write_json(&mut stream, &welcome).await.unwrap();
     });
     assert!(matches!(
-        Client::connect(&root).await,
+        Client::connect(&root, ClientKind::App).await,
         Err(Error::HostOutdated {
             kind: HostKind::Foreground,
             pid: 42,
@@ -146,7 +148,7 @@ async fn a_client_starts_from_the_account_that_the_host_read() {
         .await;
         (before, after)
     });
-    let client = connect_or_start(&root).await.unwrap();
+    let client = connect_or_start(&root, ClientKind::App).await.unwrap();
     let heard: Vec<_> = client
         .initial_events
         .iter()
@@ -184,7 +186,7 @@ async fn a_connection_that_a_stopping_host_closes_tries_again() {
         )
         .await
     });
-    let client = connect_or_start(&root).await.unwrap();
+    let client = connect_or_start(&root, ClientKind::Command).await.unwrap();
     assert_eq!(client.initial_events[0]["type"], "system.ready");
     drop(host.await.unwrap());
 }
@@ -209,10 +211,13 @@ async fn a_client_does_not_wait_for_a_saved_sign_in_that_comes_back_later() {
         )
         .await
     });
-    let client = tokio::time::timeout(Duration::from_secs(5), connect_or_start(&root))
-        .await
-        .unwrap()
-        .unwrap();
+    let client = tokio::time::timeout(
+        Duration::from_secs(5),
+        connect_or_start(&root, ClientKind::Command),
+    )
+    .await
+    .unwrap()
+    .unwrap();
     assert_eq!(client.initial_events.last().unwrap()["reason"], "offline");
     drop(host.await.unwrap());
 }
@@ -231,9 +236,41 @@ async fn a_foreground_host_stops_only_from_its_own_terminal() {
     let (_storage, root, handle) = hosted(HostKind::Foreground).await;
     for force in [false, true] {
         assert!(matches!(
-            stop_other_host(&root, force).await,
+            stop_other_host(&root, force, false).await,
             Err(Error::HostBusy(_))
         ));
+    }
+    handle.shutdown().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn only_a_connection_that_says_it_is_the_app_answers_the_questions_of_sharing() {
+    let (_storage, root, handle) = hosted(HostKind::Background).await;
+    for (kind, answer) in [
+        (ClientKind::App, "This request has already ended."),
+        (
+            ClientKind::Command,
+            "Only the Kodosi app can allow sharing.",
+        ),
+    ] {
+        let mut client = Client::connect(&root, kind).await.unwrap();
+        let scope = client.initial_events[0].clone();
+        let request = Uuid::now_v7().to_string();
+        client
+            .command(json!({"type":"sharing.answer","requestId":request,"approvalId":Uuid::now_v7(),
+                "allow":true,"accountUserId":scope["accountUserId"],"accountEpoch":scope["accountEpoch"]}))
+            .await
+            .unwrap();
+        let heard = loop {
+            let frame = client.next().await.unwrap();
+            if frame["event"]["requestId"] == request.as_str() {
+                break frame["event"].clone();
+            }
+        };
+        assert_eq!(
+            (heard["type"].as_str(), heard["message"].as_str()),
+            (Some("sharing.error"), Some(answer))
+        );
     }
     handle.shutdown().await;
 }

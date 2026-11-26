@@ -578,7 +578,7 @@ impl BackendClient {
             })
     }
 
-    pub(super) async fn link_label(&self, shown: &str) -> Result<String> {
+    pub(crate) async fn link_label(&self, shown: &str) -> Result<String> {
         let credentials = self.credentials()?;
         Ok(self.linked_device(&credentials, shown).await?.label)
     }

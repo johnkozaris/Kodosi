@@ -79,6 +79,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.ui.LocalNavAnimatedContentScope
 import com.kodosi.mobile.AppModel
 import com.kodosi.mobile.R
+import com.kodosi.mobile.account.ComputerPower
 import com.kodosi.mobile.canvas.readPickedFile
 import com.kodosi.mobile.chat.TerminalChatView
 import com.kodosi.mobile.runtime.UuidV7
@@ -88,6 +89,7 @@ import com.kodosi.mobile.ui.AgentMark
 import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
 import com.kodosi.mobile.ui.ButtonKind
+import com.kodosi.mobile.ui.ButtonSize
 import com.kodosi.mobile.ui.ConfirmDialog
 import com.kodosi.mobile.ui.FileIcon
 import com.kodosi.mobile.ui.HelperMarks
@@ -120,15 +122,22 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.JsonNull
 
 @Composable
-fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: () -> Unit, canvas: (String?) -> Unit) {
+fun TerminalScreen(
+    model: AppModel,
+    sessionId: String,
+    online: Boolean,
+    back: () -> Unit,
+    addFriend: () -> Unit,
+    canvas: (String?) -> Unit
+) {
     val colors = KodosiTheme.colors
     val scope = rememberCoroutineScope()
     val connection = remember(sessionId) { model.connection(sessionId, scope) } ?: return
     val state by connection.state.collectAsStateWithLifecycle()
     val openResults by model.terminals.openResults.collectAsStateWithLifecycle()
+    val account by model.account.state.collectAsStateWithLifecycle()
     val session = remember(sessionId) {
         model.terminals.state.map { catalog -> catalog.sessions.firstOrNull { it.id == sessionId } }
     }.collectAsStateWithLifecycle(model.terminals.session(sessionId)).value
@@ -148,6 +157,7 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
     val draft = rememberSaveable(sessionId, saver = TextFieldState.Saver) { TextFieldState() }
     var renaming by remember { mutableStateOf(false) }
     var closing by remember { mutableStateOf(false) }
+    var sharing by remember { mutableStateOf(false) }
     var clipboardAnswer by remember { mutableStateOf<((String) -> Boolean)?>(null) }
     val context = LocalContext.current
     val links = com.kodosi.mobile.ui.LocalLinkOpener.current
@@ -197,7 +207,18 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
         if (!(typing && landscape) || chatShown) {
             Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) {
-                    Header(session, online, model.account::retryConnection, back, rename = { renaming = true })
+                    Header(
+                        session,
+                        online,
+                        model.account::retryConnection,
+                        back,
+                        rename = { renaming = true },
+                        showChanges = {
+                            session?.let { shown ->
+                                scope.launch { model.runAction { model.terminals.act("session.changes", shown) } }
+                            }
+                        }
+                    )
                 }
                 if (typing && !landscape && !composing && !chatShown) {
                     ActionIcon(
@@ -227,6 +248,7 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                     back,
                     canvas,
                     { renaming = true },
+                    { sharing = true },
                     { closing = true }
                 )
             }
@@ -296,7 +318,8 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                             )
                         }
                     } else {
-                        val cover = coverOf(session, online, state, openResults[sessionId])
+                        val power = session.hostDeviceId?.let { account.power[it] }
+                        val cover = coverOf(session, online, state, openResults[sessionId], power)
                         // Freeze the cover during exit so disconnecting on back does not flash it.
                         val leaving =
                             LocalNavAnimatedContentScope.current.transition.targetState == EnterExitState.PostExit
@@ -304,7 +327,8 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                         CoverLayer(
                             if (leaving) kept else cover,
                             connect = connection::retry,
-                            reconnect = model.account::retryConnection
+                            reconnect = model.account::retryConnection,
+                            wake = { session.hostDeviceId?.let(model.account::wakeComputer) }
                         )
                     }
                     ReconnectingNotice(
@@ -345,7 +369,7 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                         ActionIcon(AppSymbol.HIDE_KEYBOARD, R.string.hide_keyboard, { keyboard?.hide() })
                         TerminalActions(model, session, view, back, canvas, {
                             renaming = true
-                        }, { closing = true })
+                        }, { sharing = true }, { closing = true })
                     }
                 }
             } else {
@@ -357,6 +381,16 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                         listOf("1", "2", "3").forEach { answer ->
                             KeyCap(answer, look = look) { view?.paste(answer, enter = true) }
                         }
+                        Spacer(Modifier.weight(1f))
+                    } else if (session?.offersContinue == true) {
+                        KodosiButton(
+                            stringResource(R.string.continue_task),
+                            onClick = {
+                                scope.launch { model.runAction { model.terminals.act("session.continue", session) } }
+                            },
+                            kind = ButtonKind.SECONDARY,
+                            size = ButtonSize.SMALL
+                        )
                         Spacer(Modifier.weight(1f))
                     }
                     ActionIcon(
@@ -419,6 +453,12 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
             destructive = true
         )
     }
+    if (sharing && session != null) {
+        SharingSheet(model, session, dismiss = { sharing = false }, addFriend = {
+            sharing = false
+            addFriend()
+        })
+    }
 }
 
 // Reference-counted because transitioning from one terminal to another overlaps their lifecycles.
@@ -477,6 +517,7 @@ private fun TerminalActions(
     back: () -> Unit,
     canvas: (String?) -> Unit,
     rename: () -> Unit,
+    share: () -> Unit,
     close: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -493,6 +534,15 @@ private fun TerminalActions(
                     canvas("browser")
                 })
             }
+            if (session != null) {
+                KodosiMenuItem(
+                    text = { Text(stringResource(if (session.isOwner) R.string.share_menu else R.string.sharing)) },
+                    onClick = {
+                        menu = false
+                        share()
+                    }
+                )
+            }
             if (session?.isOwner == true) {
                 KodosiMenuItem(text = { Text(stringResource(R.string.rename)) }, onClick = {
                     menu = false
@@ -504,16 +554,6 @@ private fun TerminalActions(
                     menu = false
                     scope.launch { model.runAction { model.terminals.act("session.interrupt", session) } }
                 })
-                if (session.projectId != null) {
-                    KodosiMenuItem(text = { Text(stringResource(R.string.remove_from_project)) }, onClick = {
-                        menu = false
-                        scope.launch {
-                            model.runAction {
-                                model.terminals.act("session.attachProject", session, mapOf("projectId" to JsonNull))
-                            }
-                        }
-                    })
-                }
                 KodosiMenuItem(text = { Text(stringResource(R.string.close_terminal)) }, onClick = {
                     menu = false
                     close()
@@ -590,7 +630,8 @@ private fun Header(
     online: Boolean,
     retryConnection: () -> Unit,
     back: () -> Unit,
-    rename: () -> Unit
+    rename: () -> Unit,
+    showChanges: () -> Unit
 ) {
     val colors = KodosiTheme.colors
     Row(
@@ -680,6 +721,7 @@ private fun Header(
                     }
                 }
             }
+            session.changes?.let { changes -> BranchChangesKey(changes, showChanges) }
             if (session.isConnected && session.unreachable(online)) {
                 KodosiButton(stringResource(R.string.try_again), onClick = retryConnection, kind = ButtonKind.GHOST)
             }
@@ -694,7 +736,7 @@ private data class TerminalCover(
     val action: CoverAction?
 )
 
-private enum class CoverAction { CONNECT, RECONNECT, RETRY }
+private enum class CoverAction { CONNECT, RECONNECT, RETRY, WAKE, WAKING }
 
 // Treat an offline session with no message and no OpenResult yet as still connecting.
 @Composable
@@ -702,7 +744,8 @@ private fun coverOf(
     session: RuntimeSession,
     online: Boolean,
     state: TerminalConnection.State,
-    opened: OpenResult?
+    opened: OpenResult?,
+    power: ComputerPower?
 ): TerminalCover? {
     val connecting = TerminalCover(stringResource(R.string.connecting), null, working = true, action = null)
     val unavailable = stringResource(R.string.terminal_not_available)
@@ -718,8 +761,16 @@ private fun coverOf(
                 action = CoverAction.RECONNECT
             )
 
-            session.status == RuntimeSession.Status.OFFLINE ->
-                TerminalCover(statusLabel(session), stringResource(R.string.terminal_opens_when_back), false, null)
+            session.status == RuntimeSession.Status.OFFLINE -> TerminalCover(
+                statusLabel(session),
+                power?.problem ?: stringResource(R.string.terminal_opens_when_back),
+                working = power?.waking == true,
+                action = when {
+                    power?.waking == true -> CoverAction.WAKING
+                    power?.canWake == true -> CoverAction.WAKE
+                    else -> null
+                }
+            )
 
             session.connectionState == RuntimeSession.Connection.OFFLINE &&
                 (opened != null || session.message != null || !session.canOpen) -> TerminalCover(
@@ -753,7 +804,7 @@ private fun coverOf(
 }
 
 @Composable
-private fun CoverLayer(cover: TerminalCover?, connect: () -> Unit, reconnect: () -> Unit) {
+private fun CoverLayer(cover: TerminalCover?, connect: () -> Unit, reconnect: () -> Unit, wake: () -> Unit) {
     val fading = fade<Float>()
     AnimatedContent(
         cover,
@@ -767,6 +818,8 @@ private fun CoverLayer(cover: TerminalCover?, connect: () -> Unit, reconnect: ()
                     CoverAction.CONNECT -> KodosiButton(stringResource(R.string.connect), onClick = connect)
                     CoverAction.RECONNECT -> KodosiButton(stringResource(R.string.try_again), onClick = reconnect)
                     CoverAction.RETRY -> KodosiButton(stringResource(R.string.try_again), onClick = connect)
+                    CoverAction.WAKE -> KodosiButton(stringResource(R.string.wake_computer), onClick = wake)
+                    CoverAction.WAKING -> KodosiButton(stringResource(R.string.waking), onClick = {}, enabled = false)
                     null -> Unit
                 }
             }
@@ -888,4 +941,25 @@ private fun FaceSwitch(chatting: Boolean, choose: (Boolean) -> Unit) {
         if (chatting) 1 else 0,
         symbolic = true
     ) { choose(it == 1) }
+}
+
+/** What a terminal's branch folder changed, as one quiet key that shows the diff on the canvas. */
+@Composable
+private fun BranchChangesKey(changes: BranchChanges, show: () -> Unit) {
+    val description = stringResource(R.string.branch_changes, changes.added, changes.removed)
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .defaultMinSize(minHeight = 48.dp)
+            .clickable(role = Role.Button, onClickLabel = stringResource(R.string.show_changes), onClick = show)
+            .semantics { contentDescription = description }
+            .padding(horizontal = 8.dp)
+    ) {
+        Text(
+            "+${changes.added} \u2212${changes.removed}",
+            style = KodosiType.caption,
+            color = KodosiTheme.colors.inkMuted,
+            maxLines = 1
+        )
+    }
 }

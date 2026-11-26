@@ -2030,6 +2030,7 @@ dependencies = [
 name = "kodosi-os"
 version = "0.1.0"
 dependencies = [
+ "core-foundation",
  "directories",
  "dunce",
  "jni",
@@ -2322,6 +2323,7 @@ dependencies = [
  "cfg-if",
  "cfg_aliases",
  "libc",
+ "memoffset",
 ]
 
 [[package]]

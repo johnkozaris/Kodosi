@@ -209,8 +209,14 @@ final class TerminalStore {
         act("session.interrupt", on: session)
     }
 
-    func removeFromProject(_ session: RuntimeSession) {
-        act("session.attachProject", on: session, fields: ["projectId": .null])
+    /// Lets the terminal's agent go on with the task that a restart cut off.
+    func continueTask(_ session: RuntimeSession) {
+        act("session.continue", on: session)
+    }
+
+    /// Shows what the terminal's branch folder changed on its canvas.
+    func showChanges(_ session: RuntimeSession) {
+        act("session.changes", on: session)
     }
 
     func changeAgent(_ change: AgentSettings, in session: RuntimeSession) {
@@ -223,6 +229,15 @@ final class TerminalStore {
 
     func share(_ session: RuntimeSession, inProject projectId: String?) async throws {
         try await mutate("session.attachProject", session: session, fields: ["projectId": projectId.map(JSONValue.string) ?? .null])
+    }
+
+    /// `expected` is who had the terminal when the sheet opened, so that a change made elsewhere
+    /// since then is refused instead of undone.
+    func share(_ session: RuntimeSession, with people: Set<String>, expected: Set<String>) async throws {
+        try await mutate("session.share", session: session, fields: [
+            "userIds": .array(people.sorted().map(JSONValue.string)),
+            "expectedUserIds": .array(expected.sorted().map(JSONValue.string)),
+        ])
     }
 
     private func act(_ operation: String, on session: RuntimeSession, fields: [String: JSONValue] = [:]) {

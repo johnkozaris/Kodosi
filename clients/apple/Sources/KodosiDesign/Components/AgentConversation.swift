@@ -4,18 +4,137 @@ import SwiftUI
 extension EnvironmentValues {
     /// The folder of the terminal, from which a path in an agent's prose names a file.
     @Entry var proseFolder: String?
+    /// A long press on the message opens its own menu, so its texts do not take the long press.
+    @Entry var messageMenu = false
 }
+
+extension View {
+    /// Selectable text, except in a message whose long press opens the message's own menu.
+    func messageTextSelection() -> some View {
+        modifier(MessageTextSelection())
+    }
+
+    /// Lets a person copy the whole message: on a Mac with a key that shows while the pointer is on
+    /// it, on an iPhone or iPad from the menu of a long press, which also selects a part of it or
+    /// reads it aloud. A message still being written has no copy yet. An answer has the key at its
+    /// bottom, where a reader of a long one ends up.
+    func copiesMessage(
+        _ text: String?, at edge: VerticalEdge = .top,
+        preview: some Shape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous),
+    ) -> some View {
+        modifier(MessageCopy(text: text, edge: edge, preview: AnyShape(preview)))
+    }
+}
+
+private struct MessageTextSelection: ViewModifier {
+    @Environment(\.messageMenu) private var messageMenu
+
+    func body(content: Content) -> some View {
+        if messageMenu {
+            content
+        } else {
+            content.textSelection(.enabled)
+        }
+    }
+}
+
+private struct MessageCopy: ViewModifier {
+    @Environment(\.theme) private var theme
+    let text: String?
+    let edge: VerticalEdge
+    let preview: AnyShape
+    #if os(macOS)
+        @State private var hovered = false
+    #else
+        @State private var selecting = false
+    #endif
+
+    func body(content: Content) -> some View {
+        #if os(macOS)
+            content
+                .contentShape(Rectangle())
+                .overlay(alignment: edge == .top ? .topTrailing : .bottomTrailing) {
+                    if hovered, let text {
+                        MessageCopyKey(text: text)
+                            .offset(y: edge == .top ? -10 : 10)
+                            .transition(.opacity.combined(with: .scale(scale: 0.94, anchor: .trailing)))
+                    }
+                }
+                .onHover { hovered = $0 }
+                .animation(theme.motion.hover, value: hovered)
+                .accessibilityActions { copyAction }
+        #else
+            content
+                .environment(\.messageMenu, true)
+                .contentShape(.contextMenuPreview, preview)
+                .contextMenu {
+                    if let text {
+                        Button { Pasteboard.copy(text) } label: {
+                            Label { Text("Copy", bundle: .module) } icon: { Image(systemName: "doc.on.doc") }
+                        }
+                        Button { selecting = true } label: {
+                            Label { Text("Select text", bundle: .module) } icon: { Image(systemName: "selection.pin.in.out") }
+                        }
+                        if MessageReader.shared.reading == text {
+                            Button { MessageReader.shared.stop() } label: {
+                                Label { Text("Stop reading", bundle: .module) } icon: { Image(systemName: "stop.circle") }
+                            }
+                        } else {
+                            Button { MessageReader.shared.read(text) } label: {
+                                Label { Text("Read aloud", bundle: .module) } icon: { Image(systemName: "speaker.wave.2") }
+                            }
+                        }
+                    }
+                }
+                .sheet(isPresented: $selecting) { SelectableTextSheet(text: text ?? "") }
+                .accessibilityActions { copyAction }
+        #endif
+    }
+
+    @ContentBuilder
+    private var copyAction: some View {
+        if let text {
+            Button { Pasteboard.copy(text) } label: { Text("Copy", bundle: .module) }
+        }
+    }
+}
+
+#if os(macOS)
+    private struct MessageCopyKey: View {
+        @Environment(\.theme) private var theme
+        let text: String
+        @State private var copied = false
+
+        var body: some View {
+            IconButton(
+                title: copied ? "Copied" : "Copy", bundle: .module, symbol: copied ? "checkmark" : "doc.on.doc",
+                identifier: "chat.message.copy", size: 24, active: copied,
+            ) {
+                Pasteboard.copy(text)
+                copied = true
+            }
+            .padding(2)
+            .raisedCapsule(fill: theme.colors.lifted, elevation: .lifted)
+        }
+    }
+#endif
 
 struct PersonBubble: View {
     @Environment(\.theme) private var theme
     let text: String
+    var copies = false
 
     var body: some View {
         HStack(spacing: 0) {
             Spacer(minLength: 56)
-            Text(ProjectMessageText.formatted(text))
-                .appTextStyle(.body).lineSpacing(2).foregroundStyle(theme.colors.ink).textSelection(.enabled)
+            let bubble = Text(ProjectMessageText.formatted(text))
+                .appTextStyle(.body).lineSpacing(2).foregroundStyle(theme.colors.ink).messageTextSelection()
                 .projectBubble()
+            if copies {
+                bubble.copiesMessage(text, preview: ProjectBubble())
+            } else {
+                bubble
+            }
         }
     }
 }
@@ -35,7 +154,7 @@ struct AgentProse: View {
                 case let .lines(lines):
                     HStack(alignment: .lastTextBaseline, spacing: 3) {
                         Text(Self.marked(lines, folder: folder, code: theme.colors.ink.opacity(0.08)))
-                            .appTextStyle(.body).lineSpacing(3).foregroundStyle(theme.colors.ink).textSelection(.enabled)
+                            .appTextStyle(.body).lineSpacing(3).foregroundStyle(theme.colors.ink).messageTextSelection()
                             .tint(theme.colors.accentStrong)
                         if last, live {
                             CursorBlock(width: 6, height: 14, blink: .typing).transition(.opacity)
@@ -43,11 +162,11 @@ struct AgentProse: View {
                     }
                 case let .heading(heading):
                     Text(ProjectMessageText.formatted(heading))
-                        .appTextStyle(.subhead).foregroundStyle(theme.colors.ink).textSelection(.enabled)
+                        .appTextStyle(.subhead).foregroundStyle(theme.colors.ink).messageTextSelection()
                         .padding(.top, index == 0 ? 0 : 3)
                 case let .code(code):
                     ScrollView(.horizontal) {
-                        Text(verbatim: code).appTextStyle(.monoCaption).foregroundStyle(theme.colors.ink).textSelection(.enabled)
+                        Text(verbatim: code).appTextStyle(.monoCaption).foregroundStyle(theme.colors.ink).messageTextSelection()
                             .fixedSize().padding(.horizontal, 10).padding(.vertical, 8)
                     }
                     .scrollIndicators(.never)
@@ -153,6 +272,26 @@ enum ProseBlock: Equatable {
         }
         flush()
         return blocks
+    }
+
+    /// The words of a message as a voice reads them, without the signs of its Markdown.
+    @MainActor static func spoken(_ text: String) -> String {
+        func plain(_ words: some StringProtocol) -> String {
+            String(ProjectMessageText.formatted(String(words)).characters)
+        }
+        return blocks(of: text).map { block in
+            switch block {
+            case let .lines(lines):
+                lines.split(separator: "\n", omittingEmptySubsequences: false).map { line in
+                    let words = line.drop { $0 == " " }
+                    return plain(words.hasPrefix("• ") ? words.dropFirst(2) : words)
+                }.joined(separator: "\n")
+            case let .heading(heading): plain(heading)
+            case let .code(code): code
+            case let .table(table):
+                ([table.header] + table.rows).filter { !$0.isEmpty }.map { $0.map(plain).joined(separator: ", ") }.joined(separator: "\n")
+            }
+        }.joined(separator: "\n\n")
     }
 
     private static func heading(_ line: Substring) -> String? {
@@ -280,7 +419,7 @@ private struct ProseTableView: View {
         case .trailing: .trailing
         }
         return Text(ProjectMessageText.formatted(column < row.count ? row[column] : ""))
-            .appTextStyle(.body).foregroundStyle(theme.colors.ink).textSelection(.enabled)
+            .appTextStyle(.body).foregroundStyle(theme.colors.ink).messageTextSelection()
             .tint(theme.colors.accentStrong)
             .multilineTextAlignment(alignment == .trailing ? .trailing : alignment == .center ? .center : .leading)
             .frame(maxWidth: Self.widestCell, alignment: alignment)

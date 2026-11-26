@@ -23,10 +23,15 @@ un projet partagé. Retirer un ami révoque immédiatement l'accès à vos termi
 vous des projets appartenant à l'autre. Bloquer un utilisateur a le même effet et empêche toute
 future demande d'ami.
 
-Chacun de vos appareils approuvés peut contrôler tous vos terminaux, en lancer de nouveaux sur vos
-autres ordinateurs exécutant Kodosi et envoyer des messages à Dosi sur ces ordinateurs (où Dosi
-agit avec le même accès local que lorsque vous l'utilisez directement). Retirer un appareil révoque
-son accès aux terminaux et à Dosi.
+Avant que quelqu'un de nouveau n'accède à vos terminaux ou à vos projets, Kodosi vous le demande
+dans l'application de l'appareil où le changement commence, y compris quand la commande `kodosi` le
+demande, par exemple pour un agent. Cela protège contre les erreurs et les agents ; une personne qui
+tape dans un terminal que vous avez partagé agit en votre nom et peut contourner cette question.
+
+Chacun de vos appareils approuvés peut contrôler tous vos terminaux, choisir avec qui ils sont
+partagés, en lancer de nouveaux sur vos autres ordinateurs exécutant Kodosi et envoyer des messages
+à Dosi sur ces ordinateurs (où Dosi agit avec le même accès local que lorsque vous l'utilisez
+directement). Retirer un appareil révoque son accès aux terminaux et à Dosi.
 
 ### Canvas et navigateur partagé
 
@@ -50,10 +55,45 @@ Ubuntu, Kodosi fournit un profil AppArmor autorisant l'app, son processus de ren
 navigateur partagé ne s'exécute pas en root sous Linux.
 
 Les apps Kodosi n'embarquent pas Kodosi Browser. La première fois que vous ouvrez un navigateur
-partagé sur un ordinateur, Kodosi le télécharge depuis `updates.kodosi.com` et vérifie
-quotidiennement la disponibilité de mises à jour. Un téléchargement n'est accepté que si le flux de
-mise à jour porte une signature valide de la clé de mise à jour de Kodosi et si le condensat
-SHA-256 du fichier correspond à celui indiqué par le flux.
+partagé sur un ordinateur, Kodosi le télécharge depuis les versions de Kodosi publiées sur GitHub,
+et vérifie chaque jour dans le flux de mise à jour de Kodosi, sur `updates.kodosi.com`, si des mises
+à jour sont disponibles. Un téléchargement n'est accepté que si le flux de mise à jour porte une
+signature valide de la clé de mise à jour de Kodosi et si le condensat SHA-256 du fichier correspond
+à celui indiqué par le flux.
+
+### Ce que Kodosi Browser envoie à Google
+
+Kodosi Browser est Chromium, qui contacte de lui-même les services de Google suivants, sans jamais
+leur transmettre vos cookies :
+
+- Mises à jour de ses composants, comme la liste des certificats révoqués : environ toutes les cinq
+  heures, il demande à `update.googleapis.com` s'il existe de nouvelles versions, et les télécharge
+  depuis les serveurs de téléchargement de Google (comme `edgedl.me.gvt1.com`). Il envoie
+  l'identifiant et la version de chaque composant, sa propre version, ainsi que le système
+  d'exploitation et le processeur, mais aucune donnée de navigation.
+- Navigation sécurisée : il conserve des listes de sites dangereux provenant de
+  `safebrowsing.googleapis.com`, en n'envoyant que l'état de ses listes. Quand l'adresse d'une page
+  correspond à une liste, il envoie les 4 premiers octets d'un hachage de l'adresse, jamais
+  l'adresse elle-même. Si la détection d'hameçonnage qu'il effectue sur votre ordinateur considère
+  qu'une page relève de l'hameçonnage, il envoie l'adresse de cette page à `sb-ssl.google.com` pour
+  confirmation.
+- Heure réseau : quand il n'est pas sûr de l'heure, il interroge `clients2.google.com`, qui lui
+  indique si le certificat d'un site a expiré, même si votre horloge est déréglée. La requête ne
+  contient rien sur vous.
+
+L'option **Prédictions de formulaires par Google** reste désactivée tant que vous ne l'activez pas
+dans **Réglages › Navigateur**. Une fois l'option activée, Kodosi Browser envoie à
+`content-autofill.googleapis.com` un hachage de chaque formulaire qu'il affiche, calculé à partir du
+nom du site et des noms des champs du formulaire, et Google indique en retour à quoi sert chaque
+champ. Quand vous envoyez un formulaire, il indique aussi quel type de données contenait chaque
+champ, jamais ce que vous avez saisi. Kodosi Browser ne se connecte jamais à `www.google.com` en
+prévision d'une recherche, et ne demande jamais à Google, avec vos cookies Google, si la barre
+d'adresse de Chrome elle-même peut proposer le Mode IA.
+
+L'option **Cookies intersites** reste elle aussi désactivée tant que vous ne l'activez pas dans
+**Réglages › Navigateur**. Tant qu'elle est désactivée, un site affiché dans la page d'un autre
+site, comme une vidéo YouTube ou un bouton de connexion, n'y reçoit pas ses cookies, et ne peut donc
+pas vous reconnaître sur les différents sites que vous visitez.
 
 ### L'écran d'un ordinateur
 
@@ -98,7 +138,9 @@ métadonnées des projets et des terminaux, le type d'agent et l'état signalé 
 consulté cet état, les en-têtes de routage, l'horodatage et la taille des textes chiffrés (sauf
 pour le trafic qui emprunte un chemin direct en pair à pair). Il voit également l'état d'activité
 de chaque appareil (dans Kodosi, dans une autre app de bureau ou inactif) afin d'acheminer les
-notifications uniquement vers un appareil actif.
+notifications uniquement vers un appareil actif. Il ne voit pas comment vos ordinateurs se
+réveillent : leurs adresses réseau et leurs réglages de réveil ne circulent qu'entre vos propres
+appareils, chiffrés de bout en bout.
 
 Les notifications push mobiles transitent par APNs d'Apple ou FCM de Google. Ces fournisseurs
 voient les identifiants des terminaux en attente, terminés ou en échec, ainsi que leur type d'agent

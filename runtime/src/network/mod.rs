@@ -22,15 +22,20 @@ pub use backend_client::BackendClient;
 #[cfg(any(target_os = "ios", target_os = "android"))]
 pub(crate) use backend_client::device_label;
 pub(crate) use backend_client::host_label;
-pub(crate) use backend_client::{DELETION_LIFE, SIGN_IN_LIFE};
+pub(crate) use backend_client::{DELETION_LIFE, ProjectMember, SIGN_IN_LIFE, SignIn, shareable};
 #[cfg(feature = "host")]
 pub(crate) use terminal_connections::Answering;
 
 #[derive(Debug)]
 pub enum Error {
-    Invalid { reason: String },
+    Invalid {
+        reason: String,
+    },
     Text(Text),
     Trust(Text),
+    /// The owner did not allow the request in the app: they refused it, or did not answer in
+    /// time.
+    NotAllowed(Text),
     SignedOut,
     AccountDeleted,
     AccountBanned,
@@ -45,19 +50,25 @@ pub enum Error {
     Timeout,
     Dropped,
     Json(serde_json::Error),
-    Backend { status: u16, message: Text },
+    Backend {
+        status: u16,
+        message: Text,
+    },
     UpdateRequired,
     ServerOutdated,
-    ChannelVersion { peer_newer: bool },
+    ChannelVersion {
+        peer_newer: bool,
+    },
 }
 
 impl Error {
     pub fn text(&self) -> Text {
         match self {
             Self::Invalid { reason } => Text::plain(reason.clone()),
-            Self::Text(text) | Self::Trust(text) | Self::Backend { message: text, .. } => {
-                text.clone()
-            }
+            Self::Text(text)
+            | Self::Trust(text)
+            | Self::NotAllowed(text)
+            | Self::Backend { message: text, .. } => text.clone(),
             Self::SignedOut => text!("Sign in to continue."),
             Self::AccountDeleted => text!("This Kodosi account was deleted."),
             Self::AccountBanned => text!(
@@ -218,6 +229,13 @@ impl Moment {
         let awake = later.monotonic.saturating_duration_since(self.monotonic);
         let passed = later.wall.duration_since(self.wall).unwrap_or_default();
         passed > awake + SHORTEST_SLEEP
+    }
+
+    /// For a call that returns only after the sleep: on Windows the monotonic clock also counts
+    /// the time of a sleep.
+    #[cfg(feature = "host")]
+    pub(crate) fn slept_through(self, later: Self) -> bool {
+        later.wall.duration_since(self.wall).unwrap_or_default() > SHORTEST_SLEEP
     }
 }
 
@@ -384,6 +402,8 @@ pub enum TerminalControl {
         change: Box<crate::agents::AgentSettings>,
     },
     Seen,
+    /// Shows what the terminal's branch folder changed on its canvas.
+    Changes,
 }
 
 #[derive(Debug)]
@@ -633,6 +653,8 @@ pub type PublicationOutput = broadcast::Receiver<PublishedFrame>;
 /// Unseen waiting state of a hosted terminal, published to the owner's devices.
 pub type PublishedMark = tokio::sync::watch::Receiver<Option<crate::terminal::Waiting>>;
 
+#[cfg(test)]
+pub(crate) use http::current_versions;
 #[cfg(test)]
 pub(crate) use terminal_connections::RemoteRequest as TestRemoteRequest;
 pub(crate) use terminal_connections::{

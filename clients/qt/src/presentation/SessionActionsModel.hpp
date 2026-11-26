@@ -51,6 +51,10 @@ public:
     Q_INVOKABLE bool close(const QString& sessionId);
     Q_INVOKABLE bool hide(const QString& sessionId);
     Q_INVOKABLE bool rename(const QString& sessionId, const QString& name);
+    // Lets the terminal's agent go on with the task that a restart cut off.
+    Q_INVOKABLE bool continueTask(const QString& sessionId);
+    // Shows what the terminal's branch folder changed on its canvas.
+    Q_INVOKABLE bool showChanges(const QString& sessionId);
     Q_INVOKABLE bool startAgent(const QString& sessionId, const QString& agent);
     Q_INVOKABLE bool changeAgent(const QString& sessionId, const QVariantMap& change);
     Q_INVOKABLE bool input(const QString& sessionId, const QString& text);
@@ -61,6 +65,9 @@ public:
         const QStringList& expectedUserIds = {});
     Q_INVOKABLE bool leave(const QString& sessionId);
     Q_INVOKABLE bool attachProject(const QString& sessionId, const QString& projectId);
+    // The terminal shows in the project only once it is in, since the runtime may ask the owner
+    // first.
+    Q_INVOKABLE bool dropOnProject(const QString& sessionId, const QString& projectId);
 
 signals:
     void busyChanged();
@@ -87,6 +94,7 @@ private:
     TerminalTypeAhead m_typeAhead;
     std::function<QJsonObject()> m_startSize;
     void completeCreation(const QString& sessionId, const QString& projectId, bool chat = false);
+    void showInProject(const QString& sessionId, const QString& projectId);
     bool activateSession(const QString& sessionId, bool inProject);
     bool opening(const QString& sessionId) const;
     bool openRemote(const QString& sessionId, bool quiet = false);
@@ -96,7 +104,8 @@ private:
     bool createInternal(const QString& name, const QString& directory,
         const QString& provider, const QString& nativeConversationId, const QString& projectId = {},
         const QString& branch = {}, const QJsonObject& line = {});
-    bool command(QString type, const QString& id, QJsonObject values = {}, bool ownerOnly = false);
+    bool command(QString type, const QString& id, QJsonObject values = {}, bool ownerOnly = false,
+        QString projectId = {});
     void route(const DeepLinkDestination& destination);
     void activatePendingLink();
     void showNotified();

@@ -51,12 +51,6 @@ struct AppShell: View {
         .kodosiPopoverLayer()
         .buttonStyle(.kodosi(.secondary))
         .textFieldStyle(WellTextFieldStyle()).toggleStyle(KodosiSwitchStyle())
-        .confirmationDialog(projectShareTitle, item: $workbench.projectShare, titleVisibility: .visible) { share in
-            Button("Share") { deps.share(share) }
-            Button("Cancel", role: .cancel) {}
-        } message: { share in
-            Text(projectShareMessage(share))
-        }
         .blockConfirmation(item: $workbench.blocking, name: \.name) { target in deps.people.block(handle: target.handle) }
         .onChange(of: workbench.stagedSessionIds) { _, _ in deps.reconcileTerminals() }
         .onChange(of: workbench.focusedSessionId) { _, _ in deps.reconcileTerminals() }
@@ -77,29 +71,12 @@ struct AppShell: View {
         }
     }
 
-    private var projectShareTitle: String {
-        guard let share = deps.workbench.projectShare else { return "" }
-        let terminal = deps.session(share.sessionId)?.name ?? String(localized: "this terminal")
-        return String(localized: "Share \(terminal) with \(projectName(share.projectId))?")
-    }
-
-    private func projectShareMessage(_ share: ProjectShare) -> String {
-        let project = projectName(share.projectId)
-        let control = String(localized: "Everyone in \(project) gets full control of it.")
-        guard let other = deps.session(share.sessionId)?.projectId else { return control }
-        return control + " " + String(localized: "It leaves \(projectName(other)).")
-    }
-
-    private func projectName(_ id: String) -> String {
-        deps.projects.entries.first { $0.id == id }?.name ?? String(localized: "the project")
-    }
-
     private var terminalsInteractive: Bool {
         sheet == nil && !deps.workbench.showsPalette && deps.workbench.sharingSessionId == nil
     }
 
     private enum Sheet: Equatable {
-        case signIn, recoveryKey, deviceOffer, trust(FriendTrust), report(ReportTarget), details(String), newProject, history, launcher
+        case signIn, recoveryKey, deviceOffer, report(ReportTarget), details(String), newProject, history, launcher
     }
 
     private var sheet: Sheet? {
@@ -112,9 +89,6 @@ struct AppShell: View {
         }
         if deps.account.offer != nil {
             return .deviceOffer
-        }
-        if let trust = workbench.trusting {
-            return .trust(trust)
         }
         if let person = workbench.reporting {
             return .report(person)
@@ -141,8 +115,6 @@ struct AppShell: View {
             SheetLayer(close: {}, content: { RecoveryKeySheet(key: deps.account.newRecoveryKey ?? "", done: deps.account.dismissRecoveryKey) })
         case .deviceOffer:
             SheetLayer(close: deps.account.endOffer, content: { DeviceOfferSheet() })
-        case let .trust(trust):
-            SheetLayer(close: { workbench.trusting = nil }, content: { FriendTrustSheet(trust: trust) })
         case let .report(person):
             SheetLayer(close: { workbench.reporting = nil }, content: { ReportSheet(person: person) })
         case let .details(id):

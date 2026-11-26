@@ -54,6 +54,8 @@ let asks = 0
 let session = null
 let reading = null
 let readAgain = false
+// Messages given to the running turn, by the number of their command, until the turn ends.
+const steered = new Map()
 
 function post(path, body) {
   return new Promise(resolve => {
@@ -208,6 +210,8 @@ async function hello(early) {
 
 async function run(command) {
   if (command.do === 'stop') {
+    // The abort clears the messages that Copilot has not read yet; Kodosi sends them after the stop.
+    for (const n of Array.isArray(command.back) ? command.back : []) await takeBack(n)
     try {
       await session.abort()
     } catch (error) {
@@ -218,11 +222,29 @@ async function run(command) {
   if (command.do !== 'prompt') return
   try {
     if (command.mode) await session.rpc.mode.set({ mode: String(command.mode) })
-    if (command.text) await session.send({ prompt: String(command.text) })
+    // `immediate` gives the message to the turn that runs, as Enter does in Copilot's terminal.
+    if (command.text) {
+      const prompt = String(command.text)
+      const messageId = await session.send({ prompt, ...(command.steer && { mode: 'immediate' }) })
+      if (command.steer && messageId) steered.set(command.n, { messageId, expectedPrompt: prompt })
+    }
     tell('did', { n: command.n })
   } catch (error) {
     tell('did', { n: command.n, error: String((error && error.message) || error) })
   }
+}
+
+async function takeBack(n) {
+  const message = steered.get(n)
+  steered.delete(n)
+  if (!message) return
+  let result = null
+  try {
+    result = await session.rpc.queue.withdrawMessage(message)
+  } catch (error) {
+    result = null
+  }
+  if (result && result.removed) tell('did', { n, back: true })
 }
 
 async function listen() {
@@ -314,6 +336,7 @@ if (socket && terminal) {
   let started = false
   session.on(event => {
     if (event && event.type === 'session.todos_changed' && started) readTasks()
+    if (event && event.type === 'session.idle') steered.clear()
     const shown = shaped(event)
     if (!shown) return
     if (started) tell('event', shown)

@@ -16,11 +16,6 @@ struct TerminalDrag: Codable, Transferable {
     }
 }
 
-struct ProjectShare: Equatable {
-    let sessionId: String
-    let projectId: String
-}
-
 struct TerminalDragPreview: View {
     @Environment(\.theme) private var theme
     let session: RuntimeSession
@@ -75,7 +70,7 @@ extension View {
     func projectDrop(_ projectId: String, deps: AppDependencies, targeted: Binding<Bool>) -> some View {
         dropDestination(for: TerminalDrag.self) { items, _ in
             guard let id = items.first?.sessionId else { return false }
-            return deps.askToShare(id, with: projectId)
+            return deps.share(id, with: projectId)
         } isTargeted: { targeted.wrappedValue = $0 }
     }
 }

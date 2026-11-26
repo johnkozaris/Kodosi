@@ -42,11 +42,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -71,6 +73,7 @@ import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import com.kodosi.mobile.R
+import com.kodosi.mobile.runtime.Refused
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -138,7 +141,9 @@ enum class AppSymbol {
     OFFLINE,
     MOON,
     RECORDING,
-    WARNING
+    WARNING,
+    POWER,
+    MIC
 }
 
 @Composable
@@ -194,6 +199,11 @@ private class SymbolPainter(private val symbol: AppSymbol) : androidx.compose.ui
         )
         fun dot(x: Float, y: Float, radius: Float) =
             drawCircle(Color.Black, radius * scale, Offset(x * scale, y * scale))
+        fun outline(data: String) {
+            val path = PathParser().parsePathString(data).toPath()
+            path.transform(Matrix().apply { this.scale(scale, scale) })
+            drawPath(path, Color.Black, style = stroke)
+        }
         fun circle(x: Float, y: Float, radius: Float) = drawCircle(
             Color.Black,
             radius * scale,
@@ -568,26 +578,6 @@ private class SymbolPainter(private val symbol: AppSymbol) : androidx.compose.ui
                 path(3f, 3f, 21f, 21f)
             }
 
-            AppSymbol.MOON -> {
-                val moon = Path().apply {
-                    moveTo(10.53f * scale, 3.63f * scale)
-                    arcTo(
-                        androidx.compose.ui.geometry.Rect(3.5f * scale, 3.5f * scale, 20.5f * scale, 20.5f * scale),
-                        260f,
-                        -250f,
-                        false
-                    )
-                    arcTo(
-                        androidx.compose.ui.geometry.Rect(9f * scale, 1f * scale, 23f * scale, 15f * scale),
-                        51.4f,
-                        167.2f,
-                        false
-                    )
-                    close()
-                }
-                drawPath(moon, Color.Black, style = stroke)
-            }
-
             AppSymbol.RECORDING -> {
                 circle(12f, 12f, 9f)
                 dot(12f, 12f, 4f)
@@ -598,6 +588,12 @@ private class SymbolPainter(private val symbol: AppSymbol) : androidx.compose.ui
                 path(12f, 9f, 12f, 13.5f)
                 dot(12f, 16.8f, 1f)
             }
+
+            AppSymbol.MOON -> outline("M20 14.5 A8 8 0 1 1 9.5 4 A6.5 6.5 0 0 0 20 14.5 Z")
+
+            AppSymbol.POWER -> outline("M12 3 V11 M7.1 6.3 A7.5 7.5 0 1 0 16.9 6.3")
+
+            AppSymbol.MIC -> outline("M9 6 A3 3 0 0 1 15 6 V11 A3 3 0 0 1 9 11 Z M5 11 A7 7 0 0 0 19 11 M12 18 V21")
         }
     }
 }
@@ -885,6 +881,7 @@ fun TextEntryDialog(
                         dismiss()
                     } catch (failure: CancellationException) {
                         throw failure
+                    } catch (_: Refused) {
                     } catch (failure: Exception) {
                         error = failure.localizedMessage
                     } finally {

@@ -404,7 +404,8 @@ private slots:
         QCOMPARE(command.value(QStringLiteral("type")).toString(), QStringLiteral("session.share"));
         QVERIFY(!command.contains(QStringLiteral("access")));
         QCOMPARE(command.value(QStringLiteral("userIds")).toArray().size(), 1);
-        QVERIFY(!f.workspace.sessionActions().share(test::id(2), { test::id(51) }));
+        QVERIFY(f.workspace.sessionActions().share(test::id(2), { test::id(51) }));
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("sessionId")).toString(), test::id(2));
         QVERIFY(f.workspace.sessionActions().attachProject(test::id(2), test::id(10)));
         f.workspace.people().verify(QStringLiteral("friend"), QStringLiteral(" kodosi:friend:abcd \n"));
         command = f.commands.values.last();
@@ -423,6 +424,92 @@ private slots:
         f.workspace.apply(invite, 1);
         f.workspace.apply(invite, 1);
         QCOMPARE(copied.count(), 1);
+    }
+    void eachSharingQuestionShowsOnceInTheOrderItCameUntilItIsAnsweredOrEnds()
+    {
+        Fixture f;
+        auto& sharing = f.workspace.sharing();
+        const auto asked = [](int value) {
+            return QJsonObject { { QStringLiteral("type"), QStringLiteral("sharing.approval") },
+                { QStringLiteral("approvalId"), test::id(value) }, { QStringLiteral("operation"), QStringLiteral("session.share") },
+                { QStringLiteral("title"), QStringLiteral("Share “Terminal” with Ana?") },
+                { QStringLiteral("message"), QStringLiteral("Ana gets full control: they can type anything as you on Mini.") },
+                { QStringLiteral("confirm"), QStringLiteral("Share") }, { QStringLiteral("from"), QStringLiteral("app") } };
+        };
+        const auto ended = [](int value) {
+            return QJsonObject { { QStringLiteral("type"), QStringLiteral("sharing.approvalEnded") },
+                { QStringLiteral("approvalId"), test::id(value) }, { QStringLiteral("outcome"), QStringLiteral("expired") } };
+        };
+        const auto shown = [&] { return sharing.question().value(QStringLiteral("approvalId")).toString(); };
+        QSignalSpy changed(&sharing, &kodosi::SharingModel::questionChanged);
+        for (const int value : { 1, 2, 3, 1 })
+            f.workspace.apply(asked(value), 0);
+        QCOMPARE(shown(), test::id(1));
+        QCOMPARE(sharing.question().value(QStringLiteral("confirm")).toString(), QStringLiteral("Share"));
+        f.workspace.apply(ended(2), 0);
+        QCOMPARE(changed.count(), 1);
+        sharing.answer(test::id(1), false);
+        QCOMPARE(f.commands.values.size(), 1);
+        const auto answer = f.commands.values.last();
+        QCOMPARE(answer.value(QStringLiteral("type")).toString(), QStringLiteral("sharing.answer"));
+        QCOMPARE(answer.value(QStringLiteral("approvalId")).toString(), test::id(1));
+        QCOMPARE(answer.value(QStringLiteral("allow")), QJsonValue(false));
+        QCOMPARE(shown(), test::id(3));
+        f.workspace.apply(ended(1), 0);
+        QCOMPARE(shown(), test::id(3));
+        f.workspace.apply(ended(3), 0);
+        QVERIFY(sharing.question().isEmpty());
+        QCOMPARE(f.commands.values.size(), 1);
+
+        f.workspace.apply(asked(4), 0);
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("system.ready") } }, 0);
+        QVERIFY(sharing.question().isEmpty());
+        f.workspace.apply(asked(4), 0);
+        QCOMPARE(shown(), test::id(4));
+    }
+    void aRequestThatTheOwnerDidNotAllowEndsWithoutANotice()
+    {
+        Fixture f;
+        f.workspace.apply(accountEvent(test::id(50), 1), 1);
+        f.workspace.apply(test::snapshot({ test::session(1) }), 1);
+        const auto end = [&](const QString& type, const QString& message, bool refused) {
+            const auto request = f.commands.values.last();
+            QJsonObject error { { QStringLiteral("type"), type }, { QStringLiteral("requestId"), request.value(QStringLiteral("requestId")) },
+                { QStringLiteral("operation"), request.value(QStringLiteral("type")) }, { QStringLiteral("message"), message } };
+            if (refused)
+                error.insert(QStringLiteral("refused"), true);
+            f.workspace.apply(error, 1);
+        };
+        QVERIFY(f.workspace.sessionActions().share(test::id(1), { test::id(51) }));
+        QVERIFY(f.workspace.sessionActions().busy());
+        end(QStringLiteral("session.error"), QStringLiteral("You did not allow this in Kodosi."), true);
+        QVERIFY(!f.workspace.sessionActions().busy());
+        f.workspace.people().request(QStringLiteral("ana"));
+        end(QStringLiteral("friends.error"), QStringLiteral("Kodosi did not get your OK in time."), true);
+        QVERIFY(f.workspace.error().isEmpty());
+        f.workspace.people().request(QStringLiteral("ben"));
+        end(QStringLiteral("friends.error"), QStringLiteral("No one has this username."), false);
+        QCOMPARE(f.workspace.error(), QStringLiteral("No one has this username."));
+    }
+    void aTerminalDroppedOnAProjectShowsThereOnlyOnceItJoined()
+    {
+        Fixture f;
+        f.workspace.apply(accountEvent(test::id(50), 1), 1);
+        f.workspace.apply(test::snapshot({ onMini(1), test::session(2, true, false) }), 1);
+        QVERIFY(!f.workspace.sessionActions().dropOnProject(test::id(2), test::id(10)));
+        QVERIFY(f.workspace.sessionActions().dropOnProject(test::id(1), test::id(10)));
+        const auto attach = f.commands.values.last();
+        QCOMPARE(attach.value(QStringLiteral("type")).toString(), QStringLiteral("session.attachProject"));
+        QCOMPARE(attach.value(QStringLiteral("projectId")).toString(), test::id(10));
+        QVERIFY(f.desktop.stagedSessionIds().isEmpty());
+        QVERIFY(f.workspace.projects().selectedProjectId().isEmpty());
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("session.result") },
+            { QStringLiteral("requestId"), attach.value(QStringLiteral("requestId")) },
+            { QStringLiteral("operation"), QStringLiteral("session.attachProject") } }, 1);
+        QCOMPARE(f.desktop.activeView(), kodosi::DesktopStateModel::Projects);
+        QCOMPARE(f.workspace.projects().selectedProjectId(), test::id(10));
+        QCOMPARE(f.workspace.projects().presentation().value(QStringLiteral("terminal")).toString(), test::id(1));
+        QCOMPARE(f.desktop.stagedSessionIds(), QStringList { test::id(1) });
     }
 };
 QTEST_MAIN(WorkspaceTest)

@@ -323,6 +323,8 @@ impl Room {
             };
             self.lose();
             self.chat.reset();
+            self.chat.set_commands([]);
+            self.chat.set_settings([]);
             self.agent = Some(agent);
         }
         self.link = Some(link);
@@ -380,7 +382,10 @@ impl Room {
                     .viewers
                     .get(&viewer)
                     .map(|viewer| viewer.person.clone());
-                if self.chat.queue(ends_of(text, MOST_MESSAGE), by).is_some() {
+                if let Some(id) = self.chat.queue(ends_of(text, MOST_MESSAGE), by) {
+                    if !agent.takes(text) {
+                        self.chat.in_terminal(&id);
+                    }
                     agent.retry();
                 }
             }
@@ -404,6 +409,14 @@ impl Room {
                 Stop::Command(command) => self.commands.push(command),
                 Stop::Nothing => {}
             },
+            ChatRequest::Settings => {
+                let command = agent.settings(&mut self.chat);
+                self.commands.extend(command);
+            }
+            ChatRequest::Set { key, value } => {
+                let command = agent.set(&mut self.chat, &key, &value);
+                self.commands.extend(command);
+            }
         }
     }
 

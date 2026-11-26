@@ -33,6 +33,12 @@ pub(super) trait Agent: Send {
     /// Clears any send hold so queued messages can be retried after a new user message.
     fn retry(&mut self);
 
+    /// Whether the agent runs this message from the chat, which it does not for a command that
+    /// only its terminal has.
+    fn takes(&self, _text: &str) -> bool {
+        true
+    }
+
     /// Returns true if the queued message has already been handed to the agent and cannot be
     /// recalled.
     fn has(&self, queued: &str) -> bool;
@@ -58,6 +64,17 @@ pub(super) trait Agent: Send {
     /// The command for the link that changes the agent's model, effort or fast mode by the line
     /// that a person would type, when the link runs it as the agent's own command.
     fn change(&mut self, _line: &str) -> Option<Value> {
+        None
+    }
+
+    /// The command for the link that lists the agent's own settings, when the agent has them.
+    fn settings(&mut self, _chat: &mut Chat) -> Option<Value> {
+        None
+    }
+
+    /// The command for the link that changes one of the agent's settings to `value`, in the words
+    /// of `ChatSetting::value`.
+    fn set(&mut self, _chat: &mut Chat, _key: &str, _value: &str) -> Option<Value> {
         None
     }
 

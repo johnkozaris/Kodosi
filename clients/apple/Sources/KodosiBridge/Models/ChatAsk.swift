@@ -124,6 +124,8 @@ public enum ChatRequest: Equatable, Sendable {
     case unqueue(String)
     case answer(ask: String, ChatAnswer)
     case stop
+    case settings
+    case set(key: String, value: String)
 
     var json: JSONValue {
         switch self {
@@ -131,6 +133,8 @@ public enum ChatRequest: Equatable, Sendable {
         case let .unqueue(id): .object(["do": .string("unqueue"), "id": .string(id)])
         case let .answer(ask, answer): .object(["do": .string("answer"), "ask": .string(ask), "answer": answer.json])
         case .stop: .object(["do": .string("stop")])
+        case .settings: .object(["do": .string("settings")])
+        case let .set(key, value): .object(["do": .string("set"), "key": .string(key), "value": .string(value)])
         }
     }
 }

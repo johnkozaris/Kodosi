@@ -94,6 +94,9 @@ Kodosi abre el terminal en un worktree de Git nuevo y lo elimina automáticament
 terminal si no ha habido cambios. Puedes configurar dónde se guardan los worktrees en **Ajustes ›
 Terminal**.
 
+La cabecera del terminal muestra cuántas líneas ha añadido y eliminado la rama. Haz clic en los
+números para ver los cambios en el lienzo.
+
 Cada terminal es claro u oscuro como Kodosi en su ordenador anfitrión, en todos los dispositivos
 desde los que lo veas. Los programas dentro del terminal reciben notificaciones del tema, de modo
 que herramientas como Claude Code (con `/theme` en Auto) se adaptan automáticamente. Si prefieres
@@ -116,6 +119,12 @@ Claude Code, Codex y Copilot CLI reanudan automáticamente sus conversaciones y,
 mantienen también el modelo, el esfuerzo, el modo rápido, los permisos y la verbosidad que elegiste.
 Si Kodosi no puede identificar qué conversación estaba ejecutando un agente, el agente muestra la
 lista de sus conversaciones para que elijas una.
+
+Kodosi instala las actualizaciones por sí solo cuando nadie lo usa, ningún agente está ocupado y
+ningún otro programa se ejecuta en un terminal. Para elegir tú el momento, desactiva **Actualizar
+automáticamente** en **Ajustes › General**. Si reinicias tú para actualizar, los agentes que estaban
+a mitad de una tarea continúan después. Tras cualquier otra parada, ese agente espera hasta que
+pulses **Continuar** en su terminal.
 
 En macOS, los programas dentro de Kodosi heredan los permisos de macOS concedidos a Kodosi, igual
 que en cualquier otra app de terminal. Si macOS impide que un programa modifique otra app, activa
@@ -161,6 +170,14 @@ respuestas y la actividad de herramientas del agente, y cualquier pregunta pendi
 los que puedes hacer clic. Puedes responder o detener al agente directamente desde el chat; si
 escribes un texto propio mientras hace una pregunta, le indica al agente qué hacer en su lugar.
 Todo lo que haces en el chat ocurre también en el terminal subyacente.
+
+Con Claude Code, el engranaje bajo el campo de mensaje, o `/config`, abre los ajustes propios de
+Claude Code. Claude Code revisa y guarda cada cambio, y explica por qué cuando no acepta alguno.
+
+En Mac, iPhone, iPad y Android, haz clic en el micrófono junto al campo de mensaje, o tócalo, para
+hablar en lugar de escribir. Tus palabras aparecen como tu mensaje mientras hablas y se envían tras
+una pausa larga, para que puedas pararte a pensar; haz clic en **Enviar**, o tócalo, para enviarlas
+antes. La voz se convierte en texto en tu dispositivo y el audio no sale de él.
 
 ## 4. Mira lo que muestra un agente en el lienzo
 
@@ -221,6 +238,11 @@ En cuanto el lienzo tiene contenido, la cabecera del terminal añade los botones
   terminales privados. En macOS, si el sistema restringe el acceso a los datos de un navegador
   (como Safari), haz clic en **Permitir…** junto a ese navegador para conceder Acceso total al
   disco.
+- También en **Ajustes › Navegador**, **Predicciones de formularios de Google** permite que Kodosi
+  Browser pregunte a Google para qué sirven los campos de un formulario, y **Cookies entre sitios**
+  permite que un sitio que aparece dentro de la página de otro sitio, como un vídeo de YouTube, te
+  reconozca allí. Ambas opciones permanecen desactivadas hasta que las actives. Kodosi Browser se
+  reinicia cuando cambias una, y sus páginas abiertas se vuelven a cargar.
 - Cualquier persona con acceso a un terminal ve su lienzo y comparte su navegador. Cerrar el
   terminal limpia su lienzo y descarta las sesiones del navegador de los terminales compartidos.
 
@@ -306,6 +328,45 @@ del navegador viaja de punto a punto para reducir la latencia. En una red local,
 Android piden una vez permiso de acceso a la red local; si lo rechazas, el tráfico pasa por el
 servidor de retransmisión.
 
+### Suspender y mantener despierto
+
+Un ordenador no se suspende por sí solo mientras un agente trabaja en uno de sus terminales, y puede
+volver a suspenderse unos minutos después de que sus agentes terminen. Un agente que espera tu
+respuesta no lo mantiene despierto. Para cambiarlo, elige una opción en **Mantener despierto**, en
+**Ajustes › General** de ese ordenador: **Mientras trabajan los agentes**, **Siempre** o **Nunca**.
+**Siempre** mantiene un ordenador despierto solo mientras está enchufado; con batería, se mantiene
+despierto mientras trabajan los agentes. Siempre puedes suspender un ordenador tú mismo.
+
+Para suspender otro de tus ordenadores, abre **Ajustes**, haz clic en **⋯** junto a él, en **Tus
+dispositivos**, y elige **Suspender…**. En un teléfono, toca el ordenador para abrir su página. Sus
+terminales se pausan hasta que se reactive. Si nada pudiera reactivarlo después, Kodosi te lo dice
+antes. En el mismo menú, o en la página, eliges cuándo se mantiene despierto ese ordenador.
+
+### Reactivar un ordenador
+
+Para reactivar un ordenador suspendido, haz clic en **Reactivar** junto a él en **Ajustes** (en un
+teléfono, en su página), en uno de sus terminales o en la lista de ordenadores de un terminal nuevo.
+La señal de reactivación debe salir de la red del ordenador suspendido. Kodosi la envía desde el
+dispositivo que usas cuando está en la misma red y, si no, desde otro de tus ordenadores de esa red
+que esté despierto. Un iPhone o iPad siempre se lo pide a uno de tus ordenadores.
+
+Un ordenador se reactiva por cable de red, no por Wi-Fi, y solo cuando su sistema lo permite.
+**Ajustes** muestra para cada ordenador lo que Kodosi espera, o el único ajuste que debes cambiar:
+
+- En un Mac, activa **Activar para acceso a la red** en Ajustes del Sistema.
+- En Windows, permite que el adaptador de red reactive el equipo, en el Administrador de
+  dispositivos.
+- En Linux, activa Wake-on-LAN en la conexión por cable.
+
+Un Mac envía la señal de reactivación solo si Kodosi puede usar la red local. Permítelo en Ajustes
+del Sistema, en **Privacidad y seguridad**.
+
+Para asegurarte, elige **Probar la reactivación…** en el menú de un ordenador despierto (en un
+teléfono, en su página). Kodosi lo suspende, lo reactiva y guarda el resultado. Quédate cerca del
+ordenador en la primera prueba: si no se reactiva, reactívalo a mano. Un PC con Windows y Modern
+Standby no tiene **Probar la reactivación…**, porque Windows no muestra a las apps cuándo se
+suspende.
+
 ### Claves de recuperación
 
 Crea una clave de recuperación en **Ajustes** y guárdala en un lugar seguro. Si alguna vez pierdes
@@ -326,8 +387,11 @@ en ti antes de enviar la solicitud.
 ### Compartir un terminal
 
 Abre el menú de acciones en la cabecera de un terminal, haz clic en **Compartir** y selecciona
-amigos o proyectos. Cualquier persona con la que compartas el terminal obtiene control total con
-tus permisos del sistema operativo en esa máquina. Tus otros terminales siguen siendo privados.
+amigos o proyectos. Cualquier persona con la que compartas el terminal obtiene control total con tus
+permisos del sistema operativo en esa máquina. Tus otros terminales siguen siendo privados. Puedes
+compartir desde cualquiera de tus dispositivos, también desde el móvil, mientras el ordenador que
+ejecuta el terminal esté conectado. Kodosi te pide confirmación cada vez que alguien nuevo obtiene
+acceso.
 
 ### Proyectos
 
@@ -382,6 +446,8 @@ aparecen en la app al instante.
 | `kodosi browser open <address>` | Abre una URL en el navegador compartido de este terminal (el resto de los comandos de agent-browser también funcionan). |
 | `kodosi skill` | Imprime la skill de agente para colaborar en Kodosi; `kodosi skill canvas` imprime la skill del lienzo. |
 | `kodosi dosi skill` | Imprime la skill que permite a otro agente actuar como Dosi. |
+| `kodosi devices sleep <computer>` | Suspende otro de tus ordenadores. Sus terminales se pausan hasta que se reactive. `kodosi devices keep-awake` con `agents`, `always` o `never` elige cuándo este ordenador se mantiene despierto. |
+| `kodosi devices wake <computer>` | Reactiva un ordenador tuyo suspendido y espera hasta que esté en línea. `kodosi devices test-wake <computer>` suspende un ordenador, lo reactiva y guarda el resultado. `kodosi devices list` muestra lo que Kodosi espera de cada ordenador. |
 | `kodosi host` | Ejecuta el host de forma independiente para que los terminales sigan funcionando tras cerrar la app. Usa `kodosi host stop` para detener un host en segundo plano. |
 
 `message`, `input` y `keys` no se ejecutan mientras estés escribiendo activamente en ese terminal.

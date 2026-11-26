@@ -177,6 +177,14 @@
         <translation>正在获取 %1 的文件夹</translation>
     </message>
     <message>
+        <source>Waking %1…</source>
+        <translation>正在唤醒 %1…</translation>
+    </message>
+    <message>
+        <source>Wake %1</source>
+        <translation>唤醒 %1</translation>
+    </message>
+    <message>
         <source>Agents</source>
         <translation>Agent</translation>
     </message>
@@ -428,6 +436,26 @@
     <message>
         <source>Download</source>
         <translation>下载</translation>
+    </message>
+    <message>
+        <source>Kodosi Browser starts again when you change one of these, and its open pages load again.</source>
+        <translation>更改其中任一项时，Kodosi Browser 会重新启动，已打开的页面会重新加载。</translation>
+    </message>
+    <message>
+        <source>Form predictions from Google</source>
+        <translation>Google 表单预测</translation>
+    </message>
+    <message>
+        <source>Sends Google a code of each form to learn what its fields are for</source>
+        <translation>向 Google 发送每个表单的代码，以了解其各字段的用途</translation>
+    </message>
+    <message>
+        <source>Cross-site cookies</source>
+        <translation>跨站 Cookie</translation>
+    </message>
+    <message>
+        <source>Sites shown inside a page, such as YouTube or Google, know you there</source>
+        <translation>页面中显示的网站（如 YouTube 或 Google）会在那里认出你</translation>
     </message>
     <message>
         <source>Sites then know you in your private terminals on this computer. Passkeys and sign-ins bound to a device stay in their own browser.</source>
@@ -908,20 +936,16 @@
         <translation>移除</translation>
     </message>
     <message>
+        <source>Command needs terminal view</source>
+        <translation>此命令需要终端视图</translation>
+    </message>
+    <message>
+        <source>%1 reads this before its next step.</source>
+        <translation>%1 会在下一步之前读取此消息。</translation>
+    </message>
+    <message>
         <source>Waiting for %1</source>
         <translation>正在等待 %1</translation>
-    </message>
-    <message>
-        <source>The agent takes the next message in its terminal.</source>
-        <translation>Agent 会在它的终端中接收下一条消息。</translation>
-    </message>
-    <message>
-        <source>%1 shows this in its terminal.</source>
-        <translation>%1 在它的终端中显示此内容。</translation>
-    </message>
-    <message>
-        <source>Show the terminal</source>
-        <translation>显示终端</translation>
     </message>
     <message>
         <source>No agent runs in this terminal</source>
@@ -979,6 +1003,25 @@
         <translation>
             <numerusform>%n 条命令正在后台运行</numerusform>
         </translation>
+    </message>
+    <message>
+        <source>Settings</source>
+        <translation>设置</translation>
+    </message>
+</context>
+<context>
+    <name>ChatSettings</name>
+    <message>
+        <source>Find a setting</source>
+        <translation>查找设置</translation>
+    </message>
+    <message>
+        <source>No setting matches</source>
+        <translation>没有匹配的设置</translation>
+    </message>
+    <message>
+        <source>Locked</source>
+        <translation>已锁定</translation>
     </message>
 </context>
 <context>
@@ -1286,6 +1329,17 @@
     </message>
 </context>
 <context>
+    <name>CopyKey</name>
+    <message>
+        <source>Copy</source>
+        <translation>复制</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>已复制</translation>
+    </message>
+</context>
+<context>
     <name>CutAction</name>
     <message>
         <source>Cut</source>
@@ -1412,12 +1466,60 @@
         <translation>你的设备</translation>
     </message>
     <message>
+        <source>Always awake</source>
+        <translation>始终保持唤醒</translation>
+    </message>
+    <message>
+        <source>Can sleep while agents work</source>
+        <translation>Agent 工作时也可睡眠</translation>
+    </message>
+    <message>
         <source>Approves a new device when you have no other device</source>
         <translation>没有其他设备时批准新设备</translation>
     </message>
     <message>
         <source>This computer</source>
         <translation>这台电脑</translation>
+    </message>
+    <message>
+        <source>Testing…</source>
+        <translation>正在测试…</translation>
+    </message>
+    <message>
+        <source>Waking…</source>
+        <translation>正在唤醒…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>唤醒</translation>
+    </message>
+    <message>
+        <source>Options for %1</source>
+        <translation>%1 的选项</translation>
+    </message>
+    <message>
+        <source>Stay awake</source>
+        <translation>保持唤醒</translation>
+    </message>
+    <message>
+        <source>While agents work</source>
+        <translation>Agent 工作时</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>始终</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>永不</translation>
+    </message>
+    <message>
+        <source>Test wake…</source>
+        <translation>测试唤醒…</translation>
+    </message>
+    <message>
+        <source>Sleep…</source>
+        <translation>睡眠…</translation>
     </message>
     <message>
         <source>Remove…</source>
@@ -1570,6 +1672,30 @@
     <message>
         <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your projects again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and projects.</source>
         <translation>在你从这台电脑重新批准之前，你的其他设备将无法访问。好友需要重新信任你，你也需要重新创建项目。如果你的账号有设备，这台电脑需要等待一天。如果你有另一台设备或恢复密钥，请取消并使用它：这样可以保留你的好友和项目。</translation>
+    </message>
+    <message>
+        <source>Put %1 to sleep?</source>
+        <translation>要让 %1 进入睡眠吗？</translation>
+    </message>
+    <message>
+        <source>Sleep</source>
+        <translation>睡眠</translation>
+    </message>
+    <message>
+        <source>Its terminals pause until it wakes.</source>
+        <translation>在它被唤醒之前，它的终端会暂停。</translation>
+    </message>
+    <message>
+        <source>Test the wake of %1?</source>
+        <translation>要测试唤醒 %1 吗？</translation>
+    </message>
+    <message>
+        <source>Test</source>
+        <translation>测试</translation>
+    </message>
+    <message>
+        <source>Kodosi puts it to sleep and wakes it again. Its terminals pause for about a minute. If it does not wake, wake it by hand.</source>
+        <translation>Kodosi 会让它进入睡眠，然后再唤醒它。它的终端会暂停约一分钟。如果它没有被唤醒，请手动唤醒它。</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2380,41 +2506,6 @@
     </message>
 </context>
 <context>
-    <name>FriendTrustDialog</name>
-    <message>
-        <source>I trust %1</source>
-        <translation>我信任 %1</translation>
-    </message>
-    <message>
-        <source>I trust them</source>
-        <translation>我信任此人</translation>
-    </message>
-    <message>
-        <source>You</source>
-        <translation>你</translation>
-    </message>
-    <message>
-        <source>Stop and read</source>
-        <translation>请先停下来阅读</translation>
-    </message>
-    <message>
-        <source>Do you trust %1 completely?</source>
-        <translation>你完全信任 %1 吗？</translation>
-    </message>
-    <message>
-        <source>Do you trust this person completely?</source>
-        <translation>你完全信任此人吗？</translation>
-    </message>
-    <message>
-        <source>A friend can type in each terminal that you share with them, as you, with your rights on that computer.</source>
-        <translation>好友可以在你共享给对方的每个终端中以你的身份输入，并拥有你在那台电脑上的权限。</translation>
-    </message>
-    <message>
-        <source>Add only a person that you would let use your computer.</source>
-        <translation>只添加你愿意让其使用你电脑的人。</translation>
-    </message>
-</context>
-<context>
     <name>GeneralSettings</name>
     <message>
         <source>Continue in your browser</source>
@@ -2551,6 +2642,46 @@
     <message>
         <source>Your terminals keep running. Open Kodosi again to see them.</source>
         <translation>你的终端会继续运行。再次打开 Kodosi 即可查看。</translation>
+    </message>
+    <message>
+        <source>Update automatically</source>
+        <translation>自动更新</translation>
+    </message>
+    <message>
+        <source>Kodosi installs updates by itself while nobody uses it.</source>
+        <translation>Kodosi 会在无人使用时自动安装更新。</translation>
+    </message>
+    <message>
+        <source>Kodosi installs updates when you restart it.</source>
+        <translation>Kodosi 会在你重启它时安装更新。</translation>
+    </message>
+    <message>
+        <source>Stay awake</source>
+        <translation>保持唤醒</translation>
+    </message>
+    <message>
+        <source>This computer does not go to sleep by itself while Kodosi runs. On battery, it stays awake only while agents work.</source>
+        <translation>Kodosi 运行时，这台电脑不会自行进入睡眠。使用电池时，仅在 Agent 工作时保持唤醒。</translation>
+    </message>
+    <message>
+        <source>This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.</source>
+        <translation>Agent 工作时，这台电脑仍可能进入睡眠。Agent 会暂停，直到电脑被唤醒。</translation>
+    </message>
+    <message>
+        <source>This computer does not go to sleep by itself while an agent works, or for a few minutes after. An agent that waits for you does not keep it awake.</source>
+        <translation>Agent 工作时及之后几分钟内，这台电脑不会自行进入睡眠。等待你回复的 Agent 不会让它保持唤醒。</translation>
+    </message>
+    <message>
+        <source>While agents work</source>
+        <translation>Agent 工作时</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>始终</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>永不</translation>
     </message>
     <message>
         <source>Notifications</source>
@@ -3180,10 +3311,6 @@
         <translation>离开项目…</translation>
     </message>
     <message>
-        <source>Share with %1</source>
-        <translation>与 %1 共享</translation>
-    </message>
-    <message>
         <source>Terminal</source>
         <translation>终端</translation>
     </message>
@@ -3242,6 +3369,10 @@
     <message>
         <source>Report…</source>
         <translation>举报…</translation>
+    </message>
+    <message>
+        <source>Share with project %1</source>
+        <translation>与项目“%1”共享</translation>
     </message>
     <message>
         <source>Delete %1?</source>
@@ -3458,33 +3589,6 @@
     <message>
         <source>Refresh</source>
         <translation>刷新</translation>
-    </message>
-</context>
-<context>
-    <name>ProjectShareDialog</name>
-    <message>
-        <source>the project</source>
-        <translation>项目</translation>
-    </message>
-    <message>
-        <source>Share %1 with %2?</source>
-        <translation>与 %2 共享 %1？</translation>
-    </message>
-    <message>
-        <source>this terminal</source>
-        <translation>此终端</translation>
-    </message>
-    <message>
-        <source>Share</source>
-        <translation>共享</translation>
-    </message>
-    <message>
-        <source>Everyone in %1 gets full control of it. It leaves %2.</source>
-        <translation>%1 中的每个人都能完全控制它。它将离开 %2。</translation>
-    </message>
-    <message>
-        <source>Everyone in %1 gets full control of it.</source>
-        <translation>%1 中的每个人都能完全控制它。</translation>
     </message>
 </context>
 <context>
@@ -3756,6 +3860,12 @@
             <numerusform>这台电脑上的 %n 个终端会停止，Kodosi 打开时会重新启动。</numerusform>
         </translation>
     </message>
+    <message numerus="yes">
+        <source>%n running programs stop.</source>
+        <translation>
+            <numerusform>%n 个正在运行的程序将停止。</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>ReconnectingNotice</name>
@@ -3859,6 +3969,10 @@
 </context>
 <context>
     <name>SessionDetails</name>
+    <message>
+        <source>Shared with project %1</source>
+        <translation>已与项目“%1”共享</translation>
+    </message>
     <message>
         <source>Shared with %1</source>
         <translation>已与 %1 共享</translation>
@@ -3972,6 +4086,10 @@
     <message>
         <source>Stop sharing</source>
         <translation>停止共享</translation>
+    </message>
+    <message>
+        <source>Share with project %1</source>
+        <translation>与项目“%1”共享</translation>
     </message>
     <message>
         <source>Shared</source>
@@ -4754,6 +4872,14 @@
         <translation>电脑重新上线后，终端会打开。</translation>
     </message>
     <message>
+        <source>Waking…</source>
+        <translation>正在唤醒…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>唤醒</translation>
+    </message>
+    <message>
         <source>The terminal opens when the connection is back.</source>
         <translation>连接恢复后，终端会打开。</translation>
     </message>
@@ -4792,6 +4918,18 @@
     <message>
         <source>Paste</source>
         <translation>粘贴</translation>
+    </message>
+    <message>
+        <source>Lines added: %1. Lines removed: %2.</source>
+        <translation>新增行：%1。删除行：%2。</translation>
+    </message>
+    <message>
+        <source>Show the changes</source>
+        <translation>显示更改</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>继续</translation>
     </message>
 </context>
 <context>
@@ -5415,10 +5553,6 @@
     <message>
         <source>You cannot do this in the selected terminal.</source>
         <translation>无法在所选终端中执行此操作。</translation>
-    </message>
-    <message>
-        <source>Change sharing on the computer that hosts this terminal.</source>
-        <translation>请在托管此终端的电脑上更改共享设置。</translation>
     </message>
     <message>
         <source>Sign in before you share a terminal.</source>

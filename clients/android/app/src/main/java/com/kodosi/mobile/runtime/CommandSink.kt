@@ -12,6 +12,9 @@ open class RuntimeFailure(message: String) : Exception(message)
 // Thrown when event overflow drops a pending command's reply.
 class LostAnswer(message: String) : RuntimeFailure(message)
 
+// Thrown when the owner refused the request in the app, or its question expired. It ends without a message.
+class Refused(message: String) : RuntimeFailure(message)
+
 // Called from both the main thread and the dedicated browser executor thread.
 class CommandSink(private val words: Words) {
     enum class Delivery { CALLER, APP }
@@ -70,7 +73,8 @@ class CommandSink(private val words: Words) {
         try {
             val result = send(type, fields + ("requestId" to JsonPrimitive(requestId)))
             if (result != Ffi.OK) throw failure(result)
-            return withTimeoutOrNull(60_000) { answer.await() } ?: throw RuntimeFailure(words.unavailable)
+            val limit = if (type in MAY_ASK_OWNER) OWNER_ANSWER_TIME + ANSWER_TIME else ANSWER_TIME
+            return withTimeoutOrNull(limit) { answer.await() } ?: throw RuntimeFailure(words.unavailable)
         } finally {
             synchronized(pending) { pending.remove(requestId) }
         }
@@ -87,7 +91,8 @@ class CommandSink(private val words: Words) {
                 ?: return if (abandoned.remove(Abandoned(requestId, operation))) Delivery.CALLER else Delivery.APP
         }
         if (failed) {
-            waiting.answer.completeExceptionally(RuntimeFailure(event.string("message") ?: words.didNotWork))
+            val message = event.string("message") ?: words.didNotWork
+            waiting.answer.completeExceptionally(if (event.refused) Refused(message) else RuntimeFailure(message))
         } else {
             waiting.answer.complete(event)
         }
@@ -112,5 +117,20 @@ class CommandSink(private val words: Words) {
 
     private companion object {
         const val MAX_PENDING = 64
+        const val ANSWER_TIME = 60_000L
+
+        // The runtime may hold these until the owner answers its question in the app. It ends an
+        // unanswered question after five minutes with its own error, which should arrive first.
+        const val OWNER_ANSWER_TIME = 5 * 60_000L
+        val MAY_ASK_OWNER = setOf(
+            "session.share",
+            "session.attachProject",
+            "session.create",
+            "project.invite",
+            "friends.request.send",
+            "friends.request.accept",
+            "friends.identity.trust",
+            "friends.verify"
+        )
     }
 }

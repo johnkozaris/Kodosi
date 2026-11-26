@@ -177,6 +177,14 @@
         <translation>Ordner von %1 werden abgefragt</translation>
     </message>
     <message>
+        <source>Waking %1…</source>
+        <translation>%1 wird aufgeweckt…</translation>
+    </message>
+    <message>
+        <source>Wake %1</source>
+        <translation>%1 aufwecken</translation>
+    </message>
+    <message>
         <source>Agents</source>
         <translation>Agents</translation>
     </message>
@@ -428,6 +436,26 @@
     <message>
         <source>Download</source>
         <translation>Laden</translation>
+    </message>
+    <message>
+        <source>Kodosi Browser starts again when you change one of these, and its open pages load again.</source>
+        <translation>Kodosi Browser startet neu, wenn du eine dieser Einstellungen änderst, und seine offenen Seiten laden neu.</translation>
+    </message>
+    <message>
+        <source>Form predictions from Google</source>
+        <translation>Formularvorhersagen von Google</translation>
+    </message>
+    <message>
+        <source>Sends Google a code of each form to learn what its fields are for</source>
+        <translation>Sendet Google einen Code jedes Formulars, um zu erfahren, wofür seine Felder da sind</translation>
+    </message>
+    <message>
+        <source>Cross-site cookies</source>
+        <translation>Websiteübergreifende Cookies</translation>
+    </message>
+    <message>
+        <source>Sites shown inside a page, such as YouTube or Google, know you there</source>
+        <translation>Websites, die in einer Seite erscheinen, etwa YouTube oder Google, erkennen dich dort</translation>
     </message>
     <message>
         <source>Sites then know you in your private terminals on this computer. Passkeys and sign-ins bound to a device stay in their own browser.</source>
@@ -911,20 +939,16 @@
         <translation>Entfernen</translation>
     </message>
     <message>
+        <source>Command needs terminal view</source>
+        <translation>Befehl braucht die Terminalansicht</translation>
+    </message>
+    <message>
+        <source>%1 reads this before its next step.</source>
+        <translation>%1 liest das vor seinem nächsten Schritt.</translation>
+    </message>
+    <message>
         <source>Waiting for %1</source>
         <translation>Wartet auf %1</translation>
-    </message>
-    <message>
-        <source>The agent takes the next message in its terminal.</source>
-        <translation>Der Agent nimmt die nächste Nachricht in seinem Terminal an.</translation>
-    </message>
-    <message>
-        <source>%1 shows this in its terminal.</source>
-        <translation>%1 zeigt das in seinem Terminal.</translation>
-    </message>
-    <message>
-        <source>Show the terminal</source>
-        <translation>Terminal zeigen</translation>
     </message>
     <message>
         <source>No agent runs in this terminal</source>
@@ -983,6 +1007,25 @@
             <numerusform>%n Befehl läuft im Hintergrund</numerusform>
             <numerusform>%n Befehle laufen im Hintergrund</numerusform>
         </translation>
+    </message>
+    <message>
+        <source>Settings</source>
+        <translation>Einstellungen</translation>
+    </message>
+</context>
+<context>
+    <name>ChatSettings</name>
+    <message>
+        <source>Find a setting</source>
+        <translation>Einstellung suchen</translation>
+    </message>
+    <message>
+        <source>No setting matches</source>
+        <translation>Keine Einstellung passt</translation>
+    </message>
+    <message>
+        <source>Locked</source>
+        <translation>Gesperrt</translation>
     </message>
 </context>
 <context>
@@ -1305,6 +1348,17 @@
     </message>
 </context>
 <context>
+    <name>CopyKey</name>
+    <message>
+        <source>Copy</source>
+        <translation>Kopieren</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>Kopiert</translation>
+    </message>
+</context>
+<context>
     <name>CutAction</name>
     <message>
         <source>Cut</source>
@@ -1431,12 +1485,60 @@
         <translation>Deine Geräte</translation>
     </message>
     <message>
+        <source>Always awake</source>
+        <translation>Immer wach</translation>
+    </message>
+    <message>
+        <source>Can sleep while agents work</source>
+        <translation>Kann in den Ruhezustand gehen, während Agenten arbeiten</translation>
+    </message>
+    <message>
         <source>Approves a new device when you have no other device</source>
         <translation>Gibt ein neues Gerät frei, wenn du kein anderes hast</translation>
     </message>
     <message>
         <source>This computer</source>
         <translation>Dieser Computer</translation>
+    </message>
+    <message>
+        <source>Testing…</source>
+        <translation>Wird getestet…</translation>
+    </message>
+    <message>
+        <source>Waking…</source>
+        <translation>Wird aufgeweckt…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>Aufwecken</translation>
+    </message>
+    <message>
+        <source>Options for %1</source>
+        <translation>Optionen für %1</translation>
+    </message>
+    <message>
+        <source>Stay awake</source>
+        <translation>Wach bleiben</translation>
+    </message>
+    <message>
+        <source>While agents work</source>
+        <translation>Während Agenten arbeiten</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>Immer</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>Nie</translation>
+    </message>
+    <message>
+        <source>Test wake…</source>
+        <translation>Aufwecken testen…</translation>
+    </message>
+    <message>
+        <source>Sleep…</source>
+        <translation>Ruhezustand…</translation>
     </message>
     <message>
         <source>Remove…</source>
@@ -1589,6 +1691,30 @@
     <message>
         <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your projects again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and projects.</source>
         <translation>Deine anderen Geräte verlieren den Zugriff, bis du sie von diesem Computer aus erneut freigibst. Freunde müssen dir erneut vertrauen, und du erstellst deine Projekte neu. Wenn dein Konto Geräte hat, wartet dieser Computer einen Tag. Wenn du ein anderes Gerät oder einen Wiederherstellungsschlüssel hast, brich ab und verwende es: Dann behältst du deine Freunde und Projekte.</translation>
+    </message>
+    <message>
+        <source>Put %1 to sleep?</source>
+        <translation>%1 in den Ruhezustand versetzen?</translation>
+    </message>
+    <message>
+        <source>Sleep</source>
+        <translation>Ruhezustand</translation>
+    </message>
+    <message>
+        <source>Its terminals pause until it wakes.</source>
+        <translation>Seine Terminals pausieren, bis er wieder aufwacht.</translation>
+    </message>
+    <message>
+        <source>Test the wake of %1?</source>
+        <translation>Das Aufwecken von %1 testen?</translation>
+    </message>
+    <message>
+        <source>Test</source>
+        <translation>Testen</translation>
+    </message>
+    <message>
+        <source>Kodosi puts it to sleep and wakes it again. Its terminals pause for about a minute. If it does not wake, wake it by hand.</source>
+        <translation>Kodosi versetzt ihn in den Ruhezustand und weckt ihn wieder auf. Seine Terminals pausieren etwa eine Minute. Wenn er nicht aufwacht, wecke ihn von Hand.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2401,41 +2527,6 @@
     </message>
 </context>
 <context>
-    <name>FriendTrustDialog</name>
-    <message>
-        <source>I trust %1</source>
-        <translation>Ich vertraue %1</translation>
-    </message>
-    <message>
-        <source>I trust them</source>
-        <translation>Ich vertraue dieser Person</translation>
-    </message>
-    <message>
-        <source>You</source>
-        <translation>Du</translation>
-    </message>
-    <message>
-        <source>Stop and read</source>
-        <translation>Kurz innehalten und lesen</translation>
-    </message>
-    <message>
-        <source>Do you trust %1 completely?</source>
-        <translation>Vertraust du %1 voll und ganz?</translation>
-    </message>
-    <message>
-        <source>Do you trust this person completely?</source>
-        <translation>Vertraust du dieser Person voll und ganz?</translation>
-    </message>
-    <message>
-        <source>A friend can type in each terminal that you share with them, as you, with your rights on that computer.</source>
-        <translation>Ein Freund kann in jedem Terminal tippen, das du mit ihm teilst – als du, mit deinen Rechten auf diesem Computer.</translation>
-    </message>
-    <message>
-        <source>Add only a person that you would let use your computer.</source>
-        <translation>Füge nur Personen hinzu, die du an deinen Computer lassen würdest.</translation>
-    </message>
-</context>
-<context>
     <name>GeneralSettings</name>
     <message>
         <source>Continue in your browser</source>
@@ -2572,6 +2663,46 @@
     <message>
         <source>Your terminals keep running. Open Kodosi again to see them.</source>
         <translation>Deine Terminals laufen weiter. Öffne Kodosi erneut, um sie zu sehen.</translation>
+    </message>
+    <message>
+        <source>Update automatically</source>
+        <translation>Automatisch aktualisieren</translation>
+    </message>
+    <message>
+        <source>Kodosi installs updates by itself while nobody uses it.</source>
+        <translation>Kodosi installiert Updates selbst, solange niemand es benutzt.</translation>
+    </message>
+    <message>
+        <source>Kodosi installs updates when you restart it.</source>
+        <translation>Kodosi installiert Updates, wenn du es neu startest.</translation>
+    </message>
+    <message>
+        <source>Stay awake</source>
+        <translation>Wach bleiben</translation>
+    </message>
+    <message>
+        <source>This computer does not go to sleep by itself while Kodosi runs. On battery, it stays awake only while agents work.</source>
+        <translation>Dieser Computer geht nicht von selbst in den Ruhezustand, solange Kodosi läuft. Im Akkubetrieb bleibt er nur wach, während Agenten arbeiten.</translation>
+    </message>
+    <message>
+        <source>This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.</source>
+        <translation>Dieser Computer kann in den Ruhezustand gehen, während ein Agent arbeitet. Der Agent pausiert dann, bis der Computer aufwacht.</translation>
+    </message>
+    <message>
+        <source>This computer does not go to sleep by itself while an agent works, or for a few minutes after. An agent that waits for you does not keep it awake.</source>
+        <translation>Dieser Computer geht nicht von selbst in den Ruhezustand, während ein Agent arbeitet, und auch einige Minuten danach nicht. Ein Agent, der auf dich wartet, hält ihn nicht wach.</translation>
+    </message>
+    <message>
+        <source>While agents work</source>
+        <translation>Während Agenten arbeiten</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>Immer</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>Nie</translation>
     </message>
     <message>
         <source>Notifications</source>
@@ -3206,10 +3337,6 @@
         <translation>Projekt verlassen…</translation>
     </message>
     <message>
-        <source>Share with %1</source>
-        <translation>Mit %1 teilen</translation>
-    </message>
-    <message>
         <source>Terminal</source>
         <translation>Terminal</translation>
     </message>
@@ -3268,6 +3395,10 @@
     <message>
         <source>Report…</source>
         <translation>Melden…</translation>
+    </message>
+    <message>
+        <source>Share with project %1</source>
+        <translation>Mit dem Projekt %1 teilen</translation>
     </message>
     <message>
         <source>Delete %1?</source>
@@ -3485,33 +3616,6 @@
     <message>
         <source>Refresh</source>
         <translation>Aktualisieren</translation>
-    </message>
-</context>
-<context>
-    <name>ProjectShareDialog</name>
-    <message>
-        <source>the project</source>
-        <translation>dem Projekt</translation>
-    </message>
-    <message>
-        <source>Share %1 with %2?</source>
-        <translation>%1 mit %2 teilen?</translation>
-    </message>
-    <message>
-        <source>this terminal</source>
-        <translation>dieses Terminal</translation>
-    </message>
-    <message>
-        <source>Share</source>
-        <translation>Teilen</translation>
-    </message>
-    <message>
-        <source>Everyone in %1 gets full control of it. It leaves %2.</source>
-        <translation>Alle in %1 bekommen die volle Kontrolle darüber. Es verlässt %2.</translation>
-    </message>
-    <message>
-        <source>Everyone in %1 gets full control of it.</source>
-        <translation>Alle in %1 bekommen die volle Kontrolle darüber.</translation>
     </message>
 </context>
 <context>
@@ -3787,6 +3891,13 @@
             <numerusform>%n Terminals auf diesem Computer werden beendet. Sie starten wieder, wenn Kodosi öffnet.</numerusform>
         </translation>
     </message>
+    <message numerus="yes">
+        <source>%n running programs stop.</source>
+        <translation>
+            <numerusform>%n laufendes Programm wird beendet.</numerusform>
+            <numerusform>%n laufende Programme werden beendet.</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>ReconnectingNotice</name>
@@ -3890,6 +4001,10 @@
 </context>
 <context>
     <name>SessionDetails</name>
+    <message>
+        <source>Shared with project %1</source>
+        <translation>Mit dem Projekt %1 geteilt</translation>
+    </message>
     <message>
         <source>Shared with %1</source>
         <translation>Geteilt mit %1</translation>
@@ -4003,6 +4118,10 @@
     <message>
         <source>Stop sharing</source>
         <translation>Nicht mehr teilen</translation>
+    </message>
+    <message>
+        <source>Share with project %1</source>
+        <translation>Mit dem Projekt %1 teilen</translation>
     </message>
     <message>
         <source>Shared</source>
@@ -4786,6 +4905,14 @@
         <translation>Das Terminal öffnet sich, sobald sein Computer wieder da ist.</translation>
     </message>
     <message>
+        <source>Waking…</source>
+        <translation>Wird aufgeweckt…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>Aufwecken</translation>
+    </message>
+    <message>
         <source>The terminal opens when the connection is back.</source>
         <translation>Das Terminal öffnet sich, sobald die Verbindung wieder da ist.</translation>
     </message>
@@ -4824,6 +4951,18 @@
     <message>
         <source>Paste</source>
         <translation>Einfügen</translation>
+    </message>
+    <message>
+        <source>Lines added: %1. Lines removed: %2.</source>
+        <translation>Hinzugefügte Zeilen: %1. Entfernte Zeilen: %2.</translation>
+    </message>
+    <message>
+        <source>Show the changes</source>
+        <translation>Änderungen zeigen</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Weiter</translation>
     </message>
 </context>
 <context>
@@ -5456,10 +5595,6 @@
     <message>
         <source>You cannot do this in the selected terminal.</source>
         <translation>Das ist im ausgewählten Terminal nicht möglich.</translation>
-    </message>
-    <message>
-        <source>Change sharing on the computer that hosts this terminal.</source>
-        <translation>Ändere auf dem Computer, auf dem dieses Terminal läuft, mit wem du es teilst.</translation>
     </message>
     <message>
         <source>Sign in before you share a terminal.</source>

@@ -602,6 +602,9 @@
                               },
                               {
                                 "const": "usage"
+                              },
+                              {
+                                "const": "settings"
                               }
                             ]
                           },
@@ -609,6 +612,9 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "terminal": {
+                        "type": "boolean"
                       }
                     },
                     "required": [
@@ -1464,6 +1470,9 @@
                           }
                         ]
                       },
+                      "given": {
+                        "type": "boolean"
+                      },
                       "id": {
                         "type": "string"
                       },
@@ -1495,6 +1504,68 @@
                 "revision": {
                   "format": "u64",
                   "type": "integer"
+                },
+                "settings": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "description": {
+                        "type": "string"
+                      },
+                      "key": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "oneOf": [
+                          {
+                            "const": "toggle"
+                          },
+                          {
+                            "const": "choice"
+                          },
+                          {
+                            "const": "text"
+                          },
+                          {
+                            "const": "number"
+                          }
+                        ]
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "locked": {
+                        "type": "boolean"
+                      },
+                      "options": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "refusal": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "value": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "label",
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
                 },
                 "state": {
                   "oneOf": [
@@ -2787,6 +2858,9 @@
                                     }
                                   ]
                                 },
+                                "given": {
+                                  "type": "boolean"
+                                },
                                 "id": {
                                   "type": "string"
                                 },
@@ -2889,6 +2963,9 @@
                                         },
                                         {
                                           "const": "usage"
+                                        },
+                                        {
+                                          "const": "settings"
                                         }
                                       ]
                                     },
@@ -2896,6 +2973,9 @@
                                       "type": "null"
                                     }
                                   ]
+                                },
+                                "terminal": {
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -2909,6 +2989,81 @@
                         "required": [
                           "change",
                           "commands"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "change": {
+                            "const": "settings"
+                          },
+                          "settings": {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "description": {
+                                  "type": "string"
+                                },
+                                "key": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "oneOf": [
+                                    {
+                                      "const": "toggle"
+                                    },
+                                    {
+                                      "const": "choice"
+                                    },
+                                    {
+                                      "const": "text"
+                                    },
+                                    {
+                                      "const": "number"
+                                    }
+                                  ]
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "locked": {
+                                  "type": "boolean"
+                                },
+                                "options": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "refusal": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "value": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "label",
+                                "kind",
+                                "value"
+                              ],
+                              "type": "object"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "change",
+                          "settings"
                         ],
                         "type": "object"
                       },
@@ -3424,6 +3579,38 @@
           },
           "required": [
             "do"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "do": {
+              "const": "settings"
+            }
+          },
+          "required": [
+            "do"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "do": {
+              "const": "set"
+            },
+            "key": {
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "do",
+            "key",
+            "value"
           ],
           "type": "object"
         }
@@ -5647,6 +5834,106 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expectedRuntimeIncarnationId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "session.continue"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "sessionId",
+          "expectedRuntimeIncarnationId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expectedRuntimeIncarnationId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "session.changes"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "sessionId",
+          "expectedRuntimeIncarnationId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "agent": {
             "anyOf": [
               {
@@ -6871,6 +7158,56 @@
               }
             ]
           },
+          "allow": {
+            "type": "boolean"
+          },
+          "approvalId": {
+            "type": "string"
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "sharing.answer"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "approvalId",
+          "allow"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "action": {
             "oneOf": [
               {
@@ -7776,6 +8113,56 @@
           "accountEpoch",
           "type",
           "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "crossSiteCookies": {
+            "type": "boolean"
+          },
+          "formPredictions": {
+            "type": "boolean"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "browser.set"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "formPredictions",
+          "crossSiteCookies"
         ],
         "type": "object"
       },
@@ -9334,6 +9721,465 @@
               }
             ]
           },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "power.sleep"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "keepAwake": {
+            "oneOf": [
+              {
+                "const": "agents"
+              },
+              {
+                "const": "always"
+              },
+              {
+                "const": "never"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "power.keepAwake"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "keepAwake"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deviceId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "power.wake"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "deviceId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deviceId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "power.test"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "deviceId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "power.describe"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sleeper": {
+            "additionalProperties": false,
+            "properties": {
+              "fastStartup": {
+                "type": "boolean"
+              },
+              "keepAwake": {
+                "oneOf": [
+                  {
+                    "const": "agents"
+                  },
+                  {
+                    "const": "always"
+                  },
+                  {
+                    "const": "never"
+                  }
+                ]
+              },
+              "links": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "address": {
+                      "type": "string"
+                    },
+                    "hardware": {
+                      "type": "string"
+                    },
+                    "medium": {
+                      "oneOf": [
+                        {
+                          "const": "cable"
+                        },
+                        {
+                          "const": "radio"
+                        }
+                      ]
+                    },
+                    "prefix": {
+                      "format": "u8",
+                      "type": "integer"
+                    },
+                    "router": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "wakes": {
+                      "oneOf": [
+                        {
+                          "const": "on"
+                        },
+                        {
+                          "const": "off"
+                        },
+                        {
+                          "const": "unknown"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "hardware",
+                    "medium",
+                    "address",
+                    "prefix",
+                    "wakes"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "public": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "standby": {
+                "type": "boolean"
+              },
+              "system": {
+                "oneOf": [
+                  {
+                    "const": "mac"
+                  },
+                  {
+                    "const": "windows"
+                  },
+                  {
+                    "const": "linux"
+                  }
+                ]
+              },
+              "tested": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "hardware": {
+                        "type": "string"
+                      },
+                      "woke": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "hardware",
+                      "woke"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "system",
+              "links"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "power.signal"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "sleeper"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hardware": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "power.tested"
+          },
+          "woke": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "hardware",
+          "woke"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "projectId": {
             "anyOf": [
               {
@@ -10412,6 +11258,43 @@
               }
             ]
           },
+          "quiet": {
+            "type": "boolean"
+          },
+          "stops": {
+            "format": "u32",
+            "type": "integer"
+          },
+          "type": {
+            "const": "system.restart"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "quiet",
+          "stops"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "online": {
             "type": "boolean"
           },
@@ -10983,6 +11866,9 @@
           "operation": {
             "type": "string"
           },
+          "refused": {
+            "type": "boolean"
+          },
           "requestId": {
             "type": "string"
           },
@@ -11232,6 +12118,9 @@
           },
           "operation": {
             "type": "string"
+          },
+          "refused": {
+            "type": "boolean"
           },
           "requestId": {
             "type": "string"
@@ -11706,6 +12595,9 @@
           },
           "operation": {
             "type": "string"
+          },
+          "refused": {
+            "type": "boolean"
           },
           "requestId": {
             "type": "string"
@@ -12187,6 +13079,31 @@
                       },
                       "required": [
                         "sequence"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "changes": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "added": {
+                          "format": "u32",
+                          "type": "integer"
+                        },
+                        "removed": {
+                          "format": "u32",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "added",
+                        "removed"
                       ],
                       "type": "object"
                     },
@@ -12778,6 +13695,9 @@
                     }
                   ]
                 },
+                "stopped": {
+                  "type": "boolean"
+                },
                 "title": {
                   "anyOf": [
                     {
@@ -13067,6 +13987,9 @@
           },
           "operation": {
             "type": "string"
+          },
+          "refused": {
+            "type": "boolean"
           },
           "requestId": {
             "type": "string"
@@ -14111,11 +15034,235 @@
               }
             ]
           },
+          "refused": {
+            "type": "boolean"
+          },
           "requestId": {
             "type": "string"
           },
           "type": {
             "const": "project.error"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation",
+          "message"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approvalId": {
+            "type": "string"
+          },
+          "confirm": {
+            "type": "string"
+          },
+          "from": {
+            "oneOf": [
+              {
+                "const": "app"
+              },
+              {
+                "const": "command"
+              }
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "const": "sharing.approval"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "approvalId",
+          "operation",
+          "title",
+          "message",
+          "confirm",
+          "from"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approvalId": {
+            "type": "string"
+          },
+          "outcome": {
+            "oneOf": [
+              {
+                "const": "allowed"
+              },
+              {
+                "const": "refused"
+              },
+              {
+                "const": "expired"
+              }
+            ]
+          },
+          "type": {
+            "const": "sharing.approvalEnded"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "approvalId",
+          "outcome"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "sharing.waiting"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation",
+          "message"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "sharing.result"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "sharing.error"
           }
         },
         "required": [
@@ -14372,10 +15519,30 @@
               }
             ]
           },
+          "crossSiteCookies": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "engine": {
             "anyOf": [
               {
                 "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "formPredictions": {
+            "anyOf": [
+              {
+                "type": "boolean"
               },
               {
                 "type": "null"
@@ -16431,6 +17598,379 @@
               }
             ]
           },
+          "computers": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "busy": {
+                  "anyOf": [
+                    {
+                      "oneOf": [
+                        {
+                          "const": "waking"
+                        },
+                        {
+                          "const": "testing"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "canTest": {
+                  "type": "boolean"
+                },
+                "canWake": {
+                  "type": "boolean"
+                },
+                "deviceId": {
+                  "type": "string"
+                },
+                "keepAwake": {
+                  "oneOf": [
+                    {
+                      "const": "agents"
+                    },
+                    {
+                      "const": "always"
+                    },
+                    {
+                      "const": "never"
+                    }
+                  ]
+                },
+                "note": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "problem": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "sleepWarning": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "deviceId",
+                "canWake",
+                "canTest",
+                "keepAwake"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "keepAwake": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "const": "agents"
+                  },
+                  {
+                    "const": "always"
+                  },
+                  {
+                    "const": "never"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "const": "power.state"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "computers"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "signal": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "const": "sent"
+                  },
+                  {
+                    "const": "elsewhere"
+                  },
+                  {
+                    "const": "refused"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "const": "power.result"
+          },
+          "wake": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "fastStartup": {
+                    "type": "boolean"
+                  },
+                  "keepAwake": {
+                    "oneOf": [
+                      {
+                        "const": "agents"
+                      },
+                      {
+                        "const": "always"
+                      },
+                      {
+                        "const": "never"
+                      }
+                    ]
+                  },
+                  "links": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "address": {
+                          "type": "string"
+                        },
+                        "hardware": {
+                          "type": "string"
+                        },
+                        "medium": {
+                          "oneOf": [
+                            {
+                              "const": "cable"
+                            },
+                            {
+                              "const": "radio"
+                            }
+                          ]
+                        },
+                        "prefix": {
+                          "format": "u8",
+                          "type": "integer"
+                        },
+                        "router": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "wakes": {
+                          "oneOf": [
+                            {
+                              "const": "on"
+                            },
+                            {
+                              "const": "off"
+                            },
+                            {
+                              "const": "unknown"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "hardware",
+                        "medium",
+                        "address",
+                        "prefix",
+                        "wakes"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "public": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "standby": {
+                    "type": "boolean"
+                  },
+                  "system": {
+                    "oneOf": [
+                      {
+                        "const": "mac"
+                      },
+                      {
+                        "const": "windows"
+                      },
+                      {
+                        "const": "linux"
+                      }
+                    ]
+                  },
+                  "tested": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "hardware": {
+                            "type": "string"
+                          },
+                          "woke": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "hardware",
+                          "woke"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "system",
+                  "links",
+                  "fastStartup",
+                  "standby",
+                  "keepAwake"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "power.error"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation",
+          "message"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "operation": {
             "type": "string"
           },
@@ -18328,7 +19868,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 111,
+  "protocolVersion": 115,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

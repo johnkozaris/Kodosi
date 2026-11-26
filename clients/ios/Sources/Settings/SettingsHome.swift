@@ -36,6 +36,7 @@ struct SettingsHome: View {
         .tabPage("Settings")
         .navigationDestination(for: PeopleRoute.self) { _ in PeopleHome() }
         .navigationDestination(for: FriendRoute.self) { FriendDetailView(userId: $0.userId) }
+        .navigationDestination(for: ComputerRoute.self) { ComputerDetailView(deviceId: $0.deviceId) }
         .navigationDestination(for: TerminalRoute.self) { TerminalScreen(sessionId: $0.sessionId) }
         .navigationDestination(for: ProjectRoute.self) { ProjectScreen(projectId: $0.projectId) }
         .animation(theme.motion.spring, value: account.devices)

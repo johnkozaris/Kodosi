@@ -19,7 +19,8 @@ use uuid::Uuid;
 
 use crate::{
     CommandEnvelope, Error, Event, EventBody, HostKind, Result, RuntimeHandle,
-    protocol::SessionKind, terminal,
+    protocol::{ClientKind, SessionKind},
+    terminal,
 };
 
 const VERSION: u32 = crate::protocol::VERSION;
@@ -38,6 +39,14 @@ struct Hello {
     version: u32,
     root: String,
     session_id: Option<Uuid>,
+    /// A client of another version may not say what it is, and still learns which version this
+    /// host speaks. Without a word it counts as a command, which answers no questions.
+    #[serde(default = "a_command")]
+    client: ClientKind,
+}
+
+const fn a_command() -> ClientKind {
+    ClientKind::Command
 }
 #[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -92,8 +101,15 @@ pub struct TerminalWelcome {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 enum ClientRequest {
-    Command { command: Value },
-    Stop { force: bool },
+    Command {
+        command: Value,
+    },
+    Stop {
+        force: bool,
+        /// The host stops to install an update and comes right back.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        update: bool,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

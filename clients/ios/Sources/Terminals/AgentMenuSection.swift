@@ -6,6 +6,9 @@ struct AgentMenuSection: View {
     @Environment(AppModel.self) private var model
     let session: RuntimeSession
     let live: AgentLive
+    /// Folds the settings into one submenu, because iOS caps a menu's height well below the
+    /// iPhone screen and would otherwise cut off the terminal's menu.
+    var nested = false
 
     private var agent: AgentKind {
         AgentKind(program: session.program)
@@ -44,61 +47,104 @@ struct AgentMenuSection: View {
         pending.fast ?? settings.fast ?? false
     }
 
+    private var modelChoices: [AgentModel] {
+        live.model ? models?.models ?? [] : []
+    }
+
+    private var effortLevels: [AgentOption] {
+        live.effort ? models?.efforts(for: currentModel) ?? [] : []
+    }
+
     var body: some View {
         if shows {
-            Section(agent.label) {
-                if live.model, let models, !models.models.isEmpty {
-                    Picker(selection: choice(currentModel ?? "") { AgentSettings(model: $0) }) {
-                        ForEach(models.models) { option in
-                            Text(verbatim: option.label).tag(option.id)
-                        }
-                    } label: {
-                        Label("Model", systemImage: "sparkle")
-                        Text(verbatim: shown(modelLabel, waits: pending.model != nil))
+            if nested {
+                Menu {
+                    rows
+                } label: {
+                    Label(agent.label, systemImage: "sparkle")
+                    if !summary.isEmpty {
+                        Text(verbatim: summary)
                     }
-                    .pickerStyle(.menu)
-                    .accessibilityIdentifier("terminal.menu.model")
                 }
-                if live.effort, let levels = models?.efforts(for: currentModel), !levels.isEmpty {
-                    Picker(selection: choice(currentEffort ?? "") { AgentSettings(effort: $0) }) {
-                        ForEach(levels) { level in
-                            Text(verbatim: level.label).tag(level.id)
-                        }
-                    } label: {
-                        Label("Effort", systemImage: "gauge.with.dots.needle.67percent")
-                        Text(verbatim: shown(levels.first { $0.id == currentEffort }?.label ?? "", waits: pending.effort != nil))
-                    }
-                    .pickerStyle(.menu)
-                    .accessibilityIdentifier("terminal.menu.effort")
-                }
-                if live.fast {
-                    Toggle(isOn: choice(currentFast) { AgentSettings(fast: $0) }) {
-                        Label(shown(String(localized: "Fast mode"), waits: pending.fast != nil), systemImage: "bolt")
-                    }
-                    .accessibilityIdentifier("terminal.menu.fast")
-                }
-                if !live.permissions.isEmpty {
-                    let options = AgentPermissions.allCases.filter { live.permissions.contains($0) || $0 == currentPermissions }
-                    Picker(selection: choice(currentPermissions?.rawValue ?? "") { AgentSettings(permissions: AgentPermissions(rawValue: $0)) }) {
-                        ForEach(options, id: \.self) { option in
-                            Text(verbatim: option.label).tag(option.rawValue)
-                        }
-                    } label: {
-                        Label("Permissions", systemImage: (currentPermissions ?? .ask).symbol)
-                        Text(verbatim: shown(currentPermissions?.label ?? "", waits: pending.permissions != nil))
-                    }
-                    .pickerStyle(.menu)
-                    .accessibilityIdentifier("terminal.menu.permissions")
-                }
-                if live.keeps {
-                    Text("\(agent.label) also keeps the model, effort and fast mode the next time it starts.")
+                .accessibilityIdentifier("terminal.menu.agent")
+            } else {
+                Section(agent.label) {
+                    rows
                 }
             }
         }
     }
 
+    @ContentBuilder
+    private var rows: some View {
+        if !modelChoices.isEmpty {
+            Picker(selection: choice(currentModel ?? "") { AgentSettings(model: $0) }) {
+                ForEach(modelChoices) { option in
+                    Text(verbatim: option.label).tag(option.id)
+                }
+            } label: {
+                Label("Model", systemImage: "sparkle")
+                Text(verbatim: shown(modelLabel, waits: pending.model != nil))
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier("terminal.menu.model")
+        }
+        if !effortLevels.isEmpty {
+            Picker(selection: choice(currentEffort ?? "") { AgentSettings(effort: $0) }) {
+                ForEach(effortLevels) { level in
+                    Text(verbatim: level.label).tag(level.id)
+                }
+            } label: {
+                Label("Effort", systemImage: "gauge.with.dots.needle.67percent")
+                Text(verbatim: shown(effortLabel ?? "", waits: pending.effort != nil))
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier("terminal.menu.effort")
+        }
+        if live.fast {
+            Toggle(isOn: choice(currentFast) { AgentSettings(fast: $0) }) {
+                Label(shown(String(localized: "Fast mode"), waits: pending.fast != nil), systemImage: "bolt")
+            }
+            .accessibilityIdentifier("terminal.menu.fast")
+        }
+        if !live.permissions.isEmpty {
+            let options = AgentPermissions.allCases.filter { live.permissions.contains($0) || $0 == currentPermissions }
+            Picker(selection: choice(currentPermissions?.rawValue ?? "") { AgentSettings(permissions: AgentPermissions(rawValue: $0)) }) {
+                ForEach(options, id: \.self) { option in
+                    Text(verbatim: option.label).tag(option.rawValue)
+                }
+            } label: {
+                Label("Permissions", systemImage: (currentPermissions ?? .ask).symbol)
+                Text(verbatim: shown(currentPermissions?.label ?? "", waits: pending.permissions != nil))
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier("terminal.menu.permissions")
+        }
+        if live.keeps {
+            Text("\(agent.label) also keeps the model, effort and fast mode the next time it starts.")
+        }
+    }
+
     private var shows: Bool {
         session.canControl && ((launcher != nil && (live.model || live.effort)) || live.fast || !live.permissions.isEmpty)
+    }
+
+    private var summary: String {
+        var values: [String] = []
+        if !modelChoices.isEmpty {
+            values.append(modelLabel)
+        }
+        if !effortLevels.isEmpty, let effortLabel {
+            values.append(effortLabel)
+        }
+        if !live.permissions.isEmpty, let currentPermissions {
+            values.append(currentPermissions.label)
+        }
+        return values.joined(separator: " · ")
+    }
+
+    private var effortLabel: String? {
+        effortLevels.first { $0.id == currentEffort }?.label
     }
 
     private var modelLabel: String {

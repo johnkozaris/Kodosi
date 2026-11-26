@@ -18,6 +18,7 @@ import com.kodosi.mobile.people.PeopleStore
 import com.kodosi.mobile.projects.ProjectStore
 import com.kodosi.mobile.runtime.CommandSink
 import com.kodosi.mobile.runtime.NetworkWatch
+import com.kodosi.mobile.runtime.Refused
 import com.kodosi.mobile.runtime.RuntimeEnvironment
 import com.kodosi.mobile.runtime.RuntimeEvent
 import com.kodosi.mobile.runtime.RuntimeEventFaults
@@ -25,6 +26,7 @@ import com.kodosi.mobile.runtime.RuntimeEventInbox
 import com.kodosi.mobile.runtime.RuntimeFailure
 import com.kodosi.mobile.runtime.RuntimeHandle
 import com.kodosi.mobile.runtime.fields
+import com.kodosi.mobile.sharing.SharingApprovals
 import com.kodosi.mobile.terminals.RuntimeSession
 import com.kodosi.mobile.terminals.TerminalConnection
 import com.kodosi.mobile.terminals.TerminalNotifications
@@ -93,6 +95,7 @@ class AppModel(
     val deviceJoin = MutableStateFlow<String?>(null)
     val projects = ProjectStore(commands)
     val people = PeopleStore(commands)
+    val sharing = SharingApprovals(commands)
     val dosi = DosiStore(commands)
     val canvas = CanvasStore(commands, words)
     val video = VideoPipes(
@@ -274,6 +277,8 @@ class AppModel(
     private fun catchUp() {
         commands.abandonPending()
         canvas.renewPipes()
+        // The runtime asks its open questions again after the resync, without those that ended meanwhile.
+        sharing.reset()
         commands.send("app.resync")
     }
 
@@ -296,6 +301,7 @@ class AppModel(
         notifications.reset()
         projects.reset(userId)
         people.reset()
+        sharing.reset()
         dosi.reset()
         documents.reset()
         canvas.reset()
@@ -309,7 +315,7 @@ class AppModel(
             terminals.absorb(event)
             if (event.type == "document.error") canvas.receive(event)
             if (delivery != CommandSink.Delivery.APP) return
-            if (event.failedRefresh) return
+            if (event.failedRefresh || event.refused) return
             val message = event.string("message") ?: words.didNotWork
             if (event.type == "auth.error" && !account.state.value.authResolved) {
                 fail(message)
@@ -344,6 +350,8 @@ class AppModel(
 
             "connection" -> account.receiveConnection(event)
 
+            "power" -> account.receivePower(event)
+
             "sessions", "session" -> {
                 terminals.receive(event)
                 canvas.observe(terminals.state.value.sessions)
@@ -355,6 +363,8 @@ class AppModel(
             }
 
             "friends" -> people.receive(event)
+
+            "sharing" -> sharing.receive(event)
 
             "project", "projects" -> projects.receive(event)
 
@@ -395,6 +405,7 @@ class AppModel(
             work()
         } catch (cancelled: CancellationException) {
             throw cancelled
+        } catch (_: Refused) {
         } catch (failure: Exception) {
             notify(failure.localizedMessage ?: words.didNotWork)
         }

@@ -1195,7 +1195,8 @@ impl RemoteActor {
                 | TerminalControl::Close
                 | TerminalControl::Canvas { .. }
                 | TerminalControl::Agent { .. }
-                | TerminalControl::Seen => {}
+                | TerminalControl::Seen
+                | TerminalControl::Changes => {}
             }
             if let Some(reply) = queued.reply {
                 replies.insert(0, reply);

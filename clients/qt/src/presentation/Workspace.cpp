@@ -49,6 +49,7 @@ Workspace::Workspace(CommandDispatcher& commands, SessionCatalogModel& sessions,
     , m_projects(*this, sessions)
     , m_sessionActions(*this, sessions, desktop, settings)
     , m_dosi(*this, sessions)
+    , m_sharing(*this)
 {
     connect(&sessions, &SessionCatalogModel::visibleChanged, this, &Workspace::reportVisible);
     connect(&desktop, &DesktopStateModel::watchingChanged, this, &Workspace::reportVisible);
@@ -250,6 +251,7 @@ void Workspace::clearAccountData(bool clearLinks, const QString& userId)
     m_devices.reset();
     m_projects.reset();
     m_dosi.reset();
+    m_sharing.reset();
     m_sessionActions.reset(clearLinks);
     m_desktop.switchAccount(userId);
     m_desktop.clearLauncherDraft();
@@ -324,6 +326,8 @@ void Workspace::receiveResult(const QString& type, const QJsonObject& event)
         const auto chat = pending.request.value(QStringLiteral("agent")).toObject().value(QStringLiteral("chat")).toBool();
         m_sessionActions.completeCreation(created, pending.projectId, chat);
     }
+    if (pending.operation == QStringLiteral("session.attachProject") && !pending.projectId.isEmpty())
+        m_sessionActions.showInProject(pending.sessionId, pending.projectId);
     if (pending.operation == QStringLiteral("project.open") && pending.projectId == m_projects.m_selectedId) {
         m_projects.m_selected = event.value(QStringLiteral("project")).toObject().toVariantMap();
         m_projects.m_members = list(event, "members");
@@ -352,6 +356,8 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     if (type == QStringLiteral("system.ready")) {
         m_hostReady = true;
         m_restoreAsked = false;
+        // The host sends its open questions again right after this event.
+        m_sharing.reset();
         m_reportedLook.clear();
         reportLook();
         m_reportedVisible.reset();
@@ -441,6 +447,10 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         m_dosi.apply(type, event);
         return;
     }
+    if (type == QStringLiteral("sharing.approval") || type == QStringLiteral("sharing.approvalEnded")) {
+        m_sharing.apply(type, event);
+        return;
+    }
     if (type == QStringLiteral("session.picture")) {
         m_sessions.receivePicture(event);
         return;
@@ -492,6 +502,16 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     }
     if (type == QStringLiteral("devices.hosts")) {
         m_devices.m_hosts = event.value(QStringLiteral("deviceIds")).toVariant().toStringList();
+        emit m_devices.changed();
+        return;
+    }
+    if (type == QStringLiteral("power.state")) {
+        m_devices.m_keepAwake = event.value(QStringLiteral("keepAwake")).toString();
+        m_devices.m_power.clear();
+        for (const auto& value : event.value(QStringLiteral("computers")).toArray()) {
+            const auto computer = value.toObject();
+            m_devices.m_power.insert(computer.value(QStringLiteral("deviceId")).toString(), computer.toVariantMap());
+        }
         emit m_devices.changed();
         return;
     }
@@ -594,11 +614,12 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     if (type == QStringLiteral("friends.error") && m_people.answerReport(event))
         return;
 
-    auto quiet = false;
+    // The owner said no in the app, or let the question run out, so the request ends without a notice.
+    auto quiet = event.value(QStringLiteral("refused")).toBool();
     const auto pendingIt = m_pending.constFind(id);
     if (pendingIt != m_pending.cend()) {
         const auto pending = pendingIt.value();
-        quiet = pending.quiet;
+        quiet = quiet || pending.quiet;
         if (pending.operation == QStringLiteral("session.openRemote")
             && m_sessionActions.m_activeLink
             && m_sessionActions.m_activeLink->sessionId == pending.sessionId) {

@@ -19,6 +19,7 @@ class ApplicationLifecycleModel final : public QObject {
     Q_PROPERTY(bool hostForeground READ hostForeground NOTIFY hostForegroundChanged FINAL)
     Q_PROPERTY(int hostTerminals READ hostTerminals NOTIFY stateChanged FINAL)
     Q_PROPERTY(bool updateInstalled READ updateInstalled NOTIFY updateInstalledChanged FINAL)
+    Q_PROPERTY(int restartStops READ restartStops NOTIFY restartStopsChanged FINAL)
 
 public:
     enum class State {
@@ -30,7 +31,8 @@ public:
 
     using Completion = std::function<void(RuntimeBridge::Result)>;
     using StartOperation = std::function<void(Completion)>;
-    using StopOperation = std::function<void()>;
+    // `update` tells the host that it stops to install an update and comes right back.
+    using StopOperation = std::function<void(bool update)>;
     using StopHostOperation = std::function<void(std::function<void(HostStop)>)>;
 
     explicit ApplicationLifecycleModel(
@@ -50,6 +52,14 @@ public:
     [[nodiscard]] int hostTerminals() const noexcept;
     [[nodiscard]] bool updateInstalled() const noexcept { return m_updateInstalled; }
     [[nodiscard]] bool restartRequested() const noexcept { return m_restartRequested; }
+    // Kodosi restarted by itself to install an update while nobody used it.
+    [[nodiscard]] bool restartsQuietly() const noexcept { return m_restartsQuietly; }
+    // How many terminals would lose a running program if Kodosi restarted now.
+    [[nodiscard]] int restartStops() const noexcept { return m_restartStops; }
+    // The host says whether a restart now loses nothing while nobody uses Kodosi.
+    void applyRestart(bool quiet, int stops);
+    // Kodosi restarts by itself to install an update only while it updates automatically.
+    void setUpdatesAutomatically(bool automatic);
 
     void beginInitialStart();
     void stop() noexcept;
@@ -64,6 +74,7 @@ signals:
     void stateChanged();
     void hostForegroundChanged();
     void updateInstalledChanged();
+    void restartStopsChanged();
     void restartOffered();
 
 private:
@@ -83,8 +94,13 @@ private:
     bool m_stopping = false;
     bool m_updateInstalled = false;
     bool m_restartRequested = false;
+    bool m_restartQuiet = false;
+    bool m_restartsQuietly = false;
+    bool m_updatesAutomatically = true;
+    int m_restartStops = 0;
     bool m_outdatedHostRestarted = false;
 
+    void restartIfQuiet();
     std::uint64_t beginAttempt();
     void executeAttempt(std::uint64_t token);
     void completeAttempt(

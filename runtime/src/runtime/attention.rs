@@ -308,6 +308,12 @@ impl Attention {
         (std::mem::replace(&mut self.presence, presence) != presence).then_some(presence)
     }
 
+    /// Nobody uses Kodosi or this computer, here or on another device.
+    #[cfg(feature = "host")]
+    pub(super) fn away(&self) -> bool {
+        !self.person_present()
+    }
+
     fn person_present(&self) -> bool {
         matches!(self.device(), Presence::Kodosi | Presence::Here)
             || self.elsewhere.kodosi

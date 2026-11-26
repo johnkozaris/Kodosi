@@ -9,12 +9,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     private static let windowChromeSettle: TimeInterval = 0.3
     private static let shutdownDeadline: TimeInterval = 12
+    /// When Kodosi restarted by itself to update while nobody used it, so that it opens again without
+    /// coming forward. A later launch by hand comes forward as usual.
+    private static let reopensQuietly = "reopensQuietly"
+    private static let quietReopenWithin: TimeInterval = 120
 
     private var terminating = false
     private var terminationReplied = false
 
     let storageBootstrap: RuntimeStorageBootstrap
     let dependencies: AppDependencies
+    private lazy var sharingQuestions = SharingQuestions(approvals: dependencies.approvals)
 
     override init() {
         do {
@@ -38,6 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     func applicationDidFinishLaunching(_: Notification) {
         UNUserNotificationCenter.current().delegate = self
         SystemPresenceSignals.observe(dependencies.presence)
+        sharingQuestions.start()
         dependencies.watchAppearance()
         dependencies.start()
         if !storageBootstrap.isIsolated {
@@ -59,8 +65,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 dependencies.followCanvas()
             }
         }
+        let stopped = storageBootstrap.defaults.double(forKey: Self.reopensQuietly)
+        let quietly = stopped > 0 && abs(Date().timeIntervalSince1970 - stopped) < Self.quietReopenWithin
+        storageBootstrap.defaults.removeObject(forKey: Self.reopensQuietly)
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.windowChromeSettle) {
             self.ensureWindowOnAvailableScreen()
+            if quietly {
+                NSApp.hide(nil)
+            }
         }
     }
 
@@ -112,13 +124,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         let stopsHost = !dependencies.hostForeground
         let local = dependencies.sessions.count(where: { $0.kind == .local })
         let restarting = dependencies.updater.restarting
+        let stops = dependencies.restartStops
+        if dependencies.updater.restartingQuietly {
+            guard stops == 0 else {
+                dependencies.updater.restartCancelled()
+                return .terminateCancel
+            }
+            storageBootstrap.defaults.set(Date().timeIntervalSince1970, forKey: Self.reopensQuietly)
+        }
         let guiding = PrivacyGuide.shared.isShowing && !restarting
-        if !storageBootstrap.isIsolated, stopsHost, local > 0,
+        if !storageBootstrap.isIsolated, stopsHost, restarting ? stops > 0 : local > 0,
            !Self.systemQuits(NSAppleEventManager.shared().currentAppleEvent, guiding: guiding)
         {
             let alert = NSAlert()
             alert.messageText = restarting ? String(localized: "Restart Kodosi to update?") : String(localized: "Quit Kodosi?")
-            alert.informativeText = String(localized: "\(local) terminals on this Mac stop. They start again when Kodosi opens.")
+            alert.informativeText = restarting
+                ? String(localized: "\(stops) running programs stop.")
+                : String(localized: "\(local) terminals on this Mac stop. They start again when Kodosi opens.")
             alert.alertStyle = .warning
             alert.addButton(withTitle: String(localized: "Cancel"))
             alert.addButton(withTitle: restarting ? String(localized: "Restart") : String(localized: "Quit"))
@@ -131,7 +153,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         dependencies.shutdownProcess { [weak self] in
             Task {
                 if stopsHost {
-                    _ = await HostStopResult.stopHost(force: true)
+                    _ = await HostStopResult.stopHost(force: true, update: restarting)
                 }
                 self?.finishTermination(application)
             }

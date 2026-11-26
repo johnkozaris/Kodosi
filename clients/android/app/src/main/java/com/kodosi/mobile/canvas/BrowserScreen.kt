@@ -363,7 +363,7 @@ fun BrowserScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     AppIcon(AppSymbol.FRIENDS, Modifier.size(11.dp), tint = colors.inkMuted)
-                    Text(stringResource(R.string.browser_shared), style = KodosiType.footnote, color = colors.inkMuted)
+                    Text(stringResource(R.string.shared), style = KodosiType.footnote, color = colors.inkMuted)
                 }
             }
             ActionIcon(AppSymbol.KEYBOARD, R.string.keyboard, { view?.keyboard() }, enabled = awake)
@@ -477,7 +477,7 @@ fun BrowserScreen(
     if (explaining) {
         KodosiDialog(
             onDismissRequest = { explaining = false },
-            title = { Text(stringResource(R.string.browser_shared)) },
+            title = { Text(stringResource(R.string.shared)) },
             text = { Text(stringResource(R.string.browser_shared_explained)) },
             confirmButton = {
                 KodosiTextButton(onClick = { explaining = false }) { Text(stringResource(R.string.ok)) }

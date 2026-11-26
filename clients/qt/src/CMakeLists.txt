@@ -75,6 +75,8 @@ qt_add_library(kodosi-application STATIC
     presentation/ProviderFilesModel.hpp
     presentation/SessionActionsModel.cpp
     presentation/SessionActionsModel.hpp
+    presentation/SharingModel.cpp
+    presentation/SharingModel.hpp
     presentation/TerminalTypeAhead.cpp
     presentation/TerminalTypeAhead.hpp
     presentation/Workspace.cpp
@@ -308,7 +310,6 @@ qt_add_qml_module(kodosi-ui
         qml/Screens/BlockPersonDialog.qml
         qml/Screens/ReportPersonDialog.qml
         qml/Screens/ReportReceived.qml
-        qml/Screens/FriendTrustDialog.qml
         qml/Screens/IssuePicker.qml
         qml/Screens/RepositoryPicker.qml
         qml/Screens/ProjectsView.qml
@@ -330,6 +331,7 @@ qt_add_qml_module(kodosi-ui
         qml/Chat/ChatAskCard.qml
         qml/Chat/ChatDock.qml
         qml/Chat/ChatFacts.qml
+        qml/Chat/ChatSettings.qml
         qml/Chat/ChatStep.qml
         qml/Chat/ChatThread.qml
         qml/Chat/ChatWork.qml
@@ -340,6 +342,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/ChangeLines.qml
         qml/Controls/CodeWell.qml
         qml/Controls/ComposerBox.qml
+        qml/Controls/CopyKey.qml
         qml/Controls/DayDivider.qml
         qml/Controls/LatestKey.qml
         qml/Controls/PersonBubble.qml
@@ -382,6 +385,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/KButton.qml
         qml/Controls/KFocusIndicator.qml
         qml/Controls/KDialog.qml
+        qml/Controls/KDialogButtons.qml
         qml/Controls/KIcon.qml
         qml/Controls/KIconButton.qml
         qml/Controls/Squash.qml
@@ -426,6 +430,7 @@ qt_add_qml_module(kodosi-ui
         qml/Shell/AboutDialog.qml
         qml/Shell/CommandPalette.qml
         qml/Shell/QuitDialog.qml
+        qml/Shell/SharingApprovalDialog.qml
         qml/Shell/Sidebar.qml
         qml/Shell/SidebarMenu.qml
         qml/Shell/SignOutDialog.qml
@@ -461,7 +466,6 @@ qt_add_qml_module(kodosi-ui
         qml/Workbench/PickerKey.qml
         qml/Workbench/PickerList.qml
         qml/Workbench/RemoveKey.qml
-        qml/Workbench/ProjectShareDialog.qml
         qml/Workbench/SessionDetails.qml
         qml/Workbench/ShareSheet.qml
         qml/Workbench/StageOverview.qml

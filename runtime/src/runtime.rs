@@ -35,6 +35,8 @@ use crate::{
 use crate::{network::LocalPublication, terminal::TerminalSession};
 
 mod attention;
+#[cfg(feature = "host")]
+mod branch;
 mod catalog;
 #[cfg(feature = "host")]
 mod changes;
@@ -45,14 +47,22 @@ mod look;
 #[cfg(feature = "host")]
 mod messages;
 mod pipes;
+#[cfg(feature = "host")]
+mod power;
 mod project_seen;
+#[cfg(feature = "host")]
+mod restart;
 #[cfg(feature = "host")]
 mod restore;
 pub(crate) mod saver;
+mod sharing;
 mod terminal_folders;
+mod wake;
 
 #[cfg(test)]
 mod tests;
+
+pub(crate) use sharing::Origin;
 
 type DosiMessage = crate::dosi::Message;
 
@@ -60,8 +70,8 @@ type DosiMessage = crate::dosi::Message;
 pub(crate) fn not_published() -> crate::text::Text {
     text!("Remote access is still connecting. Try again when this device is online and approved.")
 }
-pub(crate) fn share_on_host() -> crate::text::Text {
-    text!("Change sharing on the computer that hosts this terminal.")
+pub(crate) fn hosted_elsewhere() -> crate::text::Text {
+    text!("Only the computer that hosts this terminal can change it.")
 }
 #[cfg(feature = "host")]
 pub(crate) fn sharing_changed() -> crate::text::Text {
@@ -105,13 +115,15 @@ pub struct RuntimeHandle {
 struct Consumer {
     id: Uuid,
     lifetime: CancellationToken,
+    origin: Origin,
 }
 
-impl Default for Consumer {
-    fn default() -> Self {
+impl Consumer {
+    fn new(origin: Origin) -> Self {
         Self {
             id: Uuid::now_v7(),
             lifetime: CancellationToken::new(),
+            origin,
         }
     }
 }
@@ -127,6 +139,7 @@ enum Request {
         envelope: CommandEnvelope,
         consumer: Uuid,
         lifetime: CancellationToken,
+        origin: Origin,
     },
     TerminalCommand {
         envelope: CommandEnvelope,
@@ -134,9 +147,14 @@ enum Request {
         reply: oneshot::Sender<Result<()>>,
     },
     Snapshot(oneshot::Sender<Result<Vec<Event>>>),
-    Observe(oneshot::Sender<Result<Observation>>),
+    Observe {
+        consumer: Uuid,
+        reply: oneshot::Sender<Result<Observation>>,
+    },
     Direct {
         consumer: Uuid,
+        lifetime: CancellationToken,
+        origin: Origin,
         reply: oneshot::Sender<mpsc::Receiver<Event>>,
     },
     Subscribe {
@@ -167,7 +185,10 @@ enum Request {
         size: TerminalSize,
         reply: oneshot::Sender<Result<()>>,
     },
-    Shutdown,
+    Shutdown {
+        /// The host stops to install an update and comes right back.
+        update: bool,
+    },
 }
 
 impl RuntimeHandle {
@@ -185,13 +206,14 @@ impl RuntimeHandle {
             envelope: command,
             consumer: self.consumer.id,
             lifetime: self.consumer.lifetime.clone(),
+            origin: self.consumer.origin,
         })
     }
 
     #[cfg(feature = "host")]
-    pub(crate) fn command_client(&self) -> Self {
+    pub(crate) fn command_client(&self, origin: Origin) -> Self {
         Self {
-            consumer: Arc::new(Consumer::default()),
+            consumer: Arc::new(Consumer::new(origin)),
             ..self.clone()
         }
     }
@@ -228,7 +250,7 @@ impl RuntimeHandle {
         command.validate()?;
         if !command.runs_on_other_computers() {
             return Err(Error::Refused(text!(
-                "This computer takes only the choices and the start of a new terminal from your other devices."
+                "Your other devices cannot do this on this computer."
             )));
         }
         let (events, mut receiver) = self.observe().await?;
@@ -301,7 +323,10 @@ impl RuntimeHandle {
 
     pub async fn observe(&self) -> Result<Observation> {
         let (reply, response) = oneshot::channel();
-        self.send(Request::Observe(reply))?;
+        self.send(Request::Observe {
+            consumer: self.consumer.id,
+            reply,
+        })?;
         response.await.map_err(|_| Error::Stopped)?
     }
 
@@ -310,6 +335,8 @@ impl RuntimeHandle {
         let (reply, response) = oneshot::channel();
         self.send(Request::Direct {
             consumer: self.consumer.id,
+            lifetime: self.consumer.lifetime.clone(),
+            origin: self.consumer.origin,
             reply,
         })?;
         response.await.map_err(|_| Error::Stopped)
@@ -428,11 +455,20 @@ impl RuntimeHandle {
     }
 
     pub async fn shutdown(&self) {
+        self.stop(false).await;
+    }
+
+    /// Stops the host to install an update. Agents that work now go on after the update.
+    pub async fn shutdown_for_update(&self) {
+        self.stop(true).await;
+    }
+
+    async fn stop(&self, update: bool) {
         let mut stopped = self.stopped.clone();
         if *stopped.borrow() {
             return;
         }
-        drop(self.commands.send(Request::Shutdown).await);
+        drop(self.commands.send(Request::Shutdown { update }).await);
         drop(stopped.wait_for(|stopped| *stopped).await);
     }
 
@@ -479,6 +515,9 @@ struct Local {
     changed: crate::agents::AgentSettings,
     account_folder: Option<PathBuf>,
     marked: watch::Sender<Option<crate::terminal::Waiting>>,
+    /// When the terminal's branch folder was counted last.
+    counted: Option<tokio::time::Instant>,
+    counting: bool,
 }
 
 #[cfg(feature = "host")]
@@ -585,7 +624,11 @@ fn answer(command: &Command, outcome: std::result::Result<(), &Error>) -> Value 
             json!({"type":format!("{area}.result"), "requestId":command.request_id(), "operation":operation})
         }
         Err(error) => {
-            json!({"type":format!("{area}.error"), "requestId":command.request_id(), "operation":operation, "message":error.text()})
+            let mut value = json!({"type":format!("{area}.error"), "requestId":command.request_id(), "operation":operation, "message":error.text()});
+            if matches!(error, Error::NotAllowed(_)) {
+                value["refused"] = json!(true);
+            }
+            value
         }
     };
     if let Some(session) = command.session_id() {
@@ -675,6 +718,20 @@ enum Completion {
         result: Result<()>,
     },
     #[cfg(feature = "host")]
+    WentOn {
+        id: Uuid,
+        result: Result<()>,
+    },
+    #[cfg(feature = "host")]
+    Counted {
+        id: Uuid,
+        changes: Result<Option<crate::worktree::WorktreeChanges>>,
+    },
+    #[cfg(feature = "host")]
+    ChangesShown {
+        result: Result<()>,
+    },
+    #[cfg(feature = "host")]
     AgentTyped {
         id: Uuid,
         line: (String, crate::agents::AgentSettings),
@@ -736,9 +793,54 @@ enum Completion {
         command: Command,
         result: Result<crate::protocol::RepositoryList>,
     },
+    #[cfg(feature = "host")]
+    SleepChecked {
+        command: Command,
+        result: std::io::Result<()>,
+    },
+    #[cfg(feature = "host")]
+    Slept {
+        result: std::io::Result<()>,
+        slept: bool,
+    },
     Asked {
         command: Command,
+        computer: String,
         result: Result<Value>,
+    },
+    Checked {
+        held: Box<sharing::Held>,
+        facts: sharing::Facts,
+    },
+    WakeDescribed {
+        device: String,
+        number: u64,
+        reported: Option<crate::protocol::WakeTest>,
+        result: Result<crate::protocol::WakeDetails>,
+    },
+    OwnNetwork {
+        own: crate::wake::OwnNetwork,
+        connects: Option<u64>,
+    },
+    Roused {
+        device: String,
+        details: crate::protocol::WakeDetails,
+        roused: crate::wake::Roused,
+    },
+    WakeTested {
+        device: String,
+        details: crate::protocol::WakeDetails,
+        tested: crate::wake::Tested,
+    },
+    #[cfg(feature = "host")]
+    WakeRead {
+        command: Command,
+        own: crate::wake::OwnNetwork,
+    },
+    #[cfg(feature = "host")]
+    WakeSignaled {
+        command: Command,
+        signal: Result<crate::protocol::WakeSignal>,
     },
     TerminalFolders {
         device: String,
@@ -971,6 +1073,22 @@ impl TerminalTarget {
         }
     }
 
+    /// Asks the computer of a terminal on another computer to show its diff on the canvas.
+    fn ask_changes(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+        match self {
+            #[cfg(feature = "host")]
+            Self::Local(_) => Box::pin(async {
+                Err(Error::Invalid(
+                    "expected a terminal on another computer".to_owned(),
+                ))
+            }),
+            Self::Remote(terminal) => {
+                let result = terminal.control(None, TerminalControl::Changes);
+                Box::pin(async move { result.await.map(|_| ()) })
+            }
+        }
+    }
+
     fn end(&self, closing: bool) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
         match self {
             #[cfg(feature = "host")]
@@ -1070,12 +1188,10 @@ fn forget_stale_title(entry: &mut SessionEntry, shared: Option<&TerminalStatus>)
     }
 }
 
-fn show_program(entry: &mut SessionEntry) {
-    use crate::terminal::ProgramState;
-    let closing = entry.status == SessionStatus::Closing;
-    let state = entry.program_status.as_ref().map(|status| status.state);
-    entry.working = !closing
-        && state.map_or_else(
+/// The program works by its own reports, or by a spinner in its title when it reports nothing.
+fn works(entry: &SessionEntry) -> bool {
+    entry.status != SessionStatus::Closing
+        && entry.program_status.as_ref().map_or_else(
             || {
                 reads_title(entry)
                     && entry
@@ -1083,9 +1199,21 @@ fn show_program(entry: &mut SessionEntry) {
                         .as_deref()
                         .is_some_and(crate::terminal::title_spins)
             },
-            |state| state == ProgramState::Working,
-        );
-    entry.waiting = state.and_then(|state| state.waiting(closing));
+            |status| status.state == crate::terminal::ProgramState::Working,
+        )
+}
+
+fn waits(entry: &SessionEntry) -> Option<crate::terminal::Waiting> {
+    let closing = entry.status == SessionStatus::Closing;
+    entry
+        .program_status
+        .as_ref()
+        .and_then(|status| status.state.waiting(closing))
+}
+
+fn show_program(entry: &mut SessionEntry) {
+    entry.working = works(entry);
+    entry.waiting = waits(entry);
     entry.activity = entry
         .program_status
         .as_ref()
@@ -1154,9 +1282,13 @@ struct Runtime {
     #[cfg(feature = "host")]
     look: look::HostLook,
     #[cfg(feature = "host")]
+    power: power::Power,
+    #[cfg(feature = "host")]
     mentions: messages::Mentions,
     #[cfg(feature = "host")]
     agent_changes: changes::AgentChanges,
+    #[cfg(feature = "host")]
+    restart: restart::Restart,
     person: Option<String>,
     network: BackendClient,
     events: broadcast::Sender<Event>,
@@ -1177,6 +1309,7 @@ struct Runtime {
     attention: attention::Attention,
     project_latest: HashMap<String, u64>,
     project_seen: project_seen::ProjectSeen,
+    wakes: wake::Wakes,
     reconnect: HashMap<Uuid, Reconnect>,
     typing: HashMap<Uuid, usize>,
     inputs: u64,
@@ -1186,8 +1319,15 @@ struct Runtime {
     next_reconnects: tokio::time::Instant,
     pausing: Option<CancellationToken>,
     online: bool,
-    consumers: HashMap<Uuid, CancellationToken>,
+    consumers: HashMap<Uuid, sharing::Joined>,
     leaving: FuturesUnordered<WaitForCancellationFutureOwned>,
+    approvals: BTreeMap<Uuid, sharing::Approval>,
+    lane: sharing::Lane,
+    /// The account whose terminals run on this computer, also while nobody is signed in.
+    #[cfg(feature = "host")]
+    terminals_owner: Option<String>,
+    #[cfg(feature = "host")]
+    sign_in_origin: Option<Origin>,
     #[cfg(feature = "host")]
     publishing: BTreeSet<Uuid>,
     #[cfg(feature = "host")]
@@ -1236,6 +1376,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
     })?;
     let network_events = network.events();
     let project_seen = project_seen::ProjectSeen::load(&config.data_root);
+    let wakes = wake::Wakes::load(&config.data_root);
     let scope = Scope {
         user: None,
         epoch: crate::identity::now_ms(),
@@ -1252,7 +1393,8 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         stopped: stopped_rx,
         clients,
         input_budget: Arc::new(Semaphore::new(MAX_QUEUED_INPUT_BYTES)),
-        consumer: Arc::new(Consumer::default()),
+        // An app that starts the runtime in its own process sends its commands with this handle.
+        consumer: Arc::new(Consumer::new(Origin::App)),
     };
     #[cfg(feature = "host")]
     let server = crate::local_host::serve(
@@ -1288,6 +1430,8 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
     #[cfg(feature = "host")]
     let restore = restore::Restore::load(&config.data_root);
     #[cfg(feature = "host")]
+    let terminals_owner = restore.owner();
+    #[cfg(feature = "host")]
     {
         crate::canvas::close_left(&config.data_root).await;
         crate::canvas::keep_profiles(&config.data_root, &restore.returning());
@@ -1298,7 +1442,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
     #[cfg(not(feature = "host"))]
     let (dosi, dosi_messages) = crate::dosi::Viewer::load(&config.data_root);
     #[cfg(feature = "host")]
-    network.answer_calls(handle.command_client().answering());
+    network.answer_calls(handle.command_client(Origin::Device).answering());
     #[cfg(feature = "host")]
     let links = crate::chat::Links::serve(&config.data_root).await;
     #[cfg(feature = "host")]
@@ -1320,9 +1464,13 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         #[cfg(feature = "host")]
         look: look::HostLook::load(&config.data_root),
         #[cfg(feature = "host")]
+        power: power::Power::load(&config.data_root),
+        #[cfg(feature = "host")]
         mentions: messages::Mentions::default(),
         #[cfg(feature = "host")]
         agent_changes: changes::AgentChanges::default(),
+        #[cfg(feature = "host")]
+        restart: restart::Restart::default(),
         person: None,
         #[cfg(feature = "host")]
         config,
@@ -1346,6 +1494,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         attention: attention::Attention::default(),
         project_latest: HashMap::new(),
         project_seen,
+        wakes,
         reconnect: HashMap::new(),
         typing: HashMap::new(),
         inputs: 0,
@@ -1357,6 +1506,12 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         online: true,
         consumers: HashMap::new(),
         leaving: FuturesUnordered::new(),
+        approvals: BTreeMap::new(),
+        lane: sharing::Lane::default(),
+        #[cfg(feature = "host")]
+        terminals_owner,
+        #[cfg(feature = "host")]
+        sign_in_origin: None,
         #[cfg(feature = "host")]
         publishing: BTreeSet::new(),
         #[cfg(feature = "host")]
@@ -1390,6 +1545,9 @@ impl Runtime {
         match self.event(value) {
             Ok(mut event) => {
                 if let Some(request) = event.event.request_id() {
+                    if event.event.is_answer() {
+                        self.lane.ended(request);
+                    }
                     let mut answers = self.answers();
                     let Some(answer) = answers.get(request) else {
                         tracing::debug!(
@@ -1442,14 +1600,15 @@ impl Runtime {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
-    fn command(&mut self, envelope: &CommandEnvelope, consumer: Uuid, lifetime: CancellationToken) {
+    fn command(
+        &mut self,
+        envelope: &CommandEnvelope,
+        consumer: Uuid,
+        lifetime: CancellationToken,
+        origin: Origin,
+    ) {
         let command = self.named(&envelope.command);
         let command = command.as_ref();
-        let own = self.network.identity().map(|identity| identity.device_id);
-        let elsewhere = envelope
-            .computer
-            .clone()
-            .filter(|computer| Some(computer) != own.as_ref());
         let answered = crate::protocol::answers(command.operation());
         if answered && let Err(error) = self.expect_answer(command, consumer, lifetime.clone()) {
             self.refuse(command, consumer, &error);
@@ -1468,10 +1627,13 @@ impl Runtime {
                     | Command::Look { .. }
             ) {
             Err(Error::Stale)
-        } else if let Some(computer) = elsewhere {
-            self.ask_computer(command, computer)
         } else {
-            self.apply_for_consumer(command, consumer, lifetime)
+            let requester = sharing::Requester {
+                consumer,
+                lifetime,
+                origin,
+            };
+            self.admit(command, envelope.computer.as_deref(), requester)
         };
         if let Err(error) = outcome {
             if answered {
@@ -1509,7 +1671,11 @@ impl Runtime {
     }
 
     fn refuse(&self, command: &Command, consumer: Uuid, error: &Error) {
-        match self.event(answer(command, Err(error))) {
+        self.tell(consumer, answer(command, Err(error)));
+    }
+
+    fn tell(&self, consumer: Uuid, value: Value) {
+        match self.event(value) {
             Ok(mut event) => {
                 event.recipient = Some(consumer);
                 self.send_event(event);
@@ -1518,9 +1684,12 @@ impl Runtime {
         }
     }
 
-    fn know_consumer(&mut self, consumer: Uuid, lifetime: &CancellationToken) {
+    fn know_consumer(&mut self, consumer: Uuid, origin: Origin, lifetime: &CancellationToken) {
         if let std::collections::hash_map::Entry::Vacant(known) = self.consumers.entry(consumer) {
-            known.insert(lifetime.clone());
+            known.insert(sharing::Joined {
+                origin,
+                lifetime: lifetime.clone(),
+            });
             self.leaving.push(lifetime.clone().cancelled_owned());
         }
     }
@@ -1586,6 +1755,8 @@ impl Runtime {
         }
         #[cfg(feature = "host")]
         self.share_marks();
+        #[cfg(feature = "host")]
+        self.follow_agents(&entries);
         let listing = self.listing(entries);
         self.send_list(|catalog, now| catalog.changed(listing, now));
         self.call_started();
@@ -1823,6 +1994,7 @@ impl Runtime {
         }
         events.push(self.listing(self.entries()).event());
         events.push(self.event(self.dosi.snapshot())?);
+        events.push(self.event(self.power_event())?);
         for value in self.cached_events.values() {
             events.push(self.event(value.clone())?);
         }
@@ -1848,6 +2020,7 @@ impl Runtime {
         if online != self.online {
             self.online = online;
             self.emit(self.connection_event());
+            self.publish_power();
         }
     }
 
@@ -1948,6 +2121,8 @@ impl Runtime {
     fn catch_up(&mut self) {
         self.prune_views();
         self.prune_answers();
+        self.expire_approvals();
+        self.advance_lane();
         self.keep_pipes();
         if tokio::time::Instant::now() >= self.next_reconnects {
             self.reconnect_views();
@@ -1977,6 +2152,7 @@ impl Runtime {
             attention,
             self.pipes_due(),
             self.catalog().due(),
+            self.approvals_due(),
         ]
         .into_iter()
         .flatten()
@@ -1991,6 +2167,7 @@ impl Runtime {
         mut dosi_messages: mpsc::Receiver<DosiMessage>,
     ) {
         let mut dosi_open = true;
+        let mut sign_ins = self.network.hear_sign_ins();
         self.emit(self.ready_event());
         let network = self.network.clone();
         self.spawn(async move {
@@ -2017,11 +2194,15 @@ impl Runtime {
                 request = requests.recv() => {
                     if self.synchronize_account().is_err() { break; }
                     match request {
-                        None | Some(Request::Shutdown) => break,
-                        Some(Request::Command { envelope, consumer, lifetime }) => {
+                        None => break,
+                        Some(Request::Shutdown { update }) => {
+                            self.note_stop(update);
+                            break;
+                        }
+                        Some(Request::Command { envelope, consumer, lifetime, origin }) => {
                             if !lifetime.is_cancelled() {
-                                self.know_consumer(consumer, &lifetime);
-                                self.command(&envelope, consumer, lifetime);
+                                self.know_consumer(consumer, origin, &lifetime);
+                                self.command(&envelope, consumer, lifetime, origin);
                             }
                         }
                         Some(Request::TerminalCommand { envelope, connection, reply }) => {
@@ -2064,16 +2245,31 @@ impl Runtime {
                         None => {},
                     }
                 }
-                Some(()) = self.leaving.next() => self.consumers.retain(|_, lifetime| !lifetime.is_cancelled()),
+                Some(()) = self.leaving.next() => self.consumers.retain(|_, joined| !joined.lifetime.is_cancelled()),
+                Some(sign_in) = sign_ins.recv() => self.sign_in_asked(sign_in),
                 Ok(()) = link.changed() => {}
                 () = &mut timer, if due.is_some() => {}
-                _ = retry.tick(), if !background => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.remember_conversations(); self.save_terminals(HashMap::new()); self.check_mentions(); self.tell_mentions(); self.type_agent_changes(); } self.started_remotes(); self.ask_folders(); }
+                _ = retry.tick(), if !background => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.remember_conversations(); self.save_terminals(HashMap::new()); self.check_mentions(); self.tell_mentions(); self.type_agent_changes(); self.continue_restored(); self.count_branches(); self.tell_restart(); } self.started_remotes(); self.ask_folders(); self.ask_wakes(); }
             }
         }
         self.send_waiting_list();
         requests.close();
         self.stop().await;
     }
+
+    #[cfg(feature = "host")]
+    fn note_stop(&self, update: bool) {
+        if update {
+            self.restore.stop_for_update();
+        }
+    }
+
+    #[cfg(not(feature = "host"))]
+    #[expect(
+        clippy::unused_self,
+        reason = "only a computer that hosts terminals brings them back"
+    )]
+    const fn note_stop(&self, _update: bool) {}
 
     async fn stop(&mut self) {
         self.jobs.abort_all();
@@ -2129,7 +2325,10 @@ impl Runtime {
         self.restore.saved().await;
         #[cfg(feature = "host")]
         self.look.saved().await;
+        #[cfg(feature = "host")]
+        self.power.saved().await;
         self.project_seen.saved().await;
+        self.wakes.saved().await;
         self.network.shutdown().await;
     }
 
@@ -2274,6 +2473,7 @@ impl Runtime {
                             &local.entry.shared_with,
                         )
                     }),
+                    owner: self.terminals_owner.clone(),
                     line,
                     worktree: local.worktree.clone(),
                     canvas: local
@@ -2286,6 +2486,12 @@ impl Runtime {
                     browser: local.terminal.canvas.address(),
                     screen: local.terminal.canvas.state().borrow().screen.is_some(),
                     quiet_settings,
+                    busy: local
+                        .entry
+                        .program
+                        .as_deref()
+                        .is_some_and(crate::agents::is_agent_name)
+                        && restart::busy(&local.entry),
                 }
             })
             .collect();
@@ -2831,17 +3037,13 @@ impl Runtime {
                 self.send_waiting_list();
                 drop(reply.send(self.snapshot_events()));
             }
-            Request::Observe(reply) => {
-                self.send_waiting_list();
-                let receiver = self.events.subscribe();
-                drop(reply.send(self.snapshot_events().map(|events| (events, receiver))));
-            }
-            Request::Direct { consumer, reply } => {
-                let (sender, receiver) = mpsc::channel(DIRECT_QUEUE);
-                self.direct.retain(|_, sender| !sender.is_closed());
-                self.direct.insert(consumer, sender);
-                drop(reply.send(receiver));
-            }
+            Request::Observe { consumer, reply } => drop(reply.send(self.observation(consumer))),
+            Request::Direct {
+                consumer,
+                lifetime,
+                origin,
+                reply,
+            } => self.join(consumer, &lifetime, origin, reply),
             Request::Subscribe { session, reply } => {
                 let target = self
                     .job_capacity()
@@ -2924,7 +3126,36 @@ impl Runtime {
                     }
                 }
             }
-            Request::Command { .. } | Request::TerminalCommand { .. } | Request::Shutdown => {}
+            Request::Command { .. }
+            | Request::TerminalCommand { .. }
+            | Request::Shutdown { .. } => {}
+        }
+    }
+
+    /// The whole state for a client that starts or falls behind: an app also gets the questions
+    /// that wait for it, after the ready event that makes it forget the earlier ones.
+    fn observation(&self, consumer: Uuid) -> Result<Observation> {
+        self.send_waiting_list();
+        let receiver = self.events.subscribe();
+        let mut events = self.snapshot_events()?;
+        events.extend(self.open_questions(consumer));
+        Ok((events, receiver))
+    }
+
+    fn join(
+        &mut self,
+        consumer: Uuid,
+        lifetime: &CancellationToken,
+        origin: Origin,
+        reply: oneshot::Sender<mpsc::Receiver<Event>>,
+    ) {
+        let (sender, receiver) = mpsc::channel(DIRECT_QUEUE);
+        self.direct.retain(|_, sender| !sender.is_closed());
+        self.direct.insert(consumer, sender);
+        drop(reply.send(receiver));
+        if !lifetime.is_cancelled() {
+            self.know_consumer(consumer, origin, lifetime);
+            self.show_approvals(consumer);
         }
     }
 
@@ -2983,6 +3214,7 @@ impl Runtime {
     }
 
     fn finish(&self, command: &Command) {
+        self.lane.ended(command.request_id());
         if self.answers().contains_key(command.request_id()) {
             self.result(command);
         }
@@ -2993,6 +3225,10 @@ impl Runtime {
         let generation = self.network.generation();
         if user == self.scope.user && generation == self.scope.network_generation {
             return Ok(());
+        }
+        #[cfg(feature = "host")]
+        if user.is_some() {
+            self.terminals_owner.clone_from(&user);
         }
         self.scope = Scope {
             user,
@@ -3012,17 +3248,21 @@ impl Runtime {
         self.views.clear();
         self.reconnect.clear();
         self.folder_asks.clear();
+        self.wakes.forget_account();
         self.listed.clear();
         self.remotes.clear();
         self.reopen_pipes();
         self.starting.clear();
         self.cached_events.clear();
+        #[cfg(feature = "host")]
+        self.restart.retell();
         self.project_latest.clear();
         self.attention.forget_account();
         #[cfg(feature = "host")]
         self.mentions.clear();
         self.latest_auth = None;
         self.administering.clear();
+        self.forget_approvals();
         #[cfg(feature = "host")]
         self.publishing.clear();
         #[cfg(feature = "host")]
@@ -3042,6 +3282,7 @@ impl Runtime {
         self.apply_wanted();
         self.emit(self.auth_event());
         self.publish_catalog();
+        self.publish_power();
         self.dosi_account();
         Ok(())
     }
@@ -3135,6 +3376,7 @@ impl Runtime {
                 self.cached_events.insert(kind.to_owned(), event.clone());
             }
             let content = (kind == "project.snapshot").then(|| event["content"].clone());
+            self.devices_changed(kind, &event);
             self.emit(event);
             if let Some(content) = content {
                 #[cfg(feature = "host")]
@@ -3412,6 +3654,8 @@ impl Runtime {
         if !notice.online {
             entry.program_status = None;
             entry.helpers = 0;
+            entry.stopped = false;
+            entry.changes = None;
         }
         if !self.streams(id) {
             self.show_shared_status(id);
@@ -3554,6 +3798,10 @@ impl Runtime {
             .is_some_and(|connection| connection.is_interrupted() && !connection.is_closed())
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "every field of a terminal on another computer"
+    )]
     fn remote_entry(&self, remote: RemoteSession) -> SessionEntry {
         let is_owner = self.scope.user.as_deref() == Some(remote.owner_user_id.as_str());
         let connection_state = if self
@@ -3649,6 +3897,8 @@ impl Runtime {
             project_name: remote.project_name,
             shared_with: remote.shared_with,
             restored_from: remote.restored_from.map(|id| id.to_string()),
+            stopped: previous.filter(|_| live).is_some_and(|entry| entry.stopped),
+            changes: previous.filter(|_| live).and_then(|entry| entry.changes),
         };
         if !streaming {
             forget_stale_title(&mut entry, shared);
@@ -3661,6 +3911,13 @@ impl Runtime {
     fn ended(&mut self, id: Uuid) {
         self.mentions.forget(id);
         self.agent_changes.forget(id);
+        if let Some(worktree) = self
+            .local
+            .get(&id)
+            .and_then(|local| local.worktree.as_ref())
+        {
+            self.forget_diff(worktree);
+        }
         self.launcher.release_quiet(id);
         let (published, worktree) = self.local.remove(&id).map_or((false, None), |local| {
             let canvas = local.terminal.canvas.clone();
@@ -3826,10 +4083,21 @@ impl Runtime {
             #[cfg(feature = "host")]
             SessionChange::Status { id, status } => {
                 if let Some(local) = self.local.get_mut(&id) {
+                    let working = |status: Option<&crate::terminal::ProgramStatus>| {
+                        status.is_some_and(|status| {
+                            status.state == crate::terminal::ProgramState::Working
+                        })
+                    };
+                    let ended_turn =
+                        working(local.entry.program_status.as_ref()) && !working(status.as_ref());
                     local.entry.program_status = status;
                     self.publish_catalog();
                     self.tell_mentions();
                     self.type_agent_changes();
+                    self.continue_restored();
+                    if ended_turn {
+                        self.count_branch(id);
+                    }
                 }
             }
             #[cfg(feature = "host")]
@@ -3841,6 +4109,17 @@ impl Runtime {
             }
             #[cfg(feature = "host")]
             SessionChange::Canvas { id } => self.sync_canvas(&id.to_string()),
+            #[cfg(feature = "host")]
+            SessionChange::Stopped { id, stopped } => {
+                if let Some(local) = self.local.get_mut(&id)
+                    && local.entry.stopped != stopped
+                {
+                    local.entry.stopped = stopped;
+                    self.publish_catalog();
+                }
+            }
+            #[cfg(feature = "host")]
+            SessionChange::ShowChanges { id } => self.show_changes_here(id),
             #[cfg(feature = "host")]
             SessionChange::Chat { id, face, helpers } => {
                 if let Some(local) = self.local.get_mut(&id)
@@ -3909,6 +4188,8 @@ impl Runtime {
                     entry.face = metadata.face;
                     entry.helpers = metadata.helpers;
                     entry.look = metadata.look;
+                    entry.stopped = metadata.stopped;
+                    entry.changes = metadata.changes;
                     self.publish_catalog();
                 }
             }

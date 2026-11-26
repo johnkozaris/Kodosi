@@ -704,6 +704,54 @@ async fn a_viewer_whose_device_the_host_cannot_check_is_asked_to_try_again() {
     assert_eq!(refused.code, "busy");
 }
 
+#[tokio::test]
+async fn a_project_member_enters_a_project_terminal_only_as_a_friend_that_the_owner_signed() {
+    let storage = tempfile::tempdir().unwrap();
+    let network = BackendClient::new(crate::network::BackendConfig {
+        api_url: "http://127.0.0.1:9/".parse().unwrap(),
+        issuer: "http://127.0.0.1:9".into(),
+        client_id: "test".into(),
+        scopes: vec![],
+        data_root: storage.path().to_owned(),
+        secret_service: "test".into(),
+        isolated: true,
+    })
+    .unwrap();
+    network.assume_identity(crate::network::Identity {
+        user_id: "owner".into(),
+        device_id: "laptop".into(),
+        display_name: "Owner".into(),
+        enrolled: true,
+    });
+    network.sign_friends(&["friend"]).await;
+    let (session, incarnation, project) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
+    let dto: SessionDto = serde_json::from_value(json!({
+        "id":session,"incarnationId":incarnation,"name":"Terminal","ownerUserId":"owner","ownerName":"Owner",
+        "hostDeviceId":"laptop","hostName":"Laptop","projectId":project,"projectName":"Team",
+        "sharedWith":["friend","listed"],"authorizationRevision":1,"hostOnline":true,
+        "projectSequence":1,"hidden":false
+    }))
+    .unwrap();
+    let info = LocalPublication {
+        session_id: session,
+        incarnation_id: incarnation,
+        name: "Terminal".into(),
+        project_id: Some(project),
+        project_sequence: 1,
+        shared_with: BTreeSet::new(),
+        restored_from: None,
+    };
+    let (requests, _host) = mpsc::channel(1);
+    let (_frames, output) = broadcast::channel(1);
+    let publication = Publication::new(info, requests, output, watch::channel(None).1, dto);
+    let credentials = network.credentials().unwrap();
+    assert!(allowed(&network, &publication, &credentials, "friend").await);
+    assert!(
+        !allowed(&network, &publication, &credentials, "listed").await,
+        "a member whom only the server counts as a friend stays out"
+    );
+}
+
 #[test]
 fn the_status_carries_the_mark_only_with_the_state_that_it_was_made_for() {
     use crate::terminal::{ProgramState, Waiting};

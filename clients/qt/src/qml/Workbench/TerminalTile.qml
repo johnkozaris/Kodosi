@@ -30,9 +30,11 @@ Item {
     readonly property var viewers: (session.connectedUsers || []).filter(user => user !== Models.Account.userId)
     readonly property bool away: session.kind === "remote" && session.status === "offline"
     readonly property string awayText: qsTr("%1 is offline").arg(session.hostLabel || qsTr("Remote computer"))
+    readonly property var power: away ? Models.Devices.power[session.hostDeviceId || ""] || ({}) : ({})
     readonly property bool unreachable: session.kind === "remote" && !Models.Account.online && session.connectionState !== "blocked"
     readonly property bool remoteConnected: session.kind === "remote" && session.connectionState === "connected"
     readonly property string remoteState: !remoteConnected ? "" : unreachable ? qsTr("Offline") : away ? awayText : ""
+    readonly property bool lostComputer: remoteConnected && away && !unreachable
     readonly property bool waitsForConnection: remoteConnected && (session.status === "reconnecting" || session.stalled === true)
     readonly property string notice: remoteConnected && !away && session.status !== "reconnecting" ? session.message || "" : ""
     readonly property string shownFace: Models.DesktopState.faces[sessionId] || session.face || "terminal"
@@ -313,6 +315,19 @@ Item {
                         elide: Text.ElideMiddle
                     }
                 }
+                KButton {
+                    visible: (root.session.added ?? -1) >= 0
+                    compact: true
+                    variant: KButton.Ghost
+                    text: "+" + root.session.added + " \u2212" + root.session.removed
+                    objectName: "terminal.changes." + root.sessionId
+                    Accessible.id: objectName
+                    Accessible.name: qsTr("Lines added: %1. Lines removed: %2.").arg(root.session.added).arg(root.session.removed)
+                    ToolTip.text: qsTr("Show the changes")
+                    ToolTip.visible: hovered
+                    ToolTip.delay: Tip.delay
+                    onClicked: Models.SessionActions.showChanges(root.sessionId)
+                }
                 ActivityLine {
                     Layout.fillWidth: true
                     session: root.session
@@ -320,6 +335,14 @@ Item {
                 }
                 DosiKeys {
                     sessionId: root.sessionId
+                }
+                KButton {
+                    visible: root.session.offersContinue === true
+                    compact: true
+                    text: qsTr("Continue")
+                    objectName: "terminal.continue." + root.sessionId
+                    Accessible.id: objectName
+                    onClicked: Models.SessionActions.continueTask(root.sessionId)
                 }
                 HelperMarks {
                     session: root.session
@@ -333,9 +356,24 @@ Item {
                     Accessible.id: objectName
                     color: root.away || root.unreachable ? root.look.caution : root.look.inkFaint
                     font.pixelSize: KodosiTheme.fontCaption
+                    elide: Text.ElideRight
                     objectName: root.objectName + ".state"
-                    text: root.remoteState
+                    text: root.lostComputer && root.power.problem ? root.power.problem : root.remoteState
                     visible: text.length > 0
+                    Layout.maximumWidth: 420
+                }
+                KButton {
+                    Accessible.id: objectName
+                    compact: true
+                    enabled: root.power.canWake === true
+                    objectName: root.objectName + ".state.wake"
+                    terminalLook: root.look
+                    opacity: tileHover.hovered || root.active && !root.joined ? 1 : 0.35
+                    text: root.power.busy === "waking" ? qsTr("Waking…") : qsTr("Wake")
+                    variant: KButton.Ghost
+                    visible: root.lostComputer && (root.power.canWake === true || root.power.busy === "waking")
+
+                    onClicked: Models.Devices.wake(root.session.hostDeviceId)
                 }
                 KButton {
                     Accessible.id: objectName
@@ -657,9 +695,22 @@ Item {
                         color: root.look.inkMuted
                         font.pixelSize: KodosiTheme.fontFootnote
                         horizontalAlignment: Text.AlignHCenter
-                        text: qsTr("The terminal opens when its computer is back.")
+                        text: root.power.problem || qsTr("The terminal opens when its computer is back.")
                         visible: root.away && !root.unreachable && root.terminalError.length === 0
                         wrapMode: Text.WordWrap
+                    }
+                    KButton {
+                        Accessible.id: objectName
+                        Layout.alignment: Qt.AlignHCenter
+                        enabled: root.power.canWake === true
+                        objectName: root.objectName + ".wake"
+                        terminalLook: root.look
+                        text: root.power.busy === "waking" ? qsTr("Waking…") : qsTr("Wake")
+                        variant: KButton.Primary
+                        visible: root.away && !root.unreachable && root.terminalError.length === 0
+                            && (root.power.canWake === true || root.power.busy === "waking")
+
+                        onClicked: Models.Devices.wake(root.session.hostDeviceId)
                     }
                     ColumnLayout {
                         Layout.fillWidth: true

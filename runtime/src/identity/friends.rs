@@ -326,6 +326,15 @@ pub(crate) fn invite(handle: &str, root: &Root) -> String {
     format!("{INVITE}:{handle}:{}", hex(root))
 }
 
+/// The start of an identity as its invite text shows it, so that a person can compare the two.
+pub(crate) fn fingerprint(root: &Root) -> String {
+    let digits = hex(root);
+    (0..4)
+        .map(|group| &digits[group * 4..group * 4 + 4])
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 pub(crate) fn parse_invite(text: &str) -> Option<(String, Root)> {
     let mut parts = text.trim().split(':');
     let (INVITE, handle, root, None) = (parts.next()?, parts.next()?, parts.next()?, parts.next())

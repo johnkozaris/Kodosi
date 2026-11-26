@@ -16,6 +16,7 @@ struct TerminalControls: View {
     let compact: Bool
     var composing: FocusState<Bool>.Binding
     let actions: TerminalInputActions
+    let goOn: () -> Void
     let menu: TerminalMenu?
 
     private var note: String? {
@@ -24,7 +25,7 @@ struct TerminalControls: View {
 
     private var parts: Set<TerminalControlPart> {
         var parts: Set<TerminalControlPart> = [input.showsKeys ? .keys : .composer]
-        if input.showsAsk, session.needsUser {
+        if input.showsAsk, session.needsUser || session.offersContinue {
             parts.insert(.ask)
         }
         if note != nil {
@@ -37,7 +38,7 @@ struct TerminalControls: View {
         let parts = parts
         TerminalControlsColumn(shown: parts, spacing: 8) {
             if parts.contains(.ask) {
-                TerminalAsk(session: session, answers: controller.canType, press: controller.press)
+                TerminalAsk(session: session, answers: controller.canType, press: controller.press, goOn: goOn)
                     .layoutValue(key: TerminalControlPart.self, value: .ask)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -63,6 +64,7 @@ struct TerminalControls: View {
         .padding(.top, input == .reading ? 8 : 4)
         .padding(.bottom, input == .reading && !compact ? 8 : 4)
         .animation(theme.motion.spring, value: session.needsUser)
+        .animation(theme.motion.spring, value: session.offersContinue)
         .animation(theme.motion.soft, value: note)
         .animation(theme.motion.soft, value: input)
     }
@@ -112,10 +114,38 @@ private struct TerminalAsk: View {
     let session: RuntimeSession
     let answers: Bool
     let press: (TerminalKey) -> Void
+    let goOn: () -> Void
 
     var body: some View {
-        let sign = session.sign(unseen: false) ?? .hand
+        if session.needsUser {
+            asking
+        } else {
+            stopped
+        }
+    }
+
+    /// The agent stopped in the middle of a task, and one key lets it go on.
+    private var stopped: some View {
         HStack(spacing: 10) {
+            Text("Stopped").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+            Spacer(minLength: 0)
+            Button(action: goOn) {
+                Text("Continue").appTextStyle(.footnote).fontWeight(.semibold)
+                    .modifier(TerminalCapFace(highlighted: true))
+            }
+            .buttonStyle(PressScaleStyle())
+            .disabled(!answers)
+            .accessibilityIdentifier("terminal.continue")
+        }
+        .padding(.leading, 12).padding(.trailing, 6).padding(.vertical, 6)
+        .background(theme.colors.raised, in: RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("terminal.stopped")
+    }
+
+    private var asking: some View {
+        let sign = session.sign(unseen: false) ?? .hand
+        return HStack(spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 StatusSign(form: sign, size: 13)
                 ZStack(alignment: .leading) {

@@ -44,7 +44,7 @@ struct ProjectScreen: View {
                     screen.showsInfo = false
                 }
             }
-            .sheet(item: $screen.selectedText) { ProjectTextSheet(text: $0.text) }
+            .sheet(item: $screen.selectedText) { SelectableTextSheet(text: $0.text) }
             .memberAction($screen.memberAction, people: model.people)
             .navigationDestination(item: $terminal) { TerminalScreen(sessionId: $0.sessionId) }
             .environment(\.openURL, OpenURLAction(handler: open))

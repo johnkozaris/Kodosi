@@ -164,19 +164,19 @@ void RuntimeBridge::stop() noexcept
     emit runningChanged(false);
 }
 
-void RuntimeBridge::quit() noexcept
+void RuntimeBridge::quit(bool update) noexcept
 {
     const bool stopsHost = isRunning() && !m_hostForeground;
     stop();
     if (stopsHost)
-        kodosi_host_stop(1);
+        kodosi_host_stop(1, update ? 1 : 0);
 }
 
 void RuntimeBridge::stopHostAsync(std::function<void(HostStop)> completion)
 {
     Q_ASSERT(thread() == QThread::currentThread());
     std::thread([context = m_callbacks, completion = std::move(completion)]() mutable {
-        const auto code = kodosi_host_stop(1);
+        const auto code = kodosi_host_stop(1, 0);
         const auto result = code == KODOSI_HOST_STOP_ACCEPTED || code == KODOSI_HOST_STOP_UNREACHABLE ? HostStop::Stopped
             : code == KODOSI_HOST_STOP_REFUSED                                                        ? HostStop::Refused
                                                                                                       : HostStop::Failed;

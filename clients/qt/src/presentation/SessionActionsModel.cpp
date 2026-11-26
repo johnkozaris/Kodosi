@@ -339,7 +339,7 @@ bool SessionActionsModel::createInternal(const QString& name, const QString& dir
 }
 
 bool SessionActionsModel::command(
-    QString type, const QString& id, QJsonObject values, bool ownerOnly)
+    QString type, const QString& id, QJsonObject values, bool ownerOnly, QString projectId)
 {
     const auto session = m_sessions.session(id);
     if (!m_sessions.hasAuthoritativeSnapshot() || !session
@@ -351,7 +351,7 @@ bool SessionActionsModel::command(
     values.insert(QStringLiteral("sessionId"), id);
     values.insert(QStringLiteral("expectedRuntimeIncarnationId"), session->incarnationId);
     return m_workspace.sendTracked(
-        Workspace::PendingDomain::Session, std::move(type), std::move(values), id);
+        Workspace::PendingDomain::Session, std::move(type), std::move(values), id, std::move(projectId));
 }
 
 bool SessionActionsModel::close(const QString& id)
@@ -374,6 +374,16 @@ bool SessionActionsModel::rename(const QString& id, const QString& name)
         return false;
     return command(QStringLiteral("session.rename"), id,
         { { QStringLiteral("name"), name.trimmed() } });
+}
+
+bool SessionActionsModel::continueTask(const QString& id)
+{
+    return command(QStringLiteral("session.continue"), id);
+}
+
+bool SessionActionsModel::showChanges(const QString& id)
+{
+    return command(QStringLiteral("session.changes"), id);
 }
 
 bool SessionActionsModel::startAgent(const QString& id, const QString& agent)
@@ -401,11 +411,6 @@ bool SessionActionsModel::pastePicture(const QString& id, const QString& path)
 bool SessionActionsModel::share(
     const QString& id, const QStringList& users, const QStringList& expectedUsers)
 {
-    const auto session = m_sessions.session(id);
-    if (!session || session->kind != QStringLiteral("local")) {
-        m_workspace.setError(tr("Change sharing on the computer that hosts this terminal."));
-        return false;
-    }
     if (!m_workspace.account().signedIn()) {
         m_workspace.setError(tr("Sign in before you share a terminal."));
         return false;
@@ -427,6 +432,23 @@ bool SessionActionsModel::attachProject(const QString& id, const QString& projec
         { { QStringLiteral("projectId"),
             projectId.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(projectId) } },
         true);
+}
+
+bool SessionActionsModel::dropOnProject(const QString& id, const QString& projectId)
+{
+    const auto session = m_sessions.session(id);
+    if (projectId.isEmpty() || !session || !session->isOwner || session->projectId == projectId)
+        return false;
+    return command(QStringLiteral("session.attachProject"), id, { { QStringLiteral("projectId"), projectId } }, true,
+        projectId);
+}
+
+void SessionActionsModel::showInProject(const QString& id, const QString& projectId)
+{
+    if (m_workspace.projects().selectedProjectId() != projectId)
+        m_workspace.projects().open(projectId);
+    m_desktop.setActiveView(DesktopStateModel::Projects);
+    activateInProject(id);
 }
 
 void SessionActionsModel::route(const DeepLinkDestination& destination)

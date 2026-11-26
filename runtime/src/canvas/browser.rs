@@ -159,6 +159,7 @@ pub(super) struct Terminal {
     pub(super) shared: watch::Receiver<bool>,
     pub(super) show: Box<dyn Fn(PathBuf) + Send + Sync>,
     pub(super) last_tab_closed: Box<dyn Fn(Weak<Browser>) + Send + Sync>,
+    pub(super) restarted: Box<dyn Fn(Weak<Browser>) + Send + Sync>,
 }
 
 pub(super) struct Browser {
@@ -586,6 +587,12 @@ async fn follow(browser: Weak<Browser>, window: Window, closed: CancellationToke
     };
     if window.emptied() {
         (browser.terminal.last_tab_closed)(Arc::downgrade(&browser));
+    } else if window.restarted() {
+        browser.change(|state| {
+            state.state = BrowserState::Starting;
+            state.doing = None;
+        });
+        (browser.terminal.restarted)(Arc::downgrade(&browser));
     } else {
         browser.change(|state| {
             state.state = BrowserState::Asleep;

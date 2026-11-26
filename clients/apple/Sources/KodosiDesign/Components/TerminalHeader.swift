@@ -1,3 +1,4 @@
+import KodosiBridge
 import SwiftUI
 
 /// Emits ungrouped sibling views so callers can place them in an outer stack alongside controls
@@ -76,6 +77,33 @@ public struct TerminalLocation: View {
         case let (nil, name?): name
         case (nil, nil): ""
         }
+    }
+}
+
+/// What a terminal's branch folder changed, as one quiet key that shows the diff.
+public struct BranchChangesKey: View {
+    @Environment(\.theme) private var theme
+    let changes: BranchChanges
+    let show: () -> Void
+
+    public init(changes: BranchChanges, show: @escaping () -> Void) {
+        self.changes = changes
+        self.show = show
+    }
+
+    public var body: some View {
+        Button(action: show) {
+            GhostKeyFace {
+                Text(verbatim: "+\(changes.added) \u{2212}\(changes.removed)")
+                    .appTextStyle(.caption).monospacedDigit().lineLimit(1)
+                    .foregroundStyle(theme.colors.inkMuted)
+            }
+        }
+        .buttonStyle(.plain)
+        .fixedSize()
+        .help(String(localized: "Show the changes", bundle: .module))
+        .accessibilityLabel(Text("Lines added: \(changes.added). Lines removed: \(changes.removed).", bundle: .module))
+        .accessibilityHint(Text("Shows the changes on the canvas", bundle: .module))
     }
 }
 

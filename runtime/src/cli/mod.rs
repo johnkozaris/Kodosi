@@ -2,7 +2,7 @@ use crate::{
     Config, Error, EventBody, HostKind, Result,
     agents::{Output, Permissions},
     local_host,
-    protocol::SessionKind,
+    protocol::{ClientKind, SessionKind},
     provider::Provider,
 };
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
@@ -63,7 +63,7 @@ enum Action {
     Friends(FriendAction),
     #[command(
         subcommand,
-        about = "Approve and remove your devices, and make a recovery key."
+        about = "Approve and remove your devices, make a recovery key, and put your computers to sleep or wake them."
     )]
     Devices(DeviceAction),
     #[command(subcommand, about = "Sign in or out, or delete your account.")]
@@ -378,7 +378,7 @@ enum TerminalAction {
         #[arg(help = TERMINAL)]
         terminal: String,
     },
-    /// Give friends full control of a terminal of this computer.
+    /// Give friends full control of one of your terminals.
     Share {
         #[arg(help = TERMINAL)]
         terminal: String,
@@ -435,6 +435,35 @@ enum DeviceAction {
     Revoke {
         /// The device: its name, its ID or the end of its ID that `kodosi devices list` shows.
         device: String,
+    },
+    /// Put one of your computers to sleep. Its terminals pause until it wakes. When Kodosi may not
+    /// wake it again, it says so.
+    Sleep {
+        /// The computer: its name, its ID or the end of its ID that `kodosi devices list` shows.
+        computer: String,
+    },
+    /// Wake one of your computers from sleep. This device sends the wake signal when it is on the
+    /// network of that computer, and so does each of your computers that is awake there.
+    Wake {
+        /// The computer: its name, its ID or the end of its ID that `kodosi devices list` shows.
+        computer: String,
+    },
+    /// Put one of your computers to sleep, wake it, and record on it whether it woke. If it does
+    /// not wake, someone must wake it by hand.
+    TestWake {
+        /// The computer: its name, its ID or the end of its ID that `kodosi devices list` shows.
+        computer: String,
+    },
+    /// Choose when a computer stays awake: `agents` while an agent works on it and for a few
+    /// minutes after, which is the setting at the start, `always` while it is plugged in and on
+    /// its battery as `agents`, or `never`. An agent that waits for you does not keep it awake.
+    /// Without a choice, show what this computer does.
+    KeepAwake {
+        #[arg(value_parser = ["agents", "always", "never"])]
+        when: Option<String>,
+        /// Another computer of yours, by the name that `kodosi devices list` shows.
+        #[arg(long, requires = "when")]
+        computer: Option<String>,
     },
     /// Start fresh on this device. Every other device loses access until you approve it again.
     /// When your account has devices, this device waits a day; then run it again. With one of
@@ -722,7 +751,7 @@ async fn dispatch(args: Arguments) -> Result<u8> {
         return Ok(code);
     }
     refuse_for_dosi(&args.command)?;
-    let mut client = local_host::connect_or_start(&config.data_root).await?;
+    let mut client = local_host::connect_or_start(&config.data_root, ClientKind::Command).await?;
     let mut context = Context::from_events(&client.initial_events);
     list_terminals(&args.command, &mut client, &mut context).await;
     let json_output = args.json;
@@ -740,6 +769,14 @@ async fn dispatch(args: Arguments) -> Result<u8> {
             projects::run(arguments, &mut client, &mut context, json_output).await
         }
         Action::Status => print_status(&context, json_output, render::status),
+        Action::Devices(DeviceAction::KeepAwake { when: None, .. }) => {
+            let state = context
+                .latest
+                .get("power.state")
+                .cloned()
+                .unwrap_or_default();
+            output(&state, json_output, &render::keeps_awake(&state))
+        }
         Action::Terminal(TerminalAction::List) => {
             print_status(&context, json_output, render::terminals)
         }
@@ -803,6 +840,9 @@ async fn dispatch(args: Arguments) -> Result<u8> {
         }
         Action::Devices(DeviceAction::Link { code }) => {
             link_device(&mut client, &mut context, code, json_output).await
+        }
+        Action::Devices(action @ (DeviceAction::Wake { .. } | DeviceAction::TestWake { .. })) => {
+            wake_computer(&mut client, &mut context, action, json_output).await
         }
         Action::Devices(DeviceAction::Add) => {
             add_device(&mut client, &mut context, json_output).await
@@ -978,6 +1018,16 @@ async fn reset_id(client: &mut local_host::Client, context: &mut Context) -> Res
         .and_then(|list| list["reset"]["resetId"].as_str())
         .map(str::to_owned)
         .ok_or_else(|| Error::Invalid("No device asked to start fresh.".to_owned()))
+}
+
+fn sleep_warning(context: &Context, computer: Option<&str>) -> Option<String> {
+    let computer = computer?;
+    context.latest.get("power.state")?["computers"]
+        .as_array()?
+        .iter()
+        .find(|entry| entry["deviceId"] == computer)?["sleepWarning"]
+        .as_str()
+        .map(str::to_owned)
 }
 
 async fn computer_id(
@@ -1231,10 +1281,12 @@ async fn share(
     };
     let started = tokio::time::Instant::now();
     let event = loop {
-        let command = json!({"type":"session.share","requestId":Uuid::now_v7().to_string(),"sessionId":id,"expectedRuntimeIncarnationId":context.incarnation(id)?,"userIds":users});
+        let request_id = Uuid::now_v7().to_string();
+        let command = json!({"type":"session.share","requestId":request_id,"sessionId":id,"expectedRuntimeIncarnationId":context.incarnation(id)?,"userIds":users,"expectedUserIds":current});
         match request(client, context, command, json_output).await {
             Err(Error::Other(message))
                 if message == crate::runtime::not_published().to_string()
+                    && !context.waited.contains(&request_id)
                     && started.elapsed() < Duration::from_secs(10) =>
             {
                 tokio::time::sleep(Duration::from_millis(500)).await;
@@ -1272,6 +1324,58 @@ async fn link_device(
         )),
         _ => Err(Error::Other("The request was cancelled.".into())),
     }
+}
+
+/// The longest wait of the host for a computer that wakes, and for one that a test puts to sleep
+/// first, each with a margin.
+const WAKE_LIMIT: Duration = Duration::from_mins(2);
+const TEST_WAKE_LIMIT: Duration = Duration::from_mins(4);
+
+async fn wake_computer(
+    client: &mut local_host::Client,
+    context: &mut Context,
+    action: DeviceAction,
+    json_output: bool,
+) -> Result<()> {
+    let test = matches!(action, DeviceAction::TestWake { .. });
+    let command = device_command(action, client, context).await?;
+    let id = command["deviceId"].as_str().unwrap_or_default().to_owned();
+    request(client, context, command, true).await?;
+    let limit = if test { TEST_WAKE_LIMIT } else { WAKE_LIMIT };
+    let state = tokio::time::timeout(limit, async {
+        loop {
+            let state = resolved(client, context, "power.state").await?;
+            let own = state["computers"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|entry| entry["deviceId"] == id.as_str())
+                .cloned()
+                .unwrap_or_default();
+            if own.get("busy").is_none() {
+                return Ok::<_, Error>(own);
+            }
+        }
+    })
+    .await
+    .map_err(|_| Error::Other("The computer did not come back in time.".into()))??;
+    let online = context
+        .latest
+        .get("devices.hosts")
+        .and_then(|hosts| hosts["deviceIds"].as_array())
+        .is_some_and(|hosts| hosts.iter().any(|host| host.as_str() == Some(id.as_str())));
+    let problem = state["problem"].as_str();
+    if !online {
+        return Err(Error::Other(
+            problem.unwrap_or("The computer did not wake.").to_owned(),
+        ));
+    }
+    let words = match (test, problem) {
+        (_, Some(problem)) => return Err(Error::Other(problem.to_owned())),
+        (false, None) => "The computer is awake.",
+        (true, None) => "The computer woke. The test is recorded.",
+    };
+    output(&state, json_output, words)
 }
 
 async fn add_device(
@@ -1431,6 +1535,28 @@ async fn device_command(
         DeviceAction::Revoke { device } => {
             let id = device_id(client, context, &device, "device").await?;
             json!({"type":"devices.revoke","deviceId":id})
+        }
+        DeviceAction::Sleep { computer } => {
+            let computer = computer_id(client, context, &computer).await?;
+            if let Some(warning) = sleep_warning(context, computer.as_deref()) {
+                drop(writeln!(io::stderr().lock(), "{warning}"));
+            }
+            json!({"type":"power.sleep","computer":computer})
+        }
+        DeviceAction::Wake { computer } => {
+            let id = device_id(client, context, &computer, "computer").await?;
+            json!({"type":"power.wake","deviceId":id})
+        }
+        DeviceAction::TestWake { computer } => {
+            let id = device_id(client, context, &computer, "computer").await?;
+            json!({"type":"power.test","deviceId":id})
+        }
+        DeviceAction::KeepAwake { when, computer } => {
+            let computer = match computer {
+                Some(reference) => computer_id(client, context, &reference).await?,
+                None => None,
+            };
+            json!({"type":"power.keepAwake","keepAwake":when.as_deref().unwrap_or("agents"),"computer":computer})
         }
         DeviceAction::Reset => json!({"type":"devices.reset"}),
         DeviceAction::ResetStop => {
@@ -1675,6 +1801,8 @@ struct Context {
     friends: Vec<Value>,
     latest: BTreeMap<String, Value>,
     contents: BTreeMap<String, Value>,
+    /// The requests that waited for the owner's OK, which must never ask the owner again.
+    waited: HashSet<String>,
 }
 impl Context {
     fn names(&self) -> HashSet<&str> {
@@ -1693,6 +1821,7 @@ impl Context {
             friends: vec![],
             latest: BTreeMap::new(),
             contents: BTreeMap::new(),
+            waited: HashSet::new(),
         };
         for event in events {
             value.observe(event);
@@ -1788,52 +1917,68 @@ async fn wait_answer(
     request_id: &str,
     json_output: bool,
 ) -> Result<Value> {
-    tokio::time::timeout(crate::protocol::answer_time(operation), async {
-        loop {
-            let frame = client.next().await?;
-            if frame.get("kind").and_then(Value::as_str) == Some("rejected")
-                && frame.get("requestId").and_then(Value::as_str) == Some(request_id)
-            {
-                return Err(Error::Other(
-                    frame["message"]
-                        .as_str()
-                        .unwrap_or("command rejected")
-                        .to_owned(),
-                ));
-            }
-            let Some(event) = frame.get("event") else {
-                continue;
-            };
-            if !context.observe(event) {
-                continue;
-            }
-            if let Some(answer) = crate::protocol::answer(event, request_id) {
-                return answer.map_err(Error::Other);
-            }
-            if event.get("requestId").and_then(Value::as_str) != Some(request_id) {
-                continue;
-            }
-            match event.get("type").and_then(Value::as_str) {
-                Some("auth.device_code") if !json_output => writeln!(
-                    io::stdout().lock(),
-                    "Open {} and enter {}",
-                    event["verificationUri"].as_str().unwrap_or_default(),
-                    event["userCode"].as_str().unwrap_or_default()
-                )?,
-                Some("auth.deletion_pending") if !json_output => writeln!(
-                    io::stdout().lock(),
-                    "Open {} and confirm the deletion",
-                    event["confirmationUri"].as_str().unwrap_or_default()
-                )?,
-                _ if json_output => print_json(event)?,
-                _ => {}
-            }
+    let mut deadline = tokio::time::Instant::now() + crate::protocol::answer_time(operation);
+    loop {
+        let frame = tokio::time::timeout_at(deadline, client.next())
+            .await
+            .map_err(|_| {
+                Error::Other(
+                    "No answer arrived in time, and Kodosi did not send the command again.".into(),
+                )
+            })??;
+        if frame.get("kind").and_then(Value::as_str) == Some("rejected")
+            && frame.get("requestId").and_then(Value::as_str) == Some(request_id)
+        {
+            return Err(Error::Other(
+                frame["message"]
+                    .as_str()
+                    .unwrap_or("command rejected")
+                    .to_owned(),
+            ));
         }
-    })
-    .await
-    .map_err(|_| {
-        Error::Other("No answer arrived in time, and Kodosi did not send the command again.".into())
-    })?
+        let Some(event) = frame.get("event") else {
+            continue;
+        };
+        if !context.observe(event) {
+            continue;
+        }
+        if let Some(answer) = crate::protocol::answer(event, request_id) {
+            return answer.map_err(Error::Other);
+        }
+        if event.get("requestId").and_then(Value::as_str) != Some(request_id) {
+            continue;
+        }
+        match event.get("type").and_then(Value::as_str) {
+            Some("auth.device_code") if !json_output => writeln!(
+                io::stdout().lock(),
+                "Open {} and enter {}",
+                event["verificationUri"].as_str().unwrap_or_default(),
+                event["userCode"].as_str().unwrap_or_default()
+            )?,
+            Some("auth.deletion_pending") if !json_output => writeln!(
+                io::stdout().lock(),
+                "Open {} and confirm the deletion",
+                event["confirmationUri"].as_str().unwrap_or_default()
+            )?,
+            Some("sharing.waiting") => {
+                context.waited.insert(request_id.to_owned());
+                deadline = tokio::time::Instant::now()
+                    + crate::protocol::APPROVAL_WAIT
+                    + crate::protocol::answer_time(operation);
+                if json_output {
+                    print_json(event)?;
+                } else {
+                    writeln!(
+                        io::stdout().lock(),
+                        "{}",
+                        event["message"].as_str().unwrap_or_default()
+                    )?;
+                }
+            }
+            _ if json_output => print_json(event)?,
+            _ => {}
+        }
+    }
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -1925,7 +2070,7 @@ fn print_status(context: &Context, json_output: bool, text: fn(&Context) -> Stri
 }
 
 async fn stop_host(config: &Config, force: bool, json_output: bool) -> Result<()> {
-    local_host::stop_other_host(&config.data_root, force).await?;
+    local_host::stop_other_host(&config.data_root, force, false).await?;
     output(
         &json!({"stopped":true}),
         json_output,

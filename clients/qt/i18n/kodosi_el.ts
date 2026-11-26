@@ -177,6 +177,14 @@
         <translation>Λήψη φακέλων από %1</translation>
     </message>
     <message>
+        <source>Waking %1…</source>
+        <translation>Αφύπνιση %1…</translation>
+    </message>
+    <message>
+        <source>Wake %1</source>
+        <translation>Αφύπνιση %1</translation>
+    </message>
+    <message>
         <source>Agents</source>
         <translation>Agents</translation>
     </message>
@@ -428,6 +436,26 @@
     <message>
         <source>Download</source>
         <translation>Λήψη</translation>
+    </message>
+    <message>
+        <source>Kodosi Browser starts again when you change one of these, and its open pages load again.</source>
+        <translation>Το Kodosi Browser ξεκινά ξανά όταν αλλάζετε μία από αυτές τις ρυθμίσεις, και οι ανοιχτές σελίδες του φορτώνουν ξανά.</translation>
+    </message>
+    <message>
+        <source>Form predictions from Google</source>
+        <translation>Προβλέψεις φορμών από την Google</translation>
+    </message>
+    <message>
+        <source>Sends Google a code of each form to learn what its fields are for</source>
+        <translation>Στέλνει στην Google έναν κωδικό κάθε φόρμας, για να μάθει σε τι χρησιμεύουν τα πεδία της</translation>
+    </message>
+    <message>
+        <source>Cross-site cookies</source>
+        <translation>Cookies μεταξύ ιστοτόπων</translation>
+    </message>
+    <message>
+        <source>Sites shown inside a page, such as YouTube or Google, know you there</source>
+        <translation>Οι ιστότοποι που εμφανίζονται μέσα σε μια σελίδα, όπως το YouTube ή η Google, σας αναγνωρίζουν εκεί</translation>
     </message>
     <message>
         <source>Sites then know you in your private terminals on this computer. Passkeys and sign-ins bound to a device stay in their own browser.</source>
@@ -911,20 +939,16 @@
         <translation>Αφαίρεση</translation>
     </message>
     <message>
+        <source>Command needs terminal view</source>
+        <translation>Η εντολή χρειάζεται την προβολή τερματικού</translation>
+    </message>
+    <message>
+        <source>%1 reads this before its next step.</source>
+        <translation>Το %1 το διαβάζει πριν από το επόμενο βήμα του.</translation>
+    </message>
+    <message>
         <source>Waiting for %1</source>
         <translation>Περιμένει το %1</translation>
-    </message>
-    <message>
-        <source>The agent takes the next message in its terminal.</source>
-        <translation>Ο agent δέχεται το επόμενο μήνυμα στο τερματικό του.</translation>
-    </message>
-    <message>
-        <source>%1 shows this in its terminal.</source>
-        <translation>Το %1 το δείχνει στο τερματικό του.</translation>
-    </message>
-    <message>
-        <source>Show the terminal</source>
-        <translation>Εμφάνιση τερματικού</translation>
     </message>
     <message>
         <source>No agent runs in this terminal</source>
@@ -983,6 +1007,25 @@
             <numerusform>%n εντολή εκτελείται στο παρασκήνιο</numerusform>
             <numerusform>%n εντολές εκτελούνται στο παρασκήνιο</numerusform>
         </translation>
+    </message>
+    <message>
+        <source>Settings</source>
+        <translation>Ρυθμίσεις</translation>
+    </message>
+</context>
+<context>
+    <name>ChatSettings</name>
+    <message>
+        <source>Find a setting</source>
+        <translation>Εύρεση ρύθμισης</translation>
+    </message>
+    <message>
+        <source>No setting matches</source>
+        <translation>Καμία ρύθμιση δεν ταιριάζει</translation>
+    </message>
+    <message>
+        <source>Locked</source>
+        <translation>Κλειδωμένο</translation>
     </message>
 </context>
 <context>
@@ -1305,6 +1348,17 @@
     </message>
 </context>
 <context>
+    <name>CopyKey</name>
+    <message>
+        <source>Copy</source>
+        <translation>Αντιγραφή</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>Αντιγράφηκε</translation>
+    </message>
+</context>
+<context>
     <name>CutAction</name>
     <message>
         <source>Cut</source>
@@ -1431,12 +1485,60 @@
         <translation>Οι συσκευές σας</translation>
     </message>
     <message>
+        <source>Always awake</source>
+        <translation>Πάντα ξύπνιος</translation>
+    </message>
+    <message>
+        <source>Can sleep while agents work</source>
+        <translation>Μπορεί να μπει σε ύπνο όσο δουλεύουν οι agents</translation>
+    </message>
+    <message>
         <source>Approves a new device when you have no other device</source>
         <translation>Εγκρίνει μια νέα συσκευή όταν δεν έχετε άλλη</translation>
     </message>
     <message>
         <source>This computer</source>
         <translation>Αυτός ο υπολογιστής</translation>
+    </message>
+    <message>
+        <source>Testing…</source>
+        <translation>Δοκιμή…</translation>
+    </message>
+    <message>
+        <source>Waking…</source>
+        <translation>Αφύπνιση…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>Αφύπνιση</translation>
+    </message>
+    <message>
+        <source>Options for %1</source>
+        <translation>Επιλογές για %1</translation>
+    </message>
+    <message>
+        <source>Stay awake</source>
+        <translation>Αποτροπή ύπνου</translation>
+    </message>
+    <message>
+        <source>While agents work</source>
+        <translation>Όσο δουλεύουν οι agents</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>Πάντα</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>Ποτέ</translation>
+    </message>
+    <message>
+        <source>Test wake…</source>
+        <translation>Δοκιμή αφύπνισης…</translation>
+    </message>
+    <message>
+        <source>Sleep…</source>
+        <translation>Ύπνος…</translation>
     </message>
     <message>
         <source>Remove…</source>
@@ -1589,6 +1691,30 @@
     <message>
         <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your projects again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and projects.</source>
         <translation>Οι άλλες συσκευές σας χάνουν την πρόσβαση μέχρι να τις εγκρίνετε ξανά από αυτόν τον υπολογιστή. Οι φίλοι πρέπει να σας εμπιστευτούν ξανά και δημιουργείτε ξανά τα έργα σας. Αν ο λογαριασμός σας έχει συσκευές, αυτός ο υπολογιστής περιμένει μία ημέρα. Αν έχετε άλλη συσκευή ή κλειδί ανάκτησης, ακυρώστε και χρησιμοποιήστε τα: κρατάτε τους φίλους και τα έργα σας.</translation>
+    </message>
+    <message>
+        <source>Put %1 to sleep?</source>
+        <translation>Να τεθεί ο υπολογιστής %1 σε ύπνο;</translation>
+    </message>
+    <message>
+        <source>Sleep</source>
+        <translation>Ύπνος</translation>
+    </message>
+    <message>
+        <source>Its terminals pause until it wakes.</source>
+        <translation>Τα τερματικά του σταματούν προσωρινά μέχρι να ξυπνήσει.</translation>
+    </message>
+    <message>
+        <source>Test the wake of %1?</source>
+        <translation>Δοκιμή αφύπνισης του υπολογιστή %1;</translation>
+    </message>
+    <message>
+        <source>Test</source>
+        <translation>Δοκιμή</translation>
+    </message>
+    <message>
+        <source>Kodosi puts it to sleep and wakes it again. Its terminals pause for about a minute. If it does not wake, wake it by hand.</source>
+        <translation>Το Kodosi τον θέτει σε ύπνο και τον ξυπνά ξανά. Τα τερματικά του σταματούν προσωρινά για περίπου ένα λεπτό. Αν δεν ξυπνήσει, ξυπνήστε τον με το χέρι.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2401,41 +2527,6 @@
     </message>
 </context>
 <context>
-    <name>FriendTrustDialog</name>
-    <message>
-        <source>I trust %1</source>
-        <translation>Εμπιστεύομαι τον χρήστη %1</translation>
-    </message>
-    <message>
-        <source>I trust them</source>
-        <translation>Εμπιστεύομαι αυτό το άτομο</translation>
-    </message>
-    <message>
-        <source>You</source>
-        <translation>Εσείς</translation>
-    </message>
-    <message>
-        <source>Stop and read</source>
-        <translation>Σταματήστε και διαβάστε</translation>
-    </message>
-    <message>
-        <source>Do you trust %1 completely?</source>
-        <translation>Εμπιστεύεστε πλήρως τον χρήστη %1;</translation>
-    </message>
-    <message>
-        <source>Do you trust this person completely?</source>
-        <translation>Εμπιστεύεστε πλήρως αυτό το άτομο;</translation>
-    </message>
-    <message>
-        <source>A friend can type in each terminal that you share with them, as you, with your rights on that computer.</source>
-        <translation>Ένας φίλος μπορεί να πληκτρολογεί σε κάθε τερματικό που μοιράζεστε μαζί του, ως εσείς, με τα δικαιώματά σας σε εκείνον τον υπολογιστή.</translation>
-    </message>
-    <message>
-        <source>Add only a person that you would let use your computer.</source>
-        <translation>Προσθέστε μόνο άτομα που θα αφήνατε να χρησιμοποιήσουν τον υπολογιστή σας.</translation>
-    </message>
-</context>
-<context>
     <name>GeneralSettings</name>
     <message>
         <source>Continue in your browser</source>
@@ -2572,6 +2663,46 @@
     <message>
         <source>Your terminals keep running. Open Kodosi again to see them.</source>
         <translation>Τα τερματικά σας συνεχίζουν να τρέχουν. Ανοίξτε ξανά το Kodosi για να τα δείτε.</translation>
+    </message>
+    <message>
+        <source>Update automatically</source>
+        <translation>Αυτόματη ενημέρωση</translation>
+    </message>
+    <message>
+        <source>Kodosi installs updates by itself while nobody uses it.</source>
+        <translation>Το Kodosi εγκαθιστά τις ενημερώσεις μόνο του όταν κανείς δεν το χρησιμοποιεί.</translation>
+    </message>
+    <message>
+        <source>Kodosi installs updates when you restart it.</source>
+        <translation>Το Kodosi εγκαθιστά τις ενημερώσεις όταν το επανεκκινείτε.</translation>
+    </message>
+    <message>
+        <source>Stay awake</source>
+        <translation>Αποτροπή ύπνου</translation>
+    </message>
+    <message>
+        <source>This computer does not go to sleep by itself while Kodosi runs. On battery, it stays awake only while agents work.</source>
+        <translation>Αυτός ο υπολογιστής δεν μπαίνει μόνος του σε ύπνο όσο τρέχει το Kodosi. Με μπαταρία, μένει ξύπνιος μόνο όσο δουλεύουν agents.</translation>
+    </message>
+    <message>
+        <source>This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.</source>
+        <translation>Αυτός ο υπολογιστής μπορεί να μπει σε ύπνο όσο δουλεύει ένας agent. Ο agent τότε σταματά προσωρινά μέχρι να ξυπνήσει ο υπολογιστής.</translation>
+    </message>
+    <message>
+        <source>This computer does not go to sleep by itself while an agent works, or for a few minutes after. An agent that waits for you does not keep it awake.</source>
+        <translation>Αυτός ο υπολογιστής δεν μπαίνει μόνος του σε ύπνο όσο δουλεύει ένας agent, ούτε για λίγα λεπτά μετά. Ένας agent που σας περιμένει δεν τον κρατά ξύπνιο.</translation>
+    </message>
+    <message>
+        <source>While agents work</source>
+        <translation>Όσο δουλεύουν οι agents</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>Πάντα</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>Ποτέ</translation>
     </message>
     <message>
         <source>Notifications</source>
@@ -3206,10 +3337,6 @@
         <translation>Αποχώρηση από το έργο…</translation>
     </message>
     <message>
-        <source>Share with %1</source>
-        <translation>Κοινή χρήση με %1</translation>
-    </message>
-    <message>
         <source>Terminal</source>
         <translation>Τερματικό</translation>
     </message>
@@ -3268,6 +3395,10 @@
     <message>
         <source>Report…</source>
         <translation>Αναφορά…</translation>
+    </message>
+    <message>
+        <source>Share with project %1</source>
+        <translation>Κοινή χρήση στο έργο %1</translation>
     </message>
     <message>
         <source>Delete %1?</source>
@@ -3485,33 +3616,6 @@
     <message>
         <source>Refresh</source>
         <translation>Ανανέωση</translation>
-    </message>
-</context>
-<context>
-    <name>ProjectShareDialog</name>
-    <message>
-        <source>the project</source>
-        <translation>το έργο</translation>
-    </message>
-    <message>
-        <source>Share %1 with %2?</source>
-        <translation>Κοινή χρήση του %1 με %2;</translation>
-    </message>
-    <message>
-        <source>this terminal</source>
-        <translation>αυτό το τερματικό</translation>
-    </message>
-    <message>
-        <source>Share</source>
-        <translation>Κοινή χρήση</translation>
-    </message>
-    <message>
-        <source>Everyone in %1 gets full control of it. It leaves %2.</source>
-        <translation>Όλοι στο %1 αποκτούν πλήρη έλεγχο. Φεύγει από το %2.</translation>
-    </message>
-    <message>
-        <source>Everyone in %1 gets full control of it.</source>
-        <translation>Όλοι στο %1 αποκτούν πλήρη έλεγχο.</translation>
     </message>
 </context>
 <context>
@@ -3787,6 +3891,13 @@
             <numerusform>%n τερματικά σε αυτόν τον υπολογιστή σταματούν. Ξεκινούν ξανά όταν ανοίξει το Kodosi.</numerusform>
         </translation>
     </message>
+    <message numerus="yes">
+        <source>%n running programs stop.</source>
+        <translation>
+            <numerusform>%n πρόγραμμα που εκτελείται σταματά.</numerusform>
+            <numerusform>%n προγράμματα που εκτελούνται σταματούν.</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>ReconnectingNotice</name>
@@ -3890,6 +4001,10 @@
 </context>
 <context>
     <name>SessionDetails</name>
+    <message>
+        <source>Shared with project %1</source>
+        <translation>Κοινόχρηστο στο έργο %1</translation>
+    </message>
     <message>
         <source>Shared with %1</source>
         <translation>Κοινόχρηστο με %1</translation>
@@ -4003,6 +4118,10 @@
     <message>
         <source>Stop sharing</source>
         <translation>Διακοπή κοινής χρήσης</translation>
+    </message>
+    <message>
+        <source>Share with project %1</source>
+        <translation>Κοινή χρήση στο έργο %1</translation>
     </message>
     <message>
         <source>Shared</source>
@@ -4786,6 +4905,14 @@
         <translation>Το τερματικό θα ανοίξει όταν επιστρέψει ο υπολογιστής του.</translation>
     </message>
     <message>
+        <source>Waking…</source>
+        <translation>Αφύπνιση…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>Αφύπνιση</translation>
+    </message>
+    <message>
         <source>The terminal opens when the connection is back.</source>
         <translation>Το τερματικό θα ανοίξει όταν επανέλθει η σύνδεση.</translation>
     </message>
@@ -4824,6 +4951,18 @@
     <message>
         <source>Paste</source>
         <translation>Επικόλληση</translation>
+    </message>
+    <message>
+        <source>Lines added: %1. Lines removed: %2.</source>
+        <translation>Γραμμές που προστέθηκαν: %1. Γραμμές που αφαιρέθηκαν: %2.</translation>
+    </message>
+    <message>
+        <source>Show the changes</source>
+        <translation>Εμφάνιση των αλλαγών</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Συνέχεια</translation>
     </message>
 </context>
 <context>
@@ -5456,10 +5595,6 @@
     <message>
         <source>You cannot do this in the selected terminal.</source>
         <translation>Δεν μπορείτε να το κάνετε αυτό στο επιλεγμένο τερματικό.</translation>
-    </message>
-    <message>
-        <source>Change sharing on the computer that hosts this terminal.</source>
-        <translation>Αλλάξτε την κοινή χρήση στον υπολογιστή που φιλοξενεί αυτό το τερματικό.</translation>
     </message>
     <message>
         <source>Sign in before you share a terminal.</source>

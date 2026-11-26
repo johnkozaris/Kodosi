@@ -64,6 +64,8 @@ public extension ProjectStore {
         for friend in friends {
             do {
                 try await invite(friend, to: projectId)
+            } catch RuntimeError.refused {
+                continue
             } catch {
                 missed += 1
             }
@@ -115,7 +117,9 @@ public extension ProjectStore {
     }
 
     func report(_ error: any Error) {
-        guard !(error is CancellationError) else { return }
-        notify(error.localizedDescription)
+        switch error {
+        case is CancellationError, RuntimeError.refused: return
+        default: notify(error.localizedDescription)
+        }
     }
 }

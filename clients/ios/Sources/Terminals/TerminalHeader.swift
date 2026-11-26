@@ -9,10 +9,15 @@ struct TerminalTitle: View {
     let unreachable: Bool
     let rename: (() -> Void)?
     let reconnect: () -> Void
+    let showChanges: () -> Void
 
     var body: some View {
         HStack(spacing: 10) {
             title
+            if let changes = session.changes {
+                BranchChangesKey(changes: changes, show: showChanges)
+                    .accessibilityIdentifier("terminal.header.changes")
+            }
             if unreachable, session.isConnected {
                 Button("Try again", action: reconnect)
                     .buttonStyle(.kodosi(.tinted, size: .small))
@@ -125,7 +130,6 @@ struct TerminalTitle: View {
 }
 
 struct TerminalMenu: View {
-    @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
     let session: RuntimeSession
     @Binding var prompt: TerminalPrompt?
@@ -139,10 +143,10 @@ struct TerminalMenu: View {
     var body: some View {
         Menu {
             if let live = session.programLive {
-                AgentMenuSection(session: session, live: live)
+                AgentMenuSection(session: session, live: live, nested: true)
             }
             if session.canControl {
-                Section("Canvas") {
+                Section {
                     Button("Open Browser", systemImage: "globe", action: openBrowser)
                         .accessibilityIdentifier("terminal.menu.browser")
                     if session.showsScreen {
@@ -153,11 +157,11 @@ struct TerminalMenu: View {
                         .accessibilityIdentifier("terminal.menu.addFile")
                 }
             }
-            Section("Terminal") {
+            Section {
                 if session.isOwner {
                     Button("Rename", systemImage: "pencil") { prompt = .rename(session) }
                         .accessibilityIdentifier("terminal.menu.rename")
-                    Button("Share with a project", systemImage: "person.badge.plus") { showsSharing = true }
+                    Button("Share…", systemImage: "person.badge.plus") { showsSharing = true }
                         .accessibilityIdentifier("terminal.menu.sharing")
                 } else {
                     Button("Sharing", systemImage: "person.2") { showsSharing = true }
@@ -168,15 +172,8 @@ struct TerminalMenu: View {
                         .accessibilityIdentifier("terminal.menu.interrupt")
                 }
             }
-            let inProject = session.isOwner && session.projectId != nil
-            if inProject || session.canLeave || session.canClose {
+            if session.canLeave || session.canClose {
                 Divider()
-            }
-            if inProject {
-                Button("Remove from project", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
-                    model.terminals.removeFromProject(session)
-                }
-                .accessibilityIdentifier("terminal.menu.removeFromProject")
             }
             if session.canLeave {
                 Button("Leave", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { prompt = .leave(session) }

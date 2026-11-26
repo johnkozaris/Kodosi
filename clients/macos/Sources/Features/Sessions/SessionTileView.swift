@@ -137,11 +137,12 @@ struct SessionTileView: View {
             }
         } else if !session.isConnected {
             let away = session.status == .offline && session.connectionState != .blocked
+            let power = away ? session.hostDeviceId.flatMap { deps.power.computers[$0] } : nil
             TerminalStateCard(
                 symbol: session.connectionState == .blocked ? "lock" : "wifi.slash",
                 title: session.statusLabel,
-                message: away ? String(localized: "The terminal opens when its computer is back.") : session.message,
-                working: session.connectionState == .connecting,
+                message: away ? power?.problem ?? String(localized: "The terminal opens when its computer is back.") : session.message,
+                working: session.connectionState == .connecting || power?.busy == .waking,
             ) {
                 if session.connectionState == .offline, !away {
                     Button("Connect") { deps.activateSession(session.id) }
@@ -149,6 +150,11 @@ struct SessionTileView: View {
                         .accessibilityIdentifier("\(AccessibilityIdentifier.stageSession(session.id)).connect")
                 } else if session.connectionState == .blocked {
                     Button("Open devices") { deps.workbench.showAccount() }
+                } else if let power, power.canWake || power.busy == .waking {
+                    Button(power.canWake ? "Wake" : "Waking…") { deps.power.wake(power.deviceId) }
+                        .buttonStyle(.kodosi(.primary))
+                        .disabled(!power.canWake)
+                        .accessibilityIdentifier("\(AccessibilityIdentifier.stageSession(session.id)).wake")
                 }
             }
         } else {
@@ -162,7 +168,8 @@ struct SessionTileView: View {
                     .environment(\.terminalTileVisible, tileVisible && !chatting)
                 if chatting {
                     TerminalChatView(chat: deps.canvas.chat(session.id), agent: session.agent, me: deps.account.userId,
-                                     otherComputer: session.otherComputer)
+                                     otherComputer: session.otherComputer,
+                                     names: [session.name, session.projectName, session.folderName].compactMap(\.self))
                     {
                         deps.workbench.faces[session.id] = FacePick(.terminal, over: session.face)
                     } modelKey: { name, effort, open in
@@ -244,7 +251,7 @@ struct SessionTileView: View {
             } registerFocusRevoker: { revoker in
                 deps.terminalFocus.registerRevoker(surfaceId: surfaceId, revoker: revoker)
             } onShareShortcut: {
-                if session.kind == .local, session.isOwner {
+                if session.isOwner {
                     deps.workbench.sharingSessionId = session.id
                 } else {
                     deps.workbench.detailsSessionId = session.id

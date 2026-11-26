@@ -24,10 +24,15 @@ progetto condiviso. Rimuovere un amico revoca immediatamente l'accesso ai tuoi t
 ciascuno di voi dai progetti di proprietà dell'altro. Bloccare un utente ha lo stesso effetto e
 impedisce future richieste di amicizia.
 
-Ciascuno dei tuoi dispositivi approvati può controllare tutti i tuoi terminali, avviarne di nuovi
-sugli altri tuoi computer con Kodosi in esecuzione e inviare messaggi a Dosi su quei computer (dove
-Dosi agisce con lo stesso accesso locale di quando lo usi direttamente). Rimuovere un dispositivo ne
-revoca l'accesso ai terminali e a Dosi.
+Prima che qualcuno di nuovo entri nei tuoi terminali o progetti, Kodosi te lo chiede nell'app del
+dispositivo da cui parte la modifica, anche quando la chiede il comando `kodosi`, per esempio per un
+agente. Questo protegge da errori e agenti; chi scrive in un terminale che hai condiviso agisce come
+te e può aggirare questa domanda.
+
+Ciascuno dei tuoi dispositivi approvati può controllare tutti i tuoi terminali, scegliere con chi
+condividerli, avviarne di nuovi sugli altri tuoi computer con Kodosi in esecuzione e inviare
+messaggi a Dosi su quei computer (dove Dosi agisce con lo stesso accesso locale di quando lo usi
+direttamente). Rimuovere un dispositivo ne revoca l'accesso ai terminali e a Dosi.
 
 ### Canvas e browser condiviso
 
@@ -49,10 +54,42 @@ Kodosi Browser a creare gli user namespace richiesti dalla sandbox di Chromium. 
 motivo, su Linux il browser condiviso non viene eseguito come root.
 
 Le app di Kodosi non includono Kodosi Browser. La prima volta che apri un browser condiviso su un
-computer, Kodosi lo scarica da `updates.kodosi.com` e verifica ogni giorno la disponibilità di
-aggiornamenti. Un download viene accettato solo se il feed degli aggiornamenti reca una firma valida
-della chiave di aggiornamento di Kodosi e se l'hash SHA-256 del file corrisponde a quello indicato
-nel feed.
+computer, Kodosi lo scarica dalle release di Kodosi su GitHub, e verifica ogni giorno la
+disponibilità di aggiornamenti nel feed degli aggiornamenti di Kodosi su `updates.kodosi.com`. Un
+download viene accettato solo se il feed degli aggiornamenti reca una firma valida della chiave di
+aggiornamento di Kodosi e se l'hash SHA-256 del file corrisponde a quello indicato nel feed.
+
+### Cosa invia Kodosi Browser a Google
+
+Kodosi Browser è Chromium, che contatta da solo questi servizi di Google, senza mai inviare loro i
+tuoi cookie:
+
+- Aggiornamenti dei suoi componenti, come l'elenco dei certificati revocati: circa ogni cinque ore
+  chiede a `update.googleapis.com` se ci sono nuove versioni e le scarica dai server di download di
+  Google (come `edgedl.me.gvt1.com`). Invia l'ID e la versione di ogni componente, la propria
+  versione, il sistema operativo e il processore, ma nessun dato di navigazione.
+- Navigazione sicura: mantiene elenchi di siti pericolosi ottenuti da `safebrowsing.googleapis.com`,
+  inviando solo lo stato dei propri elenchi. Quando l'indirizzo di una pagina corrisponde a un
+  elenco, invia i primi 4 byte di un hash dell'indirizzo, mai l'indirizzo stesso. Se il controllo
+  anti-phishing che esegue sul tuo computer ritiene che una pagina sia di phishing, invia
+  l'indirizzo di quella pagina a `sb-ssl.google.com` per averne conferma.
+- Ora di rete: quando non è sicuro dell'ora, interroga `clients2.google.com`, che gli indica se il
+  certificato di un sito è scaduto anche se il tuo orologio è sbagliato. La richiesta non contiene
+  nulla su di te.
+
+L'opzione **Previsioni dei moduli da Google** resta disattivata finché non la attivi in
+**Impostazioni › Browser**. Una volta attivata, Kodosi Browser invia a
+`content-autofill.googleapis.com` un hash di ogni modulo che mostra, calcolato dal nome del sito e
+dai nomi dei campi del modulo, e Google risponde indicando a cosa serve ciascun campo. Quando invii
+un modulo, indica anche che tipo di dati conteneva ciascun campo, mai ciò che hai digitato. Kodosi
+Browser non si connette mai a `www.google.com` in previsione di una ricerca, e non chiede mai a
+Google, con i tuoi cookie di Google, se la barra degli indirizzi di Chrome stessa può offrire la
+Modalità AI.
+
+Anche l'opzione **Cookie tra siti** resta disattivata finché non la attivi in
+**Impostazioni › Browser**. Finché è disattivata, un sito mostrato dentro la pagina di un altro
+sito, come un video di YouTube o un pulsante di accesso, lì non riceve i propri cookie, quindi non
+può riconoscerti nei diversi siti che visiti.
 
 ### Lo schermo di un computer
 
@@ -96,7 +133,8 @@ attesa di approvazione, mai il testo del terminale), se hai già visualizzato qu
 header di instradamento, le tempistiche e le dimensioni del testo cifrato (tranne per il traffico
 che segue un percorso peer-to-peer diretto). Vede inoltre lo stato di attività di ciascun
 dispositivo (in Kodosi, in un'altra app desktop o inattivo), così da inviare le notifiche solo a un
-dispositivo attivo.
+dispositivo attivo. Non vede come si riattivano i tuoi computer: i loro indirizzi di rete e le
+impostazioni di riattivazione viaggiano solo tra i tuoi dispositivi, crittografati end-to-end.
 
 Le notifiche push mobili transitano tramite APNs di Apple o FCM di Google. Questi provider vedono
 gli ID dei terminali in attesa, completati o non riusciti insieme al tipo di agente e allo stato,

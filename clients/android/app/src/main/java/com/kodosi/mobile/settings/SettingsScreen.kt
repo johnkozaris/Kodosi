@@ -81,7 +81,7 @@ import com.kodosi.mobile.ui.raised
 import kotlinx.coroutines.launch
 
 @Composable
-fun SettingsScreen(model: AppModel, friends: () -> Unit, licenses: () -> Unit) {
+fun SettingsScreen(model: AppModel, friends: () -> Unit, licenses: () -> Unit, computer: (String) -> Unit) {
     val account by model.account.state.collectAsStateWithLifecycle()
     val people by model.people.state.collectAsStateWithLifecycle()
     val preferences by model.preferences.state.collectAsStateWithLifecycle()
@@ -192,28 +192,56 @@ fun SettingsScreen(model: AppModel, friends: () -> Unit, licenses: () -> Unit) {
                             else -> 1
                         }
                     }.forEach { device ->
-                        ListLine(
-                            if (device.recoveryKey) stringResource(R.string.recovery_key) else device.label,
-                            subtitle = when {
-                                device.deviceId == account.selfDeviceId -> stringResource(R.string.this_device)
-                                device.recoveryKey -> stringResource(R.string.recovery_message)
-                                else -> null
-                            },
-                            leading = {
-                                IconTile(
-                                    when {
-                                        device.recoveryKey -> AppSymbol.KEY
-                                        device.deviceId == account.selfDeviceId -> AppSymbol.PHONE
-                                        else -> AppSymbol.COMPUTER
-                                    },
-                                    if (device.recoveryKey) TileTint.amber else TileTint.graphite
-                                )
+                        val power = account.power[device.deviceId]
+                        val awake = when (power?.keepAwake) {
+                            "always" -> stringResource(R.string.always_awake)
+                            "never" -> stringResource(R.string.can_sleep_while_agents_work)
+                            else -> null
+                        }
+                        val state = listOfNotNull(awake, power?.problem ?: power?.note).joinToString(" · ")
+                        if (power != null && device.deviceId != account.selfDeviceId) {
+                            ListButton({ computer(device.deviceId) }) {
+                                ListLine(
+                                    device.label,
+                                    subtitle = state.ifEmpty { null },
+                                    leading = { IconTile(AppSymbol.COMPUTER, TileTint.graphite) }
+                                ) {
+                                    if (power.busy != null) {
+                                        Text(
+                                            stringResource(
+                                                if (power.waking) R.string.waking else R.string.testing_wake
+                                            ),
+                                            style = KodosiType.footnote,
+                                            color = colors.inkMuted
+                                        )
+                                    }
+                                    AppIcon(AppSymbol.FORWARD, Modifier.size(10.dp), tint = colors.inkFaint)
+                                }
                             }
-                        ) {
-                            if (device.deviceId != account.selfDeviceId) {
-                                KodosiTextButton(onClick = {
-                                    removing = device
-                                }) { Text(stringResource(R.string.remove)) }
+                        } else {
+                            ListLine(
+                                if (device.recoveryKey) stringResource(R.string.recovery_key) else device.label,
+                                subtitle = when {
+                                    device.deviceId == account.selfDeviceId -> stringResource(R.string.this_device)
+                                    device.recoveryKey -> stringResource(R.string.recovery_message)
+                                    else -> state.ifEmpty { null }
+                                },
+                                leading = {
+                                    IconTile(
+                                        when {
+                                            device.recoveryKey -> AppSymbol.KEY
+                                            device.deviceId == account.selfDeviceId -> AppSymbol.PHONE
+                                            else -> AppSymbol.COMPUTER
+                                        },
+                                        if (device.recoveryKey) TileTint.amber else TileTint.graphite
+                                    )
+                                }
+                            ) {
+                                if (device.deviceId != account.selfDeviceId) {
+                                    KodosiTextButton(onClick = {
+                                        removing = device
+                                    }) { Text(stringResource(R.string.remove)) }
+                                }
                             }
                         }
                     }

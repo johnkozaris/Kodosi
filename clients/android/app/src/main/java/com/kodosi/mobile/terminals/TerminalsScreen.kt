@@ -2,6 +2,7 @@ package com.kodosi.mobile.terminals
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kodosi.mobile.R
+import com.kodosi.mobile.account.ComputerPower
 import com.kodosi.mobile.ui.ActionIcon
 import com.kodosi.mobile.ui.AgentMark
 import com.kodosi.mobile.ui.AppIcon
@@ -57,6 +59,7 @@ import com.kodosi.mobile.ui.HelperMarks
 import com.kodosi.mobile.ui.KodosiCard
 import com.kodosi.mobile.ui.KodosiField
 import com.kodosi.mobile.ui.KodosiSpinner
+import com.kodosi.mobile.ui.KodosiTextButton
 import com.kodosi.mobile.ui.KodosiTheme
 import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.MarkActivity
@@ -71,9 +74,12 @@ import com.kodosi.mobile.ui.snappy
 fun TerminalsScreen(
     store: TerminalStore,
     onlineHosts: Set<String>,
+    power: Map<String, ComputerPower>,
+    wake: (String) -> Unit,
     online: Boolean,
     summaryFirst: Boolean,
     open: (String) -> Unit,
+    computer: (String) -> Unit,
     start: (NewTerminalRequest) -> Unit
 ) {
     val colors = KodosiTheme.colors
@@ -112,6 +118,13 @@ fun TerminalsScreen(
                     } else {
                         null
                     },
+                    power[group.place.id].takeIf { own },
+                    if (own && group.place.id in power) {
+                        { computer(group.place.id) }
+                    } else {
+                        null
+                    },
+                    { wake(group.place.id) },
                     Modifier.animateItem(fade(), snappy(), fade())
                 )
             }
@@ -211,27 +224,49 @@ private fun SearchField(query: TextFieldState) {
 }
 
 @Composable
-private fun GroupHeader(group: TerminalGroup, start: (() -> Unit)?, modifier: Modifier = Modifier) {
+private fun GroupHeader(
+    group: TerminalGroup,
+    start: (() -> Unit)?,
+    power: ComputerPower?,
+    open: (() -> Unit)?,
+    wake: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val colors = KodosiTheme.colors
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier.fillMaxWidth().padding(top = 18.dp, bottom = 4.dp).semantics(mergeDescendants = true) {
-            heading()
-        }
+        modifier = modifier.fillMaxWidth().padding(top = 18.dp, bottom = 4.dp)
     ) {
-        val glyph = if (group.place is TerminalGroup.Place.Friend) R.drawable.ic_person else R.drawable.ic_laptop
-        Glyph(glyph, if (group.away) colors.inkFaint else colors.inkMuted, 18.dp)
-        Spacer(Modifier.width(7.dp))
-        Text(
-            group.place.name,
-            style = KodosiType.subhead,
-            color = colors.inkMuted,
-            modifier = Modifier.weight(1f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Spacer(Modifier.width(7.dp))
-        Text(group.sessions.size.toString(), style = KodosiType.caption, color = colors.inkFaint)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f)
+                .then(if (open != null) Modifier.clickable(onClick = open) else Modifier)
+                .semantics(mergeDescendants = true) { heading() }
+        ) {
+            val glyph = if (group.place is TerminalGroup.Place.Friend) R.drawable.ic_person else R.drawable.ic_laptop
+            Glyph(glyph, if (group.away) colors.inkFaint else colors.inkMuted, 18.dp)
+            Spacer(Modifier.width(7.dp))
+            Text(
+                group.place.name,
+                style = KodosiType.subhead,
+                color = colors.inkMuted,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.width(7.dp))
+            Text(group.sessions.size.toString(), style = KodosiType.caption, color = colors.inkFaint)
+            if (open != null) {
+                Spacer(Modifier.width(6.dp))
+                AppIcon(AppSymbol.FORWARD, Modifier.size(9.dp), tint = colors.inkFaint)
+            }
+        }
+        if (power?.waking == true) {
+            Spacer(Modifier.width(10.dp))
+            Text(stringResource(R.string.waking), style = KodosiType.caption, color = colors.inkMuted)
+        } else if (power?.canWake == true) {
+            KodosiTextButton(onClick = wake) { Text(stringResource(R.string.wake_computer)) }
+        }
         if (start != null) ActionIcon(AppSymbol.ADD, R.string.new_terminal, start)
     }
 }

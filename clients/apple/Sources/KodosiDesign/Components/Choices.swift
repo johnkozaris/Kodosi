@@ -19,6 +19,7 @@ public struct ProjectChoice: View {
             if selected {
                 Image(systemName: "checkmark").font(scaled: 9, weight: .bold)
                     .foregroundStyle(theme.colors.accentStrong).transition(AnyTransition.pop)
+                    .accessibilityHidden(true)
             }
         }
         .foregroundStyle(selected ? theme.colors.ink : theme.colors.inkMuted)

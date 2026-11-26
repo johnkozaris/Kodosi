@@ -8,7 +8,8 @@ struct AddFriendSheet: View {
     @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
     @State private var text: String
-    @State private var trusting: FriendTrust?
+    @State private var adding = false
+    @State private var failure: String?
     @State private var showingInvite = false
     @State private var scanning = false
     @FocusState private var focused: Bool
@@ -41,11 +42,14 @@ struct AddFriendSheet: View {
                     }
                     VStack(spacing: 12) {
                         field
+                        if let failure {
+                            ErrorNote(message: failure).transition(AnyTransition.rise)
+                        }
                         Button(action: add) {
-                            Text("Add friend").frame(maxWidth: .infinity)
+                            Text(adding ? "Adding…" : "Add friend").frame(maxWidth: .infinity).shimmer(adding)
                         }
                         .buttonStyle(.kodosi(.primary, size: .large))
-                        .disabled(trimmed.isEmpty)
+                        .disabled(trimmed.isEmpty || adding)
                         .accessibilityIdentifier("people.addFriend")
                         if DataScannerViewController.isSupported {
                             Button { scanning = true } label: {
@@ -81,6 +85,7 @@ struct AddFriendSheet: View {
             }
             .scrollBounceBehavior(.basedOnSize)
             .scrollDismissesKeyboard(.interactively)
+            .animation(theme.motion.spring, value: failure)
             .background(theme.colors.surface)
             .navigationTitle("Add a friend")
             .navigationBarTitleDisplayMode(.inline)
@@ -93,7 +98,6 @@ struct AddFriendSheet: View {
         }
         .presentationDetents([.large])
         .kodosiSheet()
-        .friendTrust($trusting) { _ in confirm() }
         .sheet(isPresented: $showingInvite) { InviteCodeSheet() }
         .sheet(isPresented: $scanning) {
             CodeScanSheet(title: "Scan their invite", scan: CodeScan(
@@ -102,13 +106,13 @@ struct AddFriendSheet: View {
             ) { invite in
                 scanning = false
                 text = invite
-                trusting = .add(invite)
+                send(invite)
             })
         }
         .task {
-            if let opened {
-                self.opened = nil
-                trusting = .add(opened)
+            if let invite = opened {
+                opened = nil
+                send(invite)
             }
             if model.people.ownInvite == nil {
                 model.people.requestInvite()
@@ -170,12 +174,22 @@ struct AddFriendSheet: View {
     }
 
     private func add() {
-        guard !trimmed.isEmpty else { return }
-        trusting = .add(trimmed)
+        send(trimmed)
     }
 
-    private func confirm() {
-        guard model.people.add(trimmed) else { return }
-        dismiss()
+    private func send(_ invite: String) {
+        guard !invite.isEmpty, !adding else { return }
+        adding = true
+        failure = nil
+        Task {
+            defer { adding = false }
+            do {
+                try await model.people.add(invite)
+                dismiss()
+            } catch RuntimeError.refused {
+            } catch {
+                failure = error.localizedDescription
+            }
+        }
     }
 }

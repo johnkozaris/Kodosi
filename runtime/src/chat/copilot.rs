@@ -52,6 +52,8 @@ struct Turn {
     began: u64,
     stopped: bool,
     failed: bool,
+    /// Copilot did not take a message into this turn, so the next ones wait for its end.
+    refuses_messages: bool,
 }
 
 struct Helper {
@@ -107,6 +109,8 @@ struct Handed {
     queued: String,
     text: String,
     by: Option<ChatPerson>,
+    /// Given to the turn that runs, as Enter gives a message in Copilot's terminal.
+    into_turn: bool,
 }
 
 impl Copilot {
@@ -754,7 +758,8 @@ impl Copilot {
     }
 
     /// Handles acknowledgement of a handed prompt. A bare `/plan` has empty text and only
-    /// switches modes without emitting `user.message`, so it is unqueued immediately here.
+    /// switches modes without emitting `user.message`, so it is unqueued immediately here. A
+    /// message that Copilot gave back before a stop waits in the queue for the next turn.
     fn did(&mut self, chat: &mut Chat, event: &Value) {
         let n = event.get("n").and_then(Value::as_u64);
         let Some(index) = self.handed.iter().position(|handed| Some(handed.n) == n) else {
@@ -763,8 +768,19 @@ impl Copilot {
         match words(event, "error") {
             Some(error) => {
                 if let Some(handed) = self.handed.remove(index) {
-                    chat.refuse(&handed.queued, error);
-                    self.held = true;
+                    if handed.into_turn {
+                        if let Some(turn) = &mut self.turn {
+                            turn.refuses_messages = true;
+                        }
+                    } else {
+                        chat.refuse(&handed.queued, Some(error));
+                        self.held = true;
+                    }
+                }
+            }
+            None if event.get("back").and_then(Value::as_bool) == Some(true) => {
+                if let Some(handed) = self.handed.remove(index) {
+                    chat.take_back(&handed.queued);
                 }
             }
             None if self.handed[index].text.is_empty() => {
@@ -772,6 +788,7 @@ impl Copilot {
                     chat.unqueue(&handed.queued);
                 }
             }
+            None if self.handed[index].into_turn => chat.give(&self.handed[index].queued),
             None => {}
         }
     }
@@ -962,18 +979,23 @@ impl Agent for Copilot {
         true
     }
 
+    /// The next queued message as a command for the link. While a turn runs, a message goes into
+    /// it at once, as Enter gives it in Copilot's terminal, and Copilot reads it before its next
+    /// model request. A slash command waits for the turn to end, as Copilot holds the commands
+    /// that cannot run in a turn.
     fn commands(&mut self, chat: &Chat) -> Vec<Value> {
-        if !self.linked
-            || self.held
-            || self.turn.is_some()
-            || !self.handed.is_empty()
-            || !chat.asks().is_empty()
-        {
+        if !self.linked || self.held || !self.handed.is_empty() || !chat.asks().is_empty() {
             return Vec::new();
         }
         let Some(queued) = chat.queued().first() else {
             return Vec::new();
         };
+        if let Some(turn) = &self.turn
+            && (turn.stopped || turn.refuses_messages || queued.text.trim_start().starts_with('/'))
+        {
+            return Vec::new();
+        }
+        let into_turn = self.turn.is_some();
         self.sent += 1;
         let plan = plan_command(&queued.text);
         let text = plan.unwrap_or(&queued.text);
@@ -982,10 +1004,14 @@ impl Agent for Copilot {
             queued: queued.id.clone(),
             text: text.to_owned(),
             by: queued.by.clone(),
+            into_turn,
         });
         let mut command = json!({"do": "prompt", "n": self.sent, "text": text});
         if plan.is_some() {
             command["mode"] = json!("plan");
+        }
+        if into_turn {
+            command["steer"] = json!(true);
         }
         vec![command]
     }
@@ -1006,10 +1032,20 @@ impl Agent for Copilot {
                     .collect(),
             );
         }
-        if self.turn.is_some() {
-            Stop::Command(json!({"do": "stop"}))
-        } else {
-            Stop::Nothing
+        match &mut self.turn {
+            Some(turn) => {
+                turn.stopped = true;
+                // Copilot's abort clears the messages that it has not read yet, so the link
+                // takes them back first.
+                let back = self
+                    .handed
+                    .iter()
+                    .filter(|handed| handed.into_turn)
+                    .map(|handed| handed.n)
+                    .collect::<Vec<_>>();
+                Stop::Command(json!({"do": "stop", "back": back}))
+            }
+            None => Stop::Nothing,
         }
     }
 }

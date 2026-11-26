@@ -10,9 +10,7 @@ use std::{
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use reqwest::Method;
 use serde_json::{Value, json};
-#[cfg(feature = "host")]
-use tokio::sync::mpsc;
-use tokio::sync::{Mutex, broadcast};
+use tokio::sync::{Mutex, broadcast, mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 use zeroize::Zeroizing;
@@ -74,7 +72,16 @@ pub(crate) struct Inner {
     retry: tokio::sync::Notify,
     login_interrupt: std::sync::Mutex<CancellationToken>,
     app_login: std::sync::Mutex<Option<AppLogin>>,
+    sign_ins: std::sync::Mutex<Option<mpsc::Sender<SignIn>>>,
     projects: Mutex<projects::ProjectCache>,
+}
+
+/// A sign-in that waits to hear whether its account may take the terminals of this computer.
+pub(crate) struct SignIn {
+    pub(crate) user_id: String,
+    pub(crate) handle: String,
+    pub(crate) request_id: String,
+    pub(crate) reply: oneshot::Sender<Result<()>>,
 }
 
 struct AppLogin {
@@ -101,6 +108,9 @@ pub(crate) struct State {
     deletion: Option<tokio::time::Instant>,
     friend_lists: FriendLists,
     changed_friends: BTreeSet<String>,
+    /// When a person whom the kept friend list does not have last made this device fetch it.
+    #[cfg(feature = "host")]
+    friend_misses: BTreeMap<String, tokio::time::Instant>,
 }
 
 impl BackendClient {
@@ -149,6 +159,8 @@ impl BackendClient {
                     offer: None,
                     friend_lists,
                     changed_friends: BTreeSet::new(),
+                    #[cfg(feature = "host")]
+                    friend_misses: BTreeMap::new(),
                     deletion: None,
                 }),
                 operations: Mutex::new(()),
@@ -176,6 +188,7 @@ impl BackendClient {
                 retry: tokio::sync::Notify::new(),
                 login_interrupt: std::sync::Mutex::new(CancellationToken::new()),
                 app_login: std::sync::Mutex::new(None),
+                sign_ins: std::sync::Mutex::new(None),
                 projects: Mutex::new(projects::ProjectCache::default()),
             }),
         })
@@ -318,6 +331,7 @@ impl BackendClient {
     ) {
         let result = async {
             let tokens = tokens.await?;
+            self.may_sign_in(&tokens, &request, &cancel).await?;
             let _operation = self.inner.operations.lock().await;
             if cancel.is_cancelled() || self.generation() != generation {
                 return Err(Error::Stale);
@@ -336,7 +350,11 @@ impl BackendClient {
             }
             Err(Error::Closed) => return,
             Err(error) if error.user_facing() && !cancel.is_cancelled() => {
-                json!({"type":"auth.error","requestId":request,"operation":"auth.login.start","message":error.text()})
+                let mut answer = json!({"type":"auth.error","requestId":request,"operation":"auth.login.start","message":error.text()});
+                if matches!(error, Error::NotAllowed(_)) {
+                    answer["refused"] = json!(true);
+                }
+                answer
             }
             Err(_) => {
                 json!({"type":"auth.error","requestId":request,"operation":"auth.login.start","message":text!("The sign-in was cancelled.")})
@@ -347,6 +365,57 @@ impl BackendClient {
             self.identity().map(|identity| identity.user_id),
             answer,
         );
+    }
+
+    /// The runtime hears of each sign-in that a person started before its account takes the
+    /// terminals of this computer.
+    pub(crate) fn hear_sign_ins(&self) -> mpsc::Receiver<SignIn> {
+        let (sender, receiver) = mpsc::channel(1);
+        *self
+            .inner
+            .sign_ins
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(sender);
+        receiver
+    }
+
+    async fn may_sign_in(
+        &self,
+        tokens: &Tokens,
+        request: &str,
+        cancel: &CancellationToken,
+    ) -> Result<()> {
+        let Some(sign_ins) = self
+            .inner
+            .sign_ins
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+        else {
+            return Ok(());
+        };
+        let profile: Value = self
+            .inner
+            .http
+            .bearer(Method::GET, "api/me", &tokens.access_token, None)
+            .await?;
+        let (reply, answer) = oneshot::channel();
+        let asking = SignIn {
+            user_id: wire::text(&profile, "id")?.to_owned(),
+            handle: profile
+                .get("handle")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned(),
+            request_id: request.to_owned(),
+            reply,
+        };
+        sign_ins.send(asking).await.map_err(|_| Error::Closed)?;
+        tokio::select! {
+            () = cancel.cancelled() => Err(Error::Stale),
+            () = self.inner.shutdown.cancelled() => Err(Error::Closed),
+            answer = answer => answer.map_err(|_| Error::Stale)?,
+        }
     }
 
     async fn saved_sign_in_returns(&self, generation: u64) -> Result<bool> {
@@ -868,6 +937,25 @@ impl BackendClient {
         Ok(current)
     }
 
+    /// The terminals of this account as the server lists them now, without changing what this
+    /// computer publishes.
+    pub(crate) async fn listed_terminals(&self) -> Result<Vec<super::RemoteSession>> {
+        let credentials = self.credentials()?;
+        if !credentials.enrolled {
+            return Err(Error::EnrollmentRequired);
+        }
+        let sessions: Vec<SessionDto> = self
+            .inner
+            .http
+            .device(Method::GET, "api/sessions", &credentials, None)
+            .await?;
+        Ok(sessions
+            .into_iter()
+            .map(super::RemoteSession::from)
+            .filter(|terminal| terminal.owner_user_id == credentials.user_id)
+            .collect())
+    }
+
     async fn session_event(&self) -> Result<Value> {
         let credentials = self.credentials()?;
         if !credentials.enrolled {
@@ -1200,7 +1288,7 @@ impl BackendClient {
             .await
             .get(&id)
             .cloned()
-            .ok_or_else(|| Error::Text(crate::runtime::share_on_host()))?;
+            .ok_or_else(|| Error::Text(crate::runtime::hosted_elsewhere()))?;
         if publication.info.read().await.incarnation_id != incarnation {
             return Err(Error::Stale);
         }
@@ -1386,6 +1474,12 @@ impl BackendClient {
         terminal_connections::ask_computer(self, device, request).await
     }
 
+    /// The address that the internet sees for this device.
+    pub(crate) async fn public_ipv4(&self) -> Option<std::net::Ipv4Addr> {
+        let credentials = self.credentials().ok()?;
+        self.peers(&credentials).ok()?.public_ipv4().await
+    }
+
     #[cfg(feature = "host")]
     pub(crate) fn answer_calls(&self, answering: terminal_connections::Answering) {
         terminal_connections::answer_calls(self.clone(), answering);
@@ -1502,8 +1596,10 @@ pub(crate) use account::DELETION_LIFE;
 mod device_identity;
 mod enrollment;
 mod friends;
+pub(crate) use friends::shareable;
 mod notifications;
 mod projects;
+pub(crate) use projects::ProjectMember;
 mod push;
 mod recovery;
 mod terminal_close;

@@ -5,8 +5,8 @@ the visual system.
 
 The Android app watches, answers, and controls terminals running on your computers or shared by
 friends, launches new terminals on your computers, and joins projects. Starting an agent inside an
-existing idle terminal, sharing terminals with friends, and viewing provider conversation history
-remain desktop-only. Requires Android 15 or newer.
+existing idle terminal and viewing provider conversation history remain desktop-only. Requires
+Android 15 or newer.
 
 ## Sign-in and device linking
 
@@ -20,7 +20,7 @@ another device always starts inside Kodosi. Connection failures explain the caus
 
 The **Terminals** tab groups terminals by computer and folder (your own computers first, then each
 friend's), displaying each agent's icon and status indicator. The tab badge counts waiting
-terminals you can answer.
+terminals you can answer. Tapping the name of one of your computers opens its page.
 
 Tapping `+` launches a shell or agent on any of your online computers running Kodosi, letting you
 pick account, model, effort, fast mode, permissions, verbosity, folder, and initial prompt. You can
@@ -32,14 +32,29 @@ cursor when it sits higher up).
 
 You can type directly into the terminal (with an accessory row for extra keys) or use the composer
 to send a paste plus Return on tap. While an agent is waiting, quick-answer buttons `1`, `2`, and
-`3` respond without bringing up the soft keyboard. Hardware keyboards type directly into the
+`3` respond without bringing up the soft keyboard, and an agent that a restart stopped in the middle
+of a task goes on with one tap. Hardware keyboards type directly into the
 terminal, and landscape mode hides the header while typing.
 
 Terminals with chat-capable agents support toggling between the terminal screen and chat view in
 the header, opening on whichever view the agent uses. Dragging scrolls the terminal (or sends
 scroll-wheel events when a program enables mouse reporting). Text selection, copy/paste (including
 images), shared link rules, header renaming, live agent setting changes (with a notice when
-queued for the next turn), and Android's predictive back gesture are all supported.
+queued for the next turn), and Android's predictive back gesture are all supported. In the chat
+view, a long press on a message or a finished agent answer offers to copy it as written, to
+select part of it, or to read it aloud in the voice of its language.
+
+In the chat view, the mic key beside Send lets you talk instead of typing. Your words appear as your
+next message while you speak, after any words you typed, and the message sends after a long pause,
+so you can stop to think; Send sends it without waiting for the pause. While the agent asks a
+question, only Send answers it with your words. While you talk, the mic key turns into a stop key:
+stop, or tap the words to change them, and words that did not go out stay in the composer. Speech
+turns into text on the device, so no audio leaves it, and replies stay text. A device that can't
+turn speech into text in any of your languages shows no mic key.
+
+From a terminal's menu, its owner shares it with friends or with a project, and everyone else sees
+who shared it with them. A change that lets someone new in waits for the owner's OK in a dialog,
+one question at a time; when the owner says no, the change ends without a message.
 
 ## Canvas
 
@@ -71,14 +86,15 @@ again once it cools down.
 
 ## Projects, friends, and Dosi
 
-Projects combine chat, tasks, linked repositories, members, and terminals. Wide screens show the
-chat alongside tasks, repositories, or terminals.
+Projects combine chat, tasks, linked repositories, members, and terminals. You can start a terminal
+in a project or add one of your own from any computer. Wide screens show the chat alongside tasks,
+repositories, or terminals.
 
 **Friends** (opened from Settings, with a badge for pending requests) manages friend requests,
 verified friends, trust verification, and blocked users. It generates QR codes for your invite and
-scans friends' QR codes completely on-device without Google Play services. Opening or scanning an
-invite always confirms trust before sending a request. You can block or report users from their
-profile, request, project member list, or chat message.
+scans friends' QR codes completely on-device without Google Play services. Sending or accepting a
+request, verifying a friend, and trusting a changed identity each ask for your OK first. You can
+block or report users from their profile, request, project member list, or chat message.
 
 **Dosi** provides your synced conversation, choice prompts, and target-computer picker (any online
 computer, or the one that answered last, which is the default). Messages for an offline computer
@@ -86,10 +102,11 @@ queue until it returns, and you can stop a turn, cancel a queued message, or sta
 
 ## Settings, notifications, and security
 
-**Settings** covers linked devices, recovery key management, theme, terminal font size, whether
-terminal lists lead with the agent summary before the terminal name, keep-screen-on, document
-viewers, notifications, app lock, language, open-source licenses, legal/support links, sign-out,
-and account deletion.
+**Settings** covers linked devices (each of your computers opens a page to wake it, test its wake,
+put it to sleep and choose when it stays awake), recovery key management, theme, terminal font size,
+whether terminal lists lead with the agent summary before the terminal name, keep-screen-on,
+document viewers, notifications, app lock, language, open-source licenses, legal/support links,
+sign-out, and account deletion.
 
 Push notifications fire when none of your devices are active. Terminal and computer names come
 from a local bounded cache (falling back to generic labels when uncached). Waiting alerts use a

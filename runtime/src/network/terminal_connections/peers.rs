@@ -682,6 +682,18 @@ impl Peers {
         Ok(client)
     }
 
+    pub(crate) async fn public_ipv4(self: &Arc<Self>) -> Option<Ipv4Addr> {
+        let bound = self.bind().await.ok()?;
+        let dual = bound.socket.local_addr().ok()?.is_ipv6();
+        self.reflexive(&bound, dual)
+            .await
+            .into_iter()
+            .find_map(|address| match address.ip() {
+                IpAddr::V4(ip) => Some(ip),
+                IpAddr::V6(ip) => ip.to_ipv4_mapped(),
+            })
+    }
+
     #[cfg(feature = "host")]
     fn server(&self) -> Result<noq::ServerConfig> {
         let crypto = QuicServerConfig::with_initial(self.keys.direct_server(), initial_suite()?)
@@ -993,7 +1005,7 @@ fn udp_socket() -> io::Result<std::net::UdpSocket> {
         .ok_or_else(|| io::Error::from(io::ErrorKind::AddrNotAvailable))?;
     socket.set_nonblocking(true)?;
     #[cfg(any(target_os = "macos", target_os = "ios"))]
-    if let Err(error) = kodosi_os::net::carry_as_screen_sharing(&socket) {
+    if let Err(error) = kodosi_os::network::carry_as_screen_sharing(&socket) {
         tracing::warn!(%error, "the direct connection socket keeps the default traffic class");
     }
     Ok(socket)

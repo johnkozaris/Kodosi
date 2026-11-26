@@ -110,7 +110,7 @@ class RuntimeBridge : public QObject, public TerminalCommandDispatcher, public P
     Q_OBJECT
 public:
     using Result = CommandDispatcher::Result;
-    static constexpr std::uint32_t protocolVersion = 111;
+    static constexpr std::uint32_t protocolVersion = 115;
 
     explicit RuntimeBridge(QObject* parent = nullptr);
     RuntimeBridge(TerminalEventSink& terminalSink, QObject* parent = nullptr);
@@ -122,7 +122,8 @@ public:
     [[nodiscard]] bool hostForeground() const noexcept { return m_hostForeground; }
     void startAsync(std::function<void(Result)> completion);
     void stop() noexcept;
-    void quit() noexcept;
+    // `update` tells the host that it stops to install an update and comes right back.
+    void quit(bool update = false) noexcept;
     void stopHostAsync(std::function<void(HostStop)> completion);
     // Thread-safe. Runtime callbacks hold an internal runtime lock and may fire synchronously on
     // the calling thread, so never hold any callback-acquired mutex across `send()`.

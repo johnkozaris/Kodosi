@@ -20,7 +20,8 @@ data class ChatSnapshot(
     val asks: List<ChatAsk> = emptyList(),
     val queued: List<ChatQueued> = emptyList(),
     val tasks: List<ChatTask> = emptyList(),
-    val commands: List<ChatCommand> = emptyList()
+    val commands: List<ChatCommand> = emptyList(),
+    val settings: List<ChatSetting> = emptyList()
 )
 
 @Serializable
@@ -57,6 +58,11 @@ sealed interface ChatChange {
     @Serializable
     @SerialName("commands")
     data class Commands(val commands: List<ChatCommand>) : ChatChange
+
+    /** The agent's own settings, whole. */
+    @Serializable
+    @SerialName("settings")
+    data class Settings(val settings: List<ChatSetting>) : ChatChange
 
     @Serializable
     @SerialName("facts")
@@ -301,8 +307,16 @@ data class ChatQueued(
     val text: String,
     val by: ChatPerson? = null,
     val refused: String? = null,
-    /** The agent shows this command in its terminal, where a person finishes it. */
-    val terminal: Boolean = false
+    /**
+     * The command needs the agent's terminal: the agent shows it there, where a person finishes it,
+     * or only the terminal has it.
+     */
+    val terminal: Boolean = false,
+    /**
+     * The agent has this message, so it can no longer be removed: the turn that runs reads it
+     * before its next step, or the agent's terminal shows the command.
+     */
+    val given: Boolean = false
 )
 
 /** A slash command of the agent, as its own menu lists it. */
@@ -311,7 +325,9 @@ data class ChatCommand(
     val name: String,
     val description: String = "",
     /** The control of the chat that does what the command does, in place of the agent's own view in its terminal. */
-    val opens: ChatControl? = null
+    val opens: ChatControl? = null,
+    /** The command shows its own view in the agent's terminal, where a person uses it. */
+    val terminal: Boolean = false
 )
 
 @Serializable
@@ -322,7 +338,43 @@ enum class ChatControl {
 
     /** The limits of the agent's plan, its context and the cost of the conversation. */
     @SerialName("usage")
-    USAGE
+    USAGE,
+
+    /** The agent's own settings. */
+    @SerialName("settings")
+    SETTINGS
+}
+
+/** A setting of the agent, as its own settings view lists it. */
+@Serializable
+data class ChatSetting(
+    val key: String,
+    val label: String,
+    val description: String = "",
+    val kind: ChatSettingKind,
+    /** The value as words: `true` or `false` for a toggle, the digits of a number. */
+    val value: String,
+    /** The values that a choice takes. */
+    val options: List<String> = emptyList(),
+    /** Only the agent's own view or the policy of an organization changes the setting. */
+    val locked: Boolean = false,
+    /** Why the agent did not take the last change, in its words. */
+    val refusal: String? = null
+)
+
+@Serializable
+enum class ChatSettingKind {
+    @SerialName("toggle")
+    TOGGLE,
+
+    @SerialName("choice")
+    CHOICE,
+
+    @SerialName("text")
+    TEXT,
+
+    @SerialName("number")
+    NUMBER
 }
 
 @Serializable

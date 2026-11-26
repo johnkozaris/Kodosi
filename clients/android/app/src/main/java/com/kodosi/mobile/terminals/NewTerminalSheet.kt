@@ -75,6 +75,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kodosi.mobile.AppModel
 import com.kodosi.mobile.R
+import com.kodosi.mobile.runtime.Refused
 import com.kodosi.mobile.runtime.number
 import com.kodosi.mobile.runtime.objects
 import com.kodosi.mobile.runtime.string
@@ -82,6 +83,7 @@ import com.kodosi.mobile.ui.ActionIcon
 import com.kodosi.mobile.ui.AgentMark
 import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
+import com.kodosi.mobile.ui.ButtonKind
 import com.kodosi.mobile.ui.ButtonSize
 import com.kodosi.mobile.ui.EmptyState
 import com.kodosi.mobile.ui.ErrorNote
@@ -217,7 +219,20 @@ fun NewTerminalSheet(model: AppModel, request: NewTerminalRequest, dismiss: () -
                             stringResource(R.string.no_computer),
                             stringResource(R.string.no_computer_message),
                             AppSymbol.COMPUTER
-                        )
+                        ) {
+                            account.asleep.forEach { device ->
+                                val waking = account.power[device.deviceId]?.waking == true
+                                KodosiButton(
+                                    stringResource(
+                                        if (waking) R.string.waking_named else R.string.wake_named,
+                                        device.label
+                                    ),
+                                    onClick = { model.account.wakeComputer(device.deviceId) },
+                                    kind = ButtonKind.SECONDARY,
+                                    enabled = !waking
+                                )
+                            }
+                        }
 
                     shown == LaunchStep.FOLDERS -> FolderChoices(launcher, model, folder, Modifier.fillMaxSize()) {
                         folder = it
@@ -258,13 +273,25 @@ fun NewTerminalSheet(model: AppModel, request: NewTerminalRequest, dismiss: () -
                             }
                             item {
                                 ListGroup {
+                                    val sleepers = account.asleep.map { device ->
+                                        val waking = account.power[device.deviceId]?.waking == true
+                                        val name = if (waking) R.string.waking_named else R.string.wake_named
+                                        WAKE + device.deviceId to stringResource(name, device.label)
+                                    }
                                     MenuPicker(
                                         stringResource(R.string.computer),
                                         chosen.label,
-                                        account.computers.map { it.deviceId to it.label },
+                                        account.computers.map { it.deviceId to it.label } + sleepers,
                                         leading = { IconTile(AppSymbol.COMPUTER, TileTint.graphite) },
                                         enabled = !busy
-                                    ) { computer = it }
+                                    ) { picked ->
+                                        val sleeper = picked.removePrefix(WAKE)
+                                        if (sleeper == picked) {
+                                            computer = picked
+                                        } else if (account.power[sleeper]?.waking != true) {
+                                            model.account.wakeComputer(sleeper)
+                                        }
+                                    }
                                     ListButton(onClick = { browsing = true }, enabled = !busy) {
                                         ListLine(
                                             stringResource(R.string.folder),
@@ -320,6 +347,7 @@ fun NewTerminalSheet(model: AppModel, request: NewTerminalRequest, dismiss: () -
                                         }
                                     } catch (cancelled: CancellationException) {
                                         throw cancelled
+                                    } catch (_: Refused) {
                                     } catch (error: Exception) {
                                         failure = error.localizedMessage
                                     } finally {
@@ -593,6 +621,7 @@ internal fun shortUsageWindow(hours: Int?, scope: String?): String = when {
     else -> stringResource(R.string.usage_window_hours, hours)
 }
 
+private const val WAKE = "wake:"
 private const val DAY_HOURS = 24
 private const val WEEK_HOURS = 7 * DAY_HOURS
 

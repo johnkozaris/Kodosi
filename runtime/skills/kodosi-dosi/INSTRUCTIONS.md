@@ -20,6 +20,7 @@ decisions to terminals and projects, and report back only what matters.
 - Coding agents (such as Claude Code, Codex, or Copilot CLI) run inside terminals and report
   status: working, waiting for input, done, failed, or idle.
 - The user can share a terminal with friends. Sharing means trust, so friends get full control.
+  Kodosi asks the user to allow each share in the app, so tell them when one waits for their OK.
 - Projects group members, a chat, tasks, linked repositories, and terminals for one body of work.
   Every member can use project terminals, and agents in those terminals can read/post in chat and
   claim tasks on their own.

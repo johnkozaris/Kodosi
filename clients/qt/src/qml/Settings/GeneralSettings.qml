@@ -215,6 +215,50 @@ ColumnLayout {
             }
         }
         ListRow {
+            iconName: "refresh"
+            tint: "#5fa57e"
+            title: qsTr("Update automatically")
+            subtitle: Models.DesktopSettings.updatesAutomatically
+                ? qsTr("Kodosi installs updates by itself while nobody uses it.")
+                : qsTr("Kodosi installs updates when you restart it.")
+
+            KSwitch {
+                Accessible.id: objectName
+                Accessible.name: qsTr("Update automatically")
+                checked: Models.DesktopSettings.updatesAutomatically
+                objectName: "settings.updatesAutomatically"
+
+                onToggled: {
+                    const wanted = checked;
+                    checked = Qt.binding(() => Models.DesktopSettings.updatesAutomatically);
+                    Models.DesktopSettings.updatesAutomatically = wanted;
+                }
+            }
+        }
+        ListRow {
+            iconName: "sun"
+            tint: "#d98a5f"
+            title: qsTr("Stay awake")
+            wholeSubtitle: true
+            subtitle: Models.Devices.keepAwake === "always"
+                ? qsTr("This computer does not go to sleep by itself while Kodosi runs. On battery, it stays awake only while agents work.")
+                : Models.Devices.keepAwake === "never"
+                ? qsTr("This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.")
+                : qsTr("This computer does not go to sleep by itself while an agent works, or for a few minutes after. An agent that waits for you does not keep it awake.")
+
+            SegmentedPill {
+                compact: true
+                identifier: "settings.keepAwake"
+                options: [
+                    { value: "agents", label: qsTr("While agents work") },
+                    { value: "always", label: qsTr("Always") },
+                    { value: "never", label: qsTr("Never") }
+                ]
+                currentValue: Models.Devices.keepAwake
+                onActivated: value => Models.Devices.setKeepAwake(value)
+            }
+        }
+        ListRow {
             iconName: "bell"
             tint: "#cf6a62"
             title: qsTr("Notifications")

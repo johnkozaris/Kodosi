@@ -225,12 +225,18 @@ public struct BrowserStatus: Equatable, Sendable {
     public let engine: String?
     /// Kodosi Browser download progress (0...100) while a download is active.
     public let getting: Int?
+    public let formPredictions: Bool
+    public let crossSiteCookies: Bool
 
-    public init(sources: [Source], sites: Int, engine: String?, getting: Int?) {
+    public init(sources: [Source], sites: Int, engine: String?, getting: Int?, formPredictions: Bool,
+                crossSiteCookies: Bool)
+    {
         self.sources = sources
         self.sites = sites
         self.engine = engine
         self.getting = getting
+        self.formPredictions = formPredictions
+        self.crossSiteCookies = crossSiteCookies
     }
 }
 

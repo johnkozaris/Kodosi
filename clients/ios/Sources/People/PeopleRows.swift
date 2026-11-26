@@ -114,10 +114,6 @@ struct MemberAction {
 }
 
 extension View {
-    func friendTrust(_ trust: Binding<FriendTrust?>, confirm: @escaping (FriendTrust) -> Void) -> some View {
-        modifier(FriendTrustAsk(trust: trust, confirm: confirm))
-    }
-
     func reportSheet(_ shown: Binding<Bool>, handle: String, name: String, key: String) -> some View {
         modifier(ReportAsk(shown: shown, handle: handle, name: name, key: key))
     }
@@ -166,40 +162,21 @@ private struct ReportAsk: ViewModifier {
     }
 }
 
-private struct FriendTrustAsk: ViewModifier {
-    @Environment(AppModel.self) private var model
+struct ChangedIdentityNote: View {
     @Environment(\.theme) private var theme
-    @Binding var trust: FriendTrust?
-    let confirm: (FriendTrust) -> Void
+    let name: String
 
-    private var shown: Binding<Bool> {
-        Binding(get: { trust != nil }, set: { shown in
-            if !shown {
-                trust = nil
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Circle().fill(theme.colors.caution).frame(width: 6, height: 6)
+                Text(name).appTextStyle(.caption).foregroundStyle(theme.colors.ink)
             }
-        })
-    }
-
-    func body(content: Content) -> some View {
-        content.sheet(isPresented: shown) {
-            if let current = trust {
-                ScrollView {
-                    FriendTrustQuestion(trust: current, you: model.account.selfName) {
-                        trust = nil
-                    } confirm: {
-                        trust = nil
-                        confirm(current)
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 28)
-                    .frame(maxWidth: 460)
-                    .frame(maxWidth: .infinity)
-                }
-                .scrollBounceBehavior(.basedOnSize)
-                .background(theme.colors.surface)
-                .presentationDetents([.medium, .large])
-                .kodosiSheet()
-            }
+            Text("Their identity changed. Trust them in Friends first.")
+                .appTextStyle(.caption).fontWeight(.regular)
+                .foregroundStyle(theme.colors.inkMuted)
+                .padding(.leading, 12)
         }
+        .accessibilityElement(children: .combine)
     }
 }

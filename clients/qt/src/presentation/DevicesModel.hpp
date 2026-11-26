@@ -26,6 +26,9 @@ class DevicesModel final : public QObject {
     Q_PROPERTY(bool hasRecoveryKey READ hasRecoveryKey NOTIFY changed FINAL)
     Q_PROPERTY(bool hasOtherDevices READ hasOtherDevices NOTIFY changed FINAL)
     Q_PROPERTY(QVariantList computers READ computers NOTIFY changed FINAL)
+    Q_PROPERTY(QString keepAwake READ keepAwake NOTIFY changed FINAL)
+    Q_PROPERTY(QVariantMap power READ power NOTIFY changed FINAL)
+    Q_PROPERTY(QVariantList asleep READ asleep NOTIFY changed FINAL)
     Q_PROPERTY(QString checkedLabel READ checkedLabel NOTIFY changed FINAL)
     Q_PROPERTY(QVariantMap pendingReset READ pendingReset NOTIFY changed FINAL)
     Q_PROPERTY(QVariantMap waitingReset READ waitingReset NOTIFY changed FINAL)
@@ -49,11 +52,18 @@ public:
     bool hasRecoveryKey() const;
     bool hasOtherDevices() const;
     QVariantList computers() const;
+    QString keepAwake() const { return m_keepAwake; }
+    QVariantMap power() const { return m_power; }
+    QVariantList asleep() const;
     QString checkedLabel() const { return m_checkedLabel; }
     QVariantMap pendingReset() const { return m_pendingReset; }
     QVariantMap waitingReset() const;
 
     Q_INVOKABLE void revoke(const QString& deviceId);
+    Q_INVOKABLE void sleep(const QString& deviceId);
+    Q_INVOKABLE void setKeepAwake(const QString& keepAwake, const QString& deviceId = {});
+    Q_INVOKABLE void wake(const QString& deviceId);
+    Q_INVOKABLE void testWake(const QString& deviceId);
     Q_INVOKABLE void approve(const QString& code);
     Q_INVOKABLE void confirmApproval();
     Q_INVOKABLE void dropApproval();
@@ -83,6 +93,7 @@ private:
     QVariantMap m_pendingReset;
     QString m_dismissedReset;
     QStringList m_hosts;
+    QVariantMap m_power;
     QString m_approvalCode;
     QStringList m_approvalQr;
     QString m_offerState;
@@ -96,6 +107,7 @@ private:
     QString m_newRecoveryKey;
     bool m_enrolled = false;
     bool m_approvalNoticeDismissed = false;
+    QString m_keepAwake = QStringLiteral("agents");
 
     void reset();
 };

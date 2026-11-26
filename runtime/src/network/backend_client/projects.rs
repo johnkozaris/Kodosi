@@ -89,6 +89,14 @@ struct RecipientKey {
     public_key: String,
     signature: String,
 }
+/// A member of a project as the server lists the members to each of them.
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ProjectMember {
+    pub(crate) user_id: String,
+    #[serde(default)]
+    pub(crate) handle: String,
+}
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct Head {
     version: u64,
@@ -508,6 +516,22 @@ impl BackendClient {
         project: Uuid,
         user: &str,
     ) -> Result<bool> {
+        Ok(self
+            .members_of(credentials, project)
+            .await?
+            .iter()
+            .any(|member| member.user_id == user))
+    }
+
+    pub(crate) async fn project_members(&self, project: Uuid) -> Result<Vec<ProjectMember>> {
+        self.members_of(&self.credentials()?, project).await
+    }
+
+    async fn members_of(
+        &self,
+        credentials: &Credentials,
+        project: Uuid,
+    ) -> Result<Vec<ProjectMember>> {
         let detail: Value = self
             .inner
             .http
@@ -518,11 +542,7 @@ impl BackendClient {
                 None,
             )
             .await?;
-        Ok(detail["members"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .any(|member| member["userId"] == user))
+        Ok(serde_json::from_value(detail["members"].clone())?)
     }
 
     pub(super) async fn register_project_key(&self, credentials: &Credentials) -> Result<()> {
@@ -1270,6 +1290,20 @@ impl BackendClient {
             .states
             .values()
             .any(|state| state.hash == hash))
+    }
+
+    /// The people of the newest key state of a project that this device verified, as hosts admit
+    /// them, or nothing when this account is not one of them.
+    pub(crate) async fn verified_members(&self, project: Uuid) -> Result<Option<BTreeSet<String>>> {
+        let credentials = self.credentials()?;
+        Ok(self
+            .project_keys(&credentials, project)
+            .await?
+            .states
+            .last_key_value()
+            .map(|(_, newest)| &newest.state.members)
+            .filter(|members| members.contains_key(&credentials.user_id))
+            .map(|members| members.keys().cloned().collect()))
     }
 
     pub(crate) async fn project_identity(

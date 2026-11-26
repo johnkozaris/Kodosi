@@ -46,6 +46,20 @@ struct ProjectStoreTests {
         #expect(state.message == "First and more")
     }
 
+    @Test func `an invite that the owner refused while making a project is not reported as missed`() async throws {
+        var notices: [String] = []
+        projects.notify = { notices.append($0) }
+        let making = Task { try await projects.create(name: "Release", inviting: ["user-2"]) }
+        let create = try await log.next("project.create")
+        try reply(to: create, "project.result", ["operation": "project.create"])
+        let invite = try await log.next("project.invite")
+        try reply(to: invite, "project.error", [
+            "operation": "project.invite", "message": "You did not allow this in Kodosi.", "refused": true,
+        ])
+        _ = try await making.value
+        #expect(notices.isEmpty)
+    }
+
     @Test func `failed post keeps the draft`() async throws {
         let state = projects.view("project-1")
         state.message = "Hello"

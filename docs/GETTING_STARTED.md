@@ -84,6 +84,9 @@ click the branch button, and enter a branch name. Kodosi opens the terminal in a
 and removes it automatically when the terminal closes if nothing changed. You can configure where
 worktrees are stored in **Settings › Terminal**.
 
+The terminal's header shows how many lines the branch added and removed. Click the numbers to see
+the changes on the canvas.
+
 Each terminal is light or dark like Kodosi on its host computer, on every device viewing it.
 Programs inside the terminal receive theme notifications, so tools like Claude Code (with `/theme`
 set to Auto) adapt automatically. If you prefer dark terminals while Kodosi itself is in light
@@ -104,6 +107,12 @@ folders, projects, and stage positions with their prior screen and scrollback ab
 conversations, and on macOS and Linux they also keep your chosen model, effort, fast mode,
 permissions, and verbosity. If Kodosi can't identify which conversation an agent was running, the
 agent lists its conversations so you can pick one.
+
+Kodosi installs updates by itself while nobody uses it, no agent is busy, and no other program runs
+in a terminal. To choose the moment yourself, turn off **Update automatically** in **Settings ›
+General**. When you restart for an update yourself, agents that were in the middle of a task carry
+on afterwards. After any other stop, such an agent waits until you press **Continue** on its
+terminal.
 
 On macOS, programs inside Kodosi inherit the macOS permissions granted to Kodosi, just like in any
 other terminal app. If macOS blocks a program from modifying another app, enable Kodosi under
@@ -145,6 +154,14 @@ Terminals running Claude Code, or Codex and Copilot CLI launched through Kodosi,
 activity, and any pending questions with clickable buttons. You can reply or stop the agent right
 from chat; if you type custom text while it's asking a question, it tells the agent what to do
 instead. Everything you do in chat happens in the underlying terminal as well.
+
+With Claude Code, the gear under the message field, or `/config`, opens Claude Code's own settings.
+Claude Code checks and saves each change, and says why when it doesn't take one.
+
+On Mac, iPhone, iPad and Android, click or tap the mic next to the message field to talk instead of
+typing. Your words appear as your message while you speak and send after a long pause, so you can
+stop to think; click or tap **Send** to send them sooner. Speech turns into text on your device, and
+no audio leaves it.
 
 ## 4. See what an agent shows on the canvas
 
@@ -198,6 +215,10 @@ copper dot whenever something is new:
   logins and site data across private terminals. On macOS, if the OS restricts access to a
   browser's data (such as Safari), click **Allow…** next to that browser to grant Full Disk
   Access.
+- Also in **Settings › Browser**, **Form predictions from Google** lets Kodosi Browser ask Google
+  what the fields of a form are for, and **Cross-site cookies** let a site shown inside another
+  site's page, such as a YouTube video, recognize you there. Both stay off until you turn them on.
+  Kodosi Browser starts again when you change one, and its open pages load again.
 - Anyone with access to a terminal sees its canvas and shares its browser. Closing the terminal
   clears its canvas and discards shared-terminal browser logins.
 
@@ -273,6 +294,42 @@ When two of your devices can reach each other directly, terminal and browser tra
 peer for lower latency. On a local network, macOS, iOS, and Android prompt once for local network
 permission; if declined, traffic falls back to the relay server.
 
+### Sleep and staying awake
+
+A computer doesn't go to sleep by itself while an agent works in one of its terminals, and it can
+sleep again a few minutes after its agents stop. An agent that waits for your answer doesn't keep it
+awake. To change this, choose **Stay awake** in **Settings › General** on that computer: **While
+agents work**, **Always**, or **Never**. **Always** keeps a computer awake only while it is plugged
+in; on battery, it stays awake while agents work. You can still put a computer to sleep yourself.
+
+To put another of your computers to sleep, open **Settings**, click **⋯** next to it under **Your
+devices** and choose **Sleep…**. On a phone, tap the computer to open its page. Its terminals pause
+until it wakes. When nothing could wake it again, Kodosi says so first. The same menu, or the page,
+chooses when that computer stays awake.
+
+### Waking a computer
+
+To wake a sleeping computer, click **Wake** next to it in **Settings** (on a phone, on its page), on
+one of its terminals, or in the computer list of a new terminal. The wake signal must come from
+inside the network of the sleeping computer. Kodosi sends it from the device that you use when that
+device is on the same network, and otherwise from another of your computers there that is awake. An
+iPhone or iPad always asks one of your computers.
+
+A computer wakes through a network cable, not through Wi-Fi, and only when its system allows it.
+**Settings** shows for each computer what Kodosi expects, or the one setting to change:
+
+- On a Mac, turn on **Wake for network access** in System Settings.
+- On Windows, let the network adapter wake the computer, in Device Manager.
+- On Linux, turn on Wake-on-LAN for the wired connection.
+
+A Mac sends the wake signal only if Kodosi may use the local network. Allow it in System Settings,
+in **Privacy & Security**.
+
+To be sure, choose **Test wake…** in the menu of a computer that is awake (on a phone, on its page).
+Kodosi puts it to sleep, wakes it and keeps the result. Stay near the computer for the first test:
+if it doesn't wake, wake it by hand. A Windows PC with Modern Standby has no **Test wake…**, because
+Windows does not show apps when it sleeps.
+
 ### Recovery keys
 
 Create a recovery key in **Settings** and store it somewhere safe. If you ever lose all your
@@ -293,7 +350,9 @@ Kodosi; they still confirm trust before the request is sent.
 
 Open the actions menu in a terminal's header, click **Share**, and select friends or projects.
 Anyone you share with gets full control with your OS permissions on that machine. Your other
-terminals stay private.
+terminals stay private. You can share from any of your devices, including your phone, while the
+computer that runs the terminal is online. Kodosi asks you to confirm each time someone new gets
+access.
 
 ### Projects
 
@@ -347,6 +406,8 @@ app immediately.
 | `kodosi browser open <address>` | Opens a URL in this terminal's shared browser (all other agent-browser commands work too). |
 | `kodosi skill` | Prints the agent skill for collaborating in Kodosi; `kodosi skill canvas` prints the canvas skill. |
 | `kodosi dosi skill` | Prints the skill that lets another agent act as Dosi. |
+| `kodosi devices sleep <computer>` | Puts another of your computers to sleep. Its terminals pause until it wakes. `kodosi devices keep-awake` with `agents`, `always` or `never` chooses when this computer stays awake. |
+| `kodosi devices wake <computer>` | Wakes a sleeping computer of yours and waits until it is online. `kodosi devices test-wake <computer>` puts a computer to sleep, wakes it and keeps the result. `kodosi devices list` shows what Kodosi expects of each computer. |
 | `kodosi host` | Runs the host independently so terminals keep running after you quit the app. Use `kodosi host stop` to stop a background host. |
 
 `message`, `input`, and `keys` refuse to run while you're actively typing in that terminal.

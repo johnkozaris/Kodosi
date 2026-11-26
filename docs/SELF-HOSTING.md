@@ -61,8 +61,8 @@ Clients and the `kodosi` CLI default to `https://api.kodosi.com` and
 `https://auth.kodosi.com/realms/kodosi`. Override them by setting `KODOSI__BACKEND__API` and
 `KODOSI__AUTH__ISSUER` to your HTTPS URLs (or loopback HTTP for dev) without query strings.
 
-App updates and Kodosi Browser downloads come from `updates.kodosi.com`, independent of your
-backend.
+App updates and Kodosi Browser come from Kodosi's update feeds on `updates.kodosi.com`,
+independent of your backend. The feeds point to Kodosi's releases on GitHub.
 
 ## Account deletion sync
 

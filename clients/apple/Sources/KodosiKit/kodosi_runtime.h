@@ -152,7 +152,7 @@ extern "C" {
 
  int32_t kodosi_last_start_failure(struct kodosi_start_failure_t *out) ;
 
- int32_t kodosi_host_stop(int32_t force) ;
+ int32_t kodosi_host_stop(int32_t force, int32_t update) ;
 
  int32_t kodosi_cli_main(int32_t length, const char *const *values) ;
 

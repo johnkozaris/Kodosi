@@ -281,7 +281,7 @@ private fun StepDetail(tool: ChatTool, modifier: Modifier = Modifier) {
                 }
             }
 
-            is ChatToolDetail.Plan -> ChatProse(detail.text, live = false)
+            is ChatToolDetail.Plan -> SelectionContainer { ChatProse(detail.text, live = false) }
 
             is ChatToolDetail.Agent -> {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

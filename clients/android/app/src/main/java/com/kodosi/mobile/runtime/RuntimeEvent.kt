@@ -26,6 +26,9 @@ class RuntimeEvent(val type: String, val accountUserId: String?, val accountEpoc
     val failedRefresh: Boolean
         get() = type.endsWith(".error") && string("operation") in REFRESHES
 
+    val refused: Boolean
+        get() = type.endsWith(".error") && bool("refused") == true
+
     companion object {
         private val REFRESHES =
             setOf(

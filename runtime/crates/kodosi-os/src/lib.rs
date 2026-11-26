@@ -3,13 +3,14 @@
 pub mod console;
 pub mod fs;
 pub mod ipc;
-#[cfg(any(target_os = "macos", target_os = "ios"))]
-pub mod net;
+pub mod network;
+#[cfg(any(target_os = "macos", target_os = "linux", windows))]
+pub mod power;
 pub mod process;
 pub mod secrets;
 
 #[cfg(target_os = "linux")]
-mod session_bus;
+mod bus;
 
 #[cfg(windows)]
 mod win;

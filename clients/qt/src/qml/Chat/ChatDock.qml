@@ -57,6 +57,8 @@ Item {
             factsRow.openModel()
         else if (control === "usage")
             factsRow.openUsage()
+        else if (control === "settings")
+            factsRow.openSettings()
     }
     function move(step: int): bool {
         const count = root.suggestions.length
@@ -465,16 +467,16 @@ Item {
                 id: waiting
 
                 required property var modelData
-                readonly property bool refused: (modelData.refused || "").length > 0
-                readonly property bool terminal: !refused && modelData.terminal === true
+                readonly property string refusal: modelData.refused || ""
+                readonly property bool terminal: modelData.terminal === true
+                readonly property bool given: modelData.given === true
 
                 Layout.fillWidth: true
                 implicitHeight: queuedColumn.implicitHeight
 
                 KIconButton {
-                    visible: !waiting.terminal
-                    anchors.right: queuedColumn.left
-                    anchors.rightMargin: 6
+                    visible: !waiting.given
+                    x: queuedColumn.x + bubble.x - width - 6
                     y: (bubble.height - height) / 2
                     glyph: "close"
                     size: 22
@@ -488,9 +490,9 @@ Item {
                     id: queuedColumn
 
                     anchors.right: parent.right
-                    width: Math.min(parent.width - (waiting.terminal ? 40 : 68), Math.max(queuedWords.implicitWidth + 40, refusedWords.visible ? refusedWords.implicitWidth : 0,
-                        terminalWords.visible ? terminalText.implicitWidth + terminalWords.spacing + showTerminal.implicitWidth : 0))
-                    spacing: 3
+                    width: Math.min(parent.width - (waiting.given ? 40 : 68), Math.max(queuedWords.implicitWidth + 40,
+                        showTerminal.visible ? showTerminal.implicitWidth : 0))
+                    spacing: 4
 
                     Rectangle {
                         id: bubble
@@ -501,17 +503,28 @@ Item {
                         radius: 16
                         bottomRightRadius: 6
                         color: root.look.accentSoft
+                        ToolTip.visible: bubbleHover.hovered
+                        ToolTip.text: waitingSign.Accessible.name
+                        ToolTip.delay: Tip.delay
+
+                        HoverHandler { id: bubbleHover }
 
                         KIcon {
+                            id: waitingSign
+
                             x: 12
                             y: 11
                             width: 10
                             height: 10
-                            name: "history"
+                            name: waiting.terminal ? "terminal" : waiting.refusal.length > 0 ? "warning"
+                                : waiting.given ? "check" : "history"
                             strokeWidth: 2.4
-                            color: root.look.inkFaint
+                            color: !waiting.terminal && waiting.refusal.length > 0 ? root.look.caution : root.look.inkFaint
                             Accessible.role: Accessible.StaticText
-                            Accessible.name: qsTr("Waiting for %1").arg(root.agent)
+                            Accessible.name: waiting.terminal ? qsTr("Command needs terminal view")
+                                : waiting.refusal.length > 0 ? waiting.refusal
+                                : waiting.given ? qsTr("%1 reads this before its next step.").arg(root.agent)
+                                : qsTr("Waiting for %1").arg(root.agent)
                         }
                         PlainLabel {
                             id: queuedWords
@@ -527,70 +540,50 @@ Item {
                             elide: Text.ElideRight
                         }
                     }
-                    PlainLabel {
-                        id: refusedWords
-
-                        anchors.right: parent.right
-                        width: Math.min(implicitWidth, parent.width)
-                        visible: waiting.refused
-                        text: qsTr("The agent takes the next message in its terminal.")
-                        wrapMode: Text.WordWrap
-                        horizontalAlignment: Text.AlignRight
-                        color: root.look.caution
-                        font.pixelSize: KodosiTheme.fontCaption
-                        ToolTip.visible: refusedHover.hovered
-                        ToolTip.text: waiting.modelData.refused || ""
-                        ToolTip.delay: Tip.delay
-
-                        HoverHandler { id: refusedHover }
-                    }
-                    Row {
-                        id: terminalWords
+                    AbstractButton {
+                        id: showTerminal
 
                         anchors.right: parent.right
                         visible: waiting.terminal
-                        spacing: 8
+                        implicitWidth: showRow.implicitWidth + 16
+                        implicitHeight: KodosiTheme.scaled(20)
+                        hoverEnabled: true
+                        activeFocusOnTab: true
+                        objectName: "chat.queued.terminal"
+                        Accessible.role: Accessible.Button
+                        Accessible.name: showWords.text
+                        onClicked: root.terminalRequested()
 
-                        PlainLabel {
-                            id: terminalText
-
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: Math.min(implicitWidth, queuedColumn.width - terminalWords.spacing - showTerminal.implicitWidth)
-                            text: qsTr("%1 shows this in its terminal.").arg(root.agent)
-                            wrapMode: Text.WordWrap
-                            horizontalAlignment: Text.AlignRight
-                            color: root.look.inkMuted
-                            font.pixelSize: KodosiTheme.fontCaption
+                        background: Rectangle {
+                            radius: height / 2
+                            color: root.look.accentSoft
+                            border.width: showTerminal.visualFocus ? 1.5 : 0
+                            border.color: root.look.accentStrong
                         }
-                        AbstractButton {
-                            id: showTerminal
+                        contentItem: Item {
+                            Row {
+                                id: showRow
 
-                            anchors.verticalCenter: parent.verticalCenter
-                            implicitWidth: showWords.implicitWidth
-                            implicitHeight: KodosiTheme.scaled(22)
-                            hoverEnabled: true
-                            activeFocusOnTab: true
-                            objectName: "chat.queued.terminal"
-                            Accessible.role: Accessible.Button
-                            Accessible.name: showWords.text
-                            onClicked: root.terminalRequested()
+                                anchors.centerIn: parent
+                                spacing: 4
 
-                            background: Rectangle {
-                                anchors.fill: parent
-                                anchors.margins: -3
-                                radius: KodosiTheme.radiusXs
-                                color: "transparent"
-                                border.width: showTerminal.visualFocus ? 1.5 : 0
-                                border.color: root.look.accentStrong
-                            }
-                            contentItem: PlainLabel {
-                                id: showWords
+                                KIcon {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: KodosiTheme.scaled(10)
+                                    height: KodosiTheme.scaled(10)
+                                    name: "terminal"
+                                    strokeWidth: 2.2
+                                    color: showWords.color
+                                }
+                                PlainLabel {
+                                    id: showWords
 
-                                text: qsTr("Show the terminal")
-                                color: showTerminal.hovered ? root.look.accent : root.look.accentStrong
-                                font.pixelSize: KodosiTheme.fontCaption
-                                font.weight: Font.DemiBold
-                                verticalAlignment: Text.AlignVCenter
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: qsTr("Command needs terminal view")
+                                    color: showTerminal.hovered ? root.look.accent : root.look.accentStrong
+                                    font.pixelSize: KodosiTheme.fontCaption
+                                    font.weight: Font.Medium
+                                }
                             }
                         }
                     }
@@ -684,7 +677,7 @@ Item {
                     objectName: "chat.command." + modelData.name
                     Accessible.role: Accessible.Button
                     Accessible.name: "/" + modelData.name
-                    Accessible.description: modelData.description || ""
+                    Accessible.description: modelData.terminal ? qsTr("Command needs terminal view") : modelData.description || ""
                     onHoveredChanged: {
                         if (hovered)
                             root.picked = index
@@ -714,10 +707,43 @@ Item {
                             PlainLabel {
                                 anchors.baseline: commandName.baseline
                                 width: Math.max(0, parent.width - commandName.implicitWidth - 10)
+                                visible: !commandRow.modelData.terminal
                                 text: commandRow.modelData.description || ""
                                 color: root.look.inkMuted
                                 font.pixelSize: KodosiTheme.fontFootnote
                                 elide: Text.ElideRight
+                            }
+                            Rectangle {
+                                anchors.verticalCenter: commandName.verticalCenter
+                                visible: commandRow.modelData.terminal === true
+                                width: Math.min(viewRow.implicitWidth + 16, Math.max(0, parent.width - commandName.implicitWidth - 10))
+                                height: KodosiTheme.scaled(20)
+                                radius: height / 2
+                                color: root.look.accentSoft
+                                clip: true
+
+                                Row {
+                                    id: viewRow
+
+                                    anchors.centerIn: parent
+                                    spacing: 4
+
+                                    KIcon {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: KodosiTheme.scaled(10)
+                                        height: KodosiTheme.scaled(10)
+                                        name: "terminal"
+                                        strokeWidth: 2.2
+                                        color: root.look.accentStrong
+                                    }
+                                    PlainLabel {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: qsTr("Command needs terminal view")
+                                        color: root.look.accentStrong
+                                        font.pixelSize: KodosiTheme.fontCaption
+                                        font.weight: Font.Medium
+                                    }
+                                }
                             }
                         }
                     }
@@ -849,6 +875,7 @@ Item {
             Layout.rightMargin: 6
             visible: !root.away
             facts: root.chat.facts
+            chat: root.chat
             session: root.session
             sessionId: root.sessionId
             look: root.look

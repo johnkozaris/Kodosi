@@ -7,7 +7,6 @@ struct PeopleHome: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
     @State private var sheet: PeopleSheet?
-    @State private var trusting: FriendTrust?
 
     private var people: PeopleStore {
         model.people
@@ -53,13 +52,7 @@ struct PeopleHome: View {
         .onChange(of: model.openedInvite, initial: true) { _, invite in
             guard let invite else { return }
             model.openedInvite = nil
-            trusting = nil
             sheet = PeopleSheet(kind: .add(invite))
-        }
-        .friendTrust($trusting) { trust in
-            if case let .accept(request) = trust {
-                people.accept(request)
-            }
         }
         .refreshable { await people.refresh() }
         .task {
@@ -139,7 +132,7 @@ struct PeopleHome: View {
             ListHeader(title: "Requests", count: people.incoming.count)
                 .cardRow(top: 14, bottom: 2)
             ForEach(people.incoming) { request in
-                IncomingRequestRow(request: request) { trusting = .accept(request) }
+                IncomingRequestRow(request: request) { people.accept(request) }
                     .cardRow(top: 6, bottom: 6)
             }
             ForEach(people.outgoing) { request in

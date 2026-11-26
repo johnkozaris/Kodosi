@@ -180,6 +180,66 @@
           }
         }
       }
+    },
+    "NSMicrophoneUsageDescription" : {
+      "comment" : "The reason that iOS shows when Kodosi asks to use the microphone, so that a person can talk in a chat.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi hört zu, wenn du in einem Chat sprichst, und macht aus deinen Worten auf diesem Gerät eine Nachricht."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το Kodosi ακούει όταν μιλάτε σε μια συνομιλία και μετατρέπει τα λόγια σας σε μήνυμα σε αυτήν τη συσκευή."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi listens when you talk in a chat, and turns your words into a message on this device."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi escucha cuando hablas en un chat y convierte tus palabras en un mensaje en este dispositivo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi écoute quand vous parlez dans une discussion et transforme vos mots en message sur cet appareil."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi ascolta quando parli in una chat e trasforma le tue parole in un messaggio su questo dispositivo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "チャットで話すと、Kodosi が聞き取り、このデバイス上であなたの言葉をメッセージにします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "채팅에서 말하면 Kodosi가 듣고 이 기기에서 말을 메시지로 바꿉니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当你在聊天中说话时，Kodosi 会聆听，并在这台设备上把你的话变成消息。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

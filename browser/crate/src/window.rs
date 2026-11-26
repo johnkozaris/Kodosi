@@ -152,6 +152,7 @@ pub struct Window {
     used: watch::Receiver<Option<Instant>>,
     emptied: Arc<AtomicBool>,
     watched: Arc<AtomicBool>,
+    restarted: Arc<AtomicBool>,
 }
 
 impl Window {
@@ -201,6 +202,11 @@ impl Window {
         self.emptied.load(Ordering::Acquire)
     }
 
+    /// Returns `true` if the window closed because its browser starts again with other settings.
+    pub fn restarted(&self) -> bool {
+        self.restarted.load(Ordering::Acquire)
+    }
+
     pub fn is_watched(&self) -> bool {
         self.watched.load(Ordering::Acquire)
     }
@@ -217,6 +223,11 @@ impl Window {
 
     pub async fn close(&self) {
         drop(self.events.send(Event::Close).await);
+    }
+
+    pub(crate) async fn restart(&self) {
+        self.restarted.store(true, Ordering::Release);
+        self.close().await;
     }
 }
 
@@ -328,6 +339,7 @@ pub(crate) fn open(engine: Arc<Engine>, address: &str, folder: PathBuf) -> Resul
         used,
         emptied: Arc::default(),
         watched: Arc::default(),
+        restarted: Arc::default(),
     };
     let emptied = Arc::clone(&window.emptied);
     let watched = Arc::clone(&window.watched);

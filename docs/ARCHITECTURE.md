@@ -30,10 +30,23 @@ after going to the background, the runtime closes all sockets and timers so the 
 background connections and relies on push notifications instead; returning to the foreground
 re-establishes connections.
 
+While an agent works in one of its terminals, the host asks the operating system to hold off the
+sleep that starts by itself when nobody uses the computer, and it keeps the request for a short
+time after the last agent stops. An agent that waits for its person doesn't count. Each computer
+has a setting that keeps the request always while the computer is plugged in, or never. The request
+never stops a sleep that a person starts.
+
 The host persists terminal snapshots as they change. After Quit, the next host instance restores
 them on request with their previous screen contents and the command needed to resume each agent's
 conversation. Restored terminals get a new ID that references the replaced terminal ID so remote
 views follow automatically.
+
+Each snapshot also notes whether the terminal's agent was in the middle of a task. A host that
+stops to install an update leaves a note of that, and when the next host starts soon after, those
+agents continue on their own once they report that they are ready. After any other stop, the
+terminal offers to continue its agent until someone does, types, or the agent works again. The host
+tells the desktop apps whether a restart now would lose nothing while nobody uses its terminals,
+and apps that update automatically install a waiting update then.
 
 ## Terminals
 
@@ -111,8 +124,30 @@ device they're actively using:
 
 A device can open an end-to-end encrypted channel to the host of another computer belonging to the
 same user. It works like a view's channel but reaches the host itself, which serves launcher
-queries on it (listing available agents and folders, and starting new terminals). The host treats
-it like another client and accepts calls only from the user's own approved devices.
+queries on it (listing available agents and folders, and starting new terminals) and power calls
+(putting that computer to sleep, its stay-awake setting, and the wake calls below). The host
+treats it like another client and accepts calls only from the user's own approved devices.
+
+### Waking a computer
+
+A sleeping computer answers nothing, so everything that a wake needs must be known before it
+sleeps. While a computer is awake, it reads how it can wake: the hardware address and network of
+each card, whether the card uses a cable, the address of its router, and the wake setting of the
+operating system. The user's other devices ask for this over a remote host call and keep the
+answer, which also says when the computer stays awake. The backend never gets it.
+
+The wake signal is a broadcast on the local network of the sleeping computer, so a device of the
+user on that network must send it. The device that asks sends it itself when it is on that network
+and its system lets an app broadcast. Otherwise it asks each awake computer of the user to send it,
+through a remote host call, and a computer on another network declines. Two networks count as the
+same when they have the same address range and the same router; when a router is unknown, the
+public address decides. The device repeats the signal until the computer is online again, and
+gives up after a time with one thing for the person to do.
+
+What a computer reads is only an expectation. A wake test puts the computer to sleep, wakes it and
+tells it the result, which the computer keeps with the card that it tested. A test counts only when
+a wake signal went out and the computer itself saw a real sleep. Windows with Modern Standby stays on
+while it sleeps, so its apps cannot see the sleep, and it offers no test.
 
 ## Backend and projects
 
@@ -183,6 +218,10 @@ The host manages each terminal's canvas: files shown by the agent, its shared br
 that shares it, the computer's screen. The canvas manifest syncs with terminal state to local clients and over the encrypted terminal channel
 to remote devices. Reading and adding files travel over the same encrypted channel.
 
+A terminal on a Git branch of its own counts the lines its branch changed since the branch started,
+including new files that Git does not track yet, and shows the diff on its canvas when someone asks
+from any device.
+
 ### Live documents
 
 [documents/](../documents/) is an independent library with zero Kodosi imports. On the host, a
@@ -207,7 +246,9 @@ Agents edit live documents through the same server via `kodosi doc`. The Tauri a
 window (Chromium via prebuilt CEF) per terminal, with no visible native window on the host
 machine. The host downloads and updates the browser binary from a signed update feed. Host and
 browser communicate over a versioned local protocol, and a host only connects to an engine
-matching its exact protocol version.
+matching its exact protocol version. The host starts each engine with the person's privacy choices
+as Chromium features, which Chromium reads only at start, so a change of choice starts the running
+engines again and their windows open again at their last page.
 
 Devices only subscribe to browser frames while the canvas browser is actually on screen. On macOS
 viewing a local terminal, the browser renders directly into a Core Animation layer composited into

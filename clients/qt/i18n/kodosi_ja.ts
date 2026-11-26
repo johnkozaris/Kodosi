@@ -177,6 +177,14 @@
         <translation>%1 のフォルダを取得中</translation>
     </message>
     <message>
+        <source>Waking %1…</source>
+        <translation>%1 のスリープを解除中…</translation>
+    </message>
+    <message>
+        <source>Wake %1</source>
+        <translation>%1 のスリープを解除</translation>
+    </message>
+    <message>
         <source>Agents</source>
         <translation>エージェント</translation>
     </message>
@@ -428,6 +436,26 @@
     <message>
         <source>Download</source>
         <translation>ダウンロード</translation>
+    </message>
+    <message>
+        <source>Kodosi Browser starts again when you change one of these, and its open pages load again.</source>
+        <translation>どちらかを変更すると Kodosi Browser が再起動し、開いているページが再読み込みされます。</translation>
+    </message>
+    <message>
+        <source>Form predictions from Google</source>
+        <translation>Google によるフォーム予測</translation>
+    </message>
+    <message>
+        <source>Sends Google a code of each form to learn what its fields are for</source>
+        <translation>各フォームのコードを Google に送り、各欄の用途を調べます</translation>
+    </message>
+    <message>
+        <source>Cross-site cookies</source>
+        <translation>クロスサイト Cookie</translation>
+    </message>
+    <message>
+        <source>Sites shown inside a page, such as YouTube or Google, know you there</source>
+        <translation>ページ内に表示される YouTube や Google などのサイトが、そこであなたを識別します</translation>
     </message>
     <message>
         <source>Sites then know you in your private terminals on this computer. Passkeys and sign-ins bound to a device stay in their own browser.</source>
@@ -908,20 +936,16 @@
         <translation>削除</translation>
     </message>
     <message>
+        <source>Command needs terminal view</source>
+        <translation>ターミナル表示が必要なコマンド</translation>
+    </message>
+    <message>
+        <source>%1 reads this before its next step.</source>
+        <translation>%1 は次のステップの前にこれを読みます。</translation>
+    </message>
+    <message>
         <source>Waiting for %1</source>
         <translation>%1 を待っています</translation>
-    </message>
-    <message>
-        <source>The agent takes the next message in its terminal.</source>
-        <translation>エージェントは次のメッセージをターミナルで受け取ります。</translation>
-    </message>
-    <message>
-        <source>%1 shows this in its terminal.</source>
-        <translation>%1 はこれをターミナルに表示しています。</translation>
-    </message>
-    <message>
-        <source>Show the terminal</source>
-        <translation>ターミナルを表示</translation>
     </message>
     <message>
         <source>No agent runs in this terminal</source>
@@ -979,6 +1003,25 @@
         <translation>
             <numerusform>%n 個のコマンドがバックグラウンドで実行中</numerusform>
         </translation>
+    </message>
+    <message>
+        <source>Settings</source>
+        <translation>設定</translation>
+    </message>
+</context>
+<context>
+    <name>ChatSettings</name>
+    <message>
+        <source>Find a setting</source>
+        <translation>設定を検索</translation>
+    </message>
+    <message>
+        <source>No setting matches</source>
+        <translation>一致する設定はありません</translation>
+    </message>
+    <message>
+        <source>Locked</source>
+        <translation>ロック中</translation>
     </message>
 </context>
 <context>
@@ -1286,6 +1329,17 @@
     </message>
 </context>
 <context>
+    <name>CopyKey</name>
+    <message>
+        <source>Copy</source>
+        <translation>コピー</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>コピーしました</translation>
+    </message>
+</context>
+<context>
     <name>CutAction</name>
     <message>
         <source>Cut</source>
@@ -1412,12 +1466,60 @@
         <translation>お使いのデバイス</translation>
     </message>
     <message>
+        <source>Always awake</source>
+        <translation>常にスリープしない</translation>
+    </message>
+    <message>
+        <source>Can sleep while agents work</source>
+        <translation>エージェントの作業中もスリープ可能</translation>
+    </message>
+    <message>
         <source>Approves a new device when you have no other device</source>
         <translation>ほかのデバイスがないときに新しいデバイスを承認します</translation>
     </message>
     <message>
         <source>This computer</source>
         <translation>このコンピュータ</translation>
+    </message>
+    <message>
+        <source>Testing…</source>
+        <translation>テスト中…</translation>
+    </message>
+    <message>
+        <source>Waking…</source>
+        <translation>スリープ解除中…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>スリープ解除</translation>
+    </message>
+    <message>
+        <source>Options for %1</source>
+        <translation>%1 のオプション</translation>
+    </message>
+    <message>
+        <source>Stay awake</source>
+        <translation>スリープ防止</translation>
+    </message>
+    <message>
+        <source>While agents work</source>
+        <translation>エージェントの作業中</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>常に</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>なし</translation>
+    </message>
+    <message>
+        <source>Test wake…</source>
+        <translation>スリープ解除をテスト…</translation>
+    </message>
+    <message>
+        <source>Sleep…</source>
+        <translation>スリープ…</translation>
     </message>
     <message>
         <source>Remove…</source>
@@ -1570,6 +1672,30 @@
     <message>
         <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your projects again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and projects.</source>
         <translation>ほかのデバイスは、このコンピュータから再び承認するまでアクセスできなくなります。フレンドには再び信頼してもらう必要があり、プロジェクトも作り直しになります。アカウントにデバイスがある場合、このコンピュータは1日待ちます。ほかのデバイスやリカバリーキーがある場合は、キャンセルしてそれを使ってください。フレンドとプロジェクトをそのまま残せます。</translation>
+    </message>
+    <message>
+        <source>Put %1 to sleep?</source>
+        <translation>%1 をスリープさせますか？</translation>
+    </message>
+    <message>
+        <source>Sleep</source>
+        <translation>スリープ</translation>
+    </message>
+    <message>
+        <source>Its terminals pause until it wakes.</source>
+        <translation>スリープが解除されるまで、そのターミナルは一時停止します。</translation>
+    </message>
+    <message>
+        <source>Test the wake of %1?</source>
+        <translation>%1 のスリープ解除をテストしますか？</translation>
+    </message>
+    <message>
+        <source>Test</source>
+        <translation>テスト</translation>
+    </message>
+    <message>
+        <source>Kodosi puts it to sleep and wakes it again. Its terminals pause for about a minute. If it does not wake, wake it by hand.</source>
+        <translation>Kodosi がスリープさせてから、もう一度復帰させます。そのターミナルは 1 分ほど一時停止します。復帰しない場合は、手動で復帰させてください。</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2380,41 +2506,6 @@
     </message>
 </context>
 <context>
-    <name>FriendTrustDialog</name>
-    <message>
-        <source>I trust %1</source>
-        <translation>%1 さんを信頼しています</translation>
-    </message>
-    <message>
-        <source>I trust them</source>
-        <translation>信頼しています</translation>
-    </message>
-    <message>
-        <source>You</source>
-        <translation>あなた</translation>
-    </message>
-    <message>
-        <source>Stop and read</source>
-        <translation>必ずお読みください</translation>
-    </message>
-    <message>
-        <source>Do you trust %1 completely?</source>
-        <translation>%1 さんを完全に信頼していますか？</translation>
-    </message>
-    <message>
-        <source>Do you trust this person completely?</source>
-        <translation>この人を完全に信頼していますか？</translation>
-    </message>
-    <message>
-        <source>A friend can type in each terminal that you share with them, as you, with your rights on that computer.</source>
-        <translation>フレンドは、共有されたターミナルにあなたとして入力できます。そのコンピュータでのあなたの権限もそのまま使えます。</translation>
-    </message>
-    <message>
-        <source>Add only a person that you would let use your computer.</source>
-        <translation>自分のコンピュータを使わせてもよい人だけを追加してください。</translation>
-    </message>
-</context>
-<context>
     <name>GeneralSettings</name>
     <message>
         <source>Continue in your browser</source>
@@ -2551,6 +2642,46 @@
     <message>
         <source>Your terminals keep running. Open Kodosi again to see them.</source>
         <translation>ターミナルは実行を続けます。もう一度 Kodosi を開くと表示されます。</translation>
+    </message>
+    <message>
+        <source>Update automatically</source>
+        <translation>自動的にアップデート</translation>
+    </message>
+    <message>
+        <source>Kodosi installs updates by itself while nobody uses it.</source>
+        <translation>Kodosi は、誰も使っていないときにアップデートを自動でインストールします。</translation>
+    </message>
+    <message>
+        <source>Kodosi installs updates when you restart it.</source>
+        <translation>Kodosi は、再起動したときにアップデートをインストールします。</translation>
+    </message>
+    <message>
+        <source>Stay awake</source>
+        <translation>スリープ防止</translation>
+    </message>
+    <message>
+        <source>This computer does not go to sleep by itself while Kodosi runs. On battery, it stays awake only while agents work.</source>
+        <translation>Kodosi の実行中は、このコンピュータが自動でスリープすることはありません。バッテリー駆動中は、エージェントの作業中だけスリープしません。</translation>
+    </message>
+    <message>
+        <source>This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.</source>
+        <translation>エージェントの作業中でも、このコンピュータはスリープすることがあります。その場合、スリープが解除されるまでエージェントは一時停止します。</translation>
+    </message>
+    <message>
+        <source>This computer does not go to sleep by itself while an agent works, or for a few minutes after. An agent that waits for you does not keep it awake.</source>
+        <translation>エージェントの作業中とその後の数分間は、このコンピュータが自動でスリープすることはありません。返答を待っているエージェントは、スリープを防ぎません。</translation>
+    </message>
+    <message>
+        <source>While agents work</source>
+        <translation>エージェントの作業中</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>常に</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>なし</translation>
     </message>
     <message>
         <source>Notifications</source>
@@ -3180,10 +3311,6 @@
         <translation>プロジェクトから退出…</translation>
     </message>
     <message>
-        <source>Share with %1</source>
-        <translation>%1 と共有</translation>
-    </message>
-    <message>
         <source>Terminal</source>
         <translation>ターミナル</translation>
     </message>
@@ -3242,6 +3369,10 @@
     <message>
         <source>Report…</source>
         <translation>報告…</translation>
+    </message>
+    <message>
+        <source>Share with project %1</source>
+        <translation>プロジェクト「%1」と共有</translation>
     </message>
     <message>
         <source>Delete %1?</source>
@@ -3458,33 +3589,6 @@
     <message>
         <source>Refresh</source>
         <translation>更新</translation>
-    </message>
-</context>
-<context>
-    <name>ProjectShareDialog</name>
-    <message>
-        <source>the project</source>
-        <translation>プロジェクト</translation>
-    </message>
-    <message>
-        <source>Share %1 with %2?</source>
-        <translation>%1 を %2 と共有しますか？</translation>
-    </message>
-    <message>
-        <source>this terminal</source>
-        <translation>このターミナル</translation>
-    </message>
-    <message>
-        <source>Share</source>
-        <translation>共有</translation>
-    </message>
-    <message>
-        <source>Everyone in %1 gets full control of it. It leaves %2.</source>
-        <translation>%1 の全員がフル操作できます。%2 からは外れます。</translation>
-    </message>
-    <message>
-        <source>Everyone in %1 gets full control of it.</source>
-        <translation>%1 の全員がフル操作できます。</translation>
     </message>
 </context>
 <context>
@@ -3756,6 +3860,12 @@
             <numerusform>このコンピュータのターミナル %n 個が停止します。Kodosi を開くと再び起動します。</numerusform>
         </translation>
     </message>
+    <message numerus="yes">
+        <source>%n running programs stop.</source>
+        <translation>
+            <numerusform>実行中のプログラム %n 個が停止します。</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>ReconnectingNotice</name>
@@ -3859,6 +3969,10 @@
 </context>
 <context>
     <name>SessionDetails</name>
+    <message>
+        <source>Shared with project %1</source>
+        <translation>プロジェクト「%1」と共有中</translation>
+    </message>
     <message>
         <source>Shared with %1</source>
         <translation>%1 と共有中</translation>
@@ -3972,6 +4086,10 @@
     <message>
         <source>Stop sharing</source>
         <translation>共有を停止</translation>
+    </message>
+    <message>
+        <source>Share with project %1</source>
+        <translation>プロジェクト「%1」と共有</translation>
     </message>
     <message>
         <source>Shared</source>
@@ -4754,6 +4872,14 @@
         <translation>コンピュータがオンラインに戻ると、ターミナルが開きます。</translation>
     </message>
     <message>
+        <source>Waking…</source>
+        <translation>スリープ解除中…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>スリープ解除</translation>
+    </message>
+    <message>
         <source>The terminal opens when the connection is back.</source>
         <translation>接続が戻ると、ターミナルが開きます。</translation>
     </message>
@@ -4792,6 +4918,18 @@
     <message>
         <source>Paste</source>
         <translation>貼り付け</translation>
+    </message>
+    <message>
+        <source>Lines added: %1. Lines removed: %2.</source>
+        <translation>追加した行: %1。削除した行: %2。</translation>
+    </message>
+    <message>
+        <source>Show the changes</source>
+        <translation>変更を表示</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>続ける</translation>
     </message>
 </context>
 <context>
@@ -5415,10 +5553,6 @@
     <message>
         <source>You cannot do this in the selected terminal.</source>
         <translation>選択したターミナルではこの操作はできません。</translation>
-    </message>
-    <message>
-        <source>Change sharing on the computer that hosts this terminal.</source>
-        <translation>共有設定は、このターミナルをホストしているコンピュータで変更してください。</translation>
     </message>
     <message>
         <source>Sign in before you share a terminal.</source>

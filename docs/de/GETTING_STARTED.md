@@ -96,6 +96,9 @@ Terminal in einem neuen Git-Worktree und entfernt diesen beim Schließen des Ter
 wieder, wenn nichts geändert wurde. Wo Worktrees gespeichert werden, legst du unter **Einstellungen
 › Terminal** fest.
 
+Die Kopfzeile des Terminals zeigt, wie viele Zeilen der Branch hinzugefügt und entfernt hat. Klicke
+auf die Zahlen, um die Änderungen im Canvas zu sehen.
+
 Jedes Terminal ist hell oder dunkel wie Kodosi auf seinem Host-Computer, und zwar auf allen
 Geräten, die es anzeigen. Programme im Terminal erhalten Hinweise zum Designwechsel, sodass sich
 Werkzeuge wie Claude Code (mit `/theme` auf Auto) automatisch anpassen. Wenn du dunkle Terminals
@@ -119,6 +122,12 @@ automatisch fort und behalten unter macOS und Linux außerdem das gewählte Mode
 den Schnellmodus, die Berechtigungen und die Ausführlichkeit bei. Kann Kodosi nicht erkennen,
 welche Unterhaltung ein Agent zuletzt offen hatte, listet der Agent seine Unterhaltungen zur
 Auswahl auf.
+
+Kodosi installiert Updates selbst, solange niemand es benutzt, kein Agent beschäftigt ist und in
+keinem Terminal ein anderes Programm läuft. Um den Zeitpunkt selbst zu wählen, schalte **Automatisch
+aktualisieren** unter **Einstellungen › Allgemein** aus. Startest du für ein Update selbst neu,
+machen Agenten, die mitten in einer Aufgabe waren, danach weiter. Nach jedem anderen Halt wartet ein
+solcher Agent, bis du in seinem Terminal auf **Weiter** drückst.
 
 Unter macOS erben Programme in Kodosi die macOS-Berechtigungen, die du Kodosi erteilt hast, genau
 wie in jeder anderen Terminal-App. Blockiert macOS ein Programm beim Ändern einer anderen App,
@@ -163,6 +172,16 @@ die Antworten und Tool-Aktivitäten des Agents sowie offene Rückfragen mit ankl
 Antwort-Buttons. Du kannst direkt im Chat antworten oder den Agent stoppen; gibst du während einer
 Rückfrage eigenen Text ein, erfährt der Agent, was er stattdessen tun soll. Alles, was du im Chat
 machst, passiert zugleich im zugrunde liegenden Terminal.
+
+Bei Claude Code öffnet das Zahnrad unter dem Nachrichtenfeld oder `/config` die eigenen
+Einstellungen von Claude Code. Claude Code prüft und speichert jede Änderung und sagt, warum, wenn
+es eine nicht übernimmt.
+
+Auf dem Mac, iPhone, iPad und Android klickst oder tippst du auf das Mikrofon neben dem
+Nachrichtenfeld, um zu sprechen statt zu tippen. Deine Worte erscheinen beim Sprechen als deine
+Nachricht und werden nach einer längeren Pause gesendet, damit du in Ruhe nachdenken kannst; klicke
+oder tippe auf **Senden**, um sie früher zu senden. Die Sprache wird auf deinem Gerät in Text
+umgewandelt, und kein Ton verlässt es.
 
 ## 4. Sehen, was ein Agent auf dem Canvas zeigt
 
@@ -224,6 +243,12 @@ und **Browser**, jeweils mit einem kupferfarbenen Punkt bei neuen Inhalten:
   Websitedaten in privaten Terminals. Wenn macOS den Zugriff auf die Daten eines Browsers
   einschränkt (etwa bei Safari), klicke neben dem Browser auf **Erlauben…**, um
   Festplattenvollzugriff zu gewähren.
+- Ebenfalls unter **Einstellungen › Browser**: Mit **Formularvorhersagen von Google** kann der
+  Kodosi Browser Google fragen, wofür die Felder eines Formulars da sind, und mit
+  **Websiteübergreifende Cookies** kann dich eine Website, die in der Seite einer anderen Website
+  erscheint, etwa ein YouTube-Video, dort erkennen. Beide bleiben ausgeschaltet, bis du sie
+  einschaltest. Wenn du eine davon änderst, startet der Kodosi Browser neu, und seine offenen Seiten
+  laden neu.
 - Alle Personen mit Zugriff auf ein Terminal sehen dessen Canvas und teilen sich den Browser. Beim
   Schließen des Terminals werden das Canvas geleert und die Browser-Anmeldungen geteilter Terminals
   verworfen.
@@ -311,6 +336,48 @@ Browser-Datenverkehr für geringere Latenz direkt zwischen ihnen (Peer-to-Peer).
 Netzwerk fragen macOS, iOS und Android einmal nach der Berechtigung für das lokale Netzwerk; lehnst
 du sie ab, läuft der Verkehr ersatzweise über den Relay-Server.
 
+### Ruhezustand und wach bleiben
+
+Ein Computer geht nicht von selbst in den Ruhezustand, während ein Agent in einem seiner Terminals
+arbeitet, und er kann einige Minuten nach dem Ende seiner Agenten wieder in den Ruhezustand gehen.
+Ein Agent, der auf deine Antwort wartet, hält ihn nicht wach. Um das zu ändern, wähle auf diesem
+Computer unter **Einstellungen › Allgemein** bei **Wach bleiben** eine Option: **Während Agenten
+arbeiten**, **Immer** oder **Nie**. **Immer** hält einen Computer nur wach, solange er am Strom
+hängt; im Akkubetrieb bleibt er wach, während Agenten arbeiten. Du kannst einen Computer weiterhin
+selbst in den Ruhezustand versetzen.
+
+Um einen anderen deiner Computer in den Ruhezustand zu versetzen, öffne die **Einstellungen**,
+klicke unter **Deine Geräte** neben ihm auf **⋯** und wähle **Ruhezustand…**. Auf einem Smartphone
+tippst du auf den Computer, um seine Seite zu öffnen. Seine Terminals pausieren, bis er wieder
+aufwacht. Wenn ihn danach nichts mehr wecken könnte, sagt Kodosi es dir vorher. Im selben Menü oder
+auf der Seite wählst du, wann dieser Computer wach bleibt.
+
+### Einen Computer aufwecken
+
+Um einen Computer aus dem Ruhezustand aufzuwecken, klicke in den **Einstellungen** neben ihm (auf
+einem Smartphone auf seiner Seite), in einem seiner Terminals oder in der Computerliste eines neuen
+Terminals auf **Aufwecken**. Das Wecksignal muss aus dem Netzwerk des schlafenden Computers kommen.
+Kodosi sendet es von dem Gerät, das du gerade benutzt, wenn es im selben Netzwerk ist, und sonst von
+einem anderen deiner Computer dort, der wach ist. Ein iPhone oder iPad bittet immer einen deiner
+Computer darum.
+
+Ein Computer wacht über ein Netzwerkkabel auf, nicht über WLAN, und nur, wenn sein System es
+erlaubt. Die **Einstellungen** zeigen für jeden Computer, was Kodosi erwartet, oder die eine
+Einstellung, die du ändern musst:
+
+- Auf einem Mac: Aktiviere in den Systemeinstellungen **Ruhezustand bei Netzwerkzugriff beenden**.
+- Unter Windows: Erlaube im Geräte-Manager, dass der Netzwerkadapter den Computer aktiviert.
+- Unter Linux: Aktiviere Wake-on-LAN für die Kabelverbindung.
+
+Ein Mac sendet das Wecksignal nur, wenn Kodosi das lokale Netzwerk nutzen darf. Erlaube es in den
+Systemeinstellungen unter **Datenschutz & Sicherheit**.
+
+Um sicherzugehen, wähle im Menü eines wachen Computers **Aufwecken testen…** (auf einem Smartphone
+auf seiner Seite). Kodosi versetzt ihn in den Ruhezustand, weckt ihn auf und merkt sich das
+Ergebnis. Bleib beim ersten Test in der Nähe des Computers: Wenn er nicht aufwacht, wecke ihn von
+Hand. Ein Windows-PC mit Modern Standby hat kein **Aufwecken testen…**, weil Windows Apps nicht
+zeigt, wann er in den Ruhezustand geht.
+
 ### Wiederherstellungsschlüssel
 
 Erstelle in den **Einstellungen** einen Wiederherstellungsschlüssel und bewahre ihn sicher auf.
@@ -333,7 +400,9 @@ vor dem Absenden der Anfrage bestätigt.
 
 Öffne das Aktionen-Menü in der Kopfzeile eines Terminals, klicke auf **Teilen** und wähle Freunde
 oder Projekte aus. Alle Personen, mit denen du teilst, erhalten die volle Kontrolle mit deinen
-Betriebssystemrechten auf diesem Computer. Deine übrigen Terminals bleiben privat.
+Betriebssystemrechten auf diesem Computer. Deine übrigen Terminals bleiben privat. Du kannst von
+jedem deiner Geräte aus teilen, auch vom Handy, solange der Computer, auf dem das Terminal läuft,
+online ist. Kodosi fragt dich jedes Mal, bevor jemand Neues Zugang bekommt.
 
 ### Projekte
 
@@ -390,6 +459,8 @@ der App sofort sichtbar.
 | `kodosi browser open <address>` | Öffnet eine URL im geteilten Browser dieses Terminals (alle anderen agent-browser-Befehle funktionieren ebenfalls). |
 | `kodosi skill` | Gibt den Agent-Skill für die Zusammenarbeit in Kodosi aus; `kodosi skill canvas` gibt den Canvas-Skill aus. |
 | `kodosi dosi skill` | Gibt den Skill aus, mit dem ein anderer Agent als Dosi auftreten kann. |
+| `kodosi devices sleep <computer>` | Versetzt einen anderen deiner Computer in den Ruhezustand. Seine Terminals pausieren, bis er wieder aufwacht. Mit `kodosi devices keep-awake` und `agents`, `always` oder `never` wählst du, wann dieser Computer wach bleibt. |
+| `kodosi devices wake <computer>` | Weckt einen deiner Computer aus dem Ruhezustand auf und wartet, bis er online ist. `kodosi devices test-wake <computer>` versetzt einen Computer in den Ruhezustand, weckt ihn auf und merkt sich das Ergebnis. `kodosi devices list` zeigt, was Kodosi von jedem Computer erwartet. |
 | `kodosi host` | Führt den Host eigenständig aus, sodass Terminals weiterlaufen, nachdem du die App beendet hast. Mit `kodosi host stop` stoppst du einen im Hintergrund laufenden Host. |
 
 `message`, `input` und `keys` brechen ab, solange du aktiv in diesem Terminal tippst. `message`

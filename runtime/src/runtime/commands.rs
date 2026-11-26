@@ -32,6 +32,9 @@ use crate::{
 #[cfg(feature = "host")]
 use std::sync::Arc;
 
+/// What an agent hears when someone lets it go on with the task that a restart cut off.
+pub(super) const GO_ON: &str = "Continue";
+
 fn run_on_host() -> crate::text::Text {
     text!("Start a program on the computer that hosts this terminal.")
 }
@@ -102,6 +105,7 @@ impl Runtime {
                     event.recipient = Some(consumer);
                     self.send_event(event);
                 }
+                self.show_approvals(consumer);
                 self.result(command);
                 Ok(())
             }
@@ -185,13 +189,15 @@ impl Runtime {
             | Command::BrowserCopy { .. }
             | Command::BrowserForget { .. }
             | Command::BrowserClear { .. }
-            | Command::BrowserGet { .. } => self.use_browser_settings(command)?,
+            | Command::BrowserGet { .. }
+            | Command::BrowserSet { .. } => self.use_browser_settings(command)?,
             #[cfg(not(feature = "host"))]
             Command::BrowserStatus { .. }
             | Command::BrowserCopy { .. }
             | Command::BrowserForget { .. }
             | Command::BrowserClear { .. }
-            | Command::BrowserGet { .. } => {
+            | Command::BrowserGet { .. }
+            | Command::BrowserSet { .. } => {
                 return Err(Error::Refused(text!(
                     "The browsers of a computer are in the app on that computer."
                 )));
@@ -282,6 +288,8 @@ impl Runtime {
             Command::CloseSession { .. } | Command::InterruptSession { .. } => {
                 self.end_session(command)?;
             }
+            Command::ContinueSession { .. } => self.continue_session(command)?,
+            Command::ShowChanges { .. } => self.show_changes(command)?,
             #[cfg(feature = "host")]
             Command::RunInSession { .. } => self.run_in_session(command)?,
             #[cfg(not(feature = "host"))]
@@ -344,6 +352,34 @@ impl Runtime {
             | Command::ChooseAgent { .. }
             | Command::ListFolders { .. } => {
                 return Err(Error::Refused(text!("This device cannot start terminals.")));
+            }
+            #[cfg(feature = "host")]
+            Command::Sleep { .. } => self.sleep(command)?,
+            #[cfg(feature = "host")]
+            Command::KeepAwake { keep_awake, .. } => self.keep_awake(command, *keep_awake),
+            Command::Wake { device_id, .. } => self.wake(command, device_id)?,
+            Command::TestWake { device_id, .. } => self.test_wake(command, device_id)?,
+            #[cfg(feature = "host")]
+            Command::DescribeWake { .. } => self.describe_wake(command)?,
+            #[cfg(feature = "host")]
+            Command::SignalWake { sleeper, .. } => self.signal_wake(command, sleeper)?,
+            #[cfg(feature = "host")]
+            Command::RecordWakeTest { hardware, woke, .. } => {
+                let test = crate::protocol::WakeTest {
+                    hardware: hardware.clone(),
+                    woke: *woke,
+                };
+                self.record_wake_test(command, test)?;
+            }
+            #[cfg(not(feature = "host"))]
+            Command::Sleep { .. }
+            | Command::KeepAwake { .. }
+            | Command::DescribeWake { .. }
+            | Command::SignalWake { .. }
+            | Command::RecordWakeTest { .. } => {
+                return Err(Error::Invalid(
+                    "A power command goes to a computer.".to_owned(),
+                ));
             }
             #[cfg(feature = "host")]
             Command::ListFolders { path, .. } => {
@@ -469,17 +505,26 @@ impl Runtime {
                 .ask_computer(&computer, request)
                 .await
                 .map_err(Error::from);
-            Completion::Asked { command, result }
+            Completion::Asked {
+                command,
+                computer,
+                result,
+            }
         });
         Ok(())
     }
 
-    pub(super) fn asked(&mut self, command: &Command, answer: Value) -> Result<()> {
+    pub(super) fn asked(&mut self, command: &Command, computer: &str, answer: Value) -> Result<()> {
         let event = self
             .event(answer.clone())
             .map_err(|_| Error::Text(crate::protocol::other_version()))?;
         if event.event.request_id() != Some(command.request_id()) || !event.event.is_answer() {
             return Err(Error::Text(crate::protocol::other_version()));
+        }
+        if let (Command::KeepAwake { keep_awake, .. }, crate::EventBody::PowerResult { .. }) =
+            (command, &event.event)
+        {
+            self.kept_awake(computer, *keep_awake);
         }
         let started = match (command, &event.event) {
             (
@@ -595,6 +640,17 @@ impl Runtime {
                     .map(|sites| json!({ "sites": sites })),
                 Command::BrowserClear { .. } => browsers.clear().await.map(|()| json!({})),
                 Command::BrowserGet { .. } => browsers.get().await.map(|()| json!({})),
+                Command::BrowserSet {
+                    form_predictions,
+                    cross_site_cookies,
+                    ..
+                } => browsers
+                    .use_privacy(shared_browser::Privacy {
+                        form_predictions: *form_predictions,
+                        cross_site_cookies: *cross_site_cookies,
+                    })
+                    .await
+                    .map(|()| json!({})),
                 _ => {
                     let status = browsers.status().await;
                     let sources: Vec<Value> = status
@@ -613,6 +669,8 @@ impl Runtime {
                         "sites": status.sites,
                         "engine": status.engine,
                         "getting": status.getting,
+                        "formPredictions": status.privacy.form_predictions,
+                        "crossSiteCookies": status.privacy.cross_site_cookies,
                     }))
                 }
             };
@@ -830,7 +888,7 @@ impl Runtime {
         Ok(())
     }
 
-    fn command_session(&self, command: &Command) -> Result<Uuid> {
+    pub(super) fn command_session(&self, command: &Command) -> Result<Uuid> {
         let (Command::RenameSession {
             session_id: id,
             expected_runtime_incarnation_id: incarnation,
@@ -842,6 +900,16 @@ impl Runtime {
             ..
         }
         | Command::InterruptSession {
+            session_id: id,
+            expected_runtime_incarnation_id: incarnation,
+            ..
+        }
+        | Command::ContinueSession {
+            session_id: id,
+            expected_runtime_incarnation_id: incarnation,
+            ..
+        }
+        | Command::ShowChanges {
             session_id: id,
             expected_runtime_incarnation_id: incarnation,
             ..
@@ -1019,13 +1087,79 @@ impl Runtime {
         Ok(())
     }
 
-    fn change_membership(&mut self, command: &Command) -> Result<()> {
+    fn continue_session(&mut self, command: &Command) -> Result<()> {
+        let id = self.command_session(command)?;
+        self.reachable(id)?;
+        if !self.hosts(&id)
+            && self
+                .connections
+                .get(&id)
+                .is_none_or(RemoteTerminal::is_closed)
+        {
+            return self.open_remote(id, command.clone());
+        }
+        self.job_capacity()?;
+        let typed = self.target(id)?.type_line(GO_ON.to_owned(), true);
+        let command = command.clone();
+        self.spawn(async move {
+            Completion::Terminal {
+                command,
+                result: typed.await,
+            }
+        });
+        Ok(())
+    }
+
+    fn show_changes(&mut self, command: &Command) -> Result<()> {
+        let id = self.command_session(command)?;
+        self.reachable(id)?;
+        self.job_capacity()?;
+        #[cfg(feature = "host")]
+        if self.hosts(&id) {
+            let shown = self.changes_shown(id)?;
+            let command = command.clone();
+            self.spawn(async move {
+                Completion::Terminal {
+                    command,
+                    result: shown.await,
+                }
+            });
+            return Ok(());
+        }
+        if self
+            .connections
+            .get(&id)
+            .is_none_or(RemoteTerminal::is_closed)
+        {
+            return self.open_remote(id, command.clone());
+        }
+        let asked = self.target(id)?.ask_changes();
+        let command = command.clone();
+        self.spawn(async move {
+            Completion::Terminal {
+                command,
+                result: asked.await,
+            }
+        });
+        Ok(())
+    }
+
+    /// The checks of a change to the people of a terminal that this computer makes before it asks
+    /// the owner, and again before it runs the change.
+    #[cfg_attr(
+        not(feature = "host"),
+        expect(
+            clippy::needless_pass_by_ref_mut,
+            reason = "only a computer that hosts terminals publishes them"
+        )
+    )]
+    pub(super) fn membership_checks(&mut self, command: &Command) -> Result<Uuid> {
         let id = self.command_session(command)?;
         match command {
             #[cfg(feature = "host")]
             Command::ShareSession {
                 expected_user_ids, ..
-            } => {
+            } if self.local.contains_key(&id) => {
                 if let Some(expected) = expected_user_ids
                     && self.local.get(&id).is_some_and(|local| {
                         expected.iter().collect::<BTreeSet<_>>()
@@ -1034,20 +1168,24 @@ impl Runtime {
                 {
                     return Err(Error::Refused(super::sharing_changed()));
                 }
-                if !self.local.contains_key(&id) {
-                    return Err(Error::Refused(super::share_on_host()));
-                }
                 self.require_publication(id)?;
             }
-            #[cfg(not(feature = "host"))]
             Command::ShareSession { .. } => {
-                return Err(Error::Refused(super::share_on_host()));
+                return Err(Error::Refused(super::hosted_elsewhere()));
             }
             Command::AttachSession { .. } => {
                 self.require_owner(id)?;
                 #[cfg(feature = "host")]
                 self.require_publication(id)?;
             }
+            _ => {}
+        }
+        Ok(id)
+    }
+
+    fn change_membership(&mut self, command: &Command) -> Result<()> {
+        let id = self.membership_checks(command)?;
+        match command {
             Command::LeaveSession { .. }
                 if self.hosts(&id) || self.remotes.get(&id).is_some_and(|entry| entry.is_owner) =>
             {
@@ -1082,13 +1220,7 @@ impl Runtime {
 
     #[cfg(feature = "host")]
     fn create(&mut self, command: Command) -> Result<()> {
-        let Command::CreateSession {
-            request_id,
-            resume,
-            like,
-            ..
-        } = &command
-        else {
+        let Command::CreateSession { request_id, .. } = &command else {
             return Err(Error::Invalid("expected session creation".to_owned()));
         };
         let existing = self.local.iter().find_map(|(id, local)| {
@@ -1104,6 +1236,17 @@ impl Runtime {
             self.emit(json!({"type":"session.result", "requestId":request_id, "sessionId":id, "operation":"session.create"}));
             return Ok(());
         }
+        let like = self.can_start(&command)?;
+        self.begin_creation(command, like, None, None).map(drop)
+    }
+
+    /// The checks of a new terminal that this computer makes before it asks the owner, and
+    /// again before it starts the terminal.
+    #[cfg(feature = "host")]
+    pub(super) fn can_start(&self, command: &Command) -> Result<Option<RunningAgent>> {
+        let Command::CreateSession { resume, like, .. } = command else {
+            return Err(Error::Invalid("expected session creation".to_owned()));
+        };
         if let Some(resume) = resume
             && self.local.values().map(|local| &local.creation).chain(self.creating.values())
                 .any(|command| matches!(command, Command::CreateSession { resume: Some(active), .. } if active == resume)) {
@@ -1113,7 +1256,32 @@ impl Runtime {
             Some(terminal) => self.running_agent(terminal)?,
             None => None,
         };
-        self.begin_creation(command, like, None, None).map(drop)
+        self.room_for_terminal()?;
+        Ok(like)
+    }
+
+    #[cfg(feature = "host")]
+    fn room_for_terminal(&self) -> Result<()> {
+        if self.local.len() + self.creating.len() >= MAX_SESSIONS {
+            return Err(Error::Busy);
+        }
+        self.job_capacity()
+    }
+
+    /// Whether a terminal of this computer started for this request already.
+    #[cfg(feature = "host")]
+    pub(super) fn started_by(&self, request: &str) -> bool {
+        self.local
+            .values()
+            .map(|local| &local.creation)
+            .chain(self.creating.values())
+            .any(|command| command.request_id() == request)
+    }
+
+    #[cfg(not(feature = "host"))]
+    #[expect(clippy::unused_self, reason = "a viewer starts no terminals")]
+    pub(super) const fn started_by(&self, _request: &str) -> bool {
+        false
     }
 
     #[cfg(feature = "host")]
@@ -1144,10 +1312,7 @@ impl Runtime {
         screen: Option<PathBuf>,
         quiet_settings: Option<PathBuf>,
     ) -> Result<Uuid> {
-        if self.local.len() + self.creating.len() >= MAX_SESSIONS {
-            return Err(Error::Busy);
-        }
-        self.job_capacity()?;
+        self.room_for_terminal()?;
         let id = Uuid::now_v7();
         let config = self.config.clone();
         let changes = self.changes.clone();
@@ -1339,23 +1504,36 @@ impl Runtime {
     }
 
     pub(super) fn network_command(&mut self, command: Command) {
-        self.backend_command(command, true);
+        self.backend_command(command, true, None);
     }
 
     pub(super) fn refresh(&mut self, command: Command) {
-        self.backend_command(command, false);
+        self.backend_command(command, false, None);
     }
 
-    fn backend_command(&mut self, command: Command, requested: bool) {
+    /// A friend request goes to the account that this device found before it asked the owner, so
+    /// that the server does not look up its user name again.
+    pub(super) fn request_friend(&mut self, command: Command, account: String) -> Result<()> {
+        self.job_capacity()?;
+        self.backend_command(command, true, Some(account));
+        Ok(())
+    }
+
+    fn backend_command(&mut self, command: Command, requested: bool, account: Option<String>) {
         let network = self.network.clone();
         let generation = self.scope.network_generation;
         self.spawn(async move {
             let result = if network.generation() == generation {
                 match serde_json::to_value(&command) {
-                    Ok(args) => network
-                        .execute(command.operation(), args)
-                        .await
-                        .map_err(Error::from),
+                    Ok(mut args) => {
+                        if let Some(account) = account {
+                            args["userId"] = json!(account);
+                        }
+                        network
+                            .execute(command.operation(), args)
+                            .await
+                            .map_err(Error::from)
+                    }
                     Err(error) => Err(Error::from(error)),
                 }
             } else {
@@ -1559,6 +1737,20 @@ impl Runtime {
                 result,
             } => self.told(id, mentions, result, current),
             #[cfg(feature = "host")]
+            Completion::WentOn { id, result } => {
+                if current {
+                    self.went_on(id, result);
+                }
+            }
+            #[cfg(feature = "host")]
+            Completion::Counted { id, changes } => self.counted(id, changes),
+            #[cfg(feature = "host")]
+            Completion::ChangesShown { result } => {
+                if let Err(error) = result {
+                    tracing::debug!(%error, "the diff of a terminal was not shown");
+                }
+            }
+            #[cfg(feature = "host")]
             Completion::AgentTyped { id, line, result } => {
                 self.agent_typed(id, line, result, current);
             }
@@ -1639,16 +1831,55 @@ impl Runtime {
                 Err(error) => self.error(&command, &error),
             },
             #[cfg(feature = "host")]
+            Completion::SleepChecked { command, result } if current => {
+                self.sleep_checked(&command, result);
+            }
+            #[cfg(feature = "host")]
+            Completion::Slept { result, slept } => self.slept(&result, slept),
+            #[cfg(feature = "host")]
             Completion::Folders { command, result } if current => match result {
                 Ok(folders) => {
                     self.emit(json!({"type":"folders.result", "requestId":command.request_id(), "operation":command.operation(), "folders":folders}));
                 }
                 Err(error) => self.error(&command, &error),
             },
-            Completion::Asked { command, result } if current => {
-                if let Err(error) = result.and_then(|answer| self.asked(&command, answer)) {
+            Completion::Asked {
+                command,
+                computer,
+                result,
+            } if current => {
+                if let Err(error) =
+                    result.and_then(|answer| self.asked(&command, &computer, answer))
+                {
                     self.error(&command, &error);
                 }
+            }
+            Completion::Checked { held, facts } => self.checked(*held, &facts, current),
+            Completion::WakeDescribed {
+                device,
+                number,
+                reported,
+                result,
+            } if current => self.wake_described(device, number, reported.as_ref(), result),
+            Completion::OwnNetwork { own, connects } => self.own_network_read(own, connects),
+            Completion::Roused {
+                device,
+                details,
+                roused,
+            } if current => self.roused(&device, &details, &roused),
+            Completion::WakeTested {
+                device,
+                details,
+                tested,
+            } if current => self.wake_tested(&device, &details, tested),
+            Completion::WakeDescribed { .. }
+            | Completion::Roused { .. }
+            | Completion::WakeTested { .. } => {}
+            #[cfg(feature = "host")]
+            Completion::WakeRead { command, own } if current => self.wake_read(&command, own),
+            #[cfg(feature = "host")]
+            Completion::WakeSignaled { command, signal } if current => {
+                self.wake_signaled(&command, signal);
             }
             Completion::TerminalFolders {
                 device,
@@ -1721,7 +1952,10 @@ impl Runtime {
             #[cfg(feature = "host")]
             Completion::Provider { command, .. }
             | Completion::Folders { command, .. }
-            | Completion::Repositories { command, .. } => {
+            | Completion::Repositories { command, .. }
+            | Completion::SleepChecked { command, .. }
+            | Completion::WakeRead { command, .. }
+            | Completion::WakeSignaled { command, .. } => {
                 self.error(&command, &Error::Stale);
             }
             Completion::Asked { command, .. } => self.error(&command, &Error::Stale),
@@ -1738,6 +1972,9 @@ impl Runtime {
         if let Some(saved) = &restored {
             self.restore.forget_screen(saved.id);
         }
+        let unfinished = restored
+            .as_ref()
+            .and_then(|saved| self.restore.unfinished(saved));
         let result = if current || restored.is_some() {
             result
         } else {
@@ -1811,6 +2048,8 @@ impl Runtime {
                     project_name: None,
                     shared_with: vec![],
                     restored_from: restored.as_ref().map(|saved| saved.id.to_string()),
+                    stopped: false,
+                    changes: None,
                 };
                 let created = json!({"type":"session.result", "requestId":request_id, "sessionId":id, "operation":"session.create"});
                 if let Some(folder) = &entry.working_dir {
@@ -1846,8 +2085,19 @@ impl Runtime {
                         changed: crate::agents::AgentSettings::default(),
                         account_folder: None,
                         marked: tokio::sync::watch::channel(None).0,
+                        counted: None,
+                        counting: false,
                     },
                 );
+                match unfinished {
+                    Some(super::restore::Unfinished::Continue) => {
+                        self.restart
+                            .continue_when_ready(id, tokio::time::Instant::now());
+                    }
+                    Some(super::restore::Unfinished::Offer) => self.offer_continue(id),
+                    None => {}
+                }
+                self.count_branch(id);
                 self.apply_wanted();
                 self.publish_catalog();
                 self.emit(created);

@@ -14,6 +14,7 @@ private slots:
     void anOutdatedHostRestartsOnlyWhenItRunsInTheBackground();
     void anOutdatedHostThatComesBackIsRestartedOnlyOnce();
     void aLaunchOfANewerVersionOffersTheRestart();
+    void anInstalledUpdateRestartsKodosiByItselfOnlyWhileItUpdatesAutomatically();
 };
 
 void ApplicationLifecycleModelTest::anOutdatedHostRestartsOnlyWhenItRunsInTheBackground()
@@ -34,7 +35,7 @@ void ApplicationLifecycleModelTest::anOutdatedHostRestartsOnlyWhenItRunsInTheBac
                 completion(kodosi::RuntimeBridge::Result {});
             }
         },
-        [] {},
+        [](bool) {},
         [&](std::function<void(kodosi::HostStop)> completion) { stopping = std::move(completion); });
 
     model.beginInitialStart();
@@ -80,7 +81,7 @@ void ApplicationLifecycleModelTest::anOutdatedHostThatComesBackIsRestartedOnlyOn
             completion(std::unexpected(
                 kodosi::RuntimeFailure { .ffiResult = -1, .message = QStringLiteral("old"), .outdatedHost = outdated }));
         },
-        [] {},
+        [](bool) {},
         [&](std::function<void(kodosi::HostStop)> completion) {
             ++stops;
             completion(kodosi::HostStop::Stopped);
@@ -97,7 +98,7 @@ void ApplicationLifecycleModelTest::anOutdatedHostThatComesBackIsRestartedOnlyOn
 void ApplicationLifecycleModelTest::aLaunchOfANewerVersionOffersTheRestart()
 {
     kodosi::RuntimeBridge runtime;
-    kodosi::ApplicationLifecycleModel model(runtime, [](kodosi::ApplicationLifecycleModel::Completion) {}, [] {});
+    kodosi::ApplicationLifecycleModel model(runtime, [](kodosi::ApplicationLifecycleModel::Completion) {}, [](bool) {});
     QSignalSpy offered(&model, &kodosi::ApplicationLifecycleModel::restartOffered);
 
     model.offerRestart(QStringLiteral("0.2.1"), QStringLiteral("0.2.2"));
@@ -109,6 +110,23 @@ void ApplicationLifecycleModelTest::aLaunchOfANewerVersionOffersTheRestart()
     QCOMPARE(offered.count(), 1);
     model.offerRestart(QString {}, QStringLiteral("0.2.2"));
     QCOMPARE(offered.count(), 2);
+}
+
+void ApplicationLifecycleModelTest::anInstalledUpdateRestartsKodosiByItselfOnlyWhileItUpdatesAutomatically()
+{
+    kodosi::RuntimeBridge runtime;
+    kodosi::ApplicationLifecycleModel model(runtime, [](kodosi::ApplicationLifecycleModel::Completion) {}, [](bool) {});
+
+    model.setUpdatesAutomatically(false);
+    model.setUpdateInstalled();
+    model.applyRestart(true, 0);
+    QVERIFY(!model.restartRequested());
+    model.setUpdatesAutomatically(true);
+    QVERIFY(!model.restartRequested());
+    model.applyRestart(false, 0);
+    model.applyRestart(true, 0);
+    QVERIFY(model.restartRequested());
+    QVERIFY(model.restartsQuietly());
 }
 
 QTEST_GUILESS_MAIN(ApplicationLifecycleModelTest)

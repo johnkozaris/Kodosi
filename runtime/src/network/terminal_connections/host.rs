@@ -244,15 +244,26 @@ async fn current_publication(
     }
 }
 
-async fn allowed(publication: &Publication, credentials: &Credentials, user: &str) -> bool {
+/// The server's list can only take people away. A person also needs the owner's own choice: a
+/// share with them, or the project of the terminal and a friendship that the owner's devices
+/// signed, since the server's list of friends counts for nothing here.
+async fn allowed(
+    network: &BackendClient,
+    publication: &Publication,
+    credentials: &Credentials,
+    user: &str,
+) -> bool {
     if user == credentials.user_id {
         return true;
     }
     let local = publication.info.read().await;
     let published = publication.dto.read().await;
+    let listed = published.shared_with.iter().any(|member| member == user);
     let chosen_project = local.project_id.is_some() && local.project_id == published.project_id;
-    (chosen_project || local.shared_with.contains(user))
-        && published.shared_with.iter().any(|member| member == user)
+    drop(published);
+    let shared = listed && local.shared_with.contains(user);
+    drop(local);
+    shared || listed && chosen_project && network.signed_friend(credentials, user).await
 }
 
 async fn review(
@@ -284,7 +295,7 @@ async fn review(
         .map_or_default(|viewers| viewers.values().cloned().collect::<Vec<_>>());
     let mut identities = BTreeMap::new();
     for viewer in connected {
-        if !allowed(publication, credentials, &viewer.user).await {
+        if !allowed(network, publication, credentials, &viewer.user).await {
             viewer.cancel.cancel();
             continue;
         }
@@ -330,7 +341,7 @@ async fn close_when_asked(
     if publication.closing.load(Ordering::Acquire) {
         return Ok(());
     }
-    if allowed(publication, credentials, &request.user_id).await
+    if allowed(network, publication, credentials, &request.user_id).await
         && !crate::identity::recovery::is_recovery_device(&request.device_id)
     {
         let project = publication.info.read().await.project_id;
@@ -539,7 +550,7 @@ async fn admit(
     key: &[u8],
     viewers: &Viewers,
 ) -> std::result::Result<(), Refuse> {
-    if !allowed(publication, credentials, user).await {
+    if !allowed(network, publication, credentials, user).await {
         return Err(refuse(
             "access",
             text!("This terminal is not shared with you."),

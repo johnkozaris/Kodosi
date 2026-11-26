@@ -27,7 +27,7 @@ Item {
     readonly property var fresh: presentation.fresh || []
     readonly property int unread: presentation.unread || 0
     readonly property real sheetWidth: Math.max(300, Math.min(540, presentation.conversationWidth || 372))
-    readonly property var mine: Models.Sessions.sessions.filter(session => session.kind === "local" && session.isOwner === true
+    readonly property var mine: Models.Sessions.listedSessions.filter(session => session.isOwner === true
         && session.projectId !== Models.Projects.selectedProjectId)
     property bool renaming: false
     property Item selectedTab: null
@@ -397,9 +397,9 @@ Item {
                     anchors.margins: 6
                     z: 2
                     radius: KodosiTheme.radiusXl
-                    label: qsTr("Share with %1").arg(root.project.name || "")
+                    label: qsTr("Share with project %1").arg(root.project.name || "")
                     objectName: "project.drop"
-                    onTerminalDropped: id => projectShare.ask(id, Models.Projects.selectedProjectId)
+                    onTerminalDropped: id => Models.SessionActions.dropOnProject(id, Models.Projects.selectedProjectId)
                 }
 
                 StackLayout {
@@ -808,10 +808,6 @@ Item {
                 }
             }
         }
-    }
-    ProjectShareDialog {
-        id: projectShare
-        onShared: Models.SessionActions.activateInProject(projectShare.sessionId)
     }
     KMenu {
         id: terminalMenu

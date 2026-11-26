@@ -253,6 +253,13 @@
             <numerusform>%n terminals on this computer stop. They start again when Kodosi opens.</numerusform>
         </translation>
     </message>
+    <message numerus="yes">
+        <source>%n running programs stop.</source>
+        <translation>
+            <numerusform>%n running program stops.</numerusform>
+            <numerusform>%n running programs stop.</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>TerminalStage</name>
