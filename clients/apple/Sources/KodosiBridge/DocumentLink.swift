@@ -2,8 +2,8 @@ import Foundation
 import Synchronization
 
 /// Manages a runtime document pipe, which the runtime reopens after each drop until the view
-/// closes it. Shared-browser pipes receive events on the `BrowserPipes` task and may send frames
-/// from both that task and the main actor, each frame in one piece.
+/// closes it. Video pipes receive events on the `VideoPipes` task and may send frames from both
+/// that task and the main actor, each frame in one piece.
 public final class DocumentLink: Sendable {
     public enum News: Equatable, Sendable {
         /// Pipe opened (including after reconnect); callers should send their initial handshake.
@@ -37,10 +37,10 @@ public final class DocumentLink: Sendable {
     private let commands: CommandSink
     let session: String
     private let key: String
-    private let claims: BrowserPipes?
+    private let claims: VideoPipes?
     private let state = Mutex(State())
 
-    init(commands: CommandSink, session: String, key: String, claims: BrowserPipes? = nil) {
+    init(commands: CommandSink, session: String, key: String, claims: VideoPipes? = nil) {
         self.commands = commands
         self.session = session
         self.key = key

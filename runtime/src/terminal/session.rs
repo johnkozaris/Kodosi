@@ -668,7 +668,12 @@ fn command_path() -> Option<String> {
     )
 }
 
-/// A pipe of a terminal: its chat, or the shared browser or a document of its canvas.
+/// This computer's screen is the owner's alone, also in a terminal shared with friends.
+fn not_the_owner() -> Text {
+    text!("Only the devices of this computer's owner watch its screen.")
+}
+
+/// A pipe of a terminal: its chat, or the shared browser, the screen or a document of its canvas.
 pub(crate) async fn pipe(
     canvas: &CanvasHandle,
     chat: &ChatHandle,
@@ -1999,6 +2004,10 @@ impl LocalActor {
         name: String,
         reply: oneshot::Sender<std::result::Result<crate::canvas::PipeEnds, Text>>,
     ) {
+        if key == crate::canvas::SCREEN_PIPE && !self.owns(connection_id) {
+            drop(reply.send(Err(not_the_owner())));
+            return;
+        }
         let (canvas, chat) = (self.canvas.clone(), self.chat.clone());
         let view = connection_id.to_string();
         let person = self
@@ -2062,6 +2071,11 @@ impl LocalActor {
             }
             Err(error) => completion.send(Err(error)),
         }
+    }
+
+    /// Whether a connection comes from a device of this computer's owner.
+    fn owns(&self, connection_id: Uuid) -> bool {
+        self.owner.is_some() && self.viewers.get(&connection_id) == self.owner.as_ref()
     }
 
     fn ask_canvas(
@@ -2172,12 +2186,17 @@ impl LocalActor {
                 return Some(text!("The terminal was closed."));
             }
             TerminalControl::Canvas { request } => {
-                self.ask_canvas(request, reply);
+                if request == crate::canvas::CanvasRequest::ShowScreen && !self.owns(connection_id)
+                {
+                    drop(reply.send(Err(not_the_owner())));
+                } else {
+                    self.ask_canvas(request, reply);
+                }
                 return None;
             }
             TerminalControl::Agent { change } => self.change_agent(*change),
             TerminalControl::Seen => {
-                if self.owner.is_some() && self.viewers.get(&connection_id) == self.owner.as_ref() {
+                if self.owns(connection_id) {
                     drop(self.changes.try_send(SessionChange::Seen { id: self.id }));
                 }
                 Ok(())

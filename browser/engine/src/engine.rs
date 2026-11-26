@@ -10,16 +10,17 @@ use std::{
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use cef::*;
 use shared_browser::{
-    Dialog, MenuItem, Size,
+    Dialog, MenuItem,
     link::{EngineTab, FromEngine, MOST_ICON, ToEngine},
 };
+use stream::Size;
+use stream_encode::{Encoder, Settings};
 
 #[cfg(target_os = "macos")]
 use crate::layer::Layer;
 use crate::{
     client,
-    encode::{Cleanup, Encoder, REFINE_MS},
-    link::Link,
+    link::{Link, Pictures},
     renderer,
 };
 
@@ -82,6 +83,9 @@ wrap_app! {
 }
 
 pub(crate) fn start(link: Link) {
+    link.send(&FromEngine::Encodes {
+        codecs: Encoder::encodable(),
+    });
     ENGINE.with(|engine| {
         *engine.borrow_mut() = Some(Engine::new(link));
     });
@@ -226,10 +230,8 @@ impl Shared {
 }
 
 pub(crate) struct Capture {
-    pub window: i64,
     pub tab: i64,
     pub encoder: Encoder,
-    pub cleanup: Cleanup,
     pub settling: Option<Settling>,
 }
 
@@ -321,37 +323,6 @@ wrap_task! {
             .flatten();
             if let Some(host) = browser.and_then(|browser| browser.host()) {
                 host.invalidate(PaintElementType::VIEW);
-            }
-        }
-    }
-}
-
-pub(crate) fn clean_up(window: i64, picture: u64, delay_ms: i64) {
-    let mut task = CleanUpTaskBuilder::new(window, picture);
-    post_delayed_task(ThreadId::UI, Some(&mut task), delay_ms);
-}
-
-wrap_task! {
-    struct CleanUpTaskBuilder {
-        window: i64,
-        picture: u64,
-    }
-
-    impl Task {
-        fn execute(&self) {
-            let due = with(|engine| {
-                let shared = engine.shared_of(self.window)?;
-                let mut capture = shared.capture.borrow_mut();
-                let capture = capture.as_mut()?;
-                let due = capture.cleanup.due(self.picture);
-                if due && capture.encoder.refine() {
-                    capture.cleanup.refined();
-                }
-                Some(due)
-            })
-            .flatten();
-            if due == Some(true) {
-                clean_up(self.window, self.picture, REFINE_MS);
             }
         }
     }
@@ -870,6 +841,7 @@ fn run(command: ToEngine) {
         } => open_window(window, &address, size),
         ToEngine::Resize { window, size } => resize(window, size),
         ToEngine::Capture { .. }
+        | ToEngine::Format { .. }
         | ToEngine::Stop { .. }
         | ToEngine::Keyframe { .. }
         | ToEngine::Recover { .. }
@@ -963,25 +935,38 @@ fn resize(window: i64, size: Size) {
     }
 }
 
-/// Invalidates the view on capture start, keyframe, or recovery requests so static pages emit a
-/// frame immediately.
+/// Invalidates the view on capture start, format change, keyframe, or recovery requests so static
+/// pages emit a frame immediately.
 fn capture(command: &ToEngine) {
     let repaint_tab = with(|engine| match *command {
         ToEngine::Capture {
             window,
             tab,
             bitrate,
+            format,
         } => {
             let shared = engine.shared_of(window)?;
-            let encoder = Encoder::new(window, bitrate, engine.link().clone());
-            *shared.capture.borrow_mut() = Some(Capture {
+            let pictures = Pictures {
                 window,
+                still: false,
+                link: engine.link().clone(),
+            };
+            let encoder = Encoder::new(Settings { format, bitrate }, Arc::new(pictures));
+            *shared.capture.borrow_mut() = Some(Capture {
                 tab,
                 encoder,
-                cleanup: Cleanup::default(),
                 settling: None,
             });
             engine.browser_of(tab)
+        }
+        ToEngine::Format { window, format } => {
+            let shared = engine.shared_of(window)?;
+            let mut capture = shared.capture.borrow_mut();
+            let capture = capture.as_mut()?;
+            capture.encoder.set_format(format);
+            engine
+                .browser_of(capture.tab)
+                .filter(|_| !capture.waits_for_page())
         }
         ToEngine::Stop { window } => {
             engine.shared_of(window)?.capture.borrow_mut().take();
@@ -1005,7 +990,6 @@ fn capture(command: &ToEngine) {
                 .browser_of(capture.tab)
                 .filter(|_| !capture.waits_for_page())
         }
-        #[cfg(target_os = "macos")]
         ToEngine::Held { window, ref marks } => {
             let shared = engine.shared_of(window)?;
             if let Some(capture) = shared.capture.borrow_mut().as_mut() {

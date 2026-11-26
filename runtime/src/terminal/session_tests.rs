@@ -782,6 +782,64 @@ async fn only_a_device_of_the_owner_tells_the_host_that_the_terminal_was_seen() 
     session.close().await.expect("close");
 }
 
+#[tokio::test]
+async fn only_a_device_of_the_owner_puts_this_computers_screen_on_the_canvas_or_watches_it() {
+    let (session, _changes, _root) = shell("exec /bin/cat").await;
+    let owner = Uuid::now_v7().to_string();
+    session
+        .host_requests
+        .send(HostRequest::ResetPresence {
+            owner: Some(owner.clone()),
+        })
+        .await
+        .expect("owner");
+    let (friend_view, owner_view) = (Uuid::now_v7(), Uuid::now_v7());
+    for (connection_id, user_id) in [
+        (friend_view, Uuid::now_v7().to_string()),
+        (owner_view, owner),
+    ] {
+        session
+            .host_requests
+            .send(HostRequest::Connected {
+                connection_id,
+                user_id,
+            })
+            .await
+            .expect("viewer");
+    }
+    let not_the_owner = text!("Only the devices of this computer's owner watch its screen.");
+    let unavailable = text!("This computer cannot share its screen.");
+    for (connection_id, refusal) in [(friend_view, &not_the_owner), (owner_view, &unavailable)] {
+        let (reply, shown) = oneshot::channel();
+        session
+            .host_requests
+            .send(HostRequest::Control {
+                connection_id,
+                control: TerminalControl::Canvas {
+                    request: crate::canvas::CanvasRequest::ShowScreen,
+                },
+                authorization: CancellationToken::new(),
+                reply,
+            })
+            .await
+            .expect("request");
+        assert_eq!(shown.await.expect("reply").err().as_ref(), Some(refusal));
+    }
+    let (reply, opened) = oneshot::channel();
+    session
+        .host_requests
+        .send(HostRequest::Document {
+            connection_id: friend_view,
+            key: crate::canvas::SCREEN_PIPE.to_owned(),
+            name: "Friend".to_owned(),
+            reply,
+        })
+        .await
+        .expect("pipe");
+    assert_eq!(opened.await.expect("reply").err(), Some(not_the_owner));
+    session.close().await.expect("close");
+}
+
 async fn next_status(changes: &mut mpsc::Receiver<SessionChange>) -> Option<ProgramStatus> {
     tokio::time::timeout(Duration::from_secs(5), async {
         loop {

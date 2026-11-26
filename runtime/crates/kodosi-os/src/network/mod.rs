@@ -27,6 +27,11 @@ mod windows;
 #[cfg(windows)]
 use windows as imp;
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+mod service;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+pub use service::carry_as_screen_sharing;
+
 pub type Hardware = [u8; 6];
 
 const WAKE_PORT: u16 = 9;

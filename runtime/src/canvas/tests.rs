@@ -134,6 +134,7 @@ async fn the_browser_of_a_terminal_that_becomes_shared_says_it_keeps_its_own_sig
     canvas.restore(
         Vec::new(),
         Some("https://example.com".to_owned()),
+        false,
         uuid::Uuid::now_v7(),
     );
     let mut state = canvas.state();

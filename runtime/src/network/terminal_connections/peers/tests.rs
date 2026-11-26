@@ -147,23 +147,23 @@ async fn a_viewer_whose_socket_fails_goes_straight_again_with_a_new_socket() {
     );
     let (_arrived, mut reached) = (arrived.unwrap(), reached.unwrap());
 
-    let socket = Arc::clone(&viewer.bind().await.unwrap().socket);
+    let socket = viewer.bind().await.unwrap().socket.clone();
     let free = std::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
         .local_addr()
         .unwrap()
         .port();
-    let refusing = if socket.dual {
+    let refusing = if socket.0.dual {
         SocketAddr::new(IpAddr::V6(Ipv4Addr::LOCALHOST.to_ipv6_mapped()), free)
     } else {
         SocketAddr::from((Ipv4Addr::LOCALHOST, free))
     };
-    socket.inner.io.connect(refusing).await.unwrap();
+    socket.0.io.connect(refusing).await.unwrap();
     // The system answers a datagram to a closed port only within its limit of such answers, which
     // other tests that run at the same time also use.
     let mut ended = None;
     for _ in 0..50 {
-        socket.inner.io.send(&[0]).await.unwrap();
+        socket.0.io.send(&[0]).await.unwrap();
         if let Ok(end) =
             tokio::time::timeout(Duration::from_millis(100), reached.reader.recv()).await
         {
@@ -232,6 +232,120 @@ fn stun_answer_for(id: [u8; 12], seen: SocketAddr) -> Vec<u8> {
         answer.push(octet ^ key);
     }
     answer
+}
+
+/// Gives the two devices the allocation of `pipe` on `relay`, as the server's `relayed` does.
+#[cfg(feature = "host")]
+pub(crate) fn granted(host: &Peers, viewer: &Peers, relay: SocketAddr, pipe: Uuid) {
+    for (peers, slot) in [(host, 1), (viewer, 0)] {
+        peers.relay_at(Some(relay.to_string()));
+        peers.wanted(pipe);
+        let (pipe, grant) = Grant::read(&serde_json::json!({
+            "type": "relayed",
+            "pipe": pipe,
+            "allocation": "AQIDBAUGBw==",
+            "slot": slot,
+            "secret": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+            "now": 0,
+        }))
+        .unwrap();
+        peers.relayed(pipe, grant);
+    }
+}
+
+/// Forwards between the two addresses that bound the slots of an allocation, as the Kodosi
+/// server's relay does, without checking the binds' signatures.
+#[cfg(feature = "host")]
+pub(crate) async fn relay_for_tests() -> SocketAddr {
+    let socket = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))
+        .await
+        .unwrap();
+    let address = socket.local_addr().unwrap();
+    tokio::spawn(async move {
+        let mut slots = [None, None];
+        let mut packet = [0; 2048];
+        loop {
+            let (size, from) = socket.recv_from(&mut packet).await.unwrap();
+            match packet[0] {
+                0x11 => {
+                    slots[usize::from(packet[8])] = Some(from);
+                    packet[0] = 0x12;
+                    socket.send_to(&packet[..9], from).await.unwrap();
+                }
+                0x10 => {
+                    let to = match slots {
+                        [Some(first), second] if first == from => second,
+                        [first, Some(second)] if second == from => first,
+                        _ => None,
+                    };
+                    if let Some(to) = to {
+                        socket.send_to(&packet[..size], to).await.unwrap();
+                    }
+                }
+                _ => {}
+            }
+        }
+    });
+    address
+}
+
+#[cfg(feature = "host")]
+#[tokio::test]
+async fn devices_that_find_no_straight_path_meet_through_the_relay() {
+    let (host_keys, viewer_keys) = (
+        DeviceKeys::generate().unwrap(),
+        DeviceKeys::generate().unwrap(),
+    );
+    let (host, viewer) = (peers_of(&host_keys), peers_of(&viewer_keys));
+    let relay = relay_for_tests().await;
+    let pipe = Uuid::now_v7();
+    granted(&host, &viewer, relay, pipe);
+    let expected = host.expect(viewer_keys.signing_public(), pipe);
+    let (arrived, reached) = tokio::join!(
+        expected.meet(&[]),
+        viewer.reach(host_keys.signing_public(), &[], pipe),
+    );
+    let (mut arrived, mut reached) = (arrived.unwrap(), reached.unwrap());
+    reached.write(b"through the relay").await.unwrap();
+    assert_eq!(arrived.reader.recv().await.unwrap(), b"through the relay");
+    arrived.write(b"back").await.unwrap();
+    assert_eq!(reached.reader.recv().await.unwrap(), b"back");
+
+    // The route of the last pipe ended; a view opened again at once meets through the relay
+    // again before the host stops waiting for it.
+    drop((arrived, reached));
+    for peers in [&host, &viewer] {
+        peers.forget_relayed(pipe);
+    }
+    let again = Uuid::now_v7();
+    viewer.relayed(
+        again,
+        Grant::read(
+            &serde_json::json!({"pipe": again, "allocation": "AQIDBAUGBw==",
+        "slot": 0, "secret": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", "now": 0}),
+        )
+        .unwrap()
+        .1,
+    );
+    assert!(viewer.grants.lock().unwrap().get(&again).is_none());
+    granted(&host, &viewer, relay, again);
+    let expected = host.expect(viewer_keys.signing_public(), again);
+    let met = tokio::time::timeout(
+        ARRIVAL,
+        futures_util::future::join(
+            expected.meet(&[]),
+            viewer.reach(host_keys.signing_public(), &[], again),
+        ),
+    )
+    .await
+    .unwrap();
+    assert!(met.0.is_some() && met.1.is_some());
+}
+
+/// The address at which this computer reaches `peers`.
+#[cfg(feature = "host")]
+pub(crate) async fn listening(peers: &Arc<Peers>) -> SocketAddr {
+    on_this_computer(peers).await[0].0
 }
 
 #[tokio::test]
@@ -326,4 +440,53 @@ fn a_private_address_counts_only_on_a_network_of_this_computer() {
             (address("203.0.113.9:1"), false),
         ]
     );
+}
+
+#[cfg(feature = "host")]
+#[tokio::test]
+async fn video_frames_go_as_datagrams_once_the_viewer_takes_the_flow() {
+    let (host_keys, viewer_keys) = (
+        DeviceKeys::generate().unwrap(),
+        DeviceKeys::generate().unwrap(),
+    );
+    let (host, viewer) = (peers_of(&host_keys), peers_of(&viewer_keys));
+    let address = on_this_computer(&host).await;
+    let pipe = Uuid::now_v7();
+    let (arrived, reached) = tokio::join!(
+        host.expect(viewer_keys.signing_public(), pipe).meet(&[]),
+        viewer.reach_at(host_keys.signing_public(), address, pipe),
+    );
+    let (arrived, reached) = (arrived.unwrap(), reached.unwrap());
+    let (document, mut heard) = mpsc::channel(16);
+    let flow = super::super::media::Flow::start(&arrived.media().unwrap(), document).unwrap();
+    let (frames, mut shown) = mpsc::channel(16);
+    let _view =
+        super::super::media::receive(&reached.media().unwrap(), flow.number, frames).unwrap();
+
+    let mut frame = vec![stream::viewer::FRAME, 0, 0, 0, 1, 1, 0];
+    frame.extend((0..20_000_u32).map(|byte| byte.to_be_bytes()[3]));
+    let sent = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if flow.take(frame.clone()).is_ok() {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await;
+    assert!(sent.is_ok(), "the viewer's greeting readies the flow");
+    let arrived = tokio::time::timeout(Duration::from_secs(5), shown.recv()).await;
+    assert_eq!(arrived.unwrap().unwrap(), frame);
+    let rate = tokio::time::timeout(Duration::from_secs(5), heard.recv()).await;
+    let rate = rate.unwrap().unwrap();
+    assert_eq!(rate.first(), Some(&stream::viewer::JSON));
+    assert!(String::from_utf8_lossy(&rate[1..]).contains("\"rate\""));
+
+    // Both sides rest while the picture is still, and wake for the next frame.
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let mut next = vec![stream::viewer::FRAME, 0, 0, 0, 2, 0, 0];
+    next.extend((0..5_000_u32).map(|byte| byte.to_be_bytes()[3]));
+    assert!(flow.take(next.clone()).is_ok());
+    let arrived = tokio::time::timeout(Duration::from_secs(5), shown.recv()).await;
+    assert_eq!(arrived.unwrap().unwrap(), next);
 }

@@ -544,6 +544,10 @@
         <translation>Partagé</translation>
     </message>
     <message>
+        <source>Can&apos;t show the page</source>
+        <translation>Impossible d&apos;afficher la page</translation>
+    </message>
+    <message>
         <source>New tab</source>
         <translation>Nouvel onglet</translation>
     </message>
@@ -583,18 +587,6 @@
         <source>Getting the browser, %1%</source>
         <translation>Téléchargement du navigateur, %1 %</translation>
     </message>
-    <message>
-        <source>Starting the browser</source>
-        <translation>Démarrage du navigateur</translation>
-    </message>
-    <message>
-        <source>The browser is asleep</source>
-        <translation>Le navigateur est en veille</translation>
-    </message>
-    <message>
-        <source>Wake it</source>
-        <translation>Le réveiller</translation>
-    </message>
 </context>
 <context>
     <name>CanvasDock</name>
@@ -605,6 +597,10 @@
     <message>
         <source>Files</source>
         <translation>Fichiers</translation>
+    </message>
+    <message>
+        <source>Screen</source>
+        <translation>Écran</translation>
     </message>
     <message>
         <source>Close</source>
@@ -769,6 +765,22 @@
         <translation>Placer dans la corbeille</translation>
     </message>
     <message>
+        <source>This computer&apos;s screen</source>
+        <translation>L&apos;écran de cet ordinateur</translation>
+    </message>
+    <message>
+        <source>Your other devices show it on this canvas.</source>
+        <translation>Vos autres appareils l&apos;affichent sur ce canvas.</translation>
+    </message>
+    <message>
+        <source>Sharing is off</source>
+        <translation>Le partage est désactivé</translation>
+    </message>
+    <message>
+        <source>Turn on</source>
+        <translation>Activer</translation>
+    </message>
+    <message>
         <source>The file is missing</source>
         <translation>Le fichier est introuvable</translation>
     </message>
@@ -779,6 +791,49 @@
     <message>
         <source>Try again</source>
         <translation>Réessayer</translation>
+    </message>
+</context>
+<context>
+    <name>CanvasScreen</name>
+    <message>
+        <source>Main display</source>
+        <translation>Écran principal</translation>
+    </message>
+    <message>
+        <source>Display %1</source>
+        <translation>Écran %1</translation>
+    </message>
+    <message>
+        <source>Window</source>
+        <translation>Fenêtre</translation>
+    </message>
+    <message>
+        <source>Screen</source>
+        <translation>Écran</translation>
+    </message>
+    <message>
+        <source>Show another display or window</source>
+        <translation>Afficher un autre écran ou une autre fenêtre</translation>
+    </message>
+    <message>
+        <source>Show the whole screen</source>
+        <translation>Afficher tout l’écran</translation>
+    </message>
+    <message>
+        <source>Allow control on %1</source>
+        <translation>Autorisez le contrôle sur %1</translation>
+    </message>
+    <message>
+        <source>Can&apos;t show the screen</source>
+        <translation>Impossible d&apos;afficher l&apos;écran</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>Copié</translation>
+    </message>
+    <message>
+        <source>View only</source>
+        <translation>Affichage seul</translation>
     </message>
 </context>
 <context>
@@ -2686,6 +2741,26 @@
         <translation>Quitter</translation>
     </message>
     <message>
+        <source>Screen</source>
+        <translation>Écran</translation>
+    </message>
+    <message>
+        <source>While someone watches, Kodosi shows who, with a way to stop.</source>
+        <translation>Pendant que quelqu&apos;un regarde, Kodosi indique qui, avec un moyen d&apos;arrêter.</translation>
+    </message>
+    <message>
+        <source>Let my other devices see and control this computer</source>
+        <translation>Permettre à mes autres appareils de voir et contrôler cet ordinateur</translation>
+    </message>
+    <message>
+        <source>Allow on this computer</source>
+        <translation>Autoriser sur cet ordinateur</translation>
+    </message>
+    <message>
+        <source>Allow…</source>
+        <translation>Autoriser…</translation>
+    </message>
+    <message>
         <source>Privacy policy</source>
         <translation>Politique de confidentialité</translation>
     </message>
@@ -4460,6 +4535,10 @@
         <translation>Ouvrir le navigateur</translation>
     </message>
     <message>
+        <source>Open Screen</source>
+        <translation>Ouvrir l’écran</translation>
+    </message>
+    <message>
         <source>Add a file…</source>
         <translation>Ajouter un fichier…</translation>
     </message>
@@ -4920,6 +4999,37 @@
     </message>
 </context>
 <context>
+    <name>VideoCover</name>
+    <message>
+        <source>Sharing is off on %1</source>
+        <translation>Le partage est désactivé sur %1</translation>
+    </message>
+    <message>
+        <source>%1 is offline</source>
+        <translation>%1 est hors ligne</translation>
+    </message>
+    <message>
+        <source>%1 is locked</source>
+        <translation>%1 est verrouillé</translation>
+    </message>
+    <message>
+        <source>%1 is on another account</source>
+        <translation>%1 est sur un autre compte</translation>
+    </message>
+    <message>
+        <source>%1 is asleep</source>
+        <translation>%1 est en veille</translation>
+    </message>
+    <message>
+        <source>Allow screen recording on %1</source>
+        <translation>Autorisez l&apos;enregistrement de l&apos;écran sur %1</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>Réessayer</translation>
+    </message>
+</context>
+<context>
     <name>WindowControls</name>
     <message>
         <source>Minimize</source>
@@ -5126,6 +5236,10 @@
 </context>
 <context>
     <name>kodosi::CanvasModel</name>
+    <message>
+        <source>the screen of this computer</source>
+        <translation>l’écran de cet ordinateur</translation>
+    </message>
     <message>
         <source>the shared browser</source>
         <translation>le navigateur partagé</translation>

@@ -21,7 +21,6 @@ mod tests;
 pub use backend_client::BackendClient;
 #[cfg(any(target_os = "ios", target_os = "android"))]
 pub(crate) use backend_client::device_label;
-#[cfg(feature = "host")]
 pub(crate) use backend_client::host_label;
 pub(crate) use backend_client::{DELETION_LIFE, ProjectMember, SIGN_IN_LIFE, SignIn, shareable};
 #[cfg(feature = "host")]

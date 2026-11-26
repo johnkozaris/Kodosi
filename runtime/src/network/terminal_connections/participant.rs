@@ -1,9 +1,11 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
-use tokio::sync::watch;
+use tokio::{sync::watch, task::AbortHandle};
 
 use super::{
     channel::{Channel, Transport},
+    media,
+    peers::Media,
     route::{Finder, Path, Paths, Role, Route},
     wire::{ControlResult, Frame, PICTURE_PART, PictureOffer, PictureState, PictureStep},
     *,
@@ -176,13 +178,23 @@ pub(super) async fn connect(
     }
     let session = dto.clone().into();
     let cancel = cancellation.clone();
-    let peers = (dto.owner_user_id == credentials.user_id)
-        .then(|| network.peers(&credentials).ok())
-        .flatten();
-    let (late, path) = (paths.late(), paths.path());
-    let finder = Finder::viewer(peers, paths, public.clone(), pipe);
+    let peers = network.peers(&credentials).ok();
+    let own = dto.owner_user_id == credentials.user_id;
+    let (late, path, link) = (paths.late(), paths.path(), paths.link());
+    let finder = Finder::viewer(
+        peers,
+        paths,
+        (public.clone(), pipe, own),
+        Arc::clone(&network.inner.link),
+    );
     tokio::spawn(async move {
-        let mut viewer = Viewer::new(channel, commands_rx, updates_tx.clone(), finder, late, path);
+        let mut viewer = Viewer::new(
+            channel,
+            commands_rx,
+            updates_tx.clone(),
+            finder,
+            (late, path, link),
+        );
         let result = tokio::select! {
             () = cancel.cancelled() => Ok(()),
             () = network.inner.shutdown.cancelled() => Ok(()),
@@ -357,7 +369,12 @@ struct Viewer<T> {
     stalled: bool,
     path: Option<watch::Receiver<Path>>,
     told_path: Path,
+    link: Option<watch::Receiver<Option<Media>>>,
     pipes: BTreeMap<Uuid, PipeOut>,
+    /// The tasks that take the video datagrams of pipes while the route is direct.
+    views: HashMap<Uuid, AbortHandle>,
+    /// Flows that the host offered before this side's route went direct too.
+    offered: HashMap<Uuid, u16>,
     finder: Finder,
     upload: Option<Upload>,
 }
@@ -368,8 +385,11 @@ impl<T: Transport> Viewer<T> {
         commands: mpsc::Receiver<RemoteRequest>,
         updates: mpsc::Sender<RemoteUpdate>,
         finder: Finder,
-        late: watch::Receiver<bool>,
-        path: watch::Receiver<Path>,
+        (late, path, link): (
+            watch::Receiver<bool>,
+            watch::Receiver<Path>,
+            watch::Receiver<Option<Media>>,
+        ),
     ) -> Self {
         Self {
             channel,
@@ -392,7 +412,10 @@ impl<T: Transport> Viewer<T> {
             stalled: false,
             path: Some(path),
             told_path: Path::Relay,
+            link: Some(link),
             pipes: BTreeMap::new(),
+            views: HashMap::new(),
+            offered: HashMap::new(),
             finder,
             upload: None,
         }
@@ -474,6 +497,16 @@ impl<T: Transport> Viewer<T> {
             alive = changed(&mut self.path) => {
                 if !alive {
                     self.path = None;
+                }
+            }
+            alive = changed(&mut self.link) => {
+                if !alive {
+                    self.link = None;
+                }
+                // The host offers each flow again on a later lane.
+                self.stop_views();
+                for (pipe, flow) in std::mem::take(&mut self.offered) {
+                    self.view(pipe, flow);
                 }
             }
             () = std::future::ready(()), if self.upload.as_ref().is_some_and(Upload::wants_part) => self.send_part().await?,
@@ -652,6 +685,7 @@ impl<T: Transport> Viewer<T> {
             }
             RemoteRequest::PipeClose { pipe } => {
                 self.pipes.remove(&pipe);
+                self.stop_view(pipe);
                 self.channel.send(&Frame::PipeClose { pipe }).await?;
             }
             RemoteRequest::Control { .. }
@@ -660,6 +694,33 @@ impl<T: Transport> Viewer<T> {
             | RemoteRequest::Checkpoint => {}
         }
         Ok(())
+    }
+
+    fn view(&mut self, pipe: Uuid, flow: u16) {
+        self.stop_view(pipe);
+        let Some(open) = self.pipes.get(&pipe) else {
+            return;
+        };
+        let Some(media) = self.link.as_ref().and_then(|link| link.borrow().clone()) else {
+            self.offered.insert(pipe, flow);
+            return;
+        };
+        if let Some(view) = media::receive(&media, flow, open.frames.clone()) {
+            self.views.insert(pipe, view);
+        }
+    }
+
+    fn stop_view(&mut self, pipe: Uuid) {
+        self.offered.remove(&pipe);
+        if let Some(view) = self.views.remove(&pipe) {
+            view.abort();
+        }
+    }
+
+    fn stop_views(&mut self) {
+        for (_, view) in self.views.drain() {
+            view.abort();
+        }
     }
 
     /// Drops the pipe instead of blocking if the viewer's consumer queue is full, so slow document
@@ -679,6 +740,7 @@ impl<T: Transport> Viewer<T> {
                 .is_err()
         {
             self.pipes.remove(&pipe);
+            self.stop_view(pipe);
             self.channel.send(&Frame::PipeClose { pipe }).await?;
         }
         Ok(())
@@ -801,7 +863,9 @@ impl<T: Transport> Viewer<T> {
             Frame::PipeData { pipe, more, part } => self.pipe_part(pipe, more, &part).await?,
             Frame::PipeClose { pipe } => {
                 self.pipes.remove(&pipe);
+                self.stop_view(pipe);
             }
+            Frame::MediaOffer { pipe, flow } => self.view(pipe, flow),
             frame @ Frame::PathAnswer { .. } => self.finder.heard(frame),
             Frame::PictureState(state) => self.picture_state(state).await?,
             _ => return Err(invalid("Unsupported terminal host frame.")),

@@ -92,17 +92,38 @@ La opción **Cookies entre sitios** también permanece desactivada hasta que la 
 sitio, como un vídeo de YouTube o un botón de inicio de sesión, no recibe allí sus cookies, así que
 no puede reconocerte en los distintos sitios que visitas.
 
+### La pantalla de un ordenador
+
+Si activas compartir la pantalla en los ajustes de Kodosi de un ordenador, cada uno de tus
+dispositivos aprobados puede ver y controlar toda la pantalla de ese ordenador, no solo sus
+terminales, desde el lienzo de sus terminales. Tus amigos nunca la ven, ni siquiera en un terminal
+que compartes con ellos, y el vídeo, la entrada y el texto del portapapeles viajan cifrados de
+extremo a extremo como los propios terminales. Kodosi Screen, un ayudante de Kodosi, se encarga de
+la captura y de la entrada. En un Mac tiene los permisos de grabación de pantalla y de accesibilidad
+que esto necesita, así que los programas de tus terminales no los obtienen. En Linux, el escritorio
+autoriza a Kodosi a compartir la pantalla mediante su portal de pantalla compartida y muestra su
+propio aviso cuando la pantalla se está compartiendo. Mientras alguien mira, la barra de menús o la
+bandeja del sistema del ordenador indica qué dispositivos están mirando; desactivar la función, o
+pulsar **Dejar de compartir** allí, termina todas las vistas.
+
+Mientras un dispositivo controla la pantalla, el texto que se copia en el ordenador va a ese
+dispositivo, y al pegar en él, el ordenador recibe el texto de ese dispositivo. El texto que un
+gestor de contraseñas marca como privado se queda en el ordenador. Cuando la persona que está frente
+al ordenador usa su ratón o su teclado, la entrada de quienes miran espera un momento, y una
+pantalla bloqueada sigue bloqueada: quienes miran ven que está bloqueada, no lo que muestra.
+
 ## Conexiones directas
 
 Cuando dos de tus propios dispositivos pueden comunicarse directamente entre sí, en la misma red
 local o mediante NAT traversal, el tráfico del terminal viaja directamente entre ambos con el mismo
 cifrado de extremo a extremo en lugar de pasar por el servidor de retransmisión. Ambos dispositivos
-ven las direcciones IP del otro.
+ven las direcciones IP del otro. Cuando no pueden, el tráfico pasa por UDP a través del servidor de
+retransmisión con el mismo cifrado, y ninguno de los dos ve la dirección IP del otro.
 
-Para descubrir su dirección pública, Kodosi consulta un servidor STUN de Cloudflare, que observa
-esa IP. Mientras busca o mantiene una conexión directa (y durante un minuto después), el
-dispositivo mantiene abierto un único puerto UDP y solo acepta conexiones procedentes de tus
-propios dispositivos aprobados. Los terminales compartidos con otras personas pasan siempre por el
+Para descubrir su dirección pública, Kodosi consulta el servidor de Kodosi, que
+ya ve esa IP. Mientras busca o mantiene cualquiera de estas conexiones (y durante un minuto después), el
+dispositivo mantiene abierto un único puerto UDP y solo acepta conexiones procedentes de
+dispositivos que ven alguno de tus terminales. Los terminales compartidos con otras personas pasan siempre por el
 servidor de retransmisión, de modo que otros usuarios nunca ven tus direcciones IP.
 
 ## Qué ve el servicio

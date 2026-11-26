@@ -4,7 +4,7 @@ license = "Apache-2.0"
 name = "kodosi-browser"
 publish = false
 rust-version = "1.100.0"
-version = "0.2.1"
+version = "0.3.0"
 
 [[bin]]
 name = "kodosi-browser"
@@ -24,6 +24,8 @@ futures-util = "0.3.34"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 shared-browser = { path = "../crate", default-features = false }
+stream = { path = "../../stream/crates/stream" }
+stream-encode = { path = "../../stream/crates/encode" }
 tokio = { version = "1.54.1", features = ["macros", "net", "rt", "sync", "time"] }
 tokio-tungstenite = "0.30.0"
 
@@ -32,10 +34,6 @@ cef = { version = "=156.7.0", default-features = false, features = ["sandbox"] }
 objc2 = "0.6.5"
 objc2-app-kit = { version = "0.3.2", default-features = false, features = ["NSApplication", "NSEvent", "NSResponder"] }
 objc2-core-foundation = { version = "0.3.2", default-features = false, features = ["CFCGTypes", "objc2"] }
-
-[target.'cfg(not(target_os = "macos"))'.dependencies]
-openh264 = "0.9.10"
-openh264-sys2 = "0.9.10"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libc = "0.2.191"

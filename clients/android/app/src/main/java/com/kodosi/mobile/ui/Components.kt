@@ -44,6 +44,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.MotionDurationScale
@@ -78,6 +79,7 @@ import androidx.compose.ui.unit.dp
 import com.kodosi.mobile.R
 import com.kodosi.mobile.terminals.AgentKind
 import com.kodosi.mobile.terminals.StatusForm
+import kotlin.time.Duration
 import kotlinx.coroutines.delay
 
 @Composable
@@ -231,11 +233,23 @@ fun ProgressCaption(text: String, modifier: Modifier = Modifier) {
     }
 }
 
+// With patience, a quiet dot comes first and the word only once the wait goes on, and both go the
+// moment the wait ends.
 @Composable
-fun ReconnectingNotice(shown: Boolean, modifier: Modifier = Modifier) {
+fun ReconnectingNotice(shown: Boolean, modifier: Modifier = Modifier, patience: Duration = Duration.ZERO) {
     val colors = KodosiTheme.colors
     val presence by animateFloatAsState(if (shown) 1f else 0f, snappy(), label = "reconnecting")
-    if (presence <= 0f) return
+    var waited by remember { mutableStateOf(false) }
+    LaunchedEffect(shown) {
+        waited = false
+        if (shown) {
+            delay(patience)
+            waited = true
+        }
+    }
+    if (presence <= 0f || (!shown && patience > Duration.ZERO)) return
+    val worded = waited || patience <= Duration.ZERO
+    val shape = RoundedCornerShape(percent = 50)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -244,12 +258,23 @@ fun ReconnectingNotice(shown: Boolean, modifier: Modifier = Modifier) {
                 alpha = presence.coerceIn(0f, 1f)
                 translationY = (presence - 1f) * 8.dp.toPx()
             }
-            .raised(colors, RoundedCornerShape(percent = 50), fill = colors.lifted, elevation = Elevation.FLOATING)
-            .padding(start = 12.dp, top = 8.dp, end = 14.dp, bottom = 8.dp)
+            .then(
+                if (worded) {
+                    Modifier.raised(
+                        colors,
+                        shape,
+                        fill = colors.lifted,
+                        elevation = Elevation.FLOATING
+                    )
+                } else {
+                    Modifier
+                }
+            )
+            .padding(start = 12.dp, top = 8.dp, end = if (worded) 14.dp else 12.dp, bottom = 8.dp)
             .semantics { liveRegion = LiveRegionMode.Polite }
     ) {
         BreathingDot(colors.glowOrange)
-        Text(stringResource(R.string.reconnecting), style = KodosiType.footnote, color = colors.ink)
+        if (worded) Text(stringResource(R.string.reconnecting), style = KodosiType.footnote, color = colors.ink)
     }
 }
 

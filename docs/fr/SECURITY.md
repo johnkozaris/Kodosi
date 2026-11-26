@@ -95,17 +95,39 @@ L'option **Cookies intersites** reste elle aussi désactivée tant que vous ne l
 site, comme une vidéo YouTube ou un bouton de connexion, n'y reçoit pas ses cookies, et ne peut donc
 pas vous reconnaître sur les différents sites que vous visitez.
 
+### L'écran d'un ordinateur
+
+Activer le partage d'écran dans les réglages Kodosi d'un ordinateur permet à chacun de vos appareils
+approuvés de voir et de contrôler tout l'écran de cet ordinateur, pas seulement ses terminaux,
+depuis le canvas de ses terminaux. Vos amis ne le voient jamais, même dans un terminal que vous
+partagez avec eux, et la vidéo, les saisies et le texte du presse-papiers circulent chiffrés de bout
+en bout comme les terminaux eux-mêmes. Kodosi Screen, un assistant de Kodosi, se charge de la
+capture et des saisies. Sur un Mac, il détient les autorisations d'enregistrement de l'écran et
+d'accessibilité nécessaires, afin que les programmes de vos terminaux ne les obtiennent pas. Sous
+Linux, le bureau accorde le partage à Kodosi via son portail de partage d'écran et affiche sa propre
+notification pendant que l'écran est partagé. Tant que quelqu'un regarde, la barre des menus ou la
+zone de notification de l'ordinateur indique quels appareils regardent ; désactiver le partage, ou
+cliquer sur **Arrêter le partage** à cet endroit, met fin à chaque affichage.
+
+Pendant qu'un appareil contrôle l'écran, le texte copié sur l'ordinateur va vers cet appareil, et un
+collage sur celui-ci donne à l'ordinateur le texte de cet appareil. Le texte qu'un gestionnaire de
+mots de passe marque comme privé reste sur l'ordinateur. Lorsque la personne devant l'ordinateur
+utilise sa souris ou son clavier, les saisies des personnes qui regardent patientent un instant, et
+un écran verrouillé reste verrouillé : ces personnes voient qu'il est verrouillé, pas ce qu'il
+affiche.
+
 ## Connexions directes
 
 Lorsque deux de vos propres appareils peuvent se joindre directement, sur le même réseau local ou
 par traversée de NAT, le trafic des terminaux circule directement entre eux avec le même
 chiffrement de bout en bout au lieu de passer par le serveur relais. Les deux appareils voient
-alors leurs adresses IP respectives.
+alors leurs adresses IP respectives. Lorsqu'ils ne le peuvent pas, le trafic passe en UDP par le
+serveur relais avec le même chiffrement, et aucun des deux appareils ne voit l'adresse IP de l'autre.
 
-Pour déterminer son adresse publique, Kodosi interroge un serveur STUN de Cloudflare, qui voit cette
-adresse IP. Lorsqu'un appareil recherche ou maintient une connexion directe (et pendant une minute
-ensuite), il garde un unique port UDP ouvert et n'accepte de connexions que de vos propres
-appareils approuvés. Les terminaux partagés avec d'autres personnes passent toujours par le serveur
+Pour déterminer son adresse publique, Kodosi interroge le serveur Kodosi, qui voit de toute façon cette
+adresse IP. Lorsqu'un appareil recherche ou maintient l'une de ces connexions (et pendant une minute
+ensuite), il garde un unique port UDP ouvert et n'accepte de connexions que
+d'appareils qui affichent l'un de vos terminaux. Les terminaux partagés avec d'autres personnes passent toujours par le serveur
 relais, de sorte que les autres utilisateurs ne voient jamais vos adresses IP.
 
 ## Ce que voit le service

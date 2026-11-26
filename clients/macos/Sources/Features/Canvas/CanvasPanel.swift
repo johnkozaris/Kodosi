@@ -215,10 +215,10 @@ struct CanvasPanel: View {
                     hide()
                 }
             } open: { section in
-                if section == .browser {
-                    deps.openBrowser(of: session)
-                } else {
-                    deps.canvas.show(section, in: session)
+                switch section {
+                case .browser: deps.openBrowser(of: session)
+                case .screen: deps.openScreen(of: session)
+                case .files: deps.canvas.show(section, in: session)
                 }
             } add: {
                 if deps.addFile(to: session) {
@@ -345,6 +345,14 @@ extension AppDependencies {
         Task {
             do {
                 try await canvas.openBrowser(of: session)
+            } catch { errorMessage = error.localizedDescription }
+        }
+    }
+
+    func openScreen(of session: RuntimeSession) {
+        Task {
+            do {
+                try await canvas.openScreen(of: session)
             } catch { errorMessage = error.localizedDescription }
         }
     }

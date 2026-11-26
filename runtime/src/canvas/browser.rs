@@ -8,17 +8,16 @@ use std::{
 
 use serde_json::Value;
 use shared_browser::{Driver, Place, State, Viewer, Window};
-use tokio::{
-    sync::{mpsc, watch},
-    time::Instant,
-};
+use tokio::{sync::watch, time::Instant};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use super::{
     BrowserAct, BrowserAction, BrowserDoing, BrowserDoingKind, BrowserPoint, BrowserState,
-    BrowserTab, CanvasAnswer, CanvasBrowser, PIPE_QUEUE, PipeEnds, engine::BrowserHost,
+    BrowserTab, CanvasAnswer, CanvasBrowser, PipeEnds,
+    engine::BrowserHost,
     files::Stamp,
+    pipe::{self, Viewed},
 };
 use crate::text::Text;
 
@@ -450,43 +449,11 @@ impl Browser {
 
     pub(super) async fn watch(self: &Arc<Self>, viewer: Viewer) -> Result<PipeEnds, Text> {
         let window = self.window().await?;
-        let mut pipe = window
+        let pipe = window
             .watch(viewer)
             .await
             .map_err(|problem| Text::plain(problem.to_string()))?;
-        let (sender, mut from_view) = mpsc::channel::<Vec<u8>>(PIPE_QUEUE);
-        let (to_view, receiver) = mpsc::channel(PIPE_QUEUE);
-        tokio::spawn(async move {
-            // Hold one pending frame when `to_view` is full and pause `pipe.receive()` so the
-            // window applies backpressure upstream: a slow view gets fewer frames instead of
-            // broken ones.
-            let mut waiting: Option<Vec<u8>> = None;
-            loop {
-                tokio::select! {
-                    message = from_view.recv() => {
-                        let Some(message) = message else { break };
-                        if pipe.send(&message).await.is_err() {
-                            break;
-                        }
-                    }
-                    room = to_view.reserve(), if waiting.is_some() => {
-                        let Ok(room) = room else { break };
-                        if let Some(state) = waiting.take() {
-                            room.send(state);
-                        }
-                    }
-                    message = pipe.receive(), if waiting.is_none() => {
-                        let Some(message) = message else { break };
-                        match to_view.try_send(message.to_vec()) {
-                            Ok(()) => {}
-                            Err(mpsc::error::TrySendError::Full(message)) => waiting = Some(message),
-                            Err(mpsc::error::TrySendError::Closed(_)) => break,
-                        }
-                    }
-                }
-            }
-        });
-        Ok(PipeEnds { sender, receiver })
+        Ok(pipe::carry(pipe))
     }
 
     fn problem(&self, problem: Text) -> Text {
@@ -920,4 +887,14 @@ pub(super) fn left_profiles(data_root: &Path, returning: &HashSet<Uuid>) -> Vec<
         })
         .map(|entry| entry.path())
         .collect()
+}
+
+impl Viewed for shared_browser::Pipe {
+    async fn send(&self, message: &[u8]) -> bool {
+        Self::send(self, message).await.is_ok()
+    }
+
+    async fn receive(&mut self) -> Option<bytes::Bytes> {
+        Self::receive(self).await
+    }
 }

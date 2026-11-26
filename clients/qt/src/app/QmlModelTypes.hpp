@@ -2,6 +2,7 @@
 #include "accessibility/AccessibilityScope.hpp"
 #include "app/ApplicationLifecycleModel.hpp"
 #include "canvas/BrowserVideo.hpp"
+#include "canvas/ScreenVideo.hpp"
 #include "canvas/CanvasWeb.hpp"
 #include "presentation/AccountModel.hpp"
 #include "presentation/AppearanceModel.hpp"
@@ -247,10 +248,22 @@ struct CanvasWebForeign {
     QML_UNCREATABLE("Kodosi provides it.")
 };
 
+struct StreamVideoForeign {
+    Q_GADGET
+    QML_FOREIGN(kodosi::StreamVideo)
+    QML_ANONYMOUS
+};
+
 struct BrowserVideoForeign {
     Q_GADGET
     QML_FOREIGN(kodosi::BrowserVideo)
     QML_NAMED_ELEMENT(BrowserVideo)
+};
+
+struct ScreenVideoForeign {
+    Q_GADGET
+    QML_FOREIGN(kodosi::ScreenVideo)
+    QML_NAMED_ELEMENT(ScreenVideo)
 };
 
 struct TerminalViewForeign {

@@ -91,16 +91,38 @@ Auch **Websiteübergreifende Cookies** bleiben ausgeschaltet, bis du sie unter
 in der Seite einer anderen Website erscheint, etwa ein YouTube-Video oder ein Anmelde-Button, dort
 ihre Cookies nicht und kann dich deshalb nicht über die Websites hinweg erkennen, die du besuchst.
 
+### Der Bildschirm eines Computers
+
+Wenn du in den Kodosi-Einstellungen eines Computers das Teilen des Bildschirms einschaltest, kann
+jedes deiner freigegebenen Geräte den ganzen Bildschirm dieses Computers sehen und steuern, nicht
+nur seine Terminals, und zwar im Canvas seiner Terminals. Freunde sehen ihn nie, auch nicht in einem
+Terminal, das du mit ihnen teilst, und Video, Eingaben und der Text der Zwischenablage werden
+Ende-zu-Ende-verschlüsselt übertragen wie die Terminals selbst. Kodosi Screen, ein Helfer von
+Kodosi, übernimmt die Aufnahme und die Eingaben. Auf einem Mac hat Kodosi Screen die Berechtigungen
+für Bildschirmaufnahme und Bedienungshilfen, die das braucht, damit die Programme in deinen
+Terminals sie nicht bekommen. Unter Linux erlaubt der Desktop Kodosi das Teilen über sein Portal zur
+Bildschirmfreigabe und zeigt einen eigenen Hinweis an, während der Bildschirm geteilt wird. Solange
+jemand zusieht, zeigt die Menüleiste oder der Infobereich des Computers, welche Geräte zusehen. Wenn
+du das Teilen ausschaltest oder dort auf **Teilen beenden** klickst, endet jede Ansicht.
+
+Während ein Gerät den Bildschirm steuert, geht auf dem Computer kopierter Text an dieses Gerät, und
+wenn du auf dem Gerät einfügst, bekommt der Computer den Text dieses Geräts. Text, den ein
+Passwortmanager als privat markiert, bleibt auf dem Computer. Solange die Person am Computer seine
+Maus oder Tastatur benutzt, warten die Eingaben der Zuschauer einen Moment, und ein gesperrter
+Bildschirm bleibt gesperrt: Zuschauer sehen, dass er gesperrt ist, aber nicht, was er zeigt.
+
 ## Direkte Verbindungen
 
 Wenn sich zwei deiner eigenen Geräte direkt erreichen können, im selben lokalen Netzwerk oder per
 NAT-Traversal, läuft der Terminal-Datenverkehr mit derselben Ende-zu-Ende-Verschlüsselung direkt
 zwischen ihnen statt über den Relay-Server. Beide Geräte sehen dabei gegenseitig ihre IP-Adressen.
+Können sie sich nicht erreichen, läuft der Datenverkehr mit derselben Verschlüsselung per UDP über
+den Relay-Server, und keines der Geräte sieht die IP-Adresse des anderen.
 
-Um die eigene öffentliche Adresse zu ermitteln, fragt Kodosi einen STUN-Server von Cloudflare ab,
-der diese IP-Adresse sieht. Solange ein Gerät eine direkte Verbindung sucht oder hält (sowie eine
+Um die eigene öffentliche Adresse zu ermitteln, fragt Kodosi den Kodosi-Server ab,
+der diese IP-Adresse ohnehin sieht. Solange ein Gerät eine dieser Verbindungen sucht oder hält (sowie eine
 Minute danach), hält es einen einzelnen UDP-Port offen und akzeptiert dort ausschließlich
-Verbindungen von deinen eigenen freigegebenen Geräten. Terminals, die mit anderen Personen geteilt
+Verbindungen von Geräten, die eines deiner Terminals ansehen. Terminals, die mit anderen Personen geteilt
 sind, laufen immer über den Relay-Server, sodass andere Nutzer deine IP-Adressen nie sehen.
 
 ## Was der Dienst sieht

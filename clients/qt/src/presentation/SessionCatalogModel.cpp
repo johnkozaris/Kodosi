@@ -634,6 +634,10 @@ std::optional<QVariantMap> SessionCatalogModel::decodeCanvas(const QJsonValue& v
     };
     if (!mark(QStringLiteral("open")) || !mark(QStringLiteral("change")))
         return std::nullopt;
+    const auto screen = canvas.value(QStringLiteral("screen"));
+    if (!screen.isUndefined() && !screen.isNull()
+        && (!screen.isObject() || !screen.toObject().value(QStringLiteral("shared")).isBool()))
+        return std::nullopt;
     const auto browserValue = canvas.value(QStringLiteral("browser"));
     if (!browserValue.isUndefined() && !browserValue.isNull()) {
         const auto browser = browserValue.toObject();

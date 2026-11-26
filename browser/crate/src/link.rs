@@ -5,8 +5,9 @@
 
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
+use stream::{Codec, Encoded, Format, FrameKind, Size};
 
-use crate::message::{Dialog, MenuItem, Size};
+use crate::message::{Dialog, MenuItem};
 
 /// Engine exit code when launched as root on Linux, where Chromium's sandbox requires a non-root
 /// user.
@@ -18,10 +19,10 @@ pub const MOST_ICON: usize = 12 * 1024;
 /// Wire protocol version between host and engine; both sides must match.
 ///
 /// Bump on any breaking change to `ToEngine`, `FromEngine`, or the binary frame header.
-pub const VERSION: u32 = 2;
+pub const VERSION: u32 = 3;
 
-/// Binary frame header layout: window (8 bytes), flags (1 byte), mark (8 bytes).
-const FRAME_HEADER: usize = 8 + 1 + 8;
+/// Binary frame header layout: window (8 bytes), flags (1 byte), codec (1 byte), mark (8 bytes).
+const FRAME_HEADER: usize = 8 + 1 + 1 + 8;
 const KEY: u8 = 1;
 const ANCHOR: u8 = 2;
 const MARKED: u8 = 4;
@@ -62,6 +63,12 @@ pub enum ToEngine {
         window: i64,
         tab: i64,
         bitrate: u32,
+        format: Format,
+    },
+    /// Restarts the window's encoder in a format that every viewer decodes.
+    Format {
+        window: i64,
+        format: Format,
     },
     Stop {
         window: i64,
@@ -135,6 +142,17 @@ pub enum ToEngine {
     Quit,
 }
 
+#[cfg(feature = "host")]
+impl ToEngine {
+    /// Commands that end work in the engine, which keeps running what a dropped one would end.
+    pub(crate) const fn must_arrive(&self) -> bool {
+        matches!(
+            self,
+            Self::Stop { .. } | Self::CloseWindow { .. } | Self::ClosePage { .. } | Self::Quit
+        )
+    }
+}
+
 /// Tab metadata reported by the engine; popups opened by a tab appear as tabs in the same window.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -155,6 +173,10 @@ pub struct EngineTab {
     rename_all_fields = "camelCase"
 )]
 pub enum FromEngine {
+    /// The engine's first report: the codecs this computer encodes in real time.
+    Encodes {
+        codecs: Vec<Codec>,
+    },
     Tabs {
         tabs: Vec<EngineTab>,
     },
@@ -215,46 +237,36 @@ pub enum FromEngine {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FrameKind {
-    Delta,
-    Key,
-    /// References only frames whose marks all viewers have acknowledged, allowing recovery
-    /// after dropped frames without a full keyframe.
-    Anchor,
-}
-
-/// Annex B H.264 frame. `mark` identifies a reference frame that future anchors may depend on
-/// once acknowledged by all viewers.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// A picture from a window's encoder.
+#[derive(Debug, Clone, PartialEq)]
 pub struct EncodedFrame {
     pub window: i64,
-    pub kind: FrameKind,
-    pub mark: Option<u64>,
     /// Standalone keyframe snapshot for layer-hosting views to display while the layer is
     /// unavailable; not part of the video stream.
     pub still: bool,
-    pub data: Bytes,
+    pub picture: Encoded,
 }
 
 impl EncodedFrame {
     pub fn to_message(&self) -> Vec<u8> {
-        let mut flags = match self.kind {
+        let picture = &self.picture;
+        let mut flags = match picture.kind {
             FrameKind::Delta => 0,
             FrameKind::Key => KEY,
             FrameKind::Anchor => ANCHOR,
         };
-        if self.mark.is_some() {
+        if picture.mark.is_some() {
             flags |= MARKED;
         }
         if self.still {
             flags |= STILL;
         }
-        let mut message = Vec::with_capacity(FRAME_HEADER + self.data.len());
+        let mut message = Vec::with_capacity(FRAME_HEADER + picture.data.len());
         message.extend_from_slice(&self.window.to_be_bytes());
         message.push(flags);
-        message.extend_from_slice(&self.mark.unwrap_or_default().to_be_bytes());
-        message.extend_from_slice(&self.data);
+        message.push(picture.codec.wire());
+        message.extend_from_slice(&picture.mark.unwrap_or_default().to_be_bytes());
+        message.extend_from_slice(&picture.data);
         message
     }
 
@@ -270,12 +282,16 @@ impl EncodedFrame {
         };
         Some(Self {
             window: i64::from_be_bytes(header[..8].try_into().ok()?),
-            kind,
-            mark: (flags & MARKED != 0)
-                .then(|| header[9..].try_into().ok().map(u64::from_be_bytes))
-                .flatten(),
             still: flags & STILL != 0,
-            data: message.slice(FRAME_HEADER..),
+            picture: Encoded {
+                codec: Codec::from_wire(header[9])?,
+                kind,
+                mark: (flags & MARKED != 0)
+                    .then(|| header[10..].try_into().ok().map(u64::from_be_bytes))
+                    .flatten(),
+                region: None,
+                data: message.slice(FRAME_HEADER..),
+            },
         })
     }
 }

@@ -32,8 +32,8 @@ interface TerminalRuntime {
     fun input(sessionId: String, incarnationId: String, link: TerminalLink, bytes: ByteArray): Int
 }
 
-// Routes browser pipe events to browserEvents; namesBrowserPipe runs on runtime callback threads.
-class RuntimeHandle(private val namesBrowserPipe: (ByteArray) -> Boolean = { false }) :
+// Routes video pipe events (the shared browser's and the screen's) to videoEvents; namesVideoPipe runs on runtime callback threads.
+class RuntimeHandle(private val namesVideoPipe: (ByteArray) -> Boolean = { false }) :
     RuntimeCallbacks,
     TerminalRuntime {
     sealed interface Start {
@@ -45,7 +45,7 @@ class RuntimeHandle(private val namesBrowserPipe: (ByteArray) -> Boolean = { fal
     }
 
     val events = RuntimeEventInbox()
-    val browserEvents = RuntimeEventInbox()
+    val videoEvents = RuntimeEventInbox()
 
     @Volatile
     private var handle = 0L
@@ -72,7 +72,7 @@ class RuntimeHandle(private val namesBrowserPipe: (ByteArray) -> Boolean = { fal
         links.clear()
         if (current != 0L) NativeRuntime.stop(current)
         events.close()
-        browserEvents.close()
+        videoEvents.close()
     }
 
     fun send(json: ByteArray): Int? = handle.takeIf { it != 0L }?.let { NativeRuntime.sendCommand(it, json) }
@@ -104,7 +104,7 @@ class RuntimeHandle(private val namesBrowserPipe: (ByteArray) -> Boolean = { fal
     private fun link(sessionId: String, subscriptionId: String, generation: Long): TerminalLink? =
         links[sessionId]?.takeIf { it.subscriptionId == subscriptionId && it.generation == generation }
 
-    override fun onEvent(json: ByteArray) = (if (namesBrowserPipe(json)) browserEvents else events).push(json)
+    override fun onEvent(json: ByteArray) = (if (namesVideoPipe(json)) videoEvents else events).push(json)
 
     override fun onTerminalData(
         sessionId: String,

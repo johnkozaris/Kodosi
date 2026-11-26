@@ -1,9 +1,17 @@
 import CoreGraphics
 import Foundation
 
+/// The screen stays on the canvas while the person at its computer does not share it, so that the
+/// owner's devices say why it does not show and watch it again once it is shared.
+public struct CanvasScreen: Decodable, Equatable, Sendable {
+    public let shared: Bool
+}
+
 public struct Canvas: Decodable, Equatable, Sendable {
     public let items: [CanvasItem]
     public let browser: CanvasBrowser?
+    /// The screen of the terminal's computer, which only its owner's devices see.
+    public let screen: CanvasScreen?
     /// Most recent item the agent explicitly opened; each device handles it once.
     public let open: CanvasOpen?
     /// Most recent file or agent-driven browser change; each device handles it once.
@@ -13,14 +21,15 @@ public struct Canvas: Decodable, Equatable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         items = try container.decodeIfPresent([CanvasItem].self, forKey: .items) ?? []
         browser = try container.decodeIfPresent(CanvasBrowser.self, forKey: .browser)
+        screen = try container.decodeIfPresent(CanvasScreen.self, forKey: .screen)
         open = try container.decodeIfPresent(CanvasOpen.self, forKey: .open)
         change = try container.decodeIfPresent(CanvasOpen.self, forKey: .change)
     }
 
-    private enum CodingKeys: String, CodingKey { case items, browser, open, change }
+    private enum CodingKeys: String, CodingKey { case items, browser, screen, open, change }
 
     public var shown: [CanvasShown] {
-        items.map(CanvasShown.item) + (browser.map { [CanvasShown.browser($0)] } ?? [])
+        items.map(CanvasShown.item) + (browser.map { [CanvasShown.browser($0)] } ?? []) + (screen == nil ? [] : [.screen])
     }
 
     public var newest: CanvasShown? {
@@ -32,13 +41,14 @@ public struct Canvas: Decodable, Equatable, Sendable {
     }
 
     public var sections: [CanvasSection] {
-        (items.isEmpty ? [] : [.files]) + (browser == nil ? [] : [.browser])
+        (items.isEmpty ? [] : [.files]) + (browser == nil ? [] : [.browser]) + (screen == nil ? [] : [.screen])
     }
 
     public func changed(of section: CanvasSection) -> UInt64? {
         switch section {
         case .files: items.map(\.changed).max()
         case .browser: browser?.changed
+        case .screen: screen == nil ? nil : CanvasShown.screen.changed
         }
     }
 
@@ -48,7 +58,7 @@ public struct Canvas: Decodable, Equatable, Sendable {
 }
 
 public enum CanvasSection: String, Identifiable, Sendable {
-    case files, browser
+    case files, browser, screen
 
     public var id: String {
         rawValue
@@ -63,13 +73,16 @@ public struct CanvasOpen: Decodable, Equatable, Sendable {
 public enum CanvasShown: Equatable, Identifiable, Sendable {
     case item(CanvasItem)
     case browser(CanvasBrowser)
+    case screen
 
     public static let browserKey = "browser"
+    public static let screenKey = "screen"
 
     public var key: String {
         switch self {
         case let .item(item): item.key
         case .browser: Self.browserKey
+        case .screen: Self.screenKey
         }
     }
 
@@ -77,18 +90,22 @@ public enum CanvasShown: Equatable, Identifiable, Sendable {
         key
     }
 
+    /// The screen does not change as a file or the browser does: it shows itself when an agent
+    /// or a person shows it.
     public var changed: UInt64 {
         switch self {
         case let .item(item): item.changed
         case let .browser(browser): browser.changed
+        case .screen: 0
         }
     }
 
     public var section: CanvasSection {
-        if case .browser = self {
-            return .browser
+        switch self {
+        case .item: .files
+        case .browser: .browser
+        case .screen: .screen
         }
-        return .files
     }
 }
 
@@ -338,41 +355,9 @@ public struct BrowserWindow: Decodable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey { case tabs, width, height, shape, pointers, menu, dialog, chooser, copied, icons, layer }
 }
 
-/// Coordinates are in page CSS pixels.
+/// What a viewer does in the shared browser: its pointer and keys, and the browser's own commands.
 public enum BrowserInput: Encodable, Equatable, Sendable {
-    public enum MouseEvent: String, Encodable, Sendable {
-        case mousePressed = "press", mouseReleased = "release", mouseMoved = "move", mouseWheel = "wheel"
-    }
-
-    public enum MouseButton: String, Encodable, Sendable { case none, left, middle, right }
-    public enum KeyEvent: String, Encodable, Sendable { case keyDown = "down", keyUp = "up" }
-
-    public struct Modifiers: OptionSet, Encodable, Sendable {
-        public let rawValue: UInt8
-        public init(rawValue: UInt8) {
-            self.rawValue = rawValue
-        }
-
-        public static let alt = Modifiers(rawValue: 1)
-        public static let control = Modifiers(rawValue: 2)
-        public static let meta = Modifiers(rawValue: 4)
-        public static let shift = Modifiers(rawValue: 8)
-    }
-
-    public struct Point: Encodable, Equatable, Sendable {
-        public let x: Double
-        public let y: Double
-
-        public init(x: Double, y: Double) {
-            self.x = x
-            self.y = y
-        }
-    }
-
-    case mouse(MouseEvent, x: Double, y: Double, button: MouseButton = .none, clicks: Int = 0, deltaX: Double = 0, deltaY: Double = 0,
-               modifiers: Modifiers = [])
-    case key(KeyEvent, key: String, code: String, text: String? = nil, keyCode: Int = 0, modifiers: Modifiers = [])
-    case text(String)
+    case viewer(ViewerInput)
     case open(String)
     case back, forward, reload
     case tab(String)
@@ -382,38 +367,16 @@ public enum BrowserInput: Encodable, Equatable, Sendable {
     case dialog(accept: Bool, text: String?)
     case files([String])
 
-    var isPlainMove: Bool {
-        if case .mouse(.mouseMoved, _, _, .none, _, _, _, _) = self {
-            return true
-        }
-        return false
-    }
-
     // swiftlint:disable:next cyclomatic_complexity
     public func encode(to encoder: any Encoder) throws {
+        if case let .viewer(input) = self {
+            try input.encode(to: encoder)
+            return
+        }
         var container = encoder.container(keyedBy: Field.self)
         switch self {
-        case let .mouse(event, x, y, button, clicks, deltaX, deltaY, modifiers):
-            try container.encode("mouse", forKey: .kind)
-            try container.encode(event, forKey: .action)
-            try container.encode(x, forKey: .x)
-            try container.encode(y, forKey: .y)
-            try container.encode(button, forKey: .button)
-            try container.encode(clicks, forKey: .clicks)
-            try container.encode(deltaX, forKey: .deltaX)
-            try container.encode(deltaY, forKey: .deltaY)
-            try container.encode(modifiers.rawValue, forKey: .modifiers)
-        case let .key(event, key, code, text, keyCode, modifiers):
-            try container.encode("key", forKey: .kind)
-            try container.encode(event, forKey: .action)
-            try container.encode(key, forKey: .key)
-            try container.encode(code, forKey: .code)
-            try container.encodeIfPresent(text, forKey: .text)
-            try container.encode(keyCode, forKey: .keyCode)
-            try container.encode(modifiers.rawValue, forKey: .modifiers)
-        case let .text(text):
-            try container.encode("text", forKey: .kind)
-            try container.encode(text, forKey: .text)
+        case .viewer:
+            break
         case let .open(address):
             try container.encode("open", forKey: .kind)
             try container.encode(address, forKey: .address)
@@ -446,7 +409,7 @@ public enum BrowserInput: Encodable, Equatable, Sendable {
     }
 
     private enum Field: String, CodingKey {
-        case kind, action, x, y, button, clicks, deltaX, deltaY, modifiers, key, code, text, keyCode, address, id, menu, choice, accept, paths
+        case kind, text, address, id, menu, choice, accept, paths
     }
 }
 

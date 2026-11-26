@@ -74,7 +74,7 @@ version.workspace = true
 
 [features]
 default = ["host"]
-host = ["dep:clap", "dep:documents", "dep:documents-cli", "dep:httparse", "dep:kodosi-pty", "dep:pulldown-cmark", "dep:rusqlite", "dep:shared-browser", "dep:tar", "shared-browser/host", "tokio/process", "tokio/signal"]
+host = ["dep:clap", "dep:documents", "dep:documents-cli", "dep:httparse", "dep:kodosi-pty", "dep:pulldown-cmark", "dep:rusqlite", "dep:screen", "dep:shared-browser", "dep:tar", "shared-browser/host", "tokio/process", "tokio/signal"]
 
 [dependencies]
 ghostty-vt = { path = "crates/ghostty-vt" }
@@ -90,9 +90,10 @@ base64 = { workspace = true }
 bytes = { workspace = true }
 flate2 = { version = "1.1.11", default-features = false, features = ["zlib-rs", "runtime_detection"] }
 futures-util = { workspace = true }
+noq = { version = "1.5.0", default-features = false, features = ["runtime-tokio", "rustls-aws-lc-rs"] }
+noq-proto = { version = "1.5.0", default-features = false }
 percent-encoding = "2.3.2"
 qrcodegen = "1.8.0"
-quinn = { version = "0.11.12", default-features = false, features = ["runtime-tokio", "rustls-aws-lc-rs"] }
 reqwest = { workspace = true }
 rusqlite = { version = "0.43.0", default-features = false, features = ["bundled"], optional = true }
 rustls = { version = "0.23.46", default-features = false, features = ["aws-lc-rs", "prefer-post-quantum", "std"] }
@@ -101,6 +102,8 @@ serde = { workspace = true, features = ["derive"] }
 socket2 = { workspace = true }
 serde_json = { workspace = true, features = ["raw_value"] }
 specta = { workspace = true, features = ["derive", "serde_json"] }
+screen = { path = "../screen/crates/screen", optional = true }
+stream = { path = "../stream/crates/stream" }
 thiserror = { workspace = true }
 time = { workspace = true, features = ["formatting", "parsing"] }
 tokio = { workspace = true, features = ["fs", "io-util", "macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
@@ -114,6 +117,7 @@ zeroize = { workspace = true }
 clap = { version = "4.6.7", features = ["derive"], optional = true }
 httparse = { version = "1.10.1", optional = true }
 pulldown-cmark = { version = "=0.13.6", default-features = false, features = ["html"], optional = true }
+
 
 [build-dependencies]
 serde_json = { workspace = true }

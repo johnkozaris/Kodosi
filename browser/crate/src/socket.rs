@@ -19,7 +19,7 @@ use crate::{
 const CONNECT_LIMIT: Duration = Duration::from_secs(30);
 const HANDSHAKE_LIMIT: Duration = Duration::from_secs(5);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Report {
     Said(FromEngine),
     Frame(EncodedFrame),
@@ -147,9 +147,9 @@ pub(crate) fn token() -> io::Result<String> {
 #[cfg(test)]
 mod tests {
     use bytes::Bytes;
+    use stream::{Codec, Encoded, FrameKind};
 
     use super::*;
-    use crate::link::FrameKind;
 
     #[tokio::test]
     async fn only_the_engine_with_the_token_connects_and_only_once() {
@@ -176,10 +176,14 @@ mod tests {
         ));
         let frame = EncodedFrame {
             window: 4,
-            kind: FrameKind::Key,
-            mark: None,
             still: false,
-            data: Bytes::from_static(b"\0\0\0\x01x"),
+            picture: Encoded {
+                codec: Codec::Hevc,
+                kind: FrameKind::Key,
+                mark: Some(9),
+                region: None,
+                data: Bytes::from_static(b"\0\0\0\x01x"),
+            },
         };
         engine
             .send(Message::binary(frame.to_message()))

@@ -1,7 +1,7 @@
 {
-  "terminalConnectionProtocolVersion": 27,
-  "oldestTerminalConnectionProtocolVersion": 27,
-  "channelProtocolVersion": 18,
+  "terminalConnectionProtocolVersion": 28,
+  "oldestTerminalConnectionProtocolVersion": 28,
+  "channelProtocolVersion": 19,
   "compatibilityPolicy": {
     "deviceConnection": "the server admits each device whose hello protocolVersion is from oldestTerminalConnectionProtocolVersion to terminalConnectionProtocolVersion; it refuses others with refused, reason version",
     "channel": "each side offers the ALPN protocols kodosi-channel/ with each version from its channelProtocolVersion down to 1, and the host selects the newest that both have; a side whose own version is not the selected one, or that has no selected protocol, closes the channel and shows that the other computer must update Kodosi. The accept frame carries the host's channelProtocolVersion; a host that selected an older version sends only the accept frame and closes, and a viewer whose version differs from it closes the channel and shows which side must update Kodosi"
@@ -22,6 +22,7 @@
       "deviceSession",
       "hosts"
     ],
+    "ready": "relay: the address and the port of the server's UDP relay, which also answers STUN, when the server has one",
     "hosts": "true when the device hosts terminals and takes calls from the other devices of its person, and false for a viewer",
     "proof": "the device session of the device; refused with reason deviceSession when the server does not hold it, and the device then opens a new session and connects again",
     "admission": "the server registers the connection and then checks the device again, so a removal that is made at the same time refuses the connection",
@@ -34,7 +35,8 @@
       "open": "pipe, sessionId, incarnationId: open a pipe to the host of a terminal; the device makes the pipe identity and sends channel data at once; a refusal is closed with status and message",
       "call": "pipe, deviceId: open a pipe to another connected device of the same person that hosts; the device makes the pipe identity and sends channel data at once; a refusal is closed with status and message",
       "close": "pipe",
-      "ping": "the answer is pong"
+      "ping": "the answer is pong",
+      "relay": "pipe: ask for the UDP relay between the two devices of the pipe, only when ready named a relay; both ends then hear relayed"
     },
     "serverMessages": {
       "changed": "surface (devices, friends, sessions, projects, projectContent): the device reads that list again",
@@ -45,7 +47,8 @@
       "presence": "kodosi, here: each true when another connected device of the person has that state; after ready and after each change",
       "accessChanged": "sessionId: to the host, after a change of the people or devices that can use the terminal",
       "closed": "pipe, status, message: the pipe ended; status 0 when the other device closed it",
-      "pong": "the answer to ping"
+      "pong": "the answer to ping",
+      "relayed": "pipe, allocation, slot, secret, now: to both ends of a pipe after relay; the allocation (7 bytes, base64) of the two devices, this device's slot (0 or 1) in it, the slot's secret (32 bytes, base64) that signs its binds, and the server's time (unix milliseconds) from which the device times its binds; the same allocation until no pipe has joined the two devices for graceSeconds"
     },
     "authorization": "host: the hosting device of the publication; open: an approved device of the owner or of an explicit current member, checked before and after the pipe is registered; call: a device of the same person, to another of its devices that hosts",
     "silence": "the device sends ping each 20 seconds and the WebSocket keep-alive runs each 30 seconds; the server ends a connection that sent no message for 90 seconds, that did not take one message in 30 seconds, or that kept more than 12582912 bytes waiting for 30 seconds; the device ends a connection that received no message for 45 seconds; each 60 seconds the server checks that each connected device is still approved",
@@ -222,6 +225,11 @@
         "type": 26,
         "direction": "host",
         "body": "a JSON array of at most 16 addresses (ip:port) of the host; an empty array keeps the channel on the relay"
+      },
+      "mediaOffer": {
+        "type": 27,
+        "direction": "host",
+        "body": "pipe (16 bytes), flow:u16be; the video frames of a browser or screen pipe go as datagrams of that flow on the QUIC connection under the channel's lane, as media describes"
       }
     }
   },
@@ -324,15 +332,45 @@
     "anchor": "the relay pipe stays open while the messages go on a lane, and its end ends the route"
   },
   "direct": {
-    "who": "only the devices of one person: the viewer offers for a terminal of its own person, and a host answers a viewer of another person with no addresses",
-    "offer": "the viewer sends pathOffer after accept, and the host answers with pathAnswer; when no lane comes, the viewer offers again after 30 seconds, 2 minutes and then each 10 minutes, and 5 seconds after a lane ended; an empty answer ends its offers",
-    "addresses": "the addresses of the device's networks that are up, without loopback and link-local ones, and the public addresses of its UDP socket that a STUN server (stun.cloudflare.com:3478) sees, at most 16; a side tries a private address of the other only on one of its own networks",
+    "who": "the devices of one person trade addresses and meet straight or through the relay; a viewer of another person's terminal offers no addresses and the host answers it with none, so the two devices meet only through the relay and neither learns the other's address",
+    "offer": "the viewer asks the server for the relay of the pipe (relay) when ready named one, and sends pathOffer, after accept; the host answers with pathAnswer; when no lane comes, the viewer offers again after 30 seconds, 2 minutes and then each 10 minutes, and 5 seconds after a lane ended; an empty answer to a viewer of its own person ends its offers, and a viewer of another person offers only when ready named a relay",
+    "addresses": "the addresses of the device's networks that are up, without loopback and link-local ones, and the public addresses of its UDP socket that the server's UDP relay sees (relay.stun), at most 16; a side tries a private address of the other only on one of its own networks",
     "transport": "QUIC on one UDP socket of the runtime, on the first free port from 47360 to 47379 (the range that the Windows package opens on private networks) or another when they are taken, which also carries the STUN questions; ALPN kodosi-direct/<channelProtocolVersion>; TLS 1.3 with the keys, the key exchange and the cipher suite of the channel",
     "viewerCheck": "the host key must equal the key of the hosting device, as on the channel",
     "hostCheck": "the host takes a connection only from a device whose key a route of the host waits for",
-    "meeting": "the viewer connects to the host's addresses, one each 40 ms, for 3 seconds; until the two devices have a connection, the host sends one byte to each address of the viewer each 100 ms so that its router lets the viewer in; one connection of two devices carries all their lanes",
+    "meeting": "the viewer connects to the host's addresses, one each 40 ms, for 3 seconds, and then through the relay once the relay holds its slot, for 3 more seconds; until the two devices have a connection, the host sends one byte to each address of the viewer each 100 ms so that its router lets the viewer in; one connection of two devices carries all their lanes",
     "lane": "the viewer opens a bidirectional stream and writes the pipe identity (16 bytes); the host writes one byte, 1, when the route of that pipe takes the stream; then each route message goes with its length (u32, network byte order) first",
     "life": "keep-alive each 10 seconds and 25 silent seconds end the connection; a connection that no lane used for 60 seconds ends, and the socket closes 60 seconds after its last connection",
     "access": "the host ends the lane with the access of the viewer, and the service ends it with the relay pipe"
+  },
+  "media": {
+    "purpose": "the video frames of a browser or screen pipe go as QUIC datagrams while the channel runs on a lane, so a lost packet delays only its own frame",
+    "offer": "the host sends mediaOffer for each video pipe when its route moves to a lane, and again on each later lane; the viewer answers with a report of no entries, each 200 ms until a shard comes; the host sends the pipe's frames on the flow only after the first report, and in pipeData before it and whenever the route is on the relay; JSON messages of the pipe always go in pipeData",
+    "flows": "the host numbers its flows on one connection; a datagram's kind tells shards (1, from the host) from reports (2, from the viewer), so the two devices of a connection number their flows apart",
+    "shard": "kind:u8 1, flow:u16, frame:u16 (the flow's frame number), index:u16, originals:u16, recoveries:u16, length:u32 (bytes of the frame), then the shard: indices below originals are parts of the frame in order, the others Reed-Solomon recovery shards over GF(2^16) of equal parts, the last part padded with zeros; numbers in network byte order",
+    "report": "kind:u8 2, flow:u16, count:u8, then count entries of frame:u16, state:u8 (0 arrived, 1 given up, 2 missing), indices:u16 and that many shard indices that the viewer misses; a missing entry without indices asks for the whole frame",
+    "parity": "frames carry no recovery shards until a report tells of a loss, then about twice the share of lost shards, at least one and at most half the parts, until 400 ms pass without a loss",
+    "delivery": "the viewer hands on frames in order; a frame may arrive until its time ends, max(33 ms, 1.5 round trips + 10 ms) from its first shard, and the viewer gives up on it after that; a keyframe or anchor passes the frames still missing before it, which the viewer drops; frames never shown cause the usual keyframe or anchor request of the viewer",
+    "resend": "the viewer reports missing shards when a later frame arrives or 3 ms pass after the frame's last shard, and again after half a round trip; the host sends them again while the frame can still arrive in time, from frames it keeps for 250 ms after their time",
+    "rate": "SCReAMv2 controls the connection; the host splits the bitrate that it finds among its flows on the connection and tells each stream with a JSON message rate {bitrate} in the pipe, as if from the viewer"
+  },
+  "relay": {
+    "purpose": "the server relays QUIC between two devices that reach no direct path, without seeing inside: QUIC encrypts it end to end",
+    "transport": "UDP on the port that ready names; the first byte tells STUN (0x00), data (0x10), bind (0x11) and bound (0x12) apart from QUIC",
+    "stun": "an RFC 8489 Binding request is answered with a Binding success response that carries XOR-MAPPED-ADDRESS",
+    "bind": "0x11, allocation (7 bytes), slot (1 byte), time (unix milliseconds, i64, network byte order), then the first 16 bytes of HMAC-SHA256 with the slot's secret over the bytes before it; the server takes it only within 60 seconds of its own time and later than the slot's last bind, binds the slot to the address it came from and answers bound",
+    "bound": "0x12, allocation, slot: the first 9 bytes of the bind",
+    "binding": "the host binds its slot when it answers an offer and the viewer before it connects through the relay; a device binds again each second until the relay answers, at most 5 times, and then each 15 seconds while its socket lives; each bind is timed by the now of relayed and the time since the device heard it",
+    "standIn": "the device's QUIC sees the other device at an address of its own for the allocation (in fd6b:6f64:6f73:6900::/64, or in 240.0.0.0/8 on an IPv4 socket); the socket wraps the packets for that address in the relay's header, and hands on relayed packets as from it, one allocation at a time when several arrive together",
+    "data": "0x10, allocation (7 bytes), then a QUIC packet; the server forwards it unchanged from the address of one bound slot to the address of the other, and drops it from any other address",
+    "limits": "10 MB each second for an allocation in bursts of 2 MB; 10000 STUN answers and binds each second for all devices",
+    "graceSeconds": 30,
+    "bindVector": {
+      "allocationHex": "01020304050607",
+      "slot": 1,
+      "secretHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "time": 1764100000123,
+      "bindHex": "1101020304050607010000019abc8dc97b56a76654691bf8de5b16a9600c7f0cda"
+    }
   }
 }

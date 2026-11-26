@@ -56,11 +56,22 @@ The computer that starts a terminal owns its process, state, and output ordering
 view receives an initial checkpoint followed by ordered updates with bounded buffering. Remote
 views receive updates over per-view end-to-end encrypted channels relayed through the backend.
 
-When a viewer and host belong to the same user and can reach each other (on the same LAN or
-through NAT traversal), encrypted frames move onto a direct QUIC connection between the two
-devices and fall back to the relay if the direct path drops, without requiring a new checkpoint
-and without dropping or duplicating frames. The relay pipe stays open so the backend can still
-tear down the channel immediately if access is revoked.
+Encrypted frames move onto a QUIC connection between the viewer's and the host's devices: a
+direct one when they belong to the same user and can reach each other (on the same LAN or through
+NAT traversal), and otherwise one through the backend's UDP relay, which forwards its packets
+unchanged. The devices of two people meet only through the UDP relay and trade no addresses, so
+neither learns the other's. Frames fall back to the relay pipe if the connection drops, without
+requiring a new checkpoint and without dropping or duplicating frames. The relay pipe stays open so the backend can
+still tear down the channel immediately if access is revoked.
+
+On a QUIC connection, the video of the canvas browser and screens leaves the ordered channel, so
+that a lost packet delays only its own frame. Frames travel as QUIC datagrams, split into shards
+that each fit one packet. They carry Reed–Solomon parity only after the path lost packets lately,
+and the host sends a missing shard again only while its frame can still arrive in time. The viewer
+hands frames on in order, and a keyframe or anchor passes the frames still missing before it.
+SCReAMv2, a congestion controller made for interactive media, runs the QUIC connection: it keeps
+the queue that it builds short and tells each stream the bitrate that its share of the path
+carries. The streams' JSON messages, and everything on the relay, stay in the channel.
 
 If typing or another request goes unacknowledged for too long on a remote view, the viewer flags
 the terminal as stalled and displays a reconnecting state while letting the user keep typing. The
@@ -141,7 +152,10 @@ while it sleeps, so its apps cannot see the sleep, and it offers no test.
 ## Backend and projects
 
 A single ASP.NET Core service handles the HTTP API and WebSocket relays, storing metadata and
-ciphertext in PostgreSQL. Terminal streams are relayed in memory and never stored.
+ciphertext in PostgreSQL. Terminal streams are relayed in memory and never stored. On one UDP port
+the service answers STUN, so devices learn their public addresses, and relays QUIC packets between
+the two devices of an allocation that it gives to both ends of a pipe; it forwards the packets
+unchanged, as QUIC encrypts them end to end.
 
 Client devices encrypt and sign project messages, tasks, and repository links. The backend stores
 the ciphertext, assigns sequence numbers, and notifies project members when something changes so
@@ -200,8 +214,8 @@ terminal's encrypted channel, syncing an initial snapshot followed by incrementa
 
 ## Canvas
 
-The host manages each terminal's canvas: files shown by the agent plus its shared browser. The
-canvas manifest syncs with terminal state to local clients and over the encrypted terminal channel
+The host manages each terminal's canvas: files shown by the agent, its shared browser, and on a Mac
+that shares it, the computer's screen. The canvas manifest syncs with terminal state to local clients and over the encrypted terminal channel
 to remote devices. Reading and adding files travel over the same encrypted channel.
 
 A terminal on a Git branch of its own counts the lines its branch changed since the branch started,
@@ -246,14 +260,85 @@ The viewport tracks the dimensions of the active viewing device (the one that la
 another of the same user's devices once they open the browser there). Encoding targets the
 highest-DPI viewer's pixel density within encoder limits, and static pages progressively refine
 until sharp. During resizes, clients hold their previous frame until Chromium finishes painting at
-the new size, hiding Chromium's placeholder flashes. Slow clients drop stale frames and recover on
-the next keyframe (or on macOS hosts, a small delta frame referencing only frames acknowledged by
-all viewers).
+the new size, hiding Chromium's placeholder flashes.
 
-Encoded frames and pointer/keyboard input travel over the terminal's encrypted channel. The agent
+Encoded frames and pointer/keyboard input travel over the terminal's encrypted channel, the frames
+as datagrams of the direct connection when there is one. The agent
 controls its window via `agent-browser` over a host-managed local port scoped strictly to that
 terminal's tabs. Private terminals share one persistent browser profile; shared terminals each get
 an isolated, ephemeral profile tied to the terminal's lifetime.
+
+### Screens
+
+[screen/](../screen/) is a standalone library with no Kodosi imports. Kodosi Screen, a helper
+program, captures the screen and plays viewers' input, and the host links to it with the same
+messages on every system. On a Mac it is an app inside Kodosi's bundle that the host opens through
+Launch Services, so that macOS grants Screen Recording and Accessibility to it alone and the
+programs in terminals, which inherit Kodosi's permissions, do not get them. On Linux and Windows
+it ships beside the `kodosi` program and runs as the host's child: on Linux the desktop's screen
+sharing portal asks the person at the computer once and remembers the grant, and on Windows no
+permission is needed. The host starts the helper only while the person at the computer allows the
+sharing, which only the computer's own app changes. While anyone watches, the helper shows which
+devices watch, in the menu bar or the tray, with a way to stop that turns the sharing off on every
+canvas.
+
+One capture serves every viewer of a computer. It shows a display or one window, sized to the view
+that the person opened or used last, with as many pixels as that view shows, fewer while a phone
+runs hot, and no more than the source has. A zoomed view asks for only the part it shows, so the
+part stays sharp, and a device that does not control the screen shows that part too. The pointer
+travels apart from the video, as a position and a shape sent once, so viewers draw it, or use it
+as their own cursor, without waiting for frames.
+
+The helper handles what recovers by itself, so viewers see one state and words only when someone
+must act. It tells the host when the screen is locked, another account has the display, or the
+display sleeps although the helper woke it; meanwhile nothing is captured, and the capture starts
+again when the screen comes back. Opening the screen wakes its display, which stays awake while
+captured. The screen stays on the canvas while its computer does not share it, so viewers say why
+and watch again as soon as it is shared. An agent's window that goes away comes back on the canvas
+when it returns, unless a viewer chose another source. Shortcuts go by the letter they type, so
+they mean the same whatever the two keyboards' layouts are, and a Command key takes Control's place
+on computers that are not Macs. While the person at the computer uses its mouse or keyboard,
+viewers' input waits a moment. Text copied on the computer goes to the device in control, and a
+paste on a viewer gives the computer that device's text first; the helper leaves alone what
+password managers mark as private and does not send text back to where it came from.
+
+A computer's screen belongs to its owner: only the owner's devices list it on a canvas, and the
+host refuses anyone else's pipe to it, also in a terminal shared with friends.
+
+### Video streams
+
+[stream/](../stream/) is a standalone library for live video with no Kodosi imports: the protocol
+between a stream and its viewers, the flow control that decides which viewer takes which frame, and
+the encoders, chosen at run time from what the computer has (VideoToolbox with Metal conversion on
+macOS, VA-API on Linux graphics that encode H.264, OpenH264 elsewhere). The browser engine and
+Kodosi Screen encode with it, and the host runs its flow control. libva is loaded at run time, so a
+Linux computer without it encodes in software, and a stream whose GPU fails continues in OpenH264.
+VA-API also encodes HEVC where the driver reports which coding tools its encoder uses, since the
+stream's own parameter sets must name them.
+
+Each viewer declares the codecs it decodes and which of them in hardware. A stream uses HEVC only
+while its source encodes it and every viewer decodes it in hardware, since decoding HEVC in
+software costs more than the bits it saves; otherwise it uses H.264, which every viewer decodes.
+The Linux and Windows apps decode with the FFmpeg that Qt Multimedia ships, on the GPU through
+VA-API or D3D11VA, and draw the GPU's pictures without passing them through the processor.
+When the viewers change, the encoder restarts in the new codec with a keyframe, and every frame
+names its codec. Pictures are BT.709 limited range, tagged in the stream and converted the same
+way by every client. The VA-API encoder writes its own parameter sets and slice headers, so Intel
+and AMD drivers tag the colours alike and tell decoders to show each frame as it arrives. A frame
+that shows only a part of its source names that part, so a viewer places each frame right while
+the part changes.
+
+Encoders sharpen a still picture on their own, with passes that encode it again. On the Mac and
+with VA-API the encoder sets each frame's quantizer instead of leaving it to the hardware's rate
+control, and lets frames run only a few frame times ahead of the bitrate that the link carries. A
+new screen then shows coarse at once rather than sharp a second later, passes sharpen it while the
+link has room, and a frame made during the passes never waits long behind them. OpenH264 keeps its
+own rate control and spends its spare bits on the same passes.
+
+Slow viewers skip frames and recover on the next keyframe. When every viewer supports them, the
+encoder also marks long-term references, and a viewer that missed frames recovers from an anchor:
+a small frame that references only marks every viewer acknowledged. Some hardware decoders freeze
+on long-term references, so a stream with any viewer that does not declare them has none.
 
 ## Localization
 

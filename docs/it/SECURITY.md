@@ -91,17 +91,38 @@ Anche l'opzione **Cookie tra siti** resta disattivata finché non la attivi in
 sito, come un video di YouTube o un pulsante di accesso, lì non riceve i propri cookie, quindi non
 può riconoscerti nei diversi siti che visiti.
 
+### Lo schermo di un computer
+
+Attivando la condivisione dello schermo nelle impostazioni di Kodosi di un computer, ognuno dei tuoi
+dispositivi approvati può vedere e controllare l'intero schermo di quel computer, non solo i suoi
+terminali, dal canvas dei suoi terminali. Gli amici non lo vedono mai, nemmeno in un terminale che
+condividi con loro, e video, input e testo degli appunti viaggiano crittografati end-to-end come i
+terminali stessi. Kodosi Screen, un aiutante di Kodosi, si occupa della cattura e dell'input. Su un
+Mac ha le autorizzazioni di registrazione dello schermo e di accessibilità necessarie, così i
+programmi nei tuoi terminali non le ottengono. Su Linux il desktop concede la condivisione a Kodosi
+tramite il proprio portale di condivisione dello schermo e mostra un suo avviso finché lo schermo è
+condiviso. Mentre qualcuno guarda, la barra dei menu o l'area di notifica del computer indica quali
+dispositivi stanno guardando; disattivare la condivisione, o premere lì **Interrompi la
+condivisione**, chiude ogni visualizzazione.
+
+Mentre un dispositivo controlla lo schermo, il testo copiato sul computer va a quel dispositivo, e
+incollare su di esso dà al computer il testo di quel dispositivo. Il testo che un gestore di
+password contrassegna come privato resta sul computer. Finché la persona davanti al computer usa il
+mouse o la tastiera, l'input di chi guarda attende un momento, e uno schermo bloccato resta
+bloccato: chi guarda vede che è bloccato, non ciò che mostra.
+
 ## Connessioni dirette
 
 Quando due dei tuoi dispositivi possono raggiungersi direttamente, sulla stessa LAN o tramite
 attraversamento NAT, il traffico del terminale viaggia direttamente tra loro con la stessa
 crittografia end-to-end anziché passare dal server relay. Entrambi i dispositivi vedono gli
-indirizzi IP dell'altro.
+indirizzi IP dell'altro. Quando non possono, il traffico passa via UDP dal server relay con la stessa
+crittografia, e nessuno dei due dispositivi vede l'indirizzo IP dell'altro.
 
-Per rilevare il proprio indirizzo pubblico, Kodosi interroga un server STUN di Cloudflare, che
-osserva quell'IP. Mentre cerca o mantiene una connessione diretta (e per il minuto successivo), il
-dispositivo tiene aperta una sola porta UDP e accetta connessioni unicamente dai tuoi dispositivi
-approvati. I terminali condivisi con altre persone passano sempre dal server relay, quindi gli
+Per rilevare il proprio indirizzo pubblico, Kodosi interroga il server Kodosi, che
+vede comunque quell'IP. Mentre cerca o mantiene una di queste connessioni (e per il minuto successivo), il
+dispositivo tiene aperta una sola porta UDP e accetta connessioni unicamente da
+dispositivi che visualizzano uno dei tuoi terminali. I terminali condivisi con altre persone passano sempre dal server relay, quindi gli
 altri utenti non vedono mai i tuoi indirizzi IP.
 
 ## Cosa vede il servizio

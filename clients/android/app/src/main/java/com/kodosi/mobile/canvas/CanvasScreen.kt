@@ -83,7 +83,7 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
     var selected by rememberSaveable(sessionId) {
         mutableStateOf(canvas?.openKey(initialKey, closed) ?: initialKey ?: "browser")
     }
-    var part by rememberSaveable(sessionId) { mutableStateOf(if (selected == "browser") "browser" else "files") }
+    var part by rememberSaveable(sessionId) { mutableStateOf(canvasPart(selected)) }
 
     // Remembered across config changes so rotation does not re-claim the shared browser viewport.
     var opening by rememberSaveable(sessionId) { mutableStateOf(true) }
@@ -100,12 +100,8 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
         val next = closed + closing
         model.preferences.canvasPart(sessionId, closing, false, canvas?.partChanges()?.get(closing) ?: 0)
         if (part == closing) {
-            part = if (closing == "files") "browser" else "files"
-            if (part in next || (part == "browser" && canvas?.browser == null) ||
-                (part == "files" && canvas?.items.isNullOrEmpty())
-            ) {
-                back()
-            }
+            val other = canvas?.partChanges()?.keys?.firstOrNull { it != closing && it !in next }
+            if (other == null) back() else part = other
         }
     }
     val choose: (CanvasItem) -> Unit = {
@@ -184,20 +180,20 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
     }
     LaunchedEffect(sessionId, initialKey) {
         model.preferences.canvasPart(sessionId, part, true)
-        if (opening && part == "browser") model.browser.choose(sessionId)
+        if (opening && part != "files") model.video.choose(sessionId)
         opening = false
         if (initialKey == "browser" && canvas?.browser == null && session?.canControl == true) wakeBrowser()
     }
     LaunchedEffect(part) {
-        if (part != "browser") model.browser.forget(sessionId)
+        if (part == "files") model.video.forget(sessionId)
     }
-    DisposableEffect(sessionId) { onDispose { model.browser.forget(sessionId) } }
+    DisposableEffect(sessionId) { onDispose { model.video.forget(sessionId) } }
     LaunchedEffect(canvas?.open, canvas?.change) {
         session?.let { terminal ->
             model.canvas.newShow(terminal)?.let { show ->
                 if (show.at > followedShow) {
-                    if (show.key != "browser") selected = show.key
-                    part = if (show.key == "browser") "browser" else "files"
+                    part = canvasPart(show.key)
+                    if (part == "files") selected = show.key
                     model.preferences.canvasPart(sessionId, part, true)
                     shelf = false
                 }
@@ -218,6 +214,11 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
             "browser" to DockItem(stringResource(R.string.browser), AppSymbol.BROWSER)
         } else {
             null
+        },
+        if (canvas?.screen != null && "screen" !in closed) {
+            "screen" to DockItem(stringResource(R.string.screen), AppSymbol.DISPLAY)
+        } else {
+            null
         }
     )
     Column(Modifier.fillMaxSize().background(KodosiTheme.colors.sheet)) {
@@ -226,7 +227,7 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
                 Text(stringResource(R.string.canvas), style = KodosiType.headline)
             } else {
                 SectionDock(parts.map { it.second }, parts.indexOfFirst { it.first == part }) {
-                    if (parts[it].first == "browser") model.browser.choose(sessionId)
+                    if (parts[it].first != "files") model.video.choose(sessionId)
                     part = parts[it].first
                 }
             }
@@ -249,8 +250,23 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
                                 adding = false
                                 model.preferences.canvasPart(sessionId, "browser", true)
                                 part = "browser"
-                                model.browser.choose(sessionId)
+                                model.video.choose(sessionId)
                                 if (canvas?.browser == null) scope.launch { wakeBrowser() }
+                            }
+                        )
+                    }
+                    if (session?.showsScreen == true && (canvas?.screen == null || "screen" in closed)) {
+                        KodosiMenuItem(
+                            text = { Text(stringResource(R.string.screen)) },
+                            enabled = canvas?.screen != null || session.canControl,
+                            onClick = {
+                                adding = false
+                                model.preferences.canvasPart(sessionId, "screen", true)
+                                part = "screen"
+                                model.video.choose(sessionId)
+                                if (canvas?.screen == null) {
+                                    scope.launch { model.runAction { model.canvas.showScreen(sessionId) } }
+                                }
                             }
                         )
                     }
@@ -360,11 +376,21 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
                         model,
                         sessionId,
                         canvas.browser,
+                        session.hostName ?: stringResource(R.string.remote_computer),
+                        session.hostOffline,
                         ask = if (session.canControl && session.agent.isAgent) {
                             { words -> askAbout(null) { words } }
                         } else {
                             null
                         }
+                    )
+
+                    part == "screen" && canvas?.screen != null -> ScreenView(
+                        model,
+                        sessionId,
+                        session.hostName ?: stringResource(R.string.remote_computer),
+                        canvas.screen.shared,
+                        session.hostOffline
                     )
 
                     else -> EmptyState(stringResource(R.string.canvas_empty), symbol = AppSymbol.CANVAS) {

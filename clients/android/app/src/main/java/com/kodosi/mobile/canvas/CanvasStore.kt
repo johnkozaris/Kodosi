@@ -24,6 +24,9 @@ class CanvasStore(private val commands: CommandSink, private val words: Words) {
     private val links = mutableSetOf<DocumentLink>()
     private val chats = mutableMapOf<String, TerminalChat>()
     private val opened = mutableMapOf<String, Long>()
+
+    // The terminals whose browser this device woke since it fell asleep.
+    private val woken = mutableSetOf<String>()
     private val started = System.currentTimeMillis()
     private var observed: List<RuntimeSession>? = null
     val news: StateFlow<Map<String, String>>
@@ -39,6 +42,7 @@ class CanvasStore(private val commands: CommandSink, private val words: Words) {
         links.toList().forEach(DocumentLink::close)
         cache.clear()
         opened.clear()
+        woken.clear()
         observed = null
         news.value = emptyMap()
     }
@@ -49,6 +53,7 @@ class CanvasStore(private val commands: CommandSink, private val words: Words) {
         val present = sessions.map { it.id }.toSet()
         cache.keys.removeAll { it.session !in present }
         opened.keys.retainAll(present)
+        woken.retainAll(sessions.filter { it.canvas?.browser?.state == "asleep" }.map { it.id }.toSet())
         chats.entries.removeAll { (session, chat) -> (session !in present).also { gone -> if (gone) chat.close() } }
         news.value = sessions.mapNotNull { session ->
             val show = session.canvas?.latestNotice ?: return@mapNotNull null
@@ -180,6 +185,22 @@ class CanvasStore(private val commands: CommandSink, private val words: Words) {
 
     suspend fun wake(session: String) {
         ask(session, fields("type" to "act", "action" to fields("do" to "wake")))
+    }
+
+    // Wakes a terminal's asleep browser when someone opens it here, once while it sleeps.
+    suspend fun wakeOnce(session: String) {
+        if (!woken.add(session)) return
+        try {
+            wake(session)
+        } catch (failure: Exception) {
+            woken -= session
+            throw failure
+        }
+    }
+
+    // Puts the computer's screen on the canvas, which only its owner's devices do.
+    suspend fun showScreen(session: String) {
+        ask(session, fields("type" to "showScreen"))
     }
 
     companion object {

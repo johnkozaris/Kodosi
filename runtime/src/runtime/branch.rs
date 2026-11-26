@@ -129,6 +129,7 @@ impl Runtime {
                     paths: vec![file],
                     address: None,
                     browser_as_it_is: false,
+                    screen: None,
                     folder: worktree.path.clone(),
                     terminal,
                     agent: None,

@@ -126,7 +126,9 @@ public:
     }
     std::unique_ptr<QObject> view(const QString& sessionId)
     {
-        return window(QStringLiteral(R"(CanvasBrowser { anchors.fill: parent; sessionId: "%1"; browser: ({ state: "awake" }) })")
+        return window(QStringLiteral(R"(CanvasBrowser {
+                anchors.fill: parent; sessionId: "%1"; browser: ({ state: "awake" }); computer: "studio"; offline: false
+            })")
                 .arg(sessionId));
     }
     std::unique_ptr<QObject> panel(const QString& sessionId)
@@ -234,9 +236,14 @@ void ControlsTest::theSharedBrowserAcknowledgesWithoutTheGuiThreadAndComesBackWi
     const auto watches = rig.watchesAfterOpening(back);
     QCOMPARE(watches.size(), 1);
     QVERIFY(!watches.first().value(QStringLiteral("opened")).toBool());
+    QStringList codecs;
+    for (const auto& decoder : watches.first().value(QStringLiteral("decoders")).toArray())
+        codecs << decoder.toObject().value(QStringLiteral("codec")).toString();
+    QCOMPARE(codecs, (QStringList { QStringLiteral("h264"), QStringLiteral("hevc") }));
+    QVERIFY(watches.first().value(QStringLiteral("anchors")).toBool());
 
     QByteArray frame(1, '\x01');
-    frame += QByteArray::fromHex("0000000700") + QByteArray("delta");
+    frame += QByteArray::fromHex("000000070000") + QByteArray("delta");
     rig.commands.deliver(back, { { QStringLiteral("type"), QStringLiteral("document.frame") },
                                    { QStringLiteral("sequence"), 0 }, { QStringLiteral("more"), false },
                                    { QStringLiteral("data"), QString::fromLatin1(frame.toBase64()) } });

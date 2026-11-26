@@ -10,18 +10,21 @@ use std::{
 
 use bytes::Bytes;
 use serde_json::json;
+use stream::{
+    Ask, Decoder, Encoded, Flow, Format, FrameKind, HOPELESS, Size, Viewing,
+    viewer::{self, Frame, KeyAction, MouseAction, MouseButton},
+};
 use tokio::sync::{Notify, mpsc, oneshot, watch};
 
 use crate::{
     Error,
     driver::{self, Driver},
     engine::Engine,
-    flow::{Ask, Flow, HOPELESS},
     input,
-    link::{EncodedFrame, EngineTab, FrameKind, MOST_ICON, ToEngine},
+    link::{EncodedFrame, EngineTab, MOST_ICON, ToEngine},
     message::{
-        Chooser, Dialog, Download, Frame, Input, KeyAction, Menu, MenuContext, MenuItem,
-        MouseAction, MouseButton, Pointer, Size, State, Tab, ToViewer, ToWindow, Viewer,
+        Act, Chooser, Dialog, Download, Input, Menu, MenuContext, MenuItem, Pointer, State, Tab,
+        ToViewer, ToWindow, Viewer,
     },
 };
 
@@ -83,7 +86,7 @@ pub(crate) enum Event {
     Close,
     Frame(EncodedFrame),
     /// Standalone keyframe snapshot for layer-hosting views.
-    Still(Bytes),
+    Still(Encoded),
     CaptureFailed,
     /// Core Animation context ID for the window's hosted layer.
     Layer(u32),
@@ -369,6 +372,8 @@ struct Seat {
     size: Option<Size>,
     /// `None` until `Watch` arrives; state is withheld until then since it depends on layer mode.
     watching: Option<Watching>,
+    decoders: Vec<Decoder>,
+    anchors: bool,
     /// Timestamp of an unacked fallback still for a layer-hosting view; gates further stills and
     /// triggers `HOPELESS` eviction on timeout.
     still_since: Option<Instant>,
@@ -376,17 +381,22 @@ struct Seat {
 
 impl Seat {
     fn hosts_layer(&self) -> bool {
-        matches!(self.watching, Some(Watching::Layer { .. }))
+        self.watching == Some(Watching::Layer)
+    }
+
+    fn viewing(&self) -> Option<Viewing<'_>> {
+        (self.watching == Some(Watching::Video)).then_some(Viewing {
+            decoders: &self.decoders,
+            anchors: self.anchors,
+        })
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Watching {
     Video,
-    /// Local view hosting the Core Animation layer (`anchors` is saved in case of video fallback).
-    Layer {
-        anchors: bool,
-    },
+    /// Local view hosting the Core Animation layer.
+    Layer,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -466,6 +476,8 @@ struct Live {
     reported: Vec<EngineTab>,
     active: Option<i64>,
     capturing: Option<i64>,
+    /// What the encoder makes for the video viewers.
+    format: Format,
     capture_failed_at: Option<Instant>,
     /// Tab currently rendered into the window's Core Animation layer.
     layering: Option<i64>,
@@ -521,6 +533,7 @@ impl Live {
             reported: Vec::new(),
             active: None,
             capturing: None,
+            format: Format::default(),
             capture_failed_at: None,
             layering: None,
             layer: Layer::Coming,
@@ -717,6 +730,8 @@ impl Live {
                         pointer: None,
                         size: None,
                         watching: None,
+                        decoders: Vec::new(),
+                        anchors: false,
                         still_since: None,
                     },
                 );
@@ -737,7 +752,7 @@ impl Live {
             Event::Driven => self.driven(),
             Event::Close => {}
             Event::Frame(frame) => self.frame(frame),
-            Event::Still(data) => self.still(data),
+            Event::Still(picture) => self.still(picture),
             Event::CaptureFailed => {
                 self.capturing = None;
                 self.capture_failed_at = Some(Instant::now());
@@ -815,6 +830,7 @@ impl Live {
         match message {
             ToWindow::Watch {
                 size,
+                decoders,
                 anchors,
                 opened,
                 layer,
@@ -824,11 +840,13 @@ impl Live {
                 };
                 let local = seat.viewer.local;
                 let watching = if layer && local && self.layer != Layer::Missing {
-                    Watching::Layer { anchors }
+                    Watching::Layer
                 } else {
                     Watching::Video
                 };
                 seat.watching = Some(watching);
+                seat.decoders = decoders;
+                seat.anchors = anchors;
                 if watching == Watching::Video {
                     self.flow.seat(viewer, anchors, local, now);
                 } else {
@@ -856,6 +874,7 @@ impl Live {
                     self.flow.ack(viewer, frame, now);
                 }
             }
+            ToWindow::Rate { bitrate } => self.flow.rate(viewer, bitrate),
             ToWindow::Keyframe if self.seats.get(viewer).is_some_and(Seat::hosts_layer) => {
                 self.engine.command(ToEngine::Still { window: self.id });
             }
@@ -883,26 +902,32 @@ impl Live {
         self.next_frame = self.next_frame.wrapping_add(1);
         let id = self.next_frame;
         let seats = &self.seats;
+        let picture = frame.picture;
+        let codec = picture.codec;
         let delivery = self.flow.frame(
             id,
-            frame.kind,
-            frame.mark,
-            frame.data.len(),
+            picture.kind,
+            picture.mark,
+            picture.data.len(),
             now,
             |viewer| queued(seats, viewer),
         );
         if !delivery.to.is_empty() {
             let message = ToViewer::Frame(Frame {
                 id,
-                kind: frame.kind,
-                data: frame.data,
+                codec,
+                kind: picture.kind,
+                region: picture.region,
+                data: picture.data,
             })
             .encode();
+            // A viewer that joined while the encoder still makes another codec waits for the
+            // keyframe in its own.
             for viewer in &delivery.to {
-                let sent = self
-                    .seats
-                    .get(viewer)
-                    .is_some_and(|seat| seat.outgoing.try_send(message.clone()).is_ok());
+                let sent = self.seats.get(viewer).is_some_and(|seat| {
+                    codec.decoded_by(&seat.decoders)
+                        && seat.outgoing.try_send(message.clone()).is_ok()
+                });
                 if !sent {
                     self.flow.lost(viewer, id, now);
                 }
@@ -914,12 +939,14 @@ impl Live {
     }
 
     /// Reuses `next_frame` without incrementing it so video viewers do not see a frame ID gap.
-    fn still(&mut self, data: Bytes) {
+    fn still(&mut self, picture: Encoded) {
         let now = Instant::now();
         let message = ToViewer::Frame(Frame {
             id: self.next_frame,
+            codec: picture.codec,
             kind: FrameKind::Key,
-            data,
+            region: picture.region,
+            data: picture.data,
         })
         .encode();
         for seat in self
@@ -981,6 +1008,11 @@ impl Live {
     }
 
     fn update_capture(&mut self) {
+        let format = stream::choose(
+            self.engine.encodable(),
+            self.seats.values().filter_map(Seat::viewing),
+        );
+        let reformatted = std::mem::replace(&mut self.format, format) != format;
         let video = self.active.filter(|_| !self.flow.is_empty());
         if video != self.capturing {
             self.capturing = video;
@@ -988,6 +1020,12 @@ impl Live {
                 Some(tab) => self.capture(tab),
                 None => self.engine.command(ToEngine::Stop { window: self.id }),
             }
+        } else if reformatted && self.capturing.is_some() {
+            self.flow.keyframe_asked(Instant::now());
+            self.engine.command(ToEngine::Format {
+                window: self.id,
+                format,
+            });
         }
         let layer = self
             .active
@@ -1006,10 +1044,10 @@ impl Live {
         self.layer = Layer::Missing;
         let mut moved = false;
         for (viewer, seat) in &mut self.seats {
-            if let Some(Watching::Layer { anchors }) = seat.watching {
+            if seat.hosts_layer() {
                 seat.watching = Some(Watching::Video);
                 seat.still_since = None;
-                self.flow.seat(viewer, anchors, seat.viewer.local, now);
+                self.flow.seat(viewer, seat.anchors, seat.viewer.local, now);
                 moved = true;
             }
         }
@@ -1026,6 +1064,7 @@ impl Live {
             window: self.id,
             tab,
             bitrate: self.flow.bitrate(),
+            format: self.format,
         });
     }
 
@@ -1205,11 +1244,11 @@ impl Live {
         let mac = cfg!(target_os = "macos");
         let plain_move = matches!(
             event,
-            Input::Mouse {
+            Input::Device(viewer::Input::Mouse {
                 action: MouseAction::Move,
                 button: MouseButton::None,
                 ..
-            }
+            })
         );
         if !plain_move {
             self.used_at = Instant::now();
@@ -1218,19 +1257,21 @@ impl Live {
         }
         let acts = !matches!(
             event,
-            Input::Mouse {
-                action: MouseAction::Move | MouseAction::Release,
-                ..
-            } | Input::Key {
-                action: KeyAction::Up,
-                ..
-            }
+            Input::Device(
+                viewer::Input::Mouse {
+                    action: MouseAction::Move | MouseAction::Release,
+                    ..
+                } | viewer::Input::Key {
+                    action: KeyAction::Up,
+                    ..
+                }
+            )
         );
         if acts {
             self.acted(viewer);
         }
         match event {
-            Input::Mouse {
+            Input::Device(viewer::Input::Mouse {
                 action,
                 x,
                 y,
@@ -1239,7 +1280,7 @@ impl Live {
                 delta_x,
                 delta_y,
                 modifiers,
-            } => {
+            }) => {
                 let mouse = input::Mouse {
                     action,
                     x,
@@ -1252,14 +1293,14 @@ impl Live {
                 };
                 self.mouse(viewer, mouse, mac);
             }
-            Input::Key {
+            Input::Device(viewer::Input::Key {
                 action,
                 key,
                 code,
                 text,
                 key_code,
                 modifiers,
-            } => self.page(
+            }) => self.page(
                 "Input.dispatchKeyEvent",
                 &input::key(
                     input::Key {
@@ -1273,33 +1314,41 @@ impl Live {
                     mac,
                 ),
             ),
-            Input::Text { text } => self.page("Input.insertText", &json!({ "text": text })),
-            Input::Open { address } => {
+            Input::Device(viewer::Input::Text { text }) => {
+                self.page("Input.insertText", &json!({ "text": text }));
+            }
+            Input::Browser(act) => self.act(viewer, act),
+        }
+        self.follow();
+    }
+
+    fn act(&mut self, viewer: &str, act: Act) {
+        match act {
+            Act::Open { address } => {
                 self.page_soon("Page.navigate", json!({ "url": input::address(&address) }));
             }
-            Input::Back => self.move_in_history(-1),
-            Input::Forward => self.move_in_history(1),
-            Input::Reload => self.page_soon("Page.reload", json!({})),
-            Input::Tab { id } => {
+            Act::Back => self.move_in_history(-1),
+            Act::Forward => self.move_in_history(1),
+            Act::Reload => self.page_soon("Page.reload", json!({})),
+            Act::Tab { id } => {
                 if let Ok(tab) = id.parse() {
                     self.engine.command(ToEngine::Activate { tab });
                 }
             }
-            Input::NewTab => self.engine.command(ToEngine::NewTab {
+            Act::NewTab => self.engine.command(ToEngine::NewTab {
                 window: self.id,
                 address: BLANK.to_owned(),
                 ask: None,
             }),
-            Input::CloseTab { id } => {
+            Act::CloseTab { id } => {
                 if let Ok(tab) = id.parse() {
                     self.engine.command(ToEngine::CloseTab { tab });
                 }
             }
-            Input::Choose { menu, choice } => self.choose(viewer, menu, choice),
-            Input::Dialog { accept, text } => self.answer_dialog(accept, text),
-            Input::Files { paths } => self.give_files(&paths),
+            Act::Choose { menu, choice } => self.choose(viewer, menu, choice),
+            Act::Dialog { accept, text } => self.answer_dialog(accept, text),
+            Act::Files { paths } => self.give_files(&paths),
         }
-        self.follow();
     }
 
     fn move_in_history(&self, step: i64) {
@@ -1640,6 +1689,8 @@ async fn free_name(folder: &Path, name: &str) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
+    use stream::Codec;
+
     use super::*;
 
     fn seat(number: u64) -> Seat {
@@ -1656,6 +1707,8 @@ mod tests {
             pointer: None,
             size: None,
             watching: None,
+            decoders: Vec::new(),
+            anchors: false,
             still_since: None,
         }
     }
@@ -1767,6 +1820,7 @@ mod tests {
             viewer: viewer.to_owned(),
             message: ToWindow::Watch {
                 size,
+                decoders: vec![H264],
                 anchors: false,
                 opened,
                 layer,
@@ -1774,6 +1828,29 @@ mod tests {
         })
         .await;
     }
+
+    async fn watch_decoding(live: &mut Live, viewer: &str, decoders: &[Decoder]) {
+        live.handle(Event::Message {
+            viewer: viewer.to_owned(),
+            message: ToWindow::Watch {
+                size: view(800, 600),
+                decoders: decoders.to_vec(),
+                anchors: false,
+                opened: true,
+                layer: false,
+            },
+        })
+        .await;
+    }
+
+    const H264: Decoder = Decoder {
+        codec: Codec::H264,
+        hardware: true,
+    };
+    const HEVC: Decoder = Decoder {
+        codec: Codec::Hevc,
+        hardware: true,
+    };
 
     async fn reshape(live: &mut Live, viewer: &str, size: Size) {
         live.handle(Event::Message {
@@ -1974,14 +2051,29 @@ mod tests {
         }
     }
 
-    fn video_frame(kind: FrameKind) -> Event {
-        Event::Frame(EncodedFrame {
-            window: 1,
+    fn picture(kind: FrameKind, data: &'static [u8]) -> Encoded {
+        Encoded {
+            codec: Codec::H264,
             kind,
             mark: None,
+            region: None,
+            data: Bytes::from_static(data),
+        }
+    }
+
+    fn coded_frame(codec: Codec, kind: FrameKind) -> Event {
+        Event::Frame(EncodedFrame {
+            window: 1,
             still: false,
-            data: Bytes::from_static(b"\0\0\0\x01picture"),
+            picture: Encoded {
+                codec,
+                ..picture(kind, b"\0\0\0\x01picture")
+            },
         })
+    }
+
+    fn video_frame(kind: FrameKind) -> Event {
+        coded_frame(Codec::H264, kind)
     }
 
     fn key_frame() -> Event {
@@ -2066,11 +2158,35 @@ mod tests {
         let mut phone = join_from(&mut live, "phone", "ana", false).await;
         watch(&mut live, "phone", view(600, 1000), true).await;
         live.handle(key_frame()).await;
-        live.handle(Event::Still(Bytes::from_static(b"\0\0\0\x01still")))
+        live.handle(Event::Still(picture(FrameKind::Key, b"\0\0\0\x01still")))
             .await;
         live.handle(video_frame(FrameKind::Delta)).await;
         assert_eq!(pictures(&mut mac), [(1, KEY)]);
         assert_eq!(pictures(&mut phone), [(1, KEY), (2, 0)]);
+    }
+
+    #[tokio::test]
+    async fn the_stream_is_hevc_only_while_every_viewer_decodes_it_in_hardware() {
+        let mut live = live();
+        live.handle(open_tab(5)).await;
+        let mut phone = join(&mut live, "phone").await;
+        watch_decoding(&mut live, "phone", &[H264, HEVC]).await;
+        assert_eq!(live.format.codec, Codec::Hevc);
+
+        let mut laptop = join(&mut live, "laptop").await;
+        watch_decoding(&mut live, "laptop", &[H264]).await;
+        assert_eq!(live.format.codec, Codec::H264);
+        live.handle(coded_frame(Codec::Hevc, FrameKind::Key)).await;
+        live.handle(coded_frame(Codec::H264, FrameKind::Key)).await;
+        assert_eq!(pictures(&mut phone), [(1, KEY), (2, KEY)]);
+        assert_eq!(pictures(&mut laptop), [(2, KEY)]);
+
+        live.handle(Event::Leave {
+            viewer: "laptop".to_owned(),
+            seat: laptop.seat,
+        })
+        .await;
+        assert_eq!(live.format.codec, Codec::Hevc);
     }
 
     #[tokio::test]
@@ -2079,7 +2195,7 @@ mod tests {
         live.handle(open_tab(5)).await;
         let mut mac = join_from(&mut live, "mac", "ana", true).await;
         watch_hosting(&mut live, "mac", view(900, 700), true, true).await;
-        let still = || Event::Still(Bytes::from_static(b"\0\0\0\x01still"));
+        let still = || Event::Still(picture(FrameKind::Key, b"\0\0\0\x01still"));
         for _ in 0..3 {
             live.handle(still()).await;
         }

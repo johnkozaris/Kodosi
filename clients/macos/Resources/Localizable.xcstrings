@@ -10425,6 +10425,58 @@
         }
       }
     },
+    "Drag Kodosi Screen into the list" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zieh Kodosi Screen in die Liste"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Σύρετε το Kodosi Screen στη λίστα"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrastra Kodosi Screen a la lista"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faites glisser Kodosi Screen dans la liste"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trascina Kodosi Screen nell'elenco"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi Screen をリストにドラッグ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi Screen을 목록으로 드래그하세요"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "把 Kodosi Screen 拖到列表中"
+          }
+        }
+      }
+    },
     "Drag Kodosi into the list" : {
       "localizations" : {
         "de" : {
@@ -11331,6 +11383,110 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld 个网站"
+          }
+        }
+      }
+    },
+    "For Kodosi Screen to control this Mac" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Damit Kodosi Screen diesen Mac steuern kann"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Για να ελέγχει το Kodosi Screen αυτό το Mac"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para que Kodosi Screen controle este Mac"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pour que Kodosi Screen contrôle ce Mac"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Per consentire a Kodosi Screen di controllare questo Mac"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi Screen がこの Mac を操作するのに使います"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi Screen이 이 Mac을 제어하는 데 필요해요"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用于 Kodosi Screen 控制这台 Mac"
+          }
+        }
+      }
+    },
+    "For Kodosi Screen to see this Mac" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Damit Kodosi Screen diesen Mac sehen kann"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Για να βλέπει το Kodosi Screen αυτό το Mac"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para que Kodosi Screen vea este Mac"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pour que Kodosi Screen voie ce Mac"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Per consentire a Kodosi Screen di vedere questo Mac"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi Screen がこの Mac の画面を見るのに使います"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi Screen이 이 Mac을 보는 데 필요해요"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用于 Kodosi Screen 查看这台 Mac"
           }
         }
       }
@@ -14091,6 +14247,58 @@
         }
       }
     },
+    "Kodosi Screen, a part of Kodosi, records and controls this Mac for them, so the programs in your terminals do not get these permissions. While someone watches, the menu bar says who, with a button to stop." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi Screen, ein Teil von Kodosi, nimmt diesen Mac für sie auf und steuert ihn, damit die Programme in deinen Terminals diese Berechtigungen nicht bekommen. Solange jemand zusieht, zeigt die Menüleiste, wer es ist, mit einer Taste zum Beenden."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το Kodosi Screen, μέρος του Kodosi, καταγράφει και ελέγχει αυτό το Mac για εκείνες, ώστε τα προγράμματα στα τερματικά σας να μην παίρνουν αυτές τις άδειες. Όσο κάποιος παρακολουθεί, η γραμμή μενού δείχνει ποιος, με ένα κουμπί για διακοπή."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi Screen, una parte de Kodosi, graba y controla este Mac para ellos, así que los programas de tus terminales no reciben estos permisos. Mientras alguien mira, la barra de menús dice quién, con un botón para parar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi Screen, une partie de Kodosi, enregistre et contrôle ce Mac pour eux, afin que les programmes de vos terminaux n’obtiennent pas ces autorisations. Tant que quelqu’un regarde, la barre des menus indique qui, avec un bouton pour arrêter."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi Screen, una parte di Kodosi, registra e controlla questo Mac per loro, così i programmi nei tuoi terminali non ricevono queste autorizzazioni. Mentre qualcuno guarda, la barra dei menu dice chi, con un pulsante per interrompere."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi の一部である Kodosi Screen が、それらのデバイスのためにこの Mac を収録して操作します。そのため、ターミナルのプログラムにはこれらのアクセス権が与えられません。誰かが見ている間は、メニューバーに見ている人と停止ボタンが表示されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi의 일부인 Kodosi Screen이 그 기기들을 위해 이 Mac을 녹화하고 제어해요. 그래서 터미널의 프로그램은 이 권한을 갖지 않아요. 누군가 보는 동안에는 메뉴 막대에 보는 사람과 중지 버튼이 표시돼요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 的一部分 Kodosi Screen 会替它们录制并控制这台 Mac，因此终端中的程序不会获得这些权限。有人观看时，菜单栏会显示是谁，并提供停止按钮。"
+          }
+        }
+      }
+    },
     "Kodosi asks before it downloads an update." : {
       "localizations" : {
         "de" : {
@@ -15491,6 +15699,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "离开此终端…"
+          }
+        }
+      }
+    },
+    "Let my other devices see and control this Mac" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meine anderen Geräte diesen Mac sehen und steuern lassen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Να βλέπουν και να ελέγχουν αυτό το Mac οι άλλες συσκευές μου"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dejar que mis otros dispositivos vean y controlen este Mac"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permettre à mes autres appareils de voir et contrôler ce Mac"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Consenti ai miei altri dispositivi di vedere e controllare questo Mac"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ほかのデバイスからこの Mac を表示・操作できるようにする"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "내 다른 기기에서 이 Mac을 보고 제어할 수 있게 하기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "允许我的其他设备查看和控制这台 Mac"
           }
         }
       }
@@ -19703,6 +19963,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打开页面"
+          }
+        }
+      }
+    },
+    "Open Screen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bildschirm öffnen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Άνοιγμα οθόνης"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir pantalla"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir l’écran"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri schermo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面を開く"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "화면 열기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开屏幕"
           }
         }
       }
@@ -24071,6 +24383,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已保存"
+          }
+        }
+      }
+    },
+    "Screen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bildschirm"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Οθόνη"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pantalla"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Écran"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schermo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "화면"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "屏幕"
           }
         }
       }
@@ -31205,6 +31569,58 @@
         }
       }
     },
+    "Turn on Kodosi Screen in the list" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schalte Kodosi Screen in der Liste ein"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ενεργοποιήστε το Kodosi Screen στη λίστα"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activa Kodosi Screen en la lista"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activez Kodosi Screen dans la liste"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attiva Kodosi Screen nell'elenco"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リストで Kodosi Screen をオンにしてください"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "목록에서 Kodosi Screen을 켜세요"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在列表中打开 Kodosi Screen"
+          }
+        }
+      }
+    },
     "Turn on Kodosi in the list" : {
       "localizations" : {
         "de" : {
@@ -33385,6 +33801,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你的设备"
+          }
+        }
+      }
+    },
+    "Your phone and your other computers can show this Mac's screen on the canvas of its terminals." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dein Telefon und deine anderen Computer können den Bildschirm dieses Mac im Canvas seiner Terminals zeigen."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το τηλέφωνό σας και οι άλλοι υπολογιστές σας μπορούν να εμφανίζουν την οθόνη αυτού του Mac στο canvas των τερματικών του."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu teléfono y tus otros ordenadores pueden mostrar la pantalla de este Mac en el lienzo de sus terminales."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre téléphone et vos autres ordinateurs peuvent afficher l’écran de ce Mac sur le canvas de ses terminaux."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il tuo telefono e gli altri tuoi computer possono mostrare lo schermo di questo Mac nel canvas dei suoi terminali."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "電話やほかのコンピュータで、この Mac のターミナルのキャンバスにこの Mac の画面を表示できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "휴대폰과 다른 컴퓨터에서 이 Mac 터미널의 캔버스에 이 Mac의 화면을 보여 줄 수 있어요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的手机和其他电脑可以在这台 Mac 终端的画布上显示它的屏幕。"
           }
         }
       }

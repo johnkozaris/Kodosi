@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     fmt, io,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    num::NonZeroUsize,
     pin::Pin,
     sync::{
         Mutex as Locked, Weak,
@@ -12,13 +13,16 @@ use std::{
 
 use futures_util::stream::FuturesUnordered;
 #[cfg(feature = "host")]
-use quinn::crypto::rustls::QuicServerConfig;
-use quinn::{
-    AsyncUdpSocket, TokioRuntime, UdpPoller, VarInt,
+use noq::crypto::rustls::QuicServerConfig;
+use noq::{
+    AsyncUdpSocket, TokioRuntime, UdpSender, VarInt,
     crypto::rustls::QuicClientConfig,
     udp::{RecvMeta, Transmit, UdpSocketState},
 };
 use rustls::{crypto::aws_lc_rs::cipher_suite, pki_types::CertificateDer};
+#[cfg(feature = "host")]
+use std::sync::atomic::AtomicU16;
+use stream::media;
 use tokio::{
     io::Interest,
     sync::{Mutex, watch},
@@ -26,13 +30,15 @@ use tokio::{
 
 use super::{
     channel::{ChannelKeys, device_key},
-    *,
+    scream, *,
 };
 
+mod relay;
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;
 
-const STUN_SERVER: &str = "stun.cloudflare.com:3478";
+pub(super) use relay::Grant;
+
 const STUN_WAIT: Duration = Duration::from_millis(800);
 const STUN_KEPT: Duration = Duration::from_secs(30);
 const STUN_COOKIE: [u8; 4] = [0x21, 0x12, 0xA4, 0x42];
@@ -52,13 +58,30 @@ const SERVER_NAME: &str = "kodosi.invalid";
 const PORTS: std::ops::RangeInclusive<u16> = 47360..=47379;
 const TAKEN: u8 = 1;
 const MOST_RESETS: u32 = 64;
+const DATAGRAMS_WAITING: usize = 64 * 1024;
+const DATAGRAMS_ARRIVING: usize = 4 * 1024 * 1024;
+/// The viewer acknowledges every ninth packet, or after `ACK_DELAY`, which is often enough for
+/// `SCReAMv2` and spares slow uplinks.
+const ACK_AFTER: u32 = 8;
+const ACK_DELAY: Duration = Duration::from_millis(5);
+#[cfg(feature = "host")]
+const FLOW_REPORTS: usize = 64;
+/// A 4K keyframe comes in several hundred shards at once.
+const FLOW_SHARDS: usize = 4096;
+const LEAST_DATAGRAM: usize = 1162;
+const FIRST_RTT: Duration = Duration::from_millis(50);
 
 /// Manages peer-to-peer QUIC connections between the user's own devices using one UDP socket and
 /// endpoint per runtime, bound only while a terminal uses or looks for a direct path.
 pub(crate) struct Peers {
     keys: Arc<ChannelKeys>,
     networks: fn() -> Vec<Network>,
-    stun: Option<&'static str>,
+    /// The Kodosi server's UDP relay, `host:port`, which also answers STUN; the server names it
+    /// when the device connects.
+    relay: Locked<Option<String>>,
+    /// The relay's allocations that the server gave for the devices of each pipe that a route
+    /// meets the other device on, or none yet.
+    grants: Locked<HashMap<Uuid, Option<Grant>>>,
     bound: Mutex<Option<Arc<Bound>>>,
     dialed: Locked<HashMap<Vec<u8>, Arc<Joined>>>,
     dialing: Locked<HashMap<Vec<u8>, Arc<Mutex<()>>>>,
@@ -71,9 +94,9 @@ pub(crate) struct Peers {
 }
 
 struct Bound {
-    endpoint: quinn::Endpoint,
-    socket: Arc<Demux>,
-    client: quinn::ClientConfig,
+    endpoint: noq::Endpoint,
+    socket: Demux,
+    client: noq::ClientConfig,
 }
 
 impl Drop for Bound {
@@ -83,18 +106,40 @@ impl Drop for Bound {
 }
 
 struct Joined {
-    connection: quinn::Connection,
+    connection: noq::Connection,
+    /// The server's UDP relay forwards the connection, which reaches the other device here.
+    stand_in: Option<SocketAddr>,
     uses: AtomicUsize,
     unused_since: Locked<tokio::time::Instant>,
+    /// Where each video datagram goes, by its kind and flow.
+    flows: Locked<HashMap<(u8, u16), mpsc::Sender<Bytes>>>,
+    /// The task that reads the datagrams, which holds the connection open while it runs.
+    sorting: Locked<Option<tokio::task::AbortHandle>>,
+    #[cfg(feature = "host")]
+    next_flow: AtomicU16,
+    #[cfg(feature = "host")]
+    carried: Locked<Option<Arc<scream::Carried>>>,
 }
 
 impl Joined {
-    fn new(connection: quinn::Connection) -> Arc<Self> {
-        Arc::new(Self {
-            connection,
+    fn new(connection: noq::Connection, address: SocketAddr) -> Arc<Self> {
+        let joined = Arc::new(Self {
+            connection: connection.clone(),
+            stand_in: relay::is_stand_in(address).then_some(address),
             uses: AtomicUsize::new(0),
             unused_since: Locked::new(tokio::time::Instant::now()),
-        })
+            flows: Locked::new(HashMap::new()),
+            sorting: Locked::new(None),
+            #[cfg(feature = "host")]
+            next_flow: AtomicU16::new(0),
+            #[cfg(feature = "host")]
+            carried: Locked::new(None),
+        });
+        let sorting = tokio::spawn(sort_datagrams(Arc::downgrade(&joined), connection));
+        if let Ok(mut kept) = joined.sorting.lock() {
+            *kept = Some(sorting.abort_handle());
+        }
+        joined
     }
 
     fn open(&self) -> bool {
@@ -108,6 +153,116 @@ impl Joined {
         self.unused_since.lock().map_or(Duration::ZERO, |since| {
             now.saturating_duration_since(*since)
         })
+    }
+}
+
+async fn sort_datagrams(joined: Weak<Joined>, connection: noq::Connection) {
+    while let Ok(datagram) = connection.read_datagram().await {
+        let Some(joined) = joined.upgrade() else {
+            return;
+        };
+        let Some(route) = media::route(&datagram) else {
+            continue;
+        };
+        let Ok(mut flows) = joined.flows.lock() else {
+            return;
+        };
+        let gone = flows.get(&route).is_some_and(|flow| {
+            matches!(
+                flow.try_send(datagram),
+                Err(mpsc::error::TrySendError::Closed(_))
+            )
+        });
+        if gone {
+            flows.remove(&route);
+        }
+    }
+}
+
+/// A device pair's QUIC connection as video uses it: datagrams sorted by kind and flow, the
+/// bitrate that its congestion controller finds, and its round trip.
+#[derive(Clone)]
+pub(super) struct Media(Arc<Joined>);
+
+impl Media {
+    /// Starts a flow that this device sends, and returns its number with the viewer's reports.
+    #[cfg(feature = "host")]
+    pub(super) fn host(&self) -> Option<(u16, mpsc::Receiver<Bytes>)> {
+        let (sender, reports) = mpsc::channel(FLOW_REPORTS);
+        let flow = {
+            let mut flows = self.0.flows.lock().ok()?;
+            flows.retain(|_, flow| !flow.is_closed());
+            let flow = (0..=u16::MAX)
+                .map(|_| self.0.next_flow.fetch_add(1, Ordering::Relaxed))
+                .find(|flow| !flows.contains_key(&(media::REPORT, *flow)))?;
+            flows.insert((media::REPORT, flow), sender);
+            flow
+        };
+        Some((flow, reports))
+    }
+
+    /// Takes the shards of a flow that the other device sends.
+    pub(super) fn view(&self, flow: u16) -> Option<mpsc::Receiver<Bytes>> {
+        let (sender, shards) = mpsc::channel(FLOW_SHARDS);
+        self.0
+            .flows
+            .lock()
+            .ok()?
+            .insert((media::SHARD, flow), sender);
+        Some(shards)
+    }
+
+    /// Flows that this device sends on the connection, which share its bitrate.
+    #[cfg(feature = "host")]
+    pub(super) fn hosted(&self) -> usize {
+        self.0.flows.lock().map_or(1, |flows| {
+            flows
+                .iter()
+                .filter(|((kind, _), flow)| *kind == media::REPORT && !flow.is_closed())
+                .count()
+        })
+    }
+
+    /// Sends a datagram unless that would push out earlier ones that still wait.
+    pub(super) fn send(&self, datagram: Bytes) -> bool {
+        self.0.connection.datagram_send_buffer_space() >= datagram.len()
+            && self.0.connection.send_datagram(datagram).is_ok()
+    }
+
+    pub(super) fn datagram_bytes(&self) -> usize {
+        self.0
+            .connection
+            .max_datagram_size()
+            .unwrap_or(LEAST_DATAGRAM)
+    }
+
+    pub(super) fn rtt(&self) -> Duration {
+        self.0
+            .connection
+            .rtt(noq::PathId::ZERO)
+            .unwrap_or(FIRST_RTT)
+    }
+
+    /// The bitrate that the path carries, in bits per second.
+    #[cfg(feature = "host")]
+    pub(super) fn carried(&self) -> Option<u64> {
+        let mut kept = self.0.carried.lock().ok()?;
+        if kept.is_none() {
+            *kept = scream::carried(self.0.connection.congestion_state(noq::PathId::ZERO)?);
+        }
+        kept.as_ref().map(|carried| carried.get())
+    }
+
+    pub(super) fn same(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Drop for Joined {
+    fn drop(&mut self) {
+        if let Some(sorting) = self.sorting.get_mut().ok().and_then(Option::take) {
+            sorting.abort();
+        }
     }
 }
 
@@ -137,13 +292,13 @@ pub(super) struct Lane {
 }
 
 enum Writer {
-    Quic(quinn::SendStream),
+    Quic(noq::SendStream),
     #[cfg(test)]
     Memory(mpsc::UnboundedSender<Vec<u8>>, CancellationToken),
 }
 
 impl Lane {
-    fn quic(send: quinn::SendStream, receive: quinn::RecvStream, used: Use) -> Self {
+    fn quic(send: noq::SendStream, receive: noq::RecvStream, used: Use) -> Self {
         let (messages, reader) = mpsc::unbounded_channel();
         tokio::spawn(read_lane(receive, messages));
         Self {
@@ -151,6 +306,17 @@ impl Lane {
             reader,
             used: Some(used),
         }
+    }
+
+    /// The connection under the lane, for video.
+    pub(super) fn media(&self) -> Option<Media> {
+        self.used.as_ref().map(|used| Media(Arc::clone(&used.0)))
+    }
+
+    pub(super) fn forwarded(&self) -> bool {
+        self.used
+            .as_ref()
+            .is_some_and(|used| used.0.stand_in.is_some())
     }
 
     pub(super) async fn write(&mut self, message: &[u8]) -> Result<()> {
@@ -218,7 +384,7 @@ async fn open_lane(joined: &Arc<Joined>, pipe: Uuid) -> Option<Lane> {
     Some(Lane::quic(send, receive, used))
 }
 
-async fn read_lane(mut receive: quinn::RecvStream, messages: mpsc::UnboundedSender<Vec<u8>>) {
+async fn read_lane(mut receive: noq::RecvStream, messages: mpsc::UnboundedSender<Vec<u8>>) {
     loop {
         let message = tokio::select! {
             () = messages.closed() => {
@@ -236,7 +402,7 @@ async fn read_lane(mut receive: quinn::RecvStream, messages: mpsc::UnboundedSend
     }
 }
 
-async fn read_message(receive: &mut quinn::RecvStream) -> Option<Vec<u8>> {
+async fn read_message(receive: &mut noq::RecvStream) -> Option<Vec<u8>> {
     let mut length = [0; 4];
     receive.read_exact(&mut length).await.ok()?;
     let length = usize::try_from(u32::from_be_bytes(length)).ok()?;
@@ -250,7 +416,7 @@ async fn read_message(receive: &mut quinn::RecvStream) -> Option<Vec<u8>> {
 
 impl Peers {
     pub(crate) fn new(keys: Arc<ChannelKeys>) -> Arc<Self> {
-        Self::with(keys, own_networks, Some(STUN_SERVER))
+        Self::with(keys, own_networks)
     }
 
     #[cfg(all(test, feature = "host"))]
@@ -261,18 +427,15 @@ impl Peers {
                 mask: IpAddr::V4(Ipv4Addr::new(255, 0, 0, 0)),
             }]
         };
-        Self::with(keys, loopback, None)
+        Self::with(keys, loopback)
     }
 
-    fn with(
-        keys: Arc<ChannelKeys>,
-        networks: fn() -> Vec<Network>,
-        stun: Option<&'static str>,
-    ) -> Arc<Self> {
+    fn with(keys: Arc<ChannelKeys>, networks: fn() -> Vec<Network>) -> Arc<Self> {
         Arc::new(Self {
             keys,
             networks,
-            stun,
+            relay: Locked::new(None),
+            grants: Locked::new(HashMap::new()),
             bound: Mutex::new(None),
             dialed: Locked::new(HashMap::new()),
             dialing: Locked::new(HashMap::new()),
@@ -287,6 +450,13 @@ impl Peers {
 
     pub(crate) fn uses(&self, keys: &Arc<ChannelKeys>) -> bool {
         Arc::ptr_eq(&self.keys, keys)
+    }
+
+    /// Takes the relay that the Kodosi server named when the device connected, or none.
+    pub(crate) fn relay_at(&self, relay: Option<String>) {
+        if let Ok(mut kept) = self.relay.lock() {
+            *kept = relay;
+        }
     }
 
     pub(super) async fn addresses(self: &Arc<Self>) -> Vec<SocketAddr> {
@@ -323,15 +493,21 @@ impl Peers {
         addresses
     }
 
+    /// Connects straight to the host, or through the relay when no straight path comes.
     pub(super) async fn reach(
         self: &Arc<Self>,
         host_key: &[u8],
         theirs: &[SocketAddr],
         pipe: Uuid,
     ) -> Option<Lane> {
-        let dual = self.bind().await.ok()?.socket.local_addr().ok()?.is_ipv6();
+        let bound = self.bind().await.ok()?;
+        let dual = bound.socket.local_addr().ok()?.is_ipv6();
         let candidates = usable(theirs, &(self.networks)(), dual);
-        self.reach_at(host_key, candidates, pipe).await
+        if let Some(lane) = self.reach_at(host_key, candidates, pipe).await {
+            return Some(lane);
+        }
+        let stand_in = self.through_relay(pipe, &bound).await?;
+        self.reach_at(host_key, vec![(stand_in, false)], pipe).await
     }
 
     async fn reach_at(
@@ -345,13 +521,20 @@ impl Peers {
             Arc::clone(dialing.entry(host_key.to_vec()).or_default())
         };
         let _turn = turn.lock().await;
-        let kept = self
+        let mut kept = self
             .dialed
             .lock()
             .ok()?
             .get(host_key)
             .filter(|joined| joined.open())
             .map(Arc::clone);
+        // A relayed connection whose route ended sends nowhere until QUIC gives up on it.
+        if let Some(stand_in) = kept.as_ref().and_then(|joined| joined.stand_in)
+            && !self.routed(stand_in).await
+            && let Some(stale) = kept.take()
+        {
+            stale.connection.close(VarInt::from_u32(0), b"");
+        }
         if let Some(joined) = kept {
             if let Some(lane) = open_lane(&joined, pipe).await {
                 return Some(lane);
@@ -386,19 +569,23 @@ impl Peers {
                         .await
                         .ok()?;
                     (identity(&connection).ok()?.as_slice() == host_key)
-                        .then_some((connection, lan))
+                        .then_some((connection, lan, address))
                 }
             })
             .collect::<FuturesUnordered<_>>();
-        let (connection, lan) = tokio::time::timeout(DIAL, first(attempts))
+        let (connection, lan, address) = tokio::time::timeout(DIAL, first(attempts))
             .await
             .ok()
             .flatten()?;
-        tracing::info!(
-            lan,
-            "this device reached another device of its person straight"
-        );
-        let joined = Joined::new(connection);
+        if relay::is_stand_in(address) {
+            tracing::info!("this device reached another device through the relay");
+        } else {
+            tracing::info!(
+                lan,
+                "this device reached another device of its person straight"
+            );
+        }
+        let joined = Joined::new(connection, address);
         self.dialed
             .lock()
             .ok()?
@@ -424,30 +611,21 @@ impl Peers {
 
     async fn bind(self: &Arc<Self>) -> Result<Arc<Bound>> {
         let mut bound = self.bound.lock().await;
-        if let Some(bound) = bound
-            .as_ref()
-            .filter(|bound| !bound.socket.broken.load(Ordering::Acquire))
-        {
+        if let Some(bound) = bound.as_ref().filter(|bound| !bound.socket.broken()) {
             return Ok(Arc::clone(bound));
         }
-        let socket = udp_socket().map_err(|_| Error::Closed)?;
-        let socket = Arc::new(Demux {
-            dual: socket.local_addr().map_err(|_| Error::Closed)?.is_ipv6(),
-            inner: Arc::new(Socket::new(socket).map_err(|_| Error::Closed)?),
-            asked: Locked::new(HashMap::new()),
-            broken: AtomicBool::new(false),
-            resets: AtomicU32::new(0),
-        });
-        let mut config = quinn::EndpointConfig::default();
+        let socket =
+            Demux::new(udp_socket().map_err(|_| Error::Closed)?).map_err(|_| Error::Closed)?;
+        let mut config = noq::EndpointConfig::default();
         config.grease_quic_bit(false);
         #[cfg(feature = "host")]
         let server = Some(self.server()?);
         #[cfg(not(feature = "host"))]
         let server = None;
-        let endpoint = quinn::Endpoint::new_with_abstract_socket(
+        let endpoint = noq::Endpoint::new_with_abstract_socket(
             config,
             server,
-            Arc::clone(&socket) as Arc<dyn AsyncUdpSocket>,
+            Box::new(socket.clone()),
             Arc::new(TokioRuntime),
         )
         .map_err(|_| Error::Closed)?;
@@ -496,10 +674,10 @@ impl Peers {
         }
     }
 
-    fn client(&self) -> Result<quinn::ClientConfig> {
+    fn client(&self) -> Result<noq::ClientConfig> {
         let crypto = QuicClientConfig::with_initial(self.keys.direct_client(), initial_suite()?)
             .map_err(|_| invalid("The direct connection settings are not valid."))?;
-        let mut client = quinn::ClientConfig::new(Arc::new(crypto));
+        let mut client = noq::ClientConfig::new(Arc::new(crypto));
         client.transport_config(transport());
         Ok(client)
     }
@@ -517,10 +695,10 @@ impl Peers {
     }
 
     #[cfg(feature = "host")]
-    fn server(&self) -> Result<quinn::ServerConfig> {
+    fn server(&self) -> Result<noq::ServerConfig> {
         let crypto = QuicServerConfig::with_initial(self.keys.direct_server(), initial_suite()?)
             .map_err(|_| invalid("The direct connection settings are not valid."))?;
-        let mut server = quinn::ServerConfig::with_crypto(Arc::new(crypto));
+        let mut server = noq::ServerConfig::with_crypto(Arc::new(crypto));
         server.transport_config(transport());
         Ok(server)
     }
@@ -532,10 +710,10 @@ impl Peers {
         {
             return addresses.clone();
         }
-        let Some(server) = self.stun else {
+        let Some(server) = self.relay.lock().ok().and_then(|relay| relay.clone()) else {
             return Vec::new();
         };
-        let servers = tokio::time::timeout(STUN_WAIT, tokio::net::lookup_host(server))
+        let servers = tokio::time::timeout(STUN_WAIT, tokio::net::lookup_host(server.as_str()))
             .await
             .ok()
             .and_then(std::result::Result::ok)
@@ -655,6 +833,10 @@ impl Expected {
             .get(&self.key.0)
             .is_some_and(|joined| joined.open());
         let targets = usable(theirs, &(self.peers.networks)(), dual);
+        let relay = async {
+            self.peers.relay_route(self.key.1, &bound).await;
+            std::future::pending::<()>().await;
+        };
         let punch = async {
             if !joined {
                 let until = tokio::time::Instant::now() + DIAL;
@@ -670,6 +852,7 @@ impl Expected {
         tokio::select! {
             lane = tokio::time::timeout(ARRIVAL, &mut self.lane) => lane.ok()?.ok(),
             () = punch => None,
+            () = relay => None,
         }
     }
 }
@@ -684,7 +867,7 @@ impl Drop for Expected {
 }
 
 #[cfg(feature = "host")]
-async fn accept(peers: Weak<Peers>, endpoint: quinn::Endpoint) {
+async fn accept(peers: Weak<Peers>, endpoint: noq::Endpoint) {
     while let Some(incoming) = endpoint.accept().await {
         let expecting = peers.upgrade().is_some_and(|peers| {
             peers
@@ -707,7 +890,8 @@ async fn accept(peers: Weak<Peers>, endpoint: quinn::Endpoint) {
 /// Accepts a connection only from a device that one of this host's routes expects, and hands each
 /// of its streams to the route waiting for it.
 #[cfg(feature = "host")]
-async fn welcome(peers: Weak<Peers>, incoming: quinn::Incoming) {
+async fn welcome(peers: Weak<Peers>, incoming: noq::Incoming) {
+    let from = incoming.remote_address();
     let Ok(Ok(connection)) = tokio::time::timeout(ARRIVAL, incoming).await else {
         return;
     };
@@ -727,7 +911,7 @@ async fn welcome(peers: Weak<Peers>, incoming: quinn::Incoming) {
             connection.close(VarInt::from_u32(1), b"");
             return;
         }
-        let joined = Joined::new(connection.clone());
+        let joined = Joined::new(connection.clone(), from);
         if let Ok(mut arrived) = peers.arrived.lock() {
             arrived.insert(key.clone(), Arc::clone(&joined));
         }
@@ -771,7 +955,7 @@ async fn first<T>(mut attempts: FuturesUnordered<impl Future<Output = Option<T>>
     None
 }
 
-fn identity(connection: &quinn::Connection) -> Result<Vec<u8>> {
+fn identity(connection: &noq::Connection) -> Result<Vec<u8>> {
     let certificates = connection
         .peer_identity()
         .and_then(|identity| identity.downcast::<Vec<CertificateDer<'static>>>().ok());
@@ -789,12 +973,22 @@ fn initial_suite() -> Result<rustls::quic::Suite> {
         .ok_or_else(|| invalid("The direct connection settings are not valid."))
 }
 
-fn transport() -> Arc<quinn::TransportConfig> {
-    let mut transport = quinn::TransportConfig::default();
+fn transport() -> Arc<noq::TransportConfig> {
+    let mut transport = noq::TransportConfig::default();
     transport.keep_alive_interval(Some(KEEP_ALIVE));
-    transport.max_idle_timeout(quinn::IdleTimeout::try_from(IDLE).ok());
+    transport.max_idle_timeout(noq::IdleTimeout::try_from(IDLE).ok());
     transport.max_concurrent_bidi_streams(VarInt::from_u32(MOST_STREAMS));
     transport.max_concurrent_uni_streams(VarInt::from_u32(0));
+    transport.congestion_controller_factory(Arc::new(scream::Scream));
+    // Video waits in its sender, which drops what comes too late, not in noq's queue.
+    transport.datagram_send_buffer_size(DATAGRAMS_WAITING);
+    transport.datagram_receive_buffer_size(Some(DATAGRAMS_ARRIVING));
+    let mut acks = noq::AckFrequencyConfig::default();
+    acks.ack_eliciting_threshold(VarInt::from_u32(ACK_AFTER))
+        .max_ack_delay(Some(ACK_DELAY));
+    transport.ack_frequency_config(Some(acks));
+    // A batch of segments leaves at once, and policed mobile links drop the tail of such bursts.
+    transport.enable_segmentation_offload(false);
     Arc::new(transport)
 }
 
@@ -810,6 +1004,10 @@ fn udp_socket() -> io::Result<std::net::UdpSocket> {
         })
         .ok_or_else(|| io::Error::from(io::ErrorKind::AddrNotAvailable))?;
     socket.set_nonblocking(true)?;
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    if let Err(error) = kodosi_os::network::carry_as_screen_sharing(&socket) {
+        tracing::warn!(%error, "the direct connection socket keeps the default traffic class");
+    }
     Ok(socket)
 }
 
@@ -901,24 +1099,49 @@ fn usable(theirs: &[SocketAddr], networks: &[Network], dual: bool) -> Vec<(Socke
     usable
 }
 
+/// The runtime's one UDP socket, shared by the QUIC endpoint and by STUN and hole punching. STUN
+/// answers never reach QUIC: their first byte lacks the QUIC fixed bit, which Kodosi never greases.
+#[derive(Clone, Debug)]
+struct Demux(Arc<Shared>);
+
 #[derive(Debug)]
-struct Demux {
-    inner: Arc<Socket>,
+struct Shared {
+    io: tokio::net::UdpSocket,
+    state: UdpSocketState,
     dual: bool,
     asked: Locked<HashMap<[u8; 12], oneshot::Sender<SocketAddr>>>,
+    relays: Locked<relay::Routes>,
+    leftover: Locked<Option<relay::Leftover>>,
     broken: AtomicBool,
     resets: AtomicU32,
 }
 
 impl Demux {
+    fn new(socket: std::net::UdpSocket) -> io::Result<Self> {
+        Ok(Self(Arc::new(Shared {
+            dual: socket.local_addr()?.is_ipv6(),
+            state: UdpSocketState::new((&socket).into())?,
+            io: tokio::net::UdpSocket::from_std(socket)?,
+            asked: Locked::new(HashMap::new()),
+            relays: Locked::new(relay::Routes::default()),
+            leftover: Locked::new(None),
+            broken: AtomicBool::new(false),
+            resets: AtomicU32::new(0),
+        })))
+    }
+
+    fn broken(&self) -> bool {
+        self.0.broken.load(Ordering::Acquire)
+    }
+
     fn send_to(&self, destination: SocketAddr, contents: &[u8]) {
         let destination = match destination {
-            SocketAddr::V4(address) if self.dual => {
+            SocketAddr::V4(address) if self.0.dual => {
                 SocketAddr::new(IpAddr::V6(address.ip().to_ipv6_mapped()), address.port())
             }
             destination => destination,
         };
-        drop(self.inner.try_send(&Transmit {
+        drop(self.0.try_send(&Transmit {
             destination,
             ecn: None,
             contents,
@@ -932,15 +1155,38 @@ impl Demux {
             let mut id = [0; 12];
             aws_lc_rs::rand::fill(&mut id).ok()?;
             let (sender, answer) = oneshot::channel();
-            self.asked.lock().ok()?.insert(id, sender);
+            self.0.asked.lock().ok()?.insert(id, sender);
             self.send_to(server, &stun_request(id));
             let answered = tokio::time::timeout(STUN_WAIT, answer).await;
-            self.asked.lock().ok()?.remove(&id);
+            self.0.asked.lock().ok()?.remove(&id);
             if let Ok(Ok(address)) = answered {
                 return Some(address);
             }
         }
         None
+    }
+
+    /// Hands relayed segments on as from the stand-in of the device that sent them.
+    fn relayed(&self, buffer: &mut [u8], details: &mut RecvMeta) -> bool {
+        let Ok(mut routes) = self.0.relays.lock() else {
+            return false;
+        };
+        let (handed, leftover) =
+            routes.unwrap(&mut buffer[..details.len], details.addr, details.stride);
+        drop(routes);
+        if let Some(leftover) = leftover
+            && let Ok(mut kept) = self.0.leftover.lock()
+        {
+            *kept = Some(leftover);
+        }
+        let Some((stand_in, length, stride)) = handed else {
+            return false;
+        };
+        details.addr = stand_in;
+        details.len = length;
+        details.stride = stride;
+        details.ecn = None;
+        true
     }
 
     fn absorbed(&self, datagram: &[u8]) -> bool {
@@ -949,6 +1195,7 @@ impl Demux {
         }
         if let Some((id, address)) = stun_answer(datagram)
             && let Some(asked) = self
+                .0
                 .asked
                 .lock()
                 .ok()
@@ -960,17 +1207,48 @@ impl Demux {
     }
 }
 
-impl AsyncUdpSocket for Demux {
-    fn create_io_poller(self: Arc<Self>) -> Pin<Box<dyn UdpPoller>> {
-        Arc::clone(&self.inner).create_io_poller()
-    }
-
+impl Shared {
     fn try_send(&self, transmit: &Transmit<'_>) -> io::Result<()> {
-        self.inner.try_send(transmit)
+        let relayed = self
+            .relays
+            .lock()
+            .ok()
+            .and_then(|routes| routes.wrap(transmit.destination));
+        let Some((server, header)) = relayed else {
+            return self.io.try_io(Interest::WRITABLE, || {
+                self.state.try_send((&self.io).into(), transmit)
+            });
+        };
+        let packet = relay::wrapped(header, transmit.contents, transmit.segment_size);
+        let destination = match server {
+            SocketAddr::V4(address) if self.dual => {
+                SocketAddr::new(IpAddr::V6(address.ip().to_ipv6_mapped()), address.port())
+            }
+            server => server,
+        };
+        let wrapped = Transmit {
+            destination,
+            ecn: None,
+            contents: &packet,
+            segment_size: relay::wrapped_segment(transmit.segment_size),
+            src_ip: None,
+        };
+        self.io.try_io(Interest::WRITABLE, || {
+            self.state.try_send((&self.io).into(), &wrapped)
+        })
+    }
+}
+
+impl AsyncUdpSocket for Demux {
+    fn create_sender(&self) -> Pin<Box<dyn UdpSender>> {
+        Box::pin(Sender {
+            shared: Arc::clone(&self.0),
+            writable: None,
+        })
     }
 
     fn poll_recv(
-        &self,
+        &mut self,
         cx: &mut Context<'_>,
         bufs: &mut [io::IoSliceMut<'_>],
         meta: &mut [RecvMeta],
@@ -978,146 +1256,113 @@ impl AsyncUdpSocket for Demux {
         let (Some(buffer), Some(details)) = (bufs.first_mut(), meta.first_mut()) else {
             return Poll::Ready(Ok(0));
         };
+        let shared = &self.0;
         loop {
-            match self.inner.poll_recv(
-                cx,
-                std::slice::from_mut(buffer),
-                std::slice::from_mut(details),
-            ) {
-                Poll::Ready(Ok(0)) => return Poll::Ready(Ok(0)),
-                Poll::Ready(Ok(_)) => {
-                    self.resets.store(0, Ordering::Relaxed);
+            let leftover = shared
+                .leftover
+                .lock()
+                .ok()
+                .and_then(|mut leftover| leftover.take())
+                .and_then(|leftover| leftover.into_buffer(buffer));
+            if let Some((from, length, stride)) = leftover {
+                (details.addr, details.len, details.stride) = (from, length, stride);
+                if self.relayed(buffer, details) {
+                    return Poll::Ready(Ok(1));
+                }
+                continue;
+            }
+            ready!(shared.io.poll_recv_ready(cx))?;
+            let read = shared.io.try_io(Interest::READABLE, || {
+                shared.state.recv(
+                    (&shared.io).into(),
+                    std::slice::from_mut(buffer),
+                    std::slice::from_mut(details),
+                )
+            });
+            match read {
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
+                Ok(0) => return Poll::Ready(Ok(0)),
+                Ok(_) => {
+                    shared.resets.store(0, Ordering::Relaxed);
+                    if matches!(buffer.first(), Some(&(relay::DATA | relay::BOUND))) {
+                        if self.relayed(buffer, details) {
+                            return Poll::Ready(Ok(1));
+                        }
+                        continue;
+                    }
                     if details.len == details.stride && self.absorbed(&buffer[..details.len]) {
                         continue;
                     }
                     return Poll::Ready(Ok(1));
                 }
-                // quinn retries immediately on ConnectionReset and closes the endpoint on other
-                // errors, so cap consecutive resets and convert to NotConnected to avoid spinning.
-                Poll::Ready(Err(error)) if error.kind() == io::ErrorKind::ConnectionReset => {
-                    if self.resets.fetch_add(1, Ordering::Relaxed) < MOST_RESETS {
+                // noq retries at once on ConnectionReset and closes the endpoint on other errors,
+                // so cap consecutive resets and report them as NotConnected to avoid spinning.
+                Err(error) if error.kind() == io::ErrorKind::ConnectionReset => {
+                    if shared.resets.fetch_add(1, Ordering::Relaxed) < MOST_RESETS {
                         return Poll::Ready(Err(error));
                     }
-                    self.broken.store(true, Ordering::Release);
+                    shared.broken.store(true, Ordering::Release);
                     return Poll::Ready(Err(io::Error::new(io::ErrorKind::NotConnected, error)));
                 }
-                Poll::Ready(Err(error)) => {
-                    self.broken.store(true, Ordering::Release);
+                Err(error) => {
+                    shared.broken.store(true, Ordering::Release);
                     return Poll::Ready(Err(error));
                 }
-                Poll::Pending => return Poll::Pending,
             }
         }
     }
 
     fn local_addr(&self) -> io::Result<SocketAddr> {
-        self.inner.local_addr()
+        self.0.io.local_addr()
     }
 
-    fn max_transmit_segments(&self) -> usize {
-        self.inner.max_transmit_segments()
-    }
-
-    fn max_receive_segments(&self) -> usize {
-        self.inner.max_receive_segments()
+    fn max_receive_segments(&self) -> NonZeroUsize {
+        self.0.state.gro_segments()
     }
 
     fn may_fragment(&self) -> bool {
-        self.inner.may_fragment()
+        self.0.state.may_fragment()
     }
 }
 
-/// Workaround for quinn 0.11.12's Tokio socket spinning on persistent read errors (e.g., sockets
-/// invalidated when iOS backgrounds an app). Propagates read errors directly to quinn, matching
-/// quinn-rs/quinn#2721.
-#[derive(Debug)]
-struct Socket {
-    io: tokio::net::UdpSocket,
-    state: UdpSocketState,
-}
-
-impl Socket {
-    fn new(socket: std::net::UdpSocket) -> io::Result<Self> {
-        Ok(Self {
-            state: UdpSocketState::new((&socket).into())?,
-            io: tokio::net::UdpSocket::from_std(socket)?,
-        })
-    }
-}
-
-impl AsyncUdpSocket for Socket {
-    fn create_io_poller(self: Arc<Self>) -> Pin<Box<dyn UdpPoller>> {
-        Box::pin(Writable {
-            socket: self,
-            waiting: None,
-        })
-    }
-
-    fn try_send(&self, transmit: &Transmit<'_>) -> io::Result<()> {
-        self.io.try_io(Interest::WRITABLE, || {
-            self.state.send((&self.io).into(), transmit)
-        })
-    }
-
-    fn poll_recv(
-        &self,
-        cx: &mut Context<'_>,
-        bufs: &mut [io::IoSliceMut<'_>],
-        meta: &mut [RecvMeta],
-    ) -> Poll<io::Result<usize>> {
-        loop {
-            ready!(self.io.poll_recv_ready(cx))?;
-            match self.io.try_io(Interest::READABLE, || {
-                self.state.recv((&self.io).into(), bufs, meta)
-            }) {
-                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
-                read => return Poll::Ready(read),
-            }
-        }
-    }
-
-    fn local_addr(&self) -> io::Result<SocketAddr> {
-        self.io.local_addr()
-    }
-
-    fn max_transmit_segments(&self) -> usize {
-        self.state.max_gso_segments()
-    }
-
-    fn max_receive_segments(&self) -> usize {
-        self.state.gro_segments()
-    }
-
-    fn may_fragment(&self) -> bool {
-        self.state.may_fragment()
-    }
-}
-
-/// Gives each connection its own `writable()` future because Tokio only wakes the last task
+/// Gives each of noq's tasks its own `writable()` future because Tokio only wakes the last task
 /// that polled a socket's readiness directly.
-struct Writable {
-    socket: Arc<Socket>,
-    waiting: Option<Pin<Box<dyn Future<Output = io::Result<()>> + Send + Sync>>>,
+struct Sender {
+    shared: Arc<Shared>,
+    writable: Option<Pin<Box<dyn Future<Output = io::Result<()>> + Send + Sync>>>,
 }
 
-impl fmt::Debug for Writable {
+impl fmt::Debug for Sender {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.debug_struct("Writable").finish_non_exhaustive()
+        formatter.debug_struct("Sender").finish_non_exhaustive()
     }
 }
 
-impl UdpPoller for Writable {
-    fn poll_writable(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+impl UdpSender for Sender {
+    fn poll_send(
+        mut self: Pin<&mut Self>,
+        transmit: &Transmit<'_>,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<()>> {
         let this = &mut *self;
-        let waiting = this.waiting.get_or_insert_with(|| {
-            let socket = Arc::clone(&this.socket);
-            Box::pin(async move { socket.io.writable().await })
-        });
-        let writable = waiting.as_mut().poll(cx);
-        if writable.is_ready() {
-            this.waiting = None;
+        loop {
+            let writable = this.writable.get_or_insert_with(|| {
+                let shared = Arc::clone(&this.shared);
+                Box::pin(async move { shared.io.writable().await })
+            });
+            let ready = ready!(writable.as_mut().poll(cx));
+            this.writable = None;
+            ready?;
+            match this.shared.try_send(transmit) {
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
+                // UDP may lose any datagram, and QUIC recovers, as from a loss on the path.
+                Err(_) | Ok(()) => return Poll::Ready(Ok(())),
+            }
         }
-        writable
+    }
+
+    fn max_transmit_segments(&self) -> NonZeroUsize {
+        self.shared.state.max_gso_segments()
     }
 }
 

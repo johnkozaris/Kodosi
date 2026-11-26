@@ -7,44 +7,6 @@ struct BrowserInputArea {
     let ask: CanvasAsk?
 }
 
-private extension BrowserFeed {
-    func type(_ text: String) {
-        for character in text {
-            if let key = BrowserKeys.key(character: character) {
-                send(.key(.keyDown, key: key.named ?? String(character), code: key.code, text: String(character), keyCode: key.windows))
-                send(.key(.keyUp, key: key.named ?? String(character), code: key.code, keyCode: key.windows))
-            } else {
-                send(.text(String(character)))
-            }
-        }
-    }
-
-    func press(_ key: BrowserKeys.Key, typed: String?, down: Bool, modifiers: BrowserInput.Modifiers) {
-        let name = key.named ?? typed ?? ""
-        let text = down ? (key.code == "Space" ? " " : key.named == "Enter" ? "\r" : key.named == nil ? typed : nil) : nil
-        send(.key(down ? .keyDown : .keyUp, key: name, code: key.code, text: text, keyCode: key.windows, modifiers: modifiers))
-    }
-}
-
-extension BrowserKeys {
-    /// Maps ASCII characters to US-layout key codes for software keyboards, which only provide
-    /// text and no physical key codes.
-    static func key(character: Character) -> Key? {
-        guard let ascii = character.asciiValue else { return nil }
-        switch character {
-        case "a" ... "z", "A" ... "Z":
-            let upper = Character(character.uppercased())
-            return Key(code: "Key\(upper)", named: nil, windows: Int(upper.asciiValue ?? ascii))
-        case "0" ... "9":
-            return Key(code: "Digit\(character)", named: nil, windows: Int(ascii))
-        case " ":
-            return Key(code: "Space", named: " ", windows: 32)
-        default:
-            return nil
-        }
-    }
-}
-
 #if os(macOS)
     import AppKit
 
@@ -91,7 +53,7 @@ extension BrowserKeys {
             guard menu == pageMenu, shownMenu == nil, window != nil,
                   let place = feed.viewPoint(x: menu.x, y: menu.y, in: bounds.size) else { return }
             let held = NSEvent.pressedMouseButtons
-            for (bit, button) in [(0, BrowserInput.MouseButton.left), (1, .right), (2, .middle)] where held & 1 << bit != 0 {
+            for (bit, button) in [(0, ViewerInput.MouseButton.left), (1, .right), (2, .middle)] where held & 1 << bit != 0 {
                 feed.send(.mouse(.mouseReleased, x: menu.x, y: menu.y, button: button, clicks: 1))
             }
             let native = menu.context.map { context in contextMenu(menu, context) } ?? list(menu)
@@ -257,7 +219,7 @@ extension BrowserKeys {
             guard let point = feed.browserPoint(convert(event.locationInWindow, from: nil), in: bounds.size) else { return }
             let scale: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 40
             feed.send(.mouse(.mouseWheel, x: point.x, y: point.y, deltaX: Double(-event.scrollingDeltaX * scale),
-                             deltaY: Double(-event.scrollingDeltaY * scale), modifiers: Self.modifiers(event.modifierFlags)))
+                             deltaY: Double(-event.scrollingDeltaY * scale), modifiers: ViewerInput.Modifiers(event.modifierFlags)))
         }
 
         override func keyDown(with event: NSEvent) {
@@ -292,39 +254,22 @@ extension BrowserKeys {
         }
 
         private func command(keyCode: UInt16, _ letter: String) {
-            guard let key = BrowserKeys.key(macKeyCode: keyCode) else { return }
+            guard let key = ViewerKeys.key(macKeyCode: keyCode) else { return }
             feed.press(key, typed: letter, down: true, modifiers: .meta)
             feed.press(key, typed: letter, down: false, modifiers: .meta)
         }
 
-        private func mouse(_ type: BrowserInput.MouseEvent, _ event: NSEvent, button: BrowserInput.MouseButton) {
+        private func mouse(_ type: ViewerInput.MouseEvent, _ event: NSEvent, button: ViewerInput.MouseButton) {
             guard let point = feed.browserPoint(convert(event.locationInWindow, from: nil), in: bounds.size) else { return }
             let clicks = type == .mouseMoved ? 0 : event.clickCount
-            feed.send(.mouse(type, x: point.x, y: point.y, button: button, clicks: clicks, modifiers: Self.modifiers(event.modifierFlags)))
+            feed.send(.mouse(type, x: point.x, y: point.y, button: button, clicks: clicks, modifiers: ViewerInput.Modifiers(event.modifierFlags)))
         }
 
         private func key(_ event: NSEvent, down: Bool) {
-            guard let key = BrowserKeys.key(macKeyCode: event.keyCode) else { return }
-            let held = Self.modifiers(event.modifierFlags)
+            guard let key = ViewerKeys.key(macKeyCode: event.keyCode) else { return }
+            let held = ViewerInput.Modifiers(event.modifierFlags)
             let typed = held.isDisjoint(with: [.control, .meta]) ? event.characters : event.charactersIgnoringModifiers
             feed.press(key, typed: typed?.isEmpty == false ? typed : nil, down: down, modifiers: held)
-        }
-
-        static func modifiers(_ flags: NSEvent.ModifierFlags) -> BrowserInput.Modifiers {
-            var held: BrowserInput.Modifiers = []
-            if flags.contains(.option) {
-                held.insert(.alt)
-            }
-            if flags.contains(.control) {
-                held.insert(.control)
-            }
-            if flags.contains(.command) {
-                held.insert(.meta)
-            }
-            if flags.contains(.shift) {
-                held.insert(.shift)
-            }
-            return held
         }
     }
 
@@ -352,308 +297,14 @@ extension BrowserKeys {
     }
 
 #else
-    import UIKit
-
     extension BrowserInputArea: UIViewRepresentable {
-        func makeUIView(context _: Context) -> BrowserInputView {
-            BrowserInputView(feed: feed)
+        func makeUIView(context _: Context) -> TouchInputView {
+            TouchInputView(target: feed)
         }
 
-        func updateUIView(_ view: BrowserInputView, context _: Context) {
-            view.feed = feed
+        func updateUIView(_ view: TouchInputView, context _: Context) {
+            view.target = feed
             view.wantsKeyboard(typing)
-        }
-    }
-
-    final class BrowserInputView: UIView, UIKeyInput {
-        private static let dragDistance: CGFloat = 10
-        private static let slowestMomentum: CGFloat = 20
-
-        var feed: BrowserFeed
-        private var keyboard = false
-        private var taps = BrowserTaps()
-        private var holdStart: CGPoint?
-        private var dragging = false
-        private var pointerButton: BrowserInput.MouseButton?
-        private var momentum: CADisplayLink?
-        private var momentumVelocity = CGPoint.zero
-        private var momentumPoint = CGPoint.zero
-        private var touchStoppedMomentum = false
-
-        init(feed: BrowserFeed) {
-            self.feed = feed
-            super.init(frame: .zero)
-            backgroundColor = .clear
-            let hold = UILongPressGestureRecognizer(target: self, action: #selector(held))
-            let tap = UITapGestureRecognizer(target: self, action: #selector(tapped))
-            tap.require(toFail: hold)
-            let pair = UITapGestureRecognizer(target: self, action: #selector(pairTapped))
-            pair.numberOfTouchesRequired = 2
-            let scroll = UIPanGestureRecognizer(target: self, action: #selector(scrolled))
-            for touch in [hold, tap, pair, scroll] {
-                touch.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
-                addGestureRecognizer(touch)
-            }
-            let pointerScroll = UIPanGestureRecognizer(target: self, action: #selector(pointerScrolled))
-            pointerScroll.allowedTouchTypes = []
-            pointerScroll.allowedScrollTypesMask = .all
-            addGestureRecognizer(pointerScroll)
-            addGestureRecognizer(UIHoverGestureRecognizer(target: self, action: #selector(hovered)))
-        }
-
-        @available(*, unavailable)
-        required init?(coder _: NSCoder) {
-            nil
-        }
-
-        /// Defers first-responder changes past the current SwiftUI update and only applies them
-        /// when `wanted` changes, avoiding reentrant updates that steal focus from the address bar.
-        func wantsKeyboard(_ wanted: Bool) {
-            guard wanted != keyboard else { return }
-            keyboard = wanted
-            followKeyboard()
-        }
-
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            if window == nil {
-                stopMomentum()
-            }
-            followKeyboard()
-        }
-
-        private func followKeyboard() {
-            Task { [weak self] in
-                await Task.yield()
-                guard let self, window != nil else { return }
-                if keyboard, !isFirstResponder {
-                    becomeFirstResponder()
-                } else if !keyboard, isFirstResponder {
-                    resignFirstResponder()
-                }
-            }
-        }
-
-        override var canBecomeFirstResponder: Bool {
-            true
-        }
-
-        var hasText: Bool {
-            true
-        }
-
-        var autocorrectionType = UITextAutocorrectionType.no
-        var autocapitalizationType = UITextAutocapitalizationType.none
-
-        func insertText(_ text: String) {
-            if text == "\n", let enter = BrowserKeys.key(hidUsage: 0x28) {
-                feed.press(enter, typed: nil, down: true, modifiers: [])
-                feed.press(enter, typed: nil, down: false, modifiers: [])
-            } else {
-                feed.type(text)
-            }
-        }
-
-        func deleteBackward() {
-            guard let backspace = BrowserKeys.key(hidUsage: 0x2A) else { return }
-            feed.press(backspace, typed: nil, down: true, modifiers: [])
-            feed.press(backspace, typed: nil, down: false, modifiers: [])
-        }
-
-        override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
-            if !handle(presses, down: true) {
-                super.pressesBegan(presses, with: event)
-            }
-        }
-
-        override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
-            if !handle(presses, down: false) {
-                super.pressesEnded(presses, with: event)
-            }
-        }
-
-        private func handle(_ presses: Set<UIPress>, down: Bool) -> Bool {
-            var handled = false
-            for press in presses {
-                guard let pressed = press.key, let key = BrowserKeys.key(hidUsage: pressed.keyCode.rawValue) else { continue }
-                let held = Self.modifiers(pressed.modifierFlags)
-                let typed = held.isDisjoint(with: [.control, .meta]) ? pressed.characters : pressed.charactersIgnoringModifiers
-                feed.press(key, typed: typed.isEmpty ? nil : typed, down: down, modifiers: held)
-                handled = true
-            }
-            return handled
-        }
-
-        override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-            touchStoppedMomentum = momentum != nil
-            stopMomentum()
-            if !pointer(touches, .mousePressed, event) {
-                super.touchesBegan(touches, with: event)
-            }
-        }
-
-        override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-            if !pointer(touches, .mouseMoved, event) {
-                super.touchesMoved(touches, with: event)
-            }
-        }
-
-        override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-            if !pointer(touches, .mouseReleased, event) {
-                super.touchesEnded(touches, with: event)
-            }
-        }
-
-        override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-            if !pointer(touches, .mouseReleased, event) {
-                super.touchesCancelled(touches, with: event)
-            }
-        }
-
-        private func pointer(_ touches: Set<UITouch>, _ type: BrowserInput.MouseEvent, _ event: UIEvent?) -> Bool {
-            guard let touch = touches.first(where: { $0.type == .indirectPointer }) else { return false }
-            if type == .mousePressed {
-                pointerButton = event?.buttonMask.contains(.secondary) == true ? .right : .left
-            }
-            guard let button = pointerButton else { return true }
-            if type == .mouseReleased {
-                pointerButton = nil
-            }
-            mouse(type, at: touch.location(in: self), button: button, clicks: type == .mouseMoved ? 0 : touch.tapCount,
-                  modifiers: Self.modifiers(event?.modifierFlags ?? []))
-            return true
-        }
-
-        @objc private func tapped(_ gesture: UITapGestureRecognizer) {
-            guard !touchStoppedMomentum else { return }
-            let location = gesture.location(in: self)
-            click(at: location, button: .left, clicks: taps.click(at: location, time: CACurrentMediaTime()))
-        }
-
-        @objc private func pairTapped(_ gesture: UITapGestureRecognizer) {
-            taps.forget()
-            click(at: gesture.location(in: self), button: .right)
-        }
-
-        /// Long-press then drag simulates a left-button drag (for text selection); releasing
-        /// without dragging simulates a right-click to open the page context menu.
-        @objc private func held(_ gesture: UILongPressGestureRecognizer) {
-            let location = gesture.location(in: self)
-            switch gesture.state {
-            case .began:
-                taps.forget()
-                holdStart = location
-                UISelectionFeedbackGenerator().selectionChanged()
-            case .changed:
-                guard let start = holdStart else { return }
-                if !dragging {
-                    guard hypot(location.x - start.x, location.y - start.y) > Self.dragDistance else { return }
-                    guard mouse(.mousePressed, at: start, button: .left, clicks: 1) else {
-                        holdStart = nil
-                        return
-                    }
-                    dragging = true
-                }
-                mouse(.mouseMoved, at: location, button: .left)
-            case .ended, .cancelled:
-                if dragging {
-                    mouse(.mouseReleased, at: location, button: .left, clicks: 1)
-                } else if gesture.state == .ended, let start = holdStart {
-                    click(at: start, button: .right)
-                }
-                holdStart = nil
-                dragging = false
-            default:
-                break
-            }
-        }
-
-        @objc private func scrolled(_ gesture: UIPanGestureRecognizer) {
-            guard [.began, .changed, .ended].contains(gesture.state) else { return }
-            let location = gesture.location(in: self)
-            scroll(by: gesture.translation(in: self), at: location)
-            gesture.setTranslation(.zero, in: self)
-            if gesture.state == .ended {
-                startMomentum(velocity: gesture.velocity(in: self), at: location)
-            }
-        }
-
-        @objc private func pointerScrolled(_ gesture: UIPanGestureRecognizer) {
-            guard gesture.state == .began || gesture.state == .changed else { return }
-            stopMomentum()
-            scroll(by: gesture.translation(in: self), at: gesture.location(in: self))
-            gesture.setTranslation(.zero, in: self)
-        }
-
-        @objc private func hovered(_ gesture: UIHoverGestureRecognizer) {
-            guard gesture.state == .began || gesture.state == .changed else { return }
-            mouse(.mouseMoved, at: gesture.location(in: self), button: .none, modifiers: Self.modifiers(gesture.modifierFlags))
-        }
-
-        /// Converts view-point pan deltas to page CSS pixels so scrolling tracks the finger 1:1.
-        private func scroll(by moved: CGPoint, at location: CGPoint) {
-            let page = feed.window.size
-            guard moved != .zero, page.width > 0, page.height > 0, bounds.width > 0, bounds.height > 0,
-                  let point = feed.browserPoint(location, in: bounds.size) else { return }
-            let fit = min(bounds.width / page.width, bounds.height / page.height)
-            feed.send(.mouse(.mouseWheel, x: point.x, y: point.y, deltaX: Double(-moved.x / fit), deltaY: Double(-moved.y / fit)))
-        }
-
-        private func startMomentum(velocity: CGPoint, at location: CGPoint) {
-            guard hypot(velocity.x, velocity.y) > Self.slowestMomentum else { return }
-            momentumVelocity = velocity
-            momentumPoint = location
-            let link = CADisplayLink(target: self, selector: #selector(momentumFrame))
-            link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
-            link.add(to: .main, forMode: .common)
-            momentum = link
-        }
-
-        @objc private func momentumFrame(_ link: CADisplayLink) {
-            let elapsed = CGFloat(max(link.targetTimestamp - link.timestamp, 0))
-            let decay = pow(UIScrollView.DecelerationRate.normal.rawValue, elapsed * 1000)
-            momentumVelocity = CGPoint(x: momentumVelocity.x * decay, y: momentumVelocity.y * decay)
-            guard hypot(momentumVelocity.x, momentumVelocity.y) > Self.slowestMomentum else {
-                stopMomentum()
-                return
-            }
-            scroll(by: CGPoint(x: momentumVelocity.x * elapsed, y: momentumVelocity.y * elapsed), at: momentumPoint)
-        }
-
-        private func stopMomentum() {
-            momentum?.invalidate()
-            momentum = nil
-        }
-
-        private func click(at location: CGPoint, button: BrowserInput.MouseButton, clicks: Int = 1) {
-            guard mouse(.mousePressed, at: location, button: button, clicks: clicks) else { return }
-            mouse(.mouseReleased, at: location, button: button, clicks: clicks)
-        }
-
-        @discardableResult
-        private func mouse(_ type: BrowserInput.MouseEvent, at location: CGPoint, button: BrowserInput.MouseButton,
-                           clicks: Int = 0, modifiers: BrowserInput.Modifiers = []) -> Bool
-        {
-            guard let point = feed.browserPoint(location, in: bounds.size) else { return false }
-            feed.send(.mouse(type, x: point.x, y: point.y, button: button, clicks: clicks, modifiers: modifiers))
-            return true
-        }
-
-        static func modifiers(_ flags: UIKeyModifierFlags) -> BrowserInput.Modifiers {
-            var held: BrowserInput.Modifiers = []
-            if flags.contains(.alternate) {
-                held.insert(.alt)
-            }
-            if flags.contains(.control) {
-                held.insert(.control)
-            }
-            if flags.contains(.command) {
-                held.insert(.meta)
-            }
-            if flags.contains(.shift) {
-                held.insert(.shift)
-            }
-            return held
         }
     }
 #endif

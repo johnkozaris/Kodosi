@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Collections.Concurrent;
 
 namespace Kodosi.TerminalConnections;
@@ -11,6 +12,8 @@ public sealed class ConnectionDirectory
     internal const int MaximumCalls = 16;
     internal static readonly TimeSpan PresenceLease = TimeSpan.FromSeconds(150);
     internal static readonly TimeSpan PresenceGrace = TimeSpan.FromSeconds(30);
+    /// <summary>How long a pair's allocation on the UDP relay outlasts the last pipe between the two devices, so a reconnecting device keeps it.</summary>
+    internal static readonly TimeSpan RelayGrace = TimeSpan.FromSeconds(30);
     private readonly TimeProvider clock;
     private readonly Lock sync = new();
     private readonly Dictionary<Guid, Dictionary<string, Entry>> accounts = [];
@@ -18,6 +21,7 @@ public sealed class ConnectionDirectory
     private readonly Dictionary<Guid, Hosted> hosted = [];
     private readonly ConcurrentDictionary<Guid, Pipe> pipes = new();
     private readonly Dictionary<Guid, Dictionary<string, DevicePresence>> present = [];
+    private readonly Dictionary<DevicePair, PairRelay> relayed = [];
     private bool stopped;
 
     internal event Action<Guid>? HostChanged;
@@ -30,9 +34,12 @@ public sealed class ConnectionDirectory
     {
         this.clock = clock;
         Relays = new RelayBudget(relayBytes);
+        Allocations = new RelayAllocations(clock);
     }
 
     internal RelayBudget Relays { get; }
+
+    internal RelayAllocations Allocations { get; }
 
     public (bool Online, TerminalStatus? Status) Live(Guid sessionId)
     {
@@ -248,6 +255,7 @@ public sealed class ConnectionDirectory
             watcher.Pipes.Add(pipeId);
             watcher.Views++;
             live.Host.Pipes.Add(pipeId);
+            KeepRelayLocked(pipes[pipeId]);
             live.Host.Connection.Send(Wire.Encode(new ViewerNotice(pipeId, session.Id, viewer.UserId, viewer.DeviceId)));
         }
     }
@@ -267,6 +275,7 @@ public sealed class ConnectionDirectory
             calling.Views++;
             called.Pipes.Add(pipeId);
             called.Calls++;
+            KeepRelayLocked(pipes[pipeId]);
             called.Connection.Send(Wire.Encode(new CallerNotice(pipeId, caller.UserId, caller.DeviceId)));
         }
     }
@@ -278,6 +287,44 @@ public sealed class ConnectionDirectory
         lock (sync)
             if (RemovePipeLocked(pipe)) afterUnlock.Pipes.Add((pipe, 0, "", connection));
         afterUnlock.Apply(this);
+    }
+
+    /// <summary>Gives each end of a pipe its slot of the allocation that relays UDP between the two devices, which lasts while a pipe joins them.</summary>
+    internal void RelayBetween(DeviceConnection from, Guid pipeId)
+    {
+        Pipe? pipe;
+        DevicePair pair;
+        Allocation allocation;
+        lock (sync)
+        {
+            if (!pipes.TryGetValue(pipeId, out pipe) || (pipe.Viewer != from && pipe.Host != from)) return;
+            pair = DevicePair.Of(pipe);
+            if (pair.First == pair.Second) return;
+            if (!relayed.TryGetValue(pair, out var relay)) relayed[pair] = relay = new PairRelay(Allocations.Open());
+            relay.IdleSince = null;
+            allocation = relay.Allocation;
+        }
+        Span<byte> id = stackalloc byte[sizeof(ulong)];
+        BinaryPrimitives.WriteUInt64BigEndian(id, allocation.Id);
+        var named = Convert.ToBase64String(id[(sizeof(ulong) - RelayAllocations.IdBytes)..]);
+        var now = clock.GetUtcNow().ToUnixTimeMilliseconds();
+        foreach (var end in (DeviceConnection[])[pipe.Viewer, pipe.Host])
+        {
+            var slot = pair.SlotOf(end);
+            end.Send(Wire.Encode(new RelayedNotice(pipeId, named, slot, Convert.ToBase64String(allocation.Secrets[slot]), now)));
+        }
+    }
+
+    /// <summary>Ends the allocations of pairs that no pipe has joined for a while.</summary>
+    internal void SweepRelays()
+    {
+        var now = clock.GetUtcNow();
+        lock (sync)
+            foreach (var (pair, relay) in relayed.Where(x => now - x.Value.IdleSince >= RelayGrace).ToArray())
+            {
+                relayed.Remove(pair);
+                Allocations.Close(relay.Allocation.Id);
+            }
     }
 
     internal int Relay(DeviceConnection from, Guid pipeId, ReadOnlySpan<byte> frame)
@@ -339,7 +386,8 @@ public sealed class ConnectionDirectory
         {
             stopped = true;
             all = entries.Keys.ToArray();
-            accounts.Clear(); entries.Clear(); hosted.Clear(); pipes.Clear(); present.Clear();
+            accounts.Clear(); entries.Clear(); hosted.Clear(); pipes.Clear(); present.Clear(); relayed.Clear();
+            Allocations.Clear();
         }
         foreach (var connection in all) connection.Close();
     }
@@ -439,7 +487,35 @@ public sealed class ConnectionDirectory
             host.Pipes.Remove(pipe.Id);
             if (pipe.IsCall) host.Calls--;
         }
+        var pair = DevicePair.Of(pipe);
+        if (relayed.TryGetValue(pair, out var relay) && viewer?.Pipes.All(id => DevicePair.Of(pipes[id]) != pair) != false)
+            relay.IdleSince = clock.GetUtcNow();
         return true;
+    }
+
+    private void KeepRelayLocked(Pipe pipe)
+    {
+        if (relayed.TryGetValue(DevicePair.Of(pipe), out var relay)) relay.IdleSince = null;
+    }
+
+    /// <summary>Two devices in a stable order, whatever pipe joins them.</summary>
+    private readonly record struct DevicePair((Guid User, string Device) First, (Guid User, string Device) Second)
+    {
+        public static DevicePair Of(Pipe pipe)
+        {
+            var (viewer, host) = ((pipe.Viewer.UserId, pipe.Viewer.DeviceId), (pipe.Host.UserId, pipe.Host.DeviceId));
+            var order = viewer.UserId.CompareTo(host.UserId);
+            if (order == 0) order = string.CompareOrdinal(viewer.DeviceId, host.DeviceId);
+            return order <= 0 ? new DevicePair(viewer, host) : new DevicePair(host, viewer);
+        }
+
+        public int SlotOf(DeviceConnection end) => (end.UserId, end.DeviceId) == First ? 0 : 1;
+    }
+
+    private sealed class PairRelay(Allocation allocation)
+    {
+        public Allocation Allocation { get; } = allocation;
+        public DateTimeOffset? IdleSince { get; set; }
     }
 
     private sealed class Entry(DeviceConnection connection)

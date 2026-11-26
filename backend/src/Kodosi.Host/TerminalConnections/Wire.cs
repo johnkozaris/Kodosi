@@ -14,6 +14,7 @@ namespace Kodosi.TerminalConnections;
 [JsonDerivedType(typeof(OpenMessage), "open")]
 [JsonDerivedType(typeof(CallMessage), "call")]
 [JsonDerivedType(typeof(CloseMessage), "close")]
+[JsonDerivedType(typeof(RelayMessage), "relay")]
 internal abstract record DeviceMessage;
 
 internal sealed record PingMessage : DeviceMessage;
@@ -43,6 +44,8 @@ internal sealed record CallMessage(Guid Pipe, string DeviceId) : DeviceMessage;
 
 internal sealed record CloseMessage(Guid Pipe) : DeviceMessage;
 
+internal sealed record RelayMessage(Guid Pipe) : DeviceMessage;
+
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
 [JsonDerivedType(typeof(ReadyNotice), "ready")]
 [JsonDerivedType(typeof(RefusedNotice), "refused")]
@@ -56,9 +59,13 @@ internal sealed record CloseMessage(Guid Pipe) : DeviceMessage;
 [JsonDerivedType(typeof(PresenceNotice), "presence")]
 [JsonDerivedType(typeof(AccessChangedNotice), "accessChanged")]
 [JsonDerivedType(typeof(ClosedNotice), "closed")]
+[JsonDerivedType(typeof(RelayedNotice), "relayed")]
 internal abstract record ServerMessage;
 
-internal sealed record ReadyNotice : ServerMessage;
+[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+internal sealed record ReadyNotice(RelayPlace? Relay = null) : ServerMessage;
+
+internal sealed record RelayPlace(string Address, int Port);
 
 [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
 internal sealed record RefusedNotice(string Reason, int? Oldest = null, int? Current = null) : ServerMessage;
@@ -84,6 +91,8 @@ internal sealed record AccessChangedNotice(Guid SessionId) : ServerMessage;
 
 internal sealed record ClosedNotice(Guid Pipe, int Status, string Message) : ServerMessage;
 
+internal sealed record RelayedNotice(Guid Pipe, string Allocation, int Slot, string Secret, long Now) : ServerMessage;
+
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web, AllowDuplicateProperties = false, AllowOutOfOrderMetadataProperties = true,
     RespectNullableAnnotations = true, RespectRequiredConstructorParameters = true, MaxDepth = 32)]
 [JsonSerializable(typeof(DeviceMessage))]
@@ -92,7 +101,6 @@ internal sealed partial class WireJson : JsonSerializerContext;
 
 internal static class Wire
 {
-    public static readonly byte[] Ready = Encode(new ReadyNotice());
     public static readonly byte[] Pong = Encode(new PongNotice());
 
     public static byte[] Encode(ServerMessage message) => JsonSerializer.SerializeToUtf8Bytes(message, WireJson.Default.ServerMessage);

@@ -4,7 +4,8 @@ use std::{
 };
 
 use futures_util::{SinkExt as _, StreamExt as _};
-use shared_browser::link::{Address, EncodedFrame, FrameKind, FromEngine, ToEngine};
+use shared_browser::link::{Address, EncodedFrame, FromEngine, ToEngine};
+use stream::{Encoded, FrameKind};
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;
 
@@ -28,25 +29,53 @@ impl Link {
         }
     }
 
-    /// Stills are independent of the video stream, so they bypass and never alter `broken`.
-    pub(crate) fn send_frame(&self, frame: &EncodedFrame) -> bool {
+    /// Returns false when the frame was not queued. Stills are independent of the video
+    /// stream, so they bypass and never alter `broken`.
+    fn send_frame(&self, frame: &EncodedFrame) -> bool {
         if frame.still {
             return self
                 .frames
                 .try_send(Message::binary(frame.to_message()))
-                .is_err();
+                .is_ok();
         }
         let mut broken = self.broken.lock().unwrap_or_else(PoisonError::into_inner);
-        if frame.kind != FrameKind::Key && broken.contains(&frame.window) {
-            return true;
+        if frame.picture.kind != FrameKind::Key && broken.contains(&frame.window) {
+            return false;
         }
         let Ok(room) = self.frames.try_reserve() else {
             broken.insert(frame.window);
-            return true;
+            return false;
         };
         room.send(Message::binary(frame.to_message()));
         broken.remove(&frame.window);
-        false
+        true
+    }
+}
+
+/// Carries one window's pictures to the host. A failed still stays silent, as views keep the
+/// previous one.
+pub(crate) struct Pictures {
+    pub(crate) window: i64,
+    pub(crate) still: bool,
+    pub(crate) link: Link,
+}
+
+impl stream_encode::Output for Pictures {
+    fn frame(&self, picture: Encoded) -> bool {
+        self.link.send_frame(&EncodedFrame {
+            window: self.window,
+            still: self.still,
+            picture,
+        })
+    }
+
+    fn failed(&self, problem: String) {
+        if !self.still {
+            self.link.send(&FromEngine::Failed {
+                window: self.window,
+                problem,
+            });
+        }
     }
 }
 

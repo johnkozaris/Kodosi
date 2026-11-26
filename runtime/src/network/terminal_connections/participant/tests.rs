@@ -24,8 +24,11 @@ async fn view() -> View {
         requests,
         updates_tx,
         Finder::relay(),
-        watch::channel(false).1,
-        watch::channel(Path::Relay).1,
+        (
+            watch::channel(false).1,
+            watch::channel(Path::Relay).1,
+            watch::channel(None).1,
+        ),
     ));
     View {
         host,
@@ -196,8 +199,11 @@ async fn a_view_refuses_a_snapshot_that_does_not_end() {
         requests,
         updates,
         Finder::relay(),
-        watch::channel(false).1,
-        watch::channel(Path::Relay).1,
+        (
+            watch::channel(false).1,
+            watch::channel(Path::Relay).1,
+            watch::channel(None).1,
+        ),
     );
     viewer.snapshot_sequence = Some(1);
     viewer.snapshot = vec![0; wire::PACKED_SNAPSHOT_LIMIT - wire::KEYFRAME_PART / 2];

@@ -38,11 +38,18 @@ Set these environment variables:
 | `Auth__Audience` | `kodosi-app` |
 | `ASPNETCORE_URLS` | Bind address |
 | `Proxy__Addresses__0`, `__1`, … | Trusted reverse-proxy IPs for forwarded headers |
+| `Relay__Address` | Host name or IP address at which devices reach the backend's UDP port |
+| `Relay__Port` | That UDP port, `3478` unless set |
 
 Run the binary once with `migrate`, then start it normally (`just backend-run` does both). Run a
 single backend instance and back up PostgreSQL before upgrading. Terminate HTTPS at a reverse proxy
 that forwards WebSockets. `/health/live` checks process liveness and `/health/ready` checks serving
 readiness.
+
+Open the UDP port to the backend itself, not through the proxy. Devices ask it for their public
+addresses (STUN) to connect directly, and it relays QUIC between two devices that find no direct
+path; QUIC encrypts that traffic end to end. Without `Relay__Address`, devices connect directly
+only within one network.
 
 The backend opens up to 32 pooled database connections plus one dedicated connection (override the
 pool size via `Maximum Pool Size` in the connection string). It logs load metrics every minute and
@@ -54,13 +61,8 @@ Clients and the `kodosi` CLI default to `https://api.kodosi.com` and
 `https://auth.kodosi.com/realms/kodosi`. Override them by setting `KODOSI__BACKEND__API` and
 `KODOSI__AUTH__ISSUER` to your HTTPS URLs (or loopback HTTP for dev) without query strings.
 
-Two external endpoints remain independent of your backend:
-
-- App updates and Kodosi Browser come from Kodosi's update feeds on `updates.kodosi.com`, which
-  point to Kodosi's releases on GitHub.
-- When two devices belonging to the same user attempt a
-  [direct connection](SECURITY.md#direct-connections), they query a Cloudflare STUN server to
-  discover their public IP.
+App updates and Kodosi Browser come from Kodosi's update feeds on `updates.kodosi.com`,
+independent of your backend. The feeds point to Kodosi's releases on GitHub.
 
 ## Account deletion sync
 

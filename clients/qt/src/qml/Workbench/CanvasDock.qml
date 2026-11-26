@@ -16,7 +16,8 @@ Row {
     readonly property Look look: KodosiTheme.lookNamed(session.look)
     readonly property var canvas: session.canvas || null
     readonly property var present: canvas
-        ? ((canvas.items || []).length > 0 ? ["files"] : []).concat(canvas.browser ? ["browser"] : []) : []
+        ? ((canvas.items || []).length > 0 ? ["files"] : []).concat(canvas.browser ? ["browser"] : [])
+            .concat(canvas.screen ? ["screen"] : []) : []
     readonly property var sections: Models.Canvas.revision >= 0 && inPanel ? Models.Canvas.sections(sessionId) : present
     readonly property var closed: Models.Canvas.revision >= 0 && inPanel ? Models.Canvas.closedSections(sessionId) : []
     readonly property var newest: canvas ? (canvas.items || []).reduce((best, item) => !best || item.changed > best.changed ? item : best, null)
@@ -34,7 +35,10 @@ Row {
     signal addRequested()
 
     function title(section: string): string {
-        return section === "browser" ? qsTr("Browser") : qsTr("Files");
+        return section === "browser" ? qsTr("Browser") : section === "screen" ? qsTr("Screen") : qsTr("Files");
+    }
+    function icon(section: string): string {
+        return section === "browser" ? "globe" : section === "screen" ? "display" : "files";
     }
     function tell(section: string, words: string): void {
         toldSection = section;
@@ -136,7 +140,7 @@ Row {
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: KodosiTheme.scaled(13)
                                 height: KodosiTheme.scaled(13)
-                                name: key.modelData === "browser" ? "globe" : "files"
+                                name: root.icon(key.modelData)
                                 strokeWidth: 2.1
                                 color: key.selected ? root.look.accentStrong : root.look.inkMuted
                             }
@@ -252,7 +256,7 @@ Row {
                     required property string modelData
 
                     text: root.title(modelData)
-                    iconName: modelData === "browser" ? "globe" : "files"
+                    iconName: root.icon(modelData)
                     objectName: root.identifier + ".open." + modelData
                     onTriggered: root.openRequested(modelData)
                 }

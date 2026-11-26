@@ -84,6 +84,12 @@ private struct KodosiThemeModifier: ViewModifier {
                 fatalError("init(coder:) is not available")
             }
 
+            isolated deinit {
+                if let observer {
+                    NotificationCenter.default.removeObserver(observer)
+                }
+            }
+
             override func hitTest(_: NSPoint) -> NSView? {
                 nil
             }

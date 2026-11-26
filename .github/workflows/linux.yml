@@ -33,7 +33,8 @@ jobs:
             libgl1-mesa-dev libegl1-mesa-dev libxkbcommon-dev libfontconfig1-dev \
             libglib2.0-dev dbus libdbus-1-3 libxcb-cursor0 libxkbcommon-x11-0 \
             libnss3 libasound2t64 libgbm1 libxcb-dri3-0 libxcomposite1 libxdamage1 \
-            libxrandr2 libxtst6 libxkbfile1 libwayland-dev libxext-dev
+            libxrandr2 libxtst6 libxkbfile1 libwayland-dev libxext-dev libva-dev libpulse0 \
+            libpipewire-0.3-dev libclang-dev
       - uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
         with:
           tool: just,uv
@@ -46,7 +47,9 @@ jobs:
           key: qt-tools-${{ hashFiles('clients/qt/dependencies.lock.json') }}
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
-          workspaces: runtime -> ../clients/qt/build/dev/runtime-library/x86_64-unknown-linux-gnu/dev/cargo
+          workspaces: |
+            runtime -> ../clients/qt/build/dev/runtime-library/x86_64-unknown-linux-gnu/dev/cargo
+            screen
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - id: agent-browser
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

@@ -35,6 +35,7 @@ NAMESPACES = {
 REQUIRED_FILES = (
     "kodosi-qt.exe",
     "kodosi.exe",
+    "kodosi-screen.exe",
     "agent-browser.exe",
     "doc/agent-browser/LICENSE",
     "DocumentViews/index.html",
@@ -51,7 +52,7 @@ REQUIRED_FILES = (
 QML_IMPORT = re.compile(r"^\s*import\s+([A-Za-z][\w.]*)", re.MULTILINE)
 # Require C runtime DLLs to be bundled because System32 may contain an older version.
 C_RUNTIME = re.compile(r"(vcruntime|msvcp|concrt|vccorlib)\d")
-QT_SBOM_MODULES = ("qtbase", "qtdeclarative", "qtsvg", "qtpositioning", "qtwebchannel")
+QT_SBOM_MODULES = ("qtbase", "qtdeclarative", "qtsvg", "qtpositioning", "qtwebchannel", "qtmultimedia")
 QT_SBOM_FORMATS = ("spdx", "spdx.json", "cdx.json")
 WEBENGINE_SBOMS = ("qtwebengine", "qtwebengine-chromium-webengine")
 
@@ -205,7 +206,7 @@ def verify_qml_modules(files: dict[str, zipfile.ZipInfo]) -> None:
 
 def verify_home(read: Reader) -> None:
     home = str(Path.home()).encode("utf-8")
-    for name in ("kodosi-qt.exe", "kodosi.exe", "agent-browser.exe"):
+    for name in ("kodosi-qt.exe", "kodosi.exe", "kodosi-screen.exe", "agent-browser.exe"):
         data = read(name)
         if (start := data.find(home)) >= 0:
             path = data[start : data.find(b"\0", start)][:300].decode("utf-8", "replace")
@@ -254,15 +255,25 @@ def verify_evidence(files: dict[str, zipfile.ZipInfo], read: Reader, build_dir: 
         fail("the Qt notices and SBOMs are incomplete or have extra files")
     for name, source in expected.items():
         same(files, read, name, source)
+    ffmpeg_licenses = ROOT / "packaging/licenses/ffmpeg" / frameworks["ffmpeg"]["version"]
+    expected = {f"doc/ffmpeg/{path.name}": path for path in ffmpeg_licenses.iterdir() if path.is_file()}
+    if {name for name in files if name.startswith("doc/ffmpeg/")} != set(expected):
+        fail("the FFmpeg notices are incomplete or have extra files")
+    for name, source in expected.items():
+        same(files, read, name, source)
 
     if "doc/provenance/source-identity.json" not in files:
         fail("missing doc/provenance/source-identity.json")
     try:
         verify_source_identity(read("doc/provenance/source-identity.json"), source_identity(ROOT))
-        verify_rust_licenses(
-            {name.removeprefix("doc/rust/"): read(name) for name in files if name.startswith("doc/rust/")},
-            build_dir / "generated/rust-dependency-licenses",
-        )
+        for packaged, generated in (
+            ("doc/rust/", build_dir / "generated/rust-dependency-licenses"),
+            ("doc/screen/", build_dir / "generated/screen-helper/notices"),
+        ):
+            verify_rust_licenses(
+                {name.removeprefix(packaged): read(name) for name in files if name.startswith(packaged)},
+                generated,
+            )
     except (OSError, ValueError) as error:
         fail(str(error))
 

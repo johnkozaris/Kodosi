@@ -107,7 +107,7 @@ QString CanvasDocuments::openReader(
     if (held != m_pipes.cend()) {
         const auto taken = held.key();
         close(taken);
-        emit closed(taken);
+        emit closed(taken, {});
     }
     const auto pipe = newId();
     m_router.route(pipe, reader, std::move(read));
@@ -173,7 +173,7 @@ void CanvasDocuments::apply(const QJsonObject& event)
         const auto pipe = m_opening.take(event.value(QStringLiteral("requestId")).toString());
         if (type == QStringLiteral("document.error") && m_pipes.contains(pipe)) {
             remove(pipe);
-            emit closed(pipe);
+            emit closed(pipe, event.value(QStringLiteral("message")).toString());
         }
         return;
     }
@@ -193,7 +193,7 @@ void CanvasDocuments::apply(const QJsonObject& event)
     }
     if (type == QStringLiteral("document.closed")) {
         m_pipes.erase(found);
-        emit closed(pipe);
+        emit closed(pipe, {});
         return;
     }
     if (type != QStringLiteral("document.frame"))

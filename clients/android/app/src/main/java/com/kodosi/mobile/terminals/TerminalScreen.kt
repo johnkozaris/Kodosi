@@ -481,7 +481,11 @@ private fun CanvasNotice(session: RuntimeSession, key: String, open: () -> Unit,
     val colors = KodosiTheme.colors
     val item = session.canvas?.items?.firstOrNull { it.key == key }
     val browser = session.canvas?.browser?.tabs?.firstOrNull { it.active }
-    val title = item?.name ?: browser?.title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.browser)
+    val title = when {
+        key == "screen" -> stringResource(R.string.screen)
+        item != null -> item.name
+        else -> browser?.title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.browser)
+    }
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp)
             .raised(colors, RoundedCornerShape(Radius.lg))
@@ -493,7 +497,11 @@ private fun CanvasNotice(session: RuntimeSession, key: String, open: () -> Unit,
                 if (item != null) {
                     FileIcon(item.name, item.kind, 26.dp)
                 } else {
-                    AppIcon(AppSymbol.BROWSER, Modifier.size(24.dp), tint = colors.accent)
+                    AppIcon(
+                        if (key == "screen") AppSymbol.DISPLAY else AppSymbol.BROWSER,
+                        Modifier.size(24.dp),
+                        tint = colors.accent
+                    )
                 }
             })
         }

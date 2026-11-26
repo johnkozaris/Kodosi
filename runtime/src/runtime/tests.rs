@@ -5041,6 +5041,7 @@ async fn saved_terminals_wait_for_an_app_and_stay_saved_until_they_start() {
         worktree: None,
         canvas: Vec::new(),
         browser: None,
+        screen: false,
         quiet_settings: None,
         busy: false,
     };
@@ -5069,6 +5070,7 @@ async fn an_agent_cut_off_by_an_update_goes_on_and_one_cut_off_otherwise_waits()
         worktree: None,
         canvas: Vec::new(),
         browser: None,
+        screen: false,
         quiet_settings: None,
         busy,
     };
@@ -5133,6 +5135,7 @@ async fn a_saved_screen_keeps_its_newest_lines_until_its_terminal_comes_back() {
         worktree: None,
         canvas: Vec::new(),
         browser: None,
+        screen: false,
         quiet_settings: None,
         busy: false,
     };

@@ -231,6 +231,11 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
         kind == .local ? nil : hostLabel
     }
 
+    /// Only its owner's devices see a computer's screen, and the computer itself has no need to.
+    public var showsScreen: Bool {
+        isOwner && kind == .remote
+    }
+
     public var pathLabel: String? {
         direct == true ? String(localized: "Straight connection", bundle: .module) : nil
     }

@@ -202,6 +202,16 @@ impl Runtime {
                     "The browsers of a computer are in the app on that computer."
                 )));
             }
+            #[cfg(feature = "host")]
+            Command::ScreenStatus { .. } | Command::ScreenAllow { .. } => {
+                self.use_screen(command)?;
+            }
+            #[cfg(not(feature = "host"))]
+            Command::ScreenStatus { .. } | Command::ScreenAllow { .. } => {
+                return Err(Error::Refused(text!(
+                    "Only the app on a computer shares its screen."
+                )));
+            }
             Command::DocumentSend { .. } => self.send_to_document(command)?,
             Command::DocumentClose { .. } => self.close_document(command)?,
             #[cfg(feature = "host")]
@@ -664,7 +674,27 @@ impl Runtime {
                     }))
                 }
             };
-            Completion::Browser { command, result }
+            Completion::Settings { command, result }
+        });
+        Ok(())
+    }
+
+    #[cfg(feature = "host")]
+    fn use_screen(&mut self, command: &Command) -> Result<()> {
+        let screen = self.services.screen.clone();
+        if let Command::ScreenAllow { allowed, .. } = command {
+            screen.allow(*allowed).map_err(Error::Text)?;
+        }
+        self.job_capacity()?;
+        let command = command.clone();
+        self.spawn(async move {
+            let access = screen.access().await;
+            let result = Ok(json!({
+                "allowed": *screen.allowed().borrow(),
+                "available": screen.available(),
+                "access": access,
+            }));
+            Completion::Settings { command, result }
         });
         Ok(())
     }
@@ -699,6 +729,7 @@ impl Runtime {
                     paths,
                     address,
                     browser,
+                    screen,
                     folder,
                     ..
                 } => {
@@ -707,6 +738,7 @@ impl Runtime {
                             paths: paths.iter().map(PathBuf::from).collect(),
                             address: address.clone(),
                             browser_as_it_is: *browser,
+                            screen: screen.clone(),
                             folder: PathBuf::from(folder),
                             terminal,
                             agent,
@@ -1902,7 +1934,7 @@ impl Runtime {
             },
             Completion::Canvas { command, .. } => self.error(&command, &Error::Stale),
             #[cfg(feature = "host")]
-            Completion::Browser { command, result } => match result {
+            Completion::Settings { command, result } => match result {
                 Ok(fields) => {
                     let mut value = super::answer(&command, Ok(()));
                     if let (Some(value), Value::Object(fields)) = (value.as_object_mut(), fields) {
@@ -2027,6 +2059,7 @@ impl Runtime {
                     terminal.canvas.restore(
                         saved.canvas.iter().map(PathBuf::from).collect(),
                         saved.browser.clone(),
+                        saved.screen,
                         saved.id,
                     );
                 }

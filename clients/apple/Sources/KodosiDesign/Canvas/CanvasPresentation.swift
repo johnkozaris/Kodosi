@@ -6,6 +6,7 @@ public extension CanvasShown {
         switch self {
         case let .item(item): item.name
         case .browser: String(localized: "Browser", bundle: .module)
+        case .screen: String(localized: "Screen", bundle: .module)
         }
     }
 
@@ -13,6 +14,7 @@ public extension CanvasShown {
         switch self {
         case let .item(item): item.kind.symbol
         case .browser: "globe"
+        case .screen: CanvasSymbol.screen
         }
     }
 }
@@ -52,6 +54,7 @@ public extension CanvasSection {
         switch self {
         case .files: String(localized: "Files", bundle: .module)
         case .browser: String(localized: "Browser", bundle: .module)
+        case .screen: String(localized: "Screen", bundle: .module)
         }
     }
 
@@ -59,6 +62,7 @@ public extension CanvasSection {
         switch self {
         case .files: "doc.on.doc"
         case .browser: "globe"
+        case .screen: CanvasSymbol.screen
         }
     }
 }
@@ -66,6 +70,7 @@ public extension CanvasSection {
 public enum CanvasSymbol {
     public static let canvas = "photo.artframe"
     public static let addFile = "doc.badge.plus"
+    public static let screen = "display"
 }
 
 public extension RuntimeSession {
@@ -81,6 +86,7 @@ public enum CanvasQuestion {
         let place = switch shown {
         case let .item(item): writtenOut(item.key)
         case let .browser(browser): (browser.activeTab?.url).map(writtenOut) ?? String(localized: "the shared browser", bundle: .module)
+        case .screen: String(localized: "the screen of this computer", bundle: .module)
         }
         let words = words.map(oneLine).flatMap { $0.isEmpty ? nil : String($0.prefix(600)) }
         return words.map { String(localized: "About \(place): \"\($0)\" ", bundle: .module) }

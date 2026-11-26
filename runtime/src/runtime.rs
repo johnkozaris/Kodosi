@@ -54,7 +54,7 @@ mod project_seen;
 mod restart;
 #[cfg(feature = "host")]
 mod restore;
-mod saver;
+pub(crate) mod saver;
 mod sharing;
 mod terminal_folders;
 mod wake;
@@ -767,8 +767,9 @@ enum Completion {
         command: Command,
         result: std::result::Result<crate::canvas::CanvasAnswer, crate::text::Text>,
     },
+    /// The fields of an answer about this computer's browsers or its screen.
     #[cfg(feature = "host")]
-    Browser {
+    Settings {
         command: Command,
         result: std::result::Result<Value, crate::text::Text>,
     },
@@ -2483,6 +2484,7 @@ impl Runtime {
                         .filter_map(|path| path.into_string().ok())
                         .collect(),
                     browser: local.terminal.canvas.address(),
+                    screen: local.terminal.canvas.state().borrow().screen.is_some(),
                     quiet_settings,
                     busy: local
                         .entry
@@ -4178,7 +4180,11 @@ impl Runtime {
                     entry.program_pending = metadata.pending.map(|pending| *pending);
                     entry.program_status = metadata.status;
                     entry.context = metadata.context;
-                    entry.canvas = metadata.canvas.map(|canvas| *canvas);
+                    let owner = entry.is_owner;
+                    entry.canvas = metadata.canvas.map(|canvas| crate::canvas::Canvas {
+                        screen: canvas.screen.filter(|_| owner),
+                        ..*canvas
+                    });
                     entry.face = metadata.face;
                     entry.helpers = metadata.helpers;
                     entry.look = metadata.look;

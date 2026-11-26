@@ -33,9 +33,10 @@ find_package(
     Qt6 ${KODOSI_QT_VERSION}
     EXACT
     REQUIRED
-    COMPONENTS Core Gui GuiPrivate LinguistTools Qml Quick QuickControls2 QuickPrivate Test WebChannelQuick WebEngineCore
-        WebEngineQuick Widgets ${KODOSI_PLATFORM_QT_COMPONENTS}
+    COMPONENTS Core Gui GuiPrivate LinguistTools Qml Quick QuickControls2 QuickPrivate ShaderTools Test WebChannelQuick
+        WebEngineCore WebEngineQuick Widgets ${KODOSI_PLATFORM_QT_COMPONENTS}
 )
+include(cmake/FFmpeg.cmake)
 find_package(Threads REQUIRED)
 find_package(Python3 3.12 REQUIRED COMPONENTS Interpreter)
 
@@ -153,6 +154,31 @@ add_custom_target(kodosi-agent-browser-build ALL
     WORKING_DIRECTORY "${KODOSI_RUNTIME_ROOT}"
     VERBATIM
 )
+
+# The host looks for Kodosi Screen next to the kodosi program. It encodes video in software where
+# the graphics cannot, so even a development build makes it optimized.
+set(KODOSI_SCREEN_HELPER_DIR "${PROJECT_BINARY_DIR}/generated/screen-helper")
+set(KODOSI_SCREEN_HELPER_NAME "kodosi-screen${CMAKE_EXECUTABLE_SUFFIX}")
+set(KODOSI_SCREEN_HELPER "${KODOSI_SCREEN_HELPER_DIR}/bin/${KODOSI_SCREEN_HELPER_NAME}")
+set(screen_helper_notices "")
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(screen_helper_notices --notices "${KODOSI_SCREEN_HELPER_DIR}/notices")
+endif()
+add_custom_target(kodosi-screen-helper-build ALL
+    COMMAND
+        "${CMAKE_COMMAND}" -E env ${KODOSI_CARGO_ENVIRONMENT}
+        "${Python3_EXECUTABLE}" "${KODOSI_RUNTIME_ROOT}/screen/build/build-helper.py"
+        --target "${KODOSI_RUST_TARGET}"
+        --output-dir "${KODOSI_SCREEN_HELPER_DIR}/bin"
+        ${screen_helper_notices}
+    BYPRODUCTS "${KODOSI_SCREEN_HELPER}"
+    COMMENT "Building Kodosi Screen"
+    WORKING_DIRECTORY "${KODOSI_RUNTIME_ROOT}"
+    VERBATIM
+)
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    install(PROGRAMS "${KODOSI_SCREEN_HELPER}" DESTINATION "${CMAKE_INSTALL_BINDIR}")
+endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     set(KODOSI_SOURCE_IDENTITY

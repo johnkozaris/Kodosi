@@ -39,7 +39,7 @@ set(KODOSI_PLATFORM_SOURCES
     platform/linux/X11IdleWatch.cpp
 )
 set(KODOSI_PLATFORM_LIBRARIES Qt6::DBus Qt6::WaylandClient X11::X11 X11::Xext)
-set(KODOSI_QT_SBOM_MODULES qtbase qtdeclarative qtsvg qtwayland qtpositioning qtwebchannel)
+set(KODOSI_QT_SBOM_MODULES qtbase qtdeclarative qtsvg qtwayland qtpositioning qtwebchannel qtmultimedia)
 set(KODOSI_PROVIDER_ICON_LICENSE_DIR share/licenses/kodosi-qt/provider-icons)
 set(KODOSI_NATIVE_LICENSE_MANIFEST "${PROJECT_SOURCE_DIR}/packaging/licenses/native-license-evidence.json")
 
@@ -55,7 +55,7 @@ function(kodosi_install app)
         OUTPUT_SCRIPT deploy_script
         NO_TRANSLATIONS
         NO_UNSUPPORTED_PLATFORM_ERROR
-        EXCLUDE_PLUGIN_TYPES position
+        EXCLUDE_PLUGIN_TYPES position multimedia
     )
     set(private_deploy_script "${CMAKE_CURRENT_BINARY_DIR}/deploy-kodosi-private-runtime.cmake")
     list(JOIN KODOSI_QT_LANGUAGES " " qt_languages)
@@ -185,8 +185,9 @@ set(CPACK_DEBIAN_PACKAGE_SECTION "devel")
 set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS OFF)
 set(CPACK_DEBIAN_PACKAGE_DEPENDS
-    "libc6 (>= 2.39), libstdc++6, libgcc-s1, desktop-file-utils, libasound2t64, libatk1.0-0t64, libbrotli1, libcairo-gobject2, libcairo2, libdbus-1-3, libdrm2, libegl1, libexpat1, libfontconfig1, libfreetype6, libgbm1, libgdk-pixbuf-2.0-0, libgl1, libglib2.0-0t64, libgssapi-krb5-2, libgtk-3-0t64, libharfbuzz0b, libnspr4, libnss3, libopengl0, libpango-1.0-0, libpangocairo-1.0-0, libudev1, libwayland-client0, libwayland-cursor0, libwayland-egl1, libx11-6, libx11-xcb1, libxcb-cursor0, libxcb-dri3-0, libxcb-glx0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-randr0, libxcb-render-util0, libxcb-render0, libxcb-shape0, libxcb-shm0, libxcb-sync1, libxcb-util1, libxcb-xfixes0, libxcb-xkb1, libxcb1, libxcomposite1, libxdamage1, libxext6, libxfixes3, libxkbcommon-x11-0, libxkbcommon0, libxkbfile1, libxrandr2, libxtst6, libzstd1, xdg-desktop-portal, xdg-utils, zlib1g"
+    "libc6 (>= 2.39), libstdc++6, libgcc-s1, desktop-file-utils, libasound2t64, libatk1.0-0t64, libbrotli1, libcairo-gobject2, libcairo2, libdbus-1-3, libdrm2, libegl1, libexpat1, libfontconfig1, libfreetype6, libgbm1, libgdk-pixbuf-2.0-0, libgl1, libglib2.0-0t64, libgssapi-krb5-2, libgtk-3-0t64, libharfbuzz0b, libnspr4, libnss3, libopengl0, libpango-1.0-0, libpangocairo-1.0-0, libpipewire-0.3-0t64, libpulse0, libudev1, libwayland-client0, libwayland-cursor0, libwayland-egl1, libx11-6, libx11-xcb1, libxcb-cursor0, libxcb-dri3-0, libxcb-glx0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-randr0, libxcb-render-util0, libxcb-render0, libxcb-shape0, libxcb-shm0, libxcb-sync1, libxcb-util1, libxcb-xfixes0, libxcb-xkb1, libxcb1, libxcomposite1, libxdamage1, libxext6, libxfixes3, libxkbcommon-x11-0, libxkbcommon0, libxkbfile1, libxrandr2, libxtst6, libzstd1, xdg-desktop-portal, xdg-utils, zlib1g"
 )
+set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "libva-drm2, va-driver-all")
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://kodosi.com")
 set(CPACK_ARCHIVE_FILE_NAME
     "kodosi-${PROJECT_VERSION}-linux-x86_64"

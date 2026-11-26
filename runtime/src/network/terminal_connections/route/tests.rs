@@ -371,14 +371,13 @@ async fn two_finders_take_a_view_straight_and_its_channel_goes_on_over_the_lane(
     let mut viewer_finder = Finder::viewer(
         Some(Peers::on_loopback(viewing)),
         viewer_paths.clone(),
-        host_keys.signing_public().to_vec(),
-        pipe,
+        (host_keys.signing_public().to_vec(), pipe, true),
+        Arc::new(Link::default()),
     );
     let mut host_finder = Finder::host(
         Some(Peers::on_loopback(hosting)),
         host_paths,
-        viewer_keys.signing_public().to_vec(),
-        pipe,
+        (viewer_keys.signing_public().to_vec(), pipe, true),
     );
     let straight = tokio::time::timeout(Duration::from_secs(20), async {
         loop {
@@ -408,5 +407,69 @@ async fn two_finders_take_a_view_straight_and_its_channel_goes_on_over_the_lane(
     assert!(matches!(
         hosted.receive().await,
         Ok(Some((Frame::Refresh, _)))
+    ));
+}
+
+#[cfg(feature = "host")]
+#[tokio::test]
+async fn the_devices_of_two_people_meet_only_through_the_relay_and_trade_no_addresses() {
+    use super::super::{
+        channel::{Channel, tests::channel_keys},
+        peers::tests::{granted, listening, relay_for_tests},
+    };
+    let (host_keys, viewer_keys) = (
+        DeviceKeys::generate().unwrap(),
+        DeviceKeys::generate().unwrap(),
+    );
+    let (hosting, viewing) = (
+        Arc::new(channel_keys(&host_keys)),
+        Arc::new(channel_keys(&viewer_keys)),
+    );
+    let ((viewer, mut viewer_paths), (host, host_paths), _service) = routes();
+    let (accepted, connected) = tokio::join!(
+        Channel::accept(host, &hosting),
+        Channel::connect(viewer, &viewing, "host-device", host_keys.signing_public()),
+    );
+    let (mut hosted, mut view) = (accepted.unwrap(), connected.unwrap());
+    let pipe = Uuid::now_v7();
+    let (host_peers, viewer_peers) = (Peers::on_loopback(hosting), Peers::on_loopback(viewing));
+    granted(&host_peers, &viewer_peers, relay_for_tests().await, pipe);
+    let host_address = listening(&host_peers).await;
+    let mut viewer_finder = Finder::viewer(
+        Some(viewer_peers),
+        viewer_paths.clone(),
+        (host_keys.signing_public().to_vec(), pipe, false),
+        Arc::new(Link::default()),
+    );
+    let mut host_finder = Finder::host(
+        Some(host_peers),
+        host_paths,
+        (viewer_keys.signing_public().to_vec(), pipe, false),
+    );
+    let met = tokio::time::timeout(Duration::from_secs(20), async {
+        loop {
+            tokio::select! {
+                () = async { viewer_paths.path.wait_for(|path| *path != Path::Relay).await.unwrap(); } => return,
+                Some(frame) = viewer_finder.next() => {
+                    assert!(matches!(&frame, Frame::PathOffer { addresses } if addresses.is_empty()));
+                    view.send(&frame).await.unwrap();
+                }
+                Some(frame) = host_finder.next() => {
+                    assert!(matches!(&frame, Frame::PathAnswer { addresses } if addresses.is_empty()));
+                    // A host that answers with its address anyway is still met only through the relay.
+                    hosted.send(&Frame::PathAnswer { addresses: vec![host_address] }).await.unwrap();
+                }
+                frame = hosted.receive() => host_finder.heard(frame.unwrap().unwrap().0),
+                frame = view.receive() => viewer_finder.heard(frame.unwrap().unwrap().0),
+            }
+        }
+    })
+    .await;
+    assert!(met.is_ok());
+    assert_eq!(*viewer_paths.path.borrow(), Path::Forwarded);
+    hosted.send(&Frame::Ack { received: 3 }).await.unwrap();
+    assert!(matches!(
+        view.receive().await,
+        Ok(Some((Frame::Ack { received: 3 }, _)))
     ));
 }

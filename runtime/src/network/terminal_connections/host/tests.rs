@@ -203,6 +203,7 @@ async fn terminal(snapshot_bytes: usize) -> Terminal {
                     authorization: CancellationToken::new(),
                 },
                 Finder::relay(),
+                watch::channel(None).1,
             );
             (stream.serve().await, stream.channel)
         };
@@ -687,13 +688,7 @@ async fn a_viewer_whose_device_the_host_cannot_check_is_asked_to_try_again() {
     };
     let (requests, _host) = mpsc::channel(1);
     let (_frames, output) = broadcast::channel(1);
-    let publication = Publication::new(
-        info,
-        requests,
-        output,
-        tokio::sync::watch::channel(None).1,
-        dto,
-    );
+    let publication = Publication::new(info, requests, output, watch::channel(None).1, dto);
     let credentials = network.credentials().unwrap();
     credentials.cancel.cancel();
     let refused = admit(
@@ -748,13 +743,7 @@ async fn a_project_member_enters_a_project_terminal_only_as_a_friend_that_the_ow
     };
     let (requests, _host) = mpsc::channel(1);
     let (_frames, output) = broadcast::channel(1);
-    let publication = Publication::new(
-        info,
-        requests,
-        output,
-        tokio::sync::watch::channel(None).1,
-        dto,
-    );
+    let publication = Publication::new(info, requests, output, watch::channel(None).1, dto);
     let credentials = network.credentials().unwrap();
     assert!(allowed(&network, &publication, &credentials, "friend").await);
     assert!(

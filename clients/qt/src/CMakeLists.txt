@@ -197,6 +197,14 @@ qt_add_library(kodosi-terminal-kernel STATIC
 qt_add_library(kodosi-canvas-web STATIC
     canvas/BrowserVideo.cpp
     canvas/BrowserVideo.hpp
+    canvas/ScreenVideo.cpp
+    canvas/ScreenVideo.hpp
+    canvas/StreamVideo.cpp
+    canvas/StreamVideo.hpp
+    canvas/VideoDecoder.cpp
+    canvas/VideoDecoder.hpp
+    canvas/VideoNode.cpp
+    canvas/VideoNode.hpp
     canvas/CanvasImages.cpp
     canvas/CanvasImages.hpp
     canvas/CanvasWeb.cpp
@@ -217,6 +225,24 @@ target_link_libraries(kodosi-canvas-web
         Qt6::WebEngineCore
         Kodosi::RustRuntime
 )
+
+qt_add_shaders(kodosi-canvas-web "kodosi-video-shaders"
+    BATCHABLE
+    PREFIX "/kodosi/shaders"
+    BASE canvas/shaders
+    FILES
+        canvas/shaders/video.vert
+        canvas/shaders/video.frag
+)
+target_link_libraries(kodosi-canvas-web PRIVATE Qt6::GuiPrivate FFmpeg::avcodec FFmpeg::avutil)
+if(WIN32)
+    target_sources(kodosi-canvas-web PRIVATE canvas/VideoGpuWindows.cpp)
+    target_link_libraries(kodosi-canvas-web PRIVATE d3d11 dxgi dxguid)
+else()
+    find_package(OpenGL REQUIRED COMPONENTS EGL)
+    target_sources(kodosi-canvas-web PRIVATE canvas/VideoGpuLinux.cpp)
+    target_link_libraries(kodosi-canvas-web PRIVATE OpenGL::EGL FFmpeg::va)
+endif()
 
 qt_add_library(kodosi-qml-models STATIC)
 qt_add_qml_module(kodosi-qml-models
@@ -355,6 +381,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/EmptyState.qml
         qml/Controls/HelperMarks.qml
         qml/Controls/IconTile.qml
+        qml/Controls/IconWell.qml
         qml/Controls/KButton.qml
         qml/Controls/KFocusIndicator.qml
         qml/Controls/KDialog.qml
@@ -423,6 +450,7 @@ qt_add_qml_module(kodosi-ui
         qml/Workbench/CanvasFile.qml
         qml/Workbench/CanvasPage.qml
         qml/Workbench/CanvasPanel.qml
+        qml/Workbench/CanvasScreen.qml
         qml/Workbench/DocumentViews.qml
         qml/Workbench/CanvasStage.qml
         qml/Workbench/ClipboardReadDialog.qml
@@ -445,6 +473,7 @@ qt_add_qml_module(kodosi-ui
         qml/Workbench/TerminalDivider.qml
         qml/Workbench/TerminalStage.qml
         qml/Workbench/TerminalTile.qml
+        qml/Workbench/VideoCover.qml
     RESOURCES
         qml/assets/kodosi-wordmark.png
         qml/assets/providers/antigravity-dark.svg
@@ -542,15 +571,17 @@ endforeach()
 add_custom_target(kodosi-qt-host-program ALL
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${KODOSI_RUNTIME_CLI}"
         "$<TARGET_FILE_DIR:kodosi-qt>/${KODOSI_RUNTIME_CLI_NAME}"
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${KODOSI_SCREEN_HELPER}"
+        "$<TARGET_FILE_DIR:kodosi-qt>/${KODOSI_SCREEN_HELPER_NAME}"
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${KODOSI_AGENT_BROWSER}"
         "$<TARGET_FILE_DIR:kodosi-qt>/${KODOSI_AGENT_BROWSER_NAME}"
     COMMAND "${CMAKE_COMMAND}" -E copy_directory "${KODOSI_DOCUMENT_VIEWS}"
         "$<TARGET_FILE_DIR:kodosi-qt>/DocumentViews"
-    COMMENT "Placing the kodosi program, agent-browser and the document views next to the app"
+    COMMENT "Placing the kodosi program, Kodosi Screen, agent-browser and the document views next to the app"
     VERBATIM
 )
-add_dependencies(kodosi-qt-host-program kodosi-qt kodosi-runtime-library-build kodosi-agent-browser-build
-    kodosi-document-views-build)
+add_dependencies(kodosi-qt-host-program kodosi-qt kodosi-runtime-library-build kodosi-screen-helper-build
+    kodosi-agent-browser-build kodosi-document-views-build)
 
 kodosi_install(kodosi-qt)
 

@@ -83,15 +83,35 @@ cookies, whether Chrome's own address bar may offer AI Mode.
 off, a site shown inside another site's page, such as a YouTube video or a sign-in button, doesn't
 get its cookies there, so it can't recognize you across the sites you visit.
 
+### A computer's screen
+
+Turning on screen sharing in a computer's Kodosi settings lets each of your approved devices see
+and control that computer's whole screen, not only its terminals, from the canvas of its terminals.
+Friends never see it, even in a terminal that you share with them, and the video, the input and the
+clipboard text travel end to end encrypted like the terminals themselves. Kodosi Screen, a helper
+of Kodosi's, does the capture and the input. On a Mac it holds the Screen Recording and
+Accessibility permissions that this takes, so the programs in your terminals do not gain them. On
+Linux the desktop grants the sharing to Kodosi through its screen sharing portal and shows its own
+notice while the screen is shared. While someone watches, the computer's menu bar or system tray
+says which devices watch; turning the sharing off, or **Stop sharing** there, ends every view.
+
+While a device controls the screen, text copied on the computer goes to that device, and a paste on
+it gives the computer that device's text. Text that a password manager marks as private stays on
+the computer. While the person at the computer uses its mouse or keyboard, viewers' input waits a
+moment, and a locked screen stays locked: viewers see that it is locked, not what it shows.
+
 ## Direct connections
 
 When two of your own devices can reach each other directly, on the same LAN or through NAT
 traversal, terminal traffic travels directly between them with the same end-to-end encryption
-instead of going through the relay server. Both devices see each other's IP addresses.
+instead of going through the relay server. Both devices see each other's IP addresses. When they
+cannot, the traffic goes through the relay server over UDP with the same encryption, and neither
+device sees the other's IP address.
 
-To discover its public address, Kodosi queries a Cloudflare STUN server, which observes that IP.
-While searching for or holding a direct connection (and for one minute afterward), the device
-keeps a single UDP port open and only accepts connections from your own approved devices.
+To discover its public address, Kodosi asks the Kodosi server, which sees that IP anyway.
+While searching for or holding either connection (and for one minute afterward), the device
+keeps a single UDP port open and only accepts connections from devices that view one of your
+terminals.
 Terminals shared with other people always go through the relay server, so other users never see
 your IP addresses.
 

@@ -35,7 +35,7 @@ public final class CanvasStore {
     private static let partBytes = 256 * 1024
 
     private let commands: CommandSink
-    private let browserPipes: BrowserPipes
+    private let videoPipes: VideoPipes
     private var marks: [String: [String: UInt64]] = [:]
     private var firstSeen: [String: UInt64] = [:]
     public private(set) var picks: [String: String] = [:]
@@ -44,8 +44,8 @@ public final class CanvasStore {
     private var lastFiles: [String: String] = [:]
     /// Fetch progress (0...1) for in-flight item reads.
     public private(set) var reads: [String: Double] = [:]
-    /// Sessions awaiting a locally requested browser so it is selected on arrival.
-    private var opening: Set<String> = []
+    /// Sessions awaiting a locally requested browser or screen so it is selected on arrival.
+    private var opening: [String: CanvasSection] = [:]
     /// Dismissed sections and their `changed` timestamp at dismissal; newer changes reopen them.
     private var closed: [String: [CanvasSection: UInt64]] = [:]
     /// High-water timestamps (seeded at launch) so pre-launch agent opens do not re-trigger.
@@ -59,20 +59,81 @@ public final class CanvasStore {
     @ObservationIgnored private var storedOrder: [Stored] = []
     @ObservationIgnored private var reading: [Stored: Task<(UInt64, Data), any Error>] = [:]
     @ObservationIgnored private var feeds: [String: BrowserFeed] = [:]
+    @ObservationIgnored private var screens: [String: ScreenFeed] = [:]
+    /// The sessions as last observed, which tell a new feed about its browser or screen.
+    @ObservationIgnored private var seen: [String: RuntimeSession] = [:]
     @ObservationIgnored private var chats: [String: TerminalChat] = [:]
     @ObservationIgnored private let documents = NSHashTable<DocumentLink>.weakObjects()
+    /// While the device is hot, video feeds ask for fewer pixels.
+    @ObservationIgnored var hot = false {
+        didSet {
+            guard hot != oldValue else { return }
+            for feed in feeds.values {
+                feed.sendSize()
+            }
+            for screen in screens.values {
+                screen.sendSize()
+            }
+        }
+    }
 
-    public init(commands: CommandSink, browserPipes: BrowserPipes = BrowserPipes(),
+    #if os(iOS)
+        @ObservationIgnored private var heat: any NSObjectProtocol?
+    #endif
+    /// Lets go of the feeds' still pictures when the device runs short of memory.
+    @ObservationIgnored private let pressure = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
+
+    public init(commands: CommandSink, videoPipes: VideoPipes = VideoPipes(),
                 started: UInt64 = UInt64(Date.now.timeIntervalSince1970 * 1000))
     {
         self.commands = commands
-        self.browserPipes = browserPipes
+        self.videoPipes = videoPipes
         self.started = started
+        #if os(iOS)
+            hot = Self.heated
+            heat = NotificationCenter.default.addObserver(
+                forName: ProcessInfo.thermalStateDidChangeNotification, object: nil, queue: .main,
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.hot = Self.heated }
+            }
+        #endif
+        pressure.setEventHandler { [weak self] in
+            MainActor.assumeIsolated { self?.forgetStills() }
+        }
+        pressure.resume()
     }
 
-    /// Managed by `browserPipes` rather than `documents` so frames stay off the main actor.
+    isolated deinit {
+        pressure.cancel()
+        #if os(iOS)
+            if let heat {
+                NotificationCenter.default.removeObserver(heat)
+            }
+        #endif
+    }
+
+    #if os(iOS)
+        private static var heated: Bool {
+            [.serious, .critical].contains(ProcessInfo.processInfo.thermalState)
+        }
+    #endif
+
+    private func forgetStills() {
+        for feed in feeds.values {
+            feed.still = nil
+        }
+        for screen in screens.values {
+            screen.still = nil
+        }
+    }
+
+    /// Managed by `videoPipes` rather than `documents` so frames stay off the main actor.
     func browser(of session: String) -> DocumentLink {
-        DocumentLink(commands: commands, session: session, key: CanvasShown.browserKey, claims: browserPipes)
+        DocumentLink(commands: commands, session: session, key: CanvasShown.browserKey, claims: videoPipes)
+    }
+
+    func screen(of session: String) -> DocumentLink {
+        DocumentLink(commands: commands, session: session, key: CanvasShown.screenKey, claims: videoPipes)
     }
 
     func chatLink(of session: String) -> DocumentLink {
@@ -113,6 +174,7 @@ public final class CanvasStore {
 
     public func observe(_ sessions: [RuntimeSession]) {
         let ids = Set(sessions.map(\.id))
+        seen = Dictionary(sessions.map { ($0.id, $0) }) { _, last in last }
         for session in sessions where firstSeen[session.id] == nil {
             firstSeen[session.id] = session.canvas?.newest?.changed ?? 0
         }
@@ -123,16 +185,16 @@ public final class CanvasStore {
         firstSeen = firstSeen.filter { ids.contains($0.key) }
         marks = marks.filter { ids.contains($0.key) }
         for session in sessions {
-            if opening.contains(session.id), session.canvas?.browser != nil {
-                opening.remove(session.id)
-                picks[session.id] = CanvasShown.browserKey
+            if let section = opening[session.id], session.canvas?.sections.contains(section) == true {
+                opening[session.id] = nil
+                place(section, in: session)
                 use(session)
             }
             if let pick = picks[session.id], session.canvas?.shown(pick) == nil {
                 picks[session.id] = nil
             }
         }
-        opening.formIntersection(ids)
+        opening = opening.filter { ids.contains($0.key) }
         shut.formIntersection(ids)
         closed = closed.filter { ids.contains($0.key) }
         picks = picks.filter { ids.contains($0.key) }
@@ -140,6 +202,12 @@ public final class CanvasStore {
         shelves.formIntersection(ids)
         let browsing = Set(sessions.filter { $0.canvas?.browser != nil }.map(\.id))
         feeds = feeds.filter { browsing.contains($0.key) }
+        let watching = Set(sessions.filter { $0.canvas?.screen != nil }.map(\.id))
+        screens = screens.filter { watching.contains($0.key) }
+        for session in sessions {
+            feeds[session.id]?.see(session)
+            screens[session.id]?.see(session)
+        }
         chats = chats.filter { ids.contains($0.key) }
         for key in stored.keys where !ids.contains(key.session) {
             forget(key)
@@ -184,8 +252,13 @@ public final class CanvasStore {
 
     public func closedSections(_ session: RuntimeSession) -> [CanvasSection] {
         let open = sections(session)
-        return [CanvasSection.files, .browser].filter { section in
-            !open.contains(section) && (section == .browser || session.canvas?.sections.contains(section) == true)
+        return [CanvasSection.files, .browser, .screen].filter { section in
+            guard !open.contains(section) else { return false }
+            return switch section {
+            case .files: session.canvas?.sections.contains(.files) == true
+            case .browser: true
+            case .screen: session.canvas?.screen != nil || session.showsScreen
+            }
         }
     }
 
@@ -216,10 +289,17 @@ public final class CanvasStore {
         use(session)
     }
 
-    /// Claims browser viewport sizing for this device when the user focuses an active browser.
+    /// Claims the browser's page size or the screen's capture for this device when the person
+    /// turns to them here.
     public func use(_ session: RuntimeSession) {
-        guard session.canvas?.browser != nil, current(session)?.section == .browser else { return }
-        feed(session.id).open()
+        switch current(session) {
+        case .browser:
+            feed(session.id).open()
+        case .screen where session.kind == .remote:
+            screenFeed(session.id).open()
+        default:
+            break
+        }
     }
 
     public func news(_ session: RuntimeSession) -> [CanvasNews] {
@@ -270,13 +350,24 @@ public final class CanvasStore {
             return feed
         }
         let feed = BrowserFeed(store: self, session: session)
+        seen[session].map(feed.see)
         feeds[session] = feed
+        return feed
+    }
+
+    public func screenFeed(_ session: String) -> ScreenFeed {
+        if let feed = screens[session] {
+            return feed
+        }
+        let feed = ScreenFeed(store: self, session: session)
+        seen[session].map(feed.see)
+        screens[session] = feed
         return feed
     }
 
     public func pick(_ key: String?, in session: String) {
         picks[session] = key
-        if let key, key != CanvasShown.browserKey {
+        if let key, key != CanvasShown.browserKey, key != CanvasShown.screenKey {
             lastFiles[session] = key
             shelves.remove(session)
         }
@@ -294,6 +385,8 @@ public final class CanvasStore {
         switch section {
         case .browser:
             pick(CanvasShown.browserKey, in: session.id)
+        case .screen:
+            pick(CanvasShown.screenKey, in: session.id)
         case .files:
             let canvas = session.canvas
             picks[session.id] = lastFiles[session.id].flatMap { canvas?.shown($0) == nil ? nil : $0 }
@@ -371,8 +464,9 @@ public final class CanvasStore {
         _ = try await commands.request("browser.clear", [:])
     }
 
-    public func opensBrowser(_ session: String) -> Bool {
-        opening.contains(session)
+    /// The browser or the screen that this device asked for is on its way to the canvas.
+    public func isOpening(_ session: String) -> Bool {
+        opening[session] != nil
     }
 
     public func openBrowser(of session: RuntimeSession) async throws {
@@ -380,15 +474,36 @@ public final class CanvasStore {
             show(.browser, in: session)
             return
         }
+        try await open(.browser, of: session) {
+            try await self.act(.wake, in: session.id)
+        }
+    }
+
+    /// Puts the computer's screen on the canvas, which only its owner's devices do.
+    public func openScreen(of session: RuntimeSession) async throws {
+        guard session.canvas?.screen == nil else {
+            show(.screen, in: session)
+            return
+        }
+        try await open(.screen, of: session) {
+            _ = try await self.ask(session.id, .object(["type": .string("showScreen")]))
+        }
+    }
+
+    private func open(_ section: CanvasSection, of session: RuntimeSession, by asking: () async throws -> Void) async throws {
         shut.remove(session.id)
-        closed[session.id]?[.browser] = nil
-        opening.insert(session.id)
+        closed[session.id]?[section] = nil
+        opening[session.id] = section
         do {
-            try await act(.wake, in: session.id)
+            try await asking()
         } catch {
-            opening.remove(session.id)
+            opening[session.id] = nil
             throw error
         }
+    }
+
+    func shareScreen() async throws {
+        _ = try await commands.shareScreen(true)
     }
 
     public func act(_ act: BrowserAct, in session: String) async throws {

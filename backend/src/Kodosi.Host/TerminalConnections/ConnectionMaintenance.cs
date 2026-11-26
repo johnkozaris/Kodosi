@@ -44,3 +44,13 @@ internal sealed class ConnectionWatchdog(ConnectionDirectory directory, TimeProv
         return Task.CompletedTask;
     }
 }
+
+internal sealed class RelaySweep(ConnectionDirectory directory, TimeProvider clock, ILogger<RelaySweep> logger)
+    : PeriodicWork(TimeSpan.FromSeconds(5), clock, logger)
+{
+    protected internal override Task RunAsync(CancellationToken ct)
+    {
+        directory.SweepRelays();
+        return Task.CompletedTask;
+    }
+}

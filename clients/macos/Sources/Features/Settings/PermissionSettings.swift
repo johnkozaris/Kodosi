@@ -51,7 +51,7 @@ struct PermissionsGroup: View {
     }
 
     /// System Settings renamed "Accessibility" in macOS 27.
-    private static var deviceControl: String {
+    static var deviceControl: String {
         if #available(macOS 27, *) {
             String(localized: "Device Control and Data Access")
         } else {

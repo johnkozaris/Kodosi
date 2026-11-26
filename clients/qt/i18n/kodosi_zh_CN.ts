@@ -543,6 +543,10 @@
         <translation>已共享</translation>
     </message>
     <message>
+        <source>Can&apos;t show the page</source>
+        <translation>无法显示此页面</translation>
+    </message>
+    <message>
         <source>New tab</source>
         <translation>新标签页</translation>
     </message>
@@ -582,18 +586,6 @@
         <source>Getting the browser, %1%</source>
         <translation>正在下载浏览器，%1%</translation>
     </message>
-    <message>
-        <source>Starting the browser</source>
-        <translation>正在启动浏览器</translation>
-    </message>
-    <message>
-        <source>The browser is asleep</source>
-        <translation>浏览器正在休眠</translation>
-    </message>
-    <message>
-        <source>Wake it</source>
-        <translation>唤醒</translation>
-    </message>
 </context>
 <context>
     <name>CanvasDock</name>
@@ -604,6 +596,10 @@
     <message>
         <source>Files</source>
         <translation>文件</translation>
+    </message>
+    <message>
+        <source>Screen</source>
+        <translation>屏幕</translation>
     </message>
     <message>
         <source>Close</source>
@@ -768,6 +764,22 @@
         <translation>移到回收站</translation>
     </message>
     <message>
+        <source>This computer&apos;s screen</source>
+        <translation>这台电脑的屏幕</translation>
+    </message>
+    <message>
+        <source>Your other devices show it on this canvas.</source>
+        <translation>你的其他设备会在这个画布上显示它。</translation>
+    </message>
+    <message>
+        <source>Sharing is off</source>
+        <translation>共享已关闭</translation>
+    </message>
+    <message>
+        <source>Turn on</source>
+        <translation>打开</translation>
+    </message>
+    <message>
         <source>The file is missing</source>
         <translation>文件缺失</translation>
     </message>
@@ -778,6 +790,49 @@
     <message>
         <source>Try again</source>
         <translation>重试</translation>
+    </message>
+</context>
+<context>
+    <name>CanvasScreen</name>
+    <message>
+        <source>Main display</source>
+        <translation>主显示器</translation>
+    </message>
+    <message>
+        <source>Display %1</source>
+        <translation>显示器 %1</translation>
+    </message>
+    <message>
+        <source>Window</source>
+        <translation>窗口</translation>
+    </message>
+    <message>
+        <source>Screen</source>
+        <translation>屏幕</translation>
+    </message>
+    <message>
+        <source>Show another display or window</source>
+        <translation>显示其他显示器或窗口</translation>
+    </message>
+    <message>
+        <source>Show the whole screen</source>
+        <translation>显示整个屏幕</translation>
+    </message>
+    <message>
+        <source>Allow control on %1</source>
+        <translation>请在 %1 上允许控制</translation>
+    </message>
+    <message>
+        <source>Can&apos;t show the screen</source>
+        <translation>无法显示屏幕</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>已复制</translation>
+    </message>
+    <message>
+        <source>View only</source>
+        <translation>仅查看</translation>
     </message>
 </context>
 <context>
@@ -2665,6 +2720,26 @@
         <translation>退出</translation>
     </message>
     <message>
+        <source>Screen</source>
+        <translation>屏幕</translation>
+    </message>
+    <message>
+        <source>While someone watches, Kodosi shows who, with a way to stop.</source>
+        <translation>有人观看时，Kodosi 会显示是谁，并提供停止的方法。</translation>
+    </message>
+    <message>
+        <source>Let my other devices see and control this computer</source>
+        <translation>允许我的其他设备查看和控制这台电脑</translation>
+    </message>
+    <message>
+        <source>Allow on this computer</source>
+        <translation>在这台电脑上允许</translation>
+    </message>
+    <message>
+        <source>Allow…</source>
+        <translation>允许…</translation>
+    </message>
+    <message>
         <source>Privacy policy</source>
         <translation>隐私政策</translation>
     </message>
@@ -4428,6 +4503,10 @@
         <translation>打开浏览器</translation>
     </message>
     <message>
+        <source>Open Screen</source>
+        <translation>打开屏幕</translation>
+    </message>
+    <message>
         <source>Add a file…</source>
         <translation>添加文件…</translation>
     </message>
@@ -4887,6 +4966,37 @@
     </message>
 </context>
 <context>
+    <name>VideoCover</name>
+    <message>
+        <source>Sharing is off on %1</source>
+        <translation>%1 上的共享已关闭</translation>
+    </message>
+    <message>
+        <source>%1 is offline</source>
+        <translation>%1 已离线</translation>
+    </message>
+    <message>
+        <source>%1 is locked</source>
+        <translation>%1 已锁定</translation>
+    </message>
+    <message>
+        <source>%1 is on another account</source>
+        <translation>%1 正在使用其他账户</translation>
+    </message>
+    <message>
+        <source>%1 is asleep</source>
+        <translation>%1 已进入睡眠</translation>
+    </message>
+    <message>
+        <source>Allow screen recording on %1</source>
+        <translation>请在 %1 上允许录屏</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>重试</translation>
+    </message>
+</context>
+<context>
     <name>WindowControls</name>
     <message>
         <source>Minimize</source>
@@ -5085,6 +5195,10 @@
 </context>
 <context>
     <name>kodosi::CanvasModel</name>
+    <message>
+        <source>the screen of this computer</source>
+        <translation>这台电脑的屏幕</translation>
+    </message>
     <message>
         <source>the shared browser</source>
         <translation>共享浏览器</translation>

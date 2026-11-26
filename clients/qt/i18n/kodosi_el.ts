@@ -544,6 +544,10 @@
         <translation>Κοινόχρηστο</translation>
     </message>
     <message>
+        <source>Can&apos;t show the page</source>
+        <translation>Δεν είναι δυνατή η εμφάνιση της σελίδας</translation>
+    </message>
+    <message>
         <source>New tab</source>
         <translation>Νέα καρτέλα</translation>
     </message>
@@ -583,18 +587,6 @@
         <source>Getting the browser, %1%</source>
         <translation>Λήψη του browser, %1%</translation>
     </message>
-    <message>
-        <source>Starting the browser</source>
-        <translation>Εκκίνηση του browser</translation>
-    </message>
-    <message>
-        <source>The browser is asleep</source>
-        <translation>Ο browser είναι σε αδράνεια</translation>
-    </message>
-    <message>
-        <source>Wake it</source>
-        <translation>Αφύπνιση</translation>
-    </message>
 </context>
 <context>
     <name>CanvasDock</name>
@@ -605,6 +597,10 @@
     <message>
         <source>Files</source>
         <translation>Αρχεία</translation>
+    </message>
+    <message>
+        <source>Screen</source>
+        <translation>Οθόνη</translation>
     </message>
     <message>
         <source>Close</source>
@@ -769,6 +765,22 @@
         <translation>Μετακίνηση στον κάδο</translation>
     </message>
     <message>
+        <source>This computer&apos;s screen</source>
+        <translation>Η οθόνη αυτού του υπολογιστή</translation>
+    </message>
+    <message>
+        <source>Your other devices show it on this canvas.</source>
+        <translation>Οι άλλες συσκευές σας την εμφανίζουν σε αυτό το canvas.</translation>
+    </message>
+    <message>
+        <source>Sharing is off</source>
+        <translation>Η κοινή χρήση είναι ανενεργή</translation>
+    </message>
+    <message>
+        <source>Turn on</source>
+        <translation>Ενεργοποίηση</translation>
+    </message>
+    <message>
         <source>The file is missing</source>
         <translation>Το αρχείο λείπει</translation>
     </message>
@@ -779,6 +791,49 @@
     <message>
         <source>Try again</source>
         <translation>Δοκιμάστε ξανά</translation>
+    </message>
+</context>
+<context>
+    <name>CanvasScreen</name>
+    <message>
+        <source>Main display</source>
+        <translation>Κύρια οθόνη</translation>
+    </message>
+    <message>
+        <source>Display %1</source>
+        <translation>Οθόνη %1</translation>
+    </message>
+    <message>
+        <source>Window</source>
+        <translation>Παράθυρο</translation>
+    </message>
+    <message>
+        <source>Screen</source>
+        <translation>Οθόνη</translation>
+    </message>
+    <message>
+        <source>Show another display or window</source>
+        <translation>Εμφάνιση άλλης οθόνης ή παραθύρου</translation>
+    </message>
+    <message>
+        <source>Show the whole screen</source>
+        <translation>Εμφάνιση ολόκληρης της οθόνης</translation>
+    </message>
+    <message>
+        <source>Allow control on %1</source>
+        <translation>Επιτρέψτε τον έλεγχο στο %1</translation>
+    </message>
+    <message>
+        <source>Can&apos;t show the screen</source>
+        <translation>Δεν είναι δυνατή η εμφάνιση της οθόνης</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>Αντιγράφηκε</translation>
+    </message>
+    <message>
+        <source>View only</source>
+        <translation>Μόνο προβολή</translation>
     </message>
 </context>
 <context>
@@ -2686,6 +2741,26 @@
         <translation>Έξοδος</translation>
     </message>
     <message>
+        <source>Screen</source>
+        <translation>Οθόνη</translation>
+    </message>
+    <message>
+        <source>While someone watches, Kodosi shows who, with a way to stop.</source>
+        <translation>Όσο κάποιος παρακολουθεί, το Kodosi δείχνει ποιος είναι, με έναν τρόπο να το σταματήσετε.</translation>
+    </message>
+    <message>
+        <source>Let my other devices see and control this computer</source>
+        <translation>Να βλέπουν και να ελέγχουν αυτόν τον υπολογιστή οι άλλες συσκευές μου</translation>
+    </message>
+    <message>
+        <source>Allow on this computer</source>
+        <translation>Επιτρέψτε το σε αυτόν τον υπολογιστή</translation>
+    </message>
+    <message>
+        <source>Allow…</source>
+        <translation>Να επιτρέπεται…</translation>
+    </message>
+    <message>
         <source>Privacy policy</source>
         <translation>Πολιτική απορρήτου</translation>
     </message>
@@ -4460,6 +4535,10 @@
         <translation>Άνοιγμα browser</translation>
     </message>
     <message>
+        <source>Open Screen</source>
+        <translation>Άνοιγμα οθόνης</translation>
+    </message>
+    <message>
         <source>Add a file…</source>
         <translation>Προσθήκη αρχείου…</translation>
     </message>
@@ -4920,6 +4999,37 @@
     </message>
 </context>
 <context>
+    <name>VideoCover</name>
+    <message>
+        <source>Sharing is off on %1</source>
+        <translation>Η κοινή χρήση είναι ανενεργή στο %1</translation>
+    </message>
+    <message>
+        <source>%1 is offline</source>
+        <translation>%1: εκτός σύνδεσης</translation>
+    </message>
+    <message>
+        <source>%1 is locked</source>
+        <translation>%1: κλειδωμένο</translation>
+    </message>
+    <message>
+        <source>%1 is on another account</source>
+        <translation>Στο %1 είναι ενεργός άλλος λογαριασμός</translation>
+    </message>
+    <message>
+        <source>%1 is asleep</source>
+        <translation>%1: σε αναστολή λειτουργίας</translation>
+    </message>
+    <message>
+        <source>Allow screen recording on %1</source>
+        <translation>Επιτρέψτε την εγγραφή οθόνης στο %1</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>Δοκιμάστε ξανά</translation>
+    </message>
+</context>
+<context>
     <name>WindowControls</name>
     <message>
         <source>Minimize</source>
@@ -5126,6 +5236,10 @@
 </context>
 <context>
     <name>kodosi::CanvasModel</name>
+    <message>
+        <source>the screen of this computer</source>
+        <translation>την οθόνη αυτού του υπολογιστή</translation>
+    </message>
     <message>
         <source>the shared browser</source>
         <translation>τον κοινόχρηστο browser</translation>

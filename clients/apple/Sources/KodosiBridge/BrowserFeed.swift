@@ -1,46 +1,14 @@
 import CoreGraphics
-import CoreMedia
 import Foundation
 import ImageIO
 import Observation
-import Synchronization
+import os
 
-/// Frames arrive, get acknowledged, and render on the `BrowserPipes` task so a busy main thread
-/// never triggers host backpressure. Per-frame acks prevent queueing and let the host match quality
-/// to the link, while view state updates hop to the main actor in pipe order.
+/// The shared browser of a terminal's canvas: its video on the `VideoChannel`, and its tabs,
+/// pointers, menus and dialogs in pipe order on the main actor.
 @MainActor
 @Observable
 public final class BrowserFeed {
-    public enum Picture: Sendable {
-        case waiting
-        case live
-        /// Retains the last rendered frame while reconnecting until a fresh frame arrives.
-        case kept
-    }
-
-    private enum Heard: Sendable {
-        case news(DocumentLink.News)
-        case state(BrowserWindow)
-        /// The surface generation that rendered a frame.
-        case shown(Int)
-    }
-
-    private struct Video {
-        var link: DocumentLink?
-        var teller: AsyncStream<Heard>.Continuation?
-        var display: (@Sendable (CMSampleBuffer) -> Bool)?
-        var surface = 0
-        var shown = false
-        var samples = H264Samples()
-        var lastFrame: UInt32 = 0
-        var holds = Holds.nothing
-    }
-
-    private nonisolated static let frameHeader = 6
-    private nonisolated static let messageTag: UInt8 = 0
-    private nonisolated static let frameTag: UInt8 = 1
-    private nonisolated static let keyFlag: UInt8 = 1
-    private nonisolated static let anchorFlag: UInt8 = 2
     private static let settle = Duration.milliseconds(250)
     #if os(macOS)
         private static let hostsLayer = NSClassFromString("CALayerHost") != nil
@@ -50,8 +18,13 @@ public final class BrowserFeed {
 
     public private(set) var window = BrowserWindow()
     public private(set) var icons: [String: CGImage] = [:]
-    public private(set) var picture = Picture.waiting
+    public private(set) var picture = VideoPicture.waiting
+    /// What broke unexpectedly, which the view does not say but lets the person try again.
     public private(set) var failure: String?
+    /// Why the browser did not start, as the canvas says.
+    public private(set) var problem: String?
+    public private(set) var offline = false
+    public var still: VideoStill?
     /// Incremented for each local user input event (excluding plain pointer moves).
     public private(set) var touches = 0
     @ObservationIgnored public var copied: (String) -> Void = { _ in }
@@ -76,10 +49,10 @@ public final class BrowserFeed {
 
     @ObservationIgnored private let store: CanvasStore
     @ObservationIgnored private let session: String
-    private nonisolated let video = Mutex(Video())
+    private let channel = VideoChannel<BrowserWindow>()
     @ObservationIgnored private weak var surface: AnyObject?
     @ObservationIgnored private var surfaces = 0
-    @ObservationIgnored private var sentSize: BrowserSize?
+    @ObservationIgnored private var sentSize: VideoSize?
     @ObservationIgnored private var settling: Task<Void, Never>?
     @ObservationIgnored private var holding = false
     @ObservationIgnored private var joined = false
@@ -87,31 +60,39 @@ public final class BrowserFeed {
     /// Returning to screen or reconnecting leaves `opened` false so another active device keeps
     /// control of the page size.
     @ObservationIgnored private var opened = false
+    @ObservationIgnored private var asleep = false
+    /// Set once the browser was woken since it last fell asleep.
+    @ObservationIgnored private var woken = false
 
     init(store: CanvasStore, session: String) {
         self.store = store
         self.session = session
     }
 
-    public func watch() async {
-        guard video.withLock({ $0.link == nil }) else { return }
-        let link = store.browser(of: session)
-        let (heard, teller) = AsyncStream.makeStream(of: Heard.self)
-        video.withLock { video in
-            video.link = link
-            video.teller = teller
+    public var showing: VideoShowing {
+        if offline {
+            return .away(.offline)
         }
-        link.onFrame = { [weak self] in self?.receive($0) }
-        link.onNews = { [weak self] in self?.hear($0) }
+        if failure != nil || problem != nil {
+            return .failed
+        }
+        if picture == .live {
+            return .live
+        }
+        return picture == .kept || still != nil ? .resting : .opening
+    }
+
+    public func watch() async {
+        let link = store.browser(of: session)
+        guard let heard = channel.start(link) else { return }
+        failure = nil
         defer {
-            video.withLock { video in
-                video.link = nil
-                video.teller = nil
-            }
-            teller.finish()
-            link.close()
+            channel.stop()
             joined = false
             opened = false
+            if picture == .live {
+                picture = .kept
+            }
         }
         do {
             try await link.open()
@@ -142,9 +123,8 @@ public final class BrowserFeed {
     }
 
     /// Attaches a video surface. A new surface triggers an immediate keyframe request (leaving
-    /// `picture` intact when `window.layer` renders locally). `display` returns `false` if the
-    /// renderer failed and needs a fresh keyframe.
-    public func show(on surface: AnyObject, _ display: @escaping @Sendable (CMSampleBuffer) -> Bool) {
+    /// `picture` intact when `window.layer` renders locally).
+    public func show(on surface: AnyObject, _ display: any VideoDisplay) {
         let fresh = surface !== self.surface
         if fresh {
             self.surface = surface
@@ -153,17 +133,20 @@ public final class BrowserFeed {
                 picture = .waiting
             }
         }
-        let number = surfaces
-        video.withLock { video in
-            video.display = display
-            if video.surface != number {
-                video.surface = number
-                video.shown = false
-            }
-        }
+        channel.show(on: surfaces, display)
         if fresh {
-            restart()
+            channel.restart()
         }
+    }
+
+    /// Detaches a surface that goes away, so that its display goes with it. Returns whether the
+    /// surface was the one that showed the feed.
+    @discardableResult
+    public func hide(from surface: AnyObject) -> Bool {
+        guard surface === self.surface else { return false }
+        self.surface = nil
+        channel.hide()
+        return true
     }
 
     public func wake() async {
@@ -171,20 +154,50 @@ public final class BrowserFeed {
         await run(.wake)
     }
 
+    /// Wakes the browser while someone looks at it, once for each time that it fell asleep.
+    public func wakeIfAsleep() async {
+        guard asleep, problem == nil, !woken else { return }
+        woken = true
+        await run(.wake)
+    }
+
+    /// What the canvas says about the browser and its computer.
+    func see(_ session: RuntimeSession) {
+        let browser = session.canvas?.browser
+        asleep = browser?.state == .asleep
+        if !asleep {
+            woken = false
+        }
+        if browser?.problem != problem {
+            problem = browser?.problem
+        }
+        if session.hostOffline != offline {
+            offline = session.hostOffline
+        }
+    }
+
     public func run(_ act: BrowserAct) async {
         do {
             try await store.act(act, in: session)
             failure = nil
+        } catch is CancellationError {
+            // The view that asked went away, which is not a failure of the browser.
         } catch {
             failure = error.localizedDescription
         }
     }
 
+    public func send(_ event: ViewerInput) {
+        send(.viewer(event))
+    }
+
     public func send(_ event: BrowserInput) {
-        post(.input(event))
-        guard !event.isPlainMove else { return }
+        channel.post(ToBrowserWindow.input(event))
+        if case let .viewer(input) = event, input.isPlainMove {
+            return
+        }
         touches += 1
-        if case let .mouse(action, _, _, _, _, _, _, _) = event {
+        if case let .viewer(.mouse(action, _, _, _, _, _, _, _)) = event {
             if action == .mousePressed {
                 holding = true
             } else if action == .mouseReleased {
@@ -204,14 +217,14 @@ public final class BrowserFeed {
                 }
             }
         } catch {
-            failure = error.localizedDescription
+            Logger.app.error("A file did not go to the shared browser: \(error.localizedDescription, privacy: .public)")
         }
         send(.files(paths))
     }
 
     /// Clamps out-of-bounds coordinates to the page edge while a button is held so drags and
     /// releases outside the viewport still reach the page.
-    public func browserPoint(_ point: CGPoint, in size: CGSize) -> BrowserInput.Point? {
+    public func browserPoint(_ point: CGPoint, in size: CGSize) -> ViewerInput.Point? {
         Self.point(point, in: size, browser: window.size, clamped: holding)
     }
 
@@ -227,7 +240,7 @@ public final class BrowserFeed {
     }
 
     public nonisolated static func point(_ point: CGPoint, in size: CGSize, browser: CGSize,
-                                         clamped: Bool = false) -> BrowserInput.Point?
+                                         clamped: Bool = false) -> ViewerInput.Point?
     {
         guard browser.width > 0, browser.height > 0, size.width > 0, size.height > 0 else { return nil }
         let fit = min(size.width / browser.width, size.height / browser.height)
@@ -239,21 +252,21 @@ public final class BrowserFeed {
             y = min(max(y, 0), browser.height.nextDown)
         }
         guard x >= 0, y >= 0, x < browser.width, y < browser.height else { return nil }
-        return BrowserInput.Point(x: Double(x), y: Double(y))
+        return ViewerInput.Point(x: Double(x), y: Double(y))
     }
 
     private func join() {
         failure = nil
         joined = true
-        video.withLock { $0.holds = .nothing }
+        channel.rejoin()
         let size = currentSize
         sentSize = size
-        post(.watch(size, opened: opened, layer: Self.hostsLayer))
+        channel.post(ToBrowserWindow.watch(size, decoders: DeviceDecoder.here, opened: opened, layer: Self.hostsLayer))
         opened = false
     }
 
-    private var currentSize: BrowserSize {
-        BrowserSize(width: Int(viewSize.width), height: Int(viewSize.height), scale: Double(viewScale))
+    private var currentSize: VideoSize {
+        VideoSize(viewSize, scale: viewScale, hot: store.hot)
     }
 
     private func settleSize() {
@@ -265,48 +278,14 @@ public final class BrowserFeed {
         }
     }
 
-    private func sendSize() {
+    func sendSize() {
         let size = currentSize
         guard !holding, size != sentSize else { return }
         sentSize = size
-        post(.size(size))
+        channel.post(ToBrowserWindow.size(size))
     }
 
-    private nonisolated func restart() {
-        video.withLock { $0.holds = .nothing }
-        post(.keyframe)
-    }
-
-    private nonisolated func post(_ message: ToBrowserWindow) {
-        guard let body = try? JSONEncoder().encode(message) else { return }
-        video.withLock { $0.link }?.send(Data([Self.messageTag]) + body)
-    }
-
-    nonisolated func receive(_ message: Data) {
-        switch message.first {
-        case Self.frameTag:
-            frame(message)
-        case Self.messageTag:
-            if let state = try? JSONDecoder().decode(BrowserWindow.self, from: message.dropFirst()) {
-                tell(.state(state))
-            }
-        default:
-            break
-        }
-    }
-
-    private nonisolated func hear(_ news: DocumentLink.News) {
-        if case .lost = news {
-            video.withLock { $0.shown = false }
-        }
-        tell(.news(news))
-    }
-
-    private nonisolated func tell(_ heard: Heard) {
-        video.withLock { $0.teller }?.yield(heard)
-    }
-
-    private func take(_ heard: Heard) {
+    private func take(_ heard: VideoChannel<BrowserWindow>.Heard) {
         switch heard {
         case let .news(.lost(reason)):
             joined = false
@@ -314,10 +293,11 @@ public final class BrowserFeed {
                 picture = .kept
             }
             failure = reason
-        case let .state(state):
+        case let .message(state):
             window = state
             if state.layer != nil {
                 picture = .live
+                still = nil
             }
             keep(state.icons, of: state.tabs)
             if let words = state.copied {
@@ -326,8 +306,9 @@ public final class BrowserFeed {
         case let .shown(number):
             if number == surfaces {
                 picture = .live
+                still = nil
             }
-        case .news(.open), .news(.closed):
+        case .news(.open), .news(.closed), .region:
             break
         }
     }
@@ -345,89 +326,31 @@ public final class BrowserFeed {
             icons = kept
         }
     }
-
-    /// The host intentionally skips frames for slow viewers and resumes on an anchor frame, so a
-    /// sequence gap only requires a keyframe request if the next frame is neither a keyframe nor
-    /// an anchor.
-    private nonisolated func frame(_ message: Data) {
-        guard message.count > Self.frameHeader else { return }
-        let header = [UInt8](message.prefix(Self.frameHeader))
-        let id = header[1 ..< 5].reduce(UInt32(0)) { $0 << 8 | UInt32($1) }
-        let key = header[5] & Self.keyFlag != 0
-        let anchor = header[5] & Self.anchorFlag != 0
-        post(.ack(id))
-        let (restarts, shown) = video.withLock { video -> (Bool, Heard?) in
-            if video.holds == .stream, id != video.lastFrame &+ 1 {
-                video.holds = .gap
-            }
-            video.lastFrame = id
-            switch video.holds {
-            case .nothing where !key:
-                return (false, nil)
-            case .gap where !key && !anchor:
-                return (true, nil)
-            default:
-                break
-            }
-            guard let sample = video.samples.sample(of: message.dropFirst(Self.frameHeader)) else { return (false, nil) }
-            video.holds = .stream
-            let going = video.display?(sample) ?? true
-            defer { video.shown = true }
-            return (!going, video.shown ? nil : .shown(video.surface))
-        }
-        if restarts {
-            restart()
-        }
-        if let shown {
-            tell(shown)
-        }
-    }
-}
-
-private enum Holds {
-    /// Decoder has no reference state yet and must wait for a keyframe.
-    case nothing
-    /// Decoder is receiving contiguous frames since the last keyframe or anchor.
-    case stream
-    /// A sequence gap occurred; the next frame must be a keyframe or anchor.
-    case gap
 }
 
 private enum ToBrowserWindow: Encodable {
-    case watch(BrowserSize, opened: Bool, layer: Bool)
-    case size(BrowserSize)
-    case ack(UInt32)
-    case keyframe
+    case watch(VideoSize, decoders: [DeviceDecoder], opened: Bool, layer: Bool)
+    case size(VideoSize)
     case input(BrowserInput)
 
     func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: Field.self)
         switch self {
-        case let .watch(size, opened, layer):
+        case let .watch(size, decoders, opened, layer):
             try container.encode("watch", forKey: .type)
             try container.encode(size, forKey: .size)
+            try container.encode(decoders, forKey: .decoders)
             try container.encode(true, forKey: .anchors)
             try container.encode(opened, forKey: .opened)
             try container.encode(layer, forKey: .layer)
         case let .size(size):
             try container.encode("size", forKey: .type)
             try container.encode(size, forKey: .size)
-        case let .ack(frame):
-            try container.encode("ack", forKey: .type)
-            try container.encode(frame, forKey: .frame)
-        case .keyframe:
-            try container.encode("keyframe", forKey: .type)
         case let .input(input):
             try container.encode("input", forKey: .type)
             try container.encode(input, forKey: .input)
         }
     }
 
-    private enum Field: String, CodingKey { case type, size, frame, input, anchors, opened, layer }
-}
-
-private struct BrowserSize: Encodable, Equatable {
-    let width: Int
-    let height: Int
-    let scale: Double
+    private enum Field: String, CodingKey { case type, size, input, decoders, anchors, opened, layer }
 }

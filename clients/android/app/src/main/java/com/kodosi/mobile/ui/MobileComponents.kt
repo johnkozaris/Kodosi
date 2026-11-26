@@ -101,6 +101,9 @@ enum class AppSymbol {
     INFO,
     FILE,
     BROWSER,
+    DISPLAY,
+    WINDOW,
+    SHRINK,
     LOCK,
     FORWARD,
     COMPUTER,
@@ -134,7 +137,11 @@ enum class AppSymbol {
     PENCIL,
     SPARKLE,
     CLOCK,
+    UNSHARED,
+    OFFLINE,
     MOON,
+    RECORDING,
+    WARNING,
     POWER,
     MIC
 }
@@ -181,6 +188,17 @@ private class SymbolPainter(private val symbol: AppSymbol) : androidx.compose.ui
             CornerRadius(radius * scale),
             style = stroke
         )
+        fun arc(x: Float, y: Float, radius: Float, start: Float, sweep: Float) = drawArc(
+            Color.Black,
+            start,
+            sweep,
+            false,
+            Offset((x - radius) * scale, (y - radius) * scale),
+            Size(2 * radius * scale, 2 * radius * scale),
+            style = stroke
+        )
+        fun dot(x: Float, y: Float, radius: Float) =
+            drawCircle(Color.Black, radius * scale, Offset(x * scale, y * scale))
         fun outline(data: String) {
             val path = PathParser().parsePathString(data).toPath()
             path.transform(Matrix().apply { this.scale(scale, scale) })
@@ -321,6 +339,24 @@ private class SymbolPainter(private val symbol: AppSymbol) : androidx.compose.ui
                 circle(12f, 12f, 9f)
                 path(3f, 12f, 21f, 12f)
                 path(12f, 3f, 8f, 8f, 8f, 16f, 12f, 21f, 16f, 16f, 16f, 8f, 12f, 3f)
+            }
+
+            AppSymbol.DISPLAY -> {
+                rect(2f, 3f, 20f, 14f, 2f)
+                path(8f, 21f, 16f, 21f)
+                path(12f, 17f, 12f, 21f)
+            }
+
+            AppSymbol.WINDOW -> {
+                rect(2f, 4f, 20f, 16f, 2f)
+                path(2f, 9f, 22f, 9f)
+            }
+
+            AppSymbol.SHRINK -> {
+                path(4f, 14f, 10f, 14f, 10f, 20f)
+                path(20f, 10f, 14f, 10f, 14f, 4f)
+                path(14f, 10f, 21f, 3f)
+                path(3f, 21f, 10f, 14f)
             }
 
             AppSymbol.LOCK -> {
@@ -526,6 +562,31 @@ private class SymbolPainter(private val symbol: AppSymbol) : androidx.compose.ui
             AppSymbol.CLOCK -> {
                 circle(12f, 12f, 9f)
                 path(12f, 7f, 12f, 12f, 15.5f, 14f)
+            }
+
+            AppSymbol.UNSHARED -> {
+                arc(12f, 17.33f, 11.33f, 208.07f, 123.86f)
+                arc(12f, 6.67f, 11.33f, 28.07f, 123.86f)
+                circle(12f, 12f, 3f)
+                path(3f, 3f, 21f, 21f)
+            }
+
+            AppSymbol.OFFLINE -> {
+                arc(12f, 19.5f, 12.5f, -135f, 90f)
+                arc(12f, 19.5f, 8f, -135f, 90f)
+                arc(12f, 19.5f, 3.5f, -135f, 90f)
+                path(3f, 3f, 21f, 21f)
+            }
+
+            AppSymbol.RECORDING -> {
+                circle(12f, 12f, 9f)
+                dot(12f, 12f, 4f)
+            }
+
+            AppSymbol.WARNING -> {
+                path(12f, 3f, 22f, 20f, 2f, 20f, 12f, 3f)
+                path(12f, 9f, 12f, 13.5f)
+                dot(12f, 16.8f, 1f)
             }
 
             AppSymbol.MOON -> outline("M20 14.5 A8 8 0 1 1 9.5 4 A6.5 6.5 0 0 0 20 14.5 Z")

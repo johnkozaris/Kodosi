@@ -2,8 +2,7 @@ use std::{ffi::c_void, ptr};
 
 pub(crate) type Ref = *const c_void;
 
-pub(crate) const NUMBER_I64: isize = 4;
-const NUMBER_F64: isize = 13;
+const NUMBER_I64: isize = 4;
 
 #[link(name = "CoreFoundation", kind = "framework")]
 unsafe extern "C" {
@@ -16,17 +15,9 @@ unsafe extern "C" {
         key_callbacks: Ref,
         value_callbacks: Ref,
     ) -> Ref;
-    pub(crate) fn CFDictionaryGetValue(dictionary: Ref, key: Ref) -> Ref;
-    fn CFArrayCreate(allocator: Ref, values: *const Ref, count: isize, callbacks: Ref) -> Ref;
-    pub(crate) fn CFArrayGetCount(array: Ref) -> isize;
-    pub(crate) fn CFArrayGetValueAtIndex(array: Ref, index: isize) -> Ref;
     fn CFNumberCreate(allocator: Ref, kind: isize, value: *const c_void) -> Ref;
-    pub(crate) fn CFNumberGetValue(number: Ref, kind: isize, value: *mut c_void) -> u8;
-    pub(crate) static kCFBooleanTrue: Ref;
-    pub(crate) static kCFBooleanFalse: Ref;
     static kCFTypeDictionaryKeyCallBacks: c_void;
     static kCFTypeDictionaryValueCallBacks: c_void;
-    static kCFTypeArrayCallBacks: c_void;
 }
 
 #[link(name = "IOSurface", kind = "framework")]
@@ -71,23 +62,6 @@ impl Drop for Owned {
 pub(crate) fn number_i64(value: i64) -> Option<Owned> {
     // SAFETY: the value lives for the call, and CFNumberCreate copies it.
     Owned::new(unsafe { CFNumberCreate(ptr::null(), NUMBER_I64, (&raw const value).cast()) })
-}
-
-pub(crate) fn number_f64(value: f64) -> Option<Owned> {
-    // SAFETY: as in `number_i64`.
-    Owned::new(unsafe { CFNumberCreate(ptr::null(), NUMBER_F64, (&raw const value).cast()) })
-}
-
-pub(crate) fn array(values: &[Ref]) -> Option<Owned> {
-    // SAFETY: the values are live CF objects, and the array retains them.
-    Owned::new(unsafe {
-        CFArrayCreate(
-            ptr::null(),
-            values.as_ptr(),
-            isize::try_from(values.len()).ok()?,
-            (&raw const kCFTypeArrayCallBacks).cast(),
-        )
-    })
 }
 
 pub(crate) fn dictionary(pairs: &[(Ref, Ref)]) -> Option<Owned> {

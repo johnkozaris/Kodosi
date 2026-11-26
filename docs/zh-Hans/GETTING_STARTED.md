@@ -125,6 +125,16 @@ Claude Code、Copilot CLI 和 Antigravity CLI 即使由你手动启动也了解�
 - 同样在 **设置 › 浏览器** 中，**Google 表单预测** 允许 Kodosi Browser 向 Google 询问表单中各字段的用途，**跨站 Cookie** 则允许显示在另一网站页面中的网站（例如 YouTube 视频）在那里认出你。两者在你开启之前都会保持关闭。更改其中任一项时，Kodosi Browser 会重新启动，已打开的页面会重新加载。
 - 凡是有权访问该终端的人，都能查看它的画布并使用其共享浏览器。终端关闭后，画布内容会被清空，共享终端浏览器中的登录状态也会被丢弃。
 
+### 电脑的屏幕
+
+- 要从手机或另一台电脑查看并控制一台电脑，请在那台电脑上打开共享：在 Mac 上打开 **设置 › 常规** 中的 **允许我的其他设备查看和控制这台 Mac**，在 Linux 和 Windows 上打开 **设置 › 账号** 中的 **允许我的其他设备查看和控制这台电脑**。
+  - 在 Mac 上，macOS 随后会请你允许 Kodosi 的一部分 Kodosi Screen 录制并控制屏幕。只有 Kodosi Screen 拥有这些权限，终端中的程序不会获得它们。如果 macOS 没有询问，同一设置中的 **允许…** 会告诉你在哪里打开这些权限。
+  - 在 Linux 上，共享支持 Wayland 下的 KDE Plasma 6 和 GNOME。在 KDE 上只需打开共享即可；GNOME 会询问一次是否允许 Kodosi 共享屏幕，并记住你的回答。
+  - Windows 不需要任何权限。Kodosi 无法控制以管理员身份运行的程序；在 Windows 请求管理员批准期间，屏幕会显示为已锁定。显示谁在观看的图标可能藏在任务栏的 ^ 后面，直到你将它固定到任务栏上。
+- 在那台电脑上某个终端的操作菜单中选择 **打开屏幕**，或让它的 Agent 运行 `kodosi show screen`。你可以在屏幕上方选择其他显示器，或在 Mac 上选择单个窗口，用双指捏合放大，像坐在电脑前一样指点、点击和输入。快捷键按你按下的字母生效，在 Linux 和 Windows 上 ⌘ 相当于 Ctrl。你在那里复制的文本会传到你的设备上，你粘贴的内容则来自你的设备。
+- 屏幕无法显示时，会用一行字说明原因：电脑已锁定、正在睡眠、已离线、正在使用另一个账号，或共享已关闭。情况变化后，屏幕会自动重新显示。
+- 只有你自己的设备能看到屏幕，即使在与好友共享的终端中也是如此。有人观看时，电脑的菜单栏或系统托盘会显示哪些设备在观看，并提供一个停止共享的按钮；停止后，直到电脑前的人再次打开之前，共享都保持关闭。
+
 ## 5. 问问 Dosi
 
 Dosi 是帮你统筹其他 Agent 的 Agent。点击侧边栏底部的 Dosi 头像（或按 ⌘J）即可打开。Dosi 基于 Claude Code 或 Codex 运行，你可以在 **设置 › Dosi** 中配置它所用的 Agent、账号、模型和推理强度。
@@ -220,7 +230,7 @@ Dosi 头像旁的状态栏会提示它是在工作中、已回复还是在等待
 | `kodosi terminal wait <terminal> --until done,failed` | 阻塞等待，直到终端进入指定的任意状态。 |
 | `kodosi terminal show <terminal>` | 在应用中聚焦并显示该终端。 |
 | `kodosi dosi say "What needs me?"` | 向 Dosi 发送消息。使用 `kodosi dosi show` 可输出对话内容，`kodosi dosi stop` 可取消当前轮次。 |
-| `kodosi show <file>` | 在当前终端的画布上打开文件，画布会为正在查看该终端的人打开。使用 `kodosi show <address>` 可在共享浏览器中打开网址，`kodosi show browser` 按当前状态唤出浏览器，`kodosi canvas` 列出画布内容，`kodosi canvas remove <file>` 移除指定文件。 |
+| `kodosi show <file>` | 在当前终端的画布上打开文件，画布会为正在查看该终端的人打开。使用 `kodosi show <address>` 可在共享浏览器中打开网址，`kodosi show browser` 按当前状态唤出浏览器，`kodosi show screen` 或 `kodosi show window <words>` 向电脑主人的设备显示它的屏幕，`kodosi canvas` 列出画布内容，`kodosi canvas remove <file>` 移除指定文件。 |
 | `kodosi browser open <address>` | 在当前终端的共享浏览器中打开网址（同样支持其他所有 agent-browser 命令）。 |
 | `kodosi skill` | 输出供 Agent 在 Kodosi 中协作使用的 skill；`kodosi skill canvas` 输出画布相关的 skill。 |
 | `kodosi dosi skill` | 输出让其他 Agent 充当 Dosi 的 skill。 |

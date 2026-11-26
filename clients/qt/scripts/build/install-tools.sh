@@ -170,6 +170,8 @@ qt_ready() {
     local root=$1
     grep -qF "set(PACKAGE_VERSION \"$WEBENGINE_VERSION\")" \
         "$root/lib/cmake/Qt6WebEngineCore/Qt6WebEngineCoreConfigVersionImpl.cmake" 2>/dev/null || return 1
+    [ -f "$root/lib/cmake/Qt6Multimedia/Qt6MultimediaConfig.cmake" ] &&
+        [ -f "$root/lib/cmake/Qt6ShaderTools/Qt6ShaderToolsConfig.cmake" ] || return 1
     if [ "$HOST" = windows ]; then
         [ -f "$root/lib/cmake/Qt6/Qt6Config.cmake" ] &&
             [ -x "$root/bin/qmllint.exe" ] &&

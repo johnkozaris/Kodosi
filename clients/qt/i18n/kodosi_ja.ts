@@ -543,6 +543,10 @@
         <translation>共有中</translation>
     </message>
     <message>
+        <source>Can&apos;t show the page</source>
+        <translation>ページを表示できません</translation>
+    </message>
+    <message>
         <source>New tab</source>
         <translation>新規タブ</translation>
     </message>
@@ -582,18 +586,6 @@
         <source>Getting the browser, %1%</source>
         <translation>ブラウザをダウンロード中（%1%）</translation>
     </message>
-    <message>
-        <source>Starting the browser</source>
-        <translation>ブラウザを起動中</translation>
-    </message>
-    <message>
-        <source>The browser is asleep</source>
-        <translation>ブラウザはスリープ中です</translation>
-    </message>
-    <message>
-        <source>Wake it</source>
-        <translation>スリープ解除</translation>
-    </message>
 </context>
 <context>
     <name>CanvasDock</name>
@@ -604,6 +596,10 @@
     <message>
         <source>Files</source>
         <translation>ファイル</translation>
+    </message>
+    <message>
+        <source>Screen</source>
+        <translation>画面</translation>
     </message>
     <message>
         <source>Close</source>
@@ -768,6 +764,22 @@
         <translation>ゴミ箱に移動</translation>
     </message>
     <message>
+        <source>This computer&apos;s screen</source>
+        <translation>このコンピュータの画面</translation>
+    </message>
+    <message>
+        <source>Your other devices show it on this canvas.</source>
+        <translation>ほかのデバイスでは、このキャンバスに表示されます。</translation>
+    </message>
+    <message>
+        <source>Sharing is off</source>
+        <translation>共有はオフです</translation>
+    </message>
+    <message>
+        <source>Turn on</source>
+        <translation>オンにする</translation>
+    </message>
+    <message>
         <source>The file is missing</source>
         <translation>ファイルが見つかりません</translation>
     </message>
@@ -778,6 +790,49 @@
     <message>
         <source>Try again</source>
         <translation>再試行</translation>
+    </message>
+</context>
+<context>
+    <name>CanvasScreen</name>
+    <message>
+        <source>Main display</source>
+        <translation>メインディスプレイ</translation>
+    </message>
+    <message>
+        <source>Display %1</source>
+        <translation>ディスプレイ %1</translation>
+    </message>
+    <message>
+        <source>Window</source>
+        <translation>ウインドウ</translation>
+    </message>
+    <message>
+        <source>Screen</source>
+        <translation>画面</translation>
+    </message>
+    <message>
+        <source>Show another display or window</source>
+        <translation>別のディスプレイやウインドウを表示</translation>
+    </message>
+    <message>
+        <source>Show the whole screen</source>
+        <translation>画面全体を表示</translation>
+    </message>
+    <message>
+        <source>Allow control on %1</source>
+        <translation>%1 で操作を許可してください</translation>
+    </message>
+    <message>
+        <source>Can&apos;t show the screen</source>
+        <translation>画面を表示できません</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>コピーしました</translation>
+    </message>
+    <message>
+        <source>View only</source>
+        <translation>表示のみ</translation>
     </message>
 </context>
 <context>
@@ -2665,6 +2720,26 @@
         <translation>終了</translation>
     </message>
     <message>
+        <source>Screen</source>
+        <translation>画面</translation>
+    </message>
+    <message>
+        <source>While someone watches, Kodosi shows who, with a way to stop.</source>
+        <translation>誰かが見ているあいだ、Kodosi はそれが誰かを表示し、止める方法も示します。</translation>
+    </message>
+    <message>
+        <source>Let my other devices see and control this computer</source>
+        <translation>ほかのデバイスからこのコンピュータを表示・操作できるようにする</translation>
+    </message>
+    <message>
+        <source>Allow on this computer</source>
+        <translation>このコンピュータで許可</translation>
+    </message>
+    <message>
+        <source>Allow…</source>
+        <translation>許可…</translation>
+    </message>
+    <message>
         <source>Privacy policy</source>
         <translation>プライバシーポリシー</translation>
     </message>
@@ -4428,6 +4503,10 @@
         <translation>ブラウザを開く</translation>
     </message>
     <message>
+        <source>Open Screen</source>
+        <translation>画面を開く</translation>
+    </message>
+    <message>
         <source>Add a file…</source>
         <translation>ファイルを追加…</translation>
     </message>
@@ -4887,6 +4966,37 @@
     </message>
 </context>
 <context>
+    <name>VideoCover</name>
+    <message>
+        <source>Sharing is off on %1</source>
+        <translation>%1 で共有がオフになっています</translation>
+    </message>
+    <message>
+        <source>%1 is offline</source>
+        <translation>%1 はオフラインです</translation>
+    </message>
+    <message>
+        <source>%1 is locked</source>
+        <translation>%1 はロックされています</translation>
+    </message>
+    <message>
+        <source>%1 is on another account</source>
+        <translation>%1 は別のアカウントを使用中です</translation>
+    </message>
+    <message>
+        <source>%1 is asleep</source>
+        <translation>%1 はスリープ中です</translation>
+    </message>
+    <message>
+        <source>Allow screen recording on %1</source>
+        <translation>%1 で画面収録を許可してください</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>再試行</translation>
+    </message>
+</context>
+<context>
     <name>WindowControls</name>
     <message>
         <source>Minimize</source>
@@ -5085,6 +5195,10 @@
 </context>
 <context>
     <name>kodosi::CanvasModel</name>
+    <message>
+        <source>the screen of this computer</source>
+        <translation>このコンピュータの画面</translation>
+    </message>
     <message>
         <source>the shared browser</source>
         <translation>共有ブラウザ</translation>

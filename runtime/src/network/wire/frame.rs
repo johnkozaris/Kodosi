@@ -165,6 +165,12 @@ pub(crate) enum Frame {
     PathAnswer {
         addresses: Vec<SocketAddr>,
     },
+    /// The host sends the pipe's video frames as datagrams of `flow` on the QUIC connection under
+    /// the channel, once the viewer's first report for the flow arrives.
+    MediaOffer {
+        pipe: Uuid,
+        flow: u16,
+    },
 }
 
 fn pipe_id(body: &[u8]) -> Result<Uuid> {
@@ -304,6 +310,11 @@ impl Frame {
             Self::PipeClose { pipe } => (24, pipe.as_bytes().to_vec()),
             Self::PathOffer { addresses } => (25, path_addresses(addresses)?),
             Self::PathAnswer { addresses } => (26, path_addresses(addresses)?),
+            Self::MediaOffer { pipe, flow } => {
+                let mut body = pipe.as_bytes().to_vec();
+                body.extend_from_slice(&flow.to_be_bytes());
+                (27, body)
+            }
         };
         let length = padded(HEADER + body.len());
         if length > FRAME_LIMIT {
@@ -483,6 +494,13 @@ impl Frame {
             26 => Self::PathAnswer {
                 addresses: read_path_addresses(json(CONTROL_LIMIT)?)?,
             },
+            27 => {
+                exact(body, 18)?;
+                Self::MediaOffer {
+                    pipe: pipe_id(body)?,
+                    flow: u16::from_be_bytes([body[16], body[17]]),
+                }
+            }
             _ => return Err(invalid("Unsupported terminal frame.")),
         })
     }

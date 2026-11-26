@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -74,6 +75,40 @@ public sealed class TerminalConnectionTests
         Assert.Equal(pipe, (await MessageAsync(hostSocket, "closed")).GetProperty("pipe").GetGuid());
         Assert.Equal(0, directory.Relay(host, pipe, down));
         Assert.False(otherSocket.Frames.Reader.TryRead(out _));
+    }
+
+    [Fact]
+    public async Task EachEndOfAPipeGetsItsOwnSlotOfOneRelayThatOutlastsTheLastPipeOfTheDevicesOnlyBriefly()
+    {
+        var clock = new ManualClock(); var directory = new ConnectionDirectory(clock); var state = Terminal();
+        var (host, hostSocket) = Device(directory, device: "host"); var (viewer, viewerSocket) = Device(directory); var (other, _) = Device(directory, device: "other");
+        await using var disposeHost = host; await using var disposeViewer = viewer; await using var disposeOther = other;
+        directory.Register(host); directory.Register(viewer); directory.Register(other);
+        directory.Host(host, state);
+        var (first, second) = (Guid.CreateVersion7(), Guid.CreateVersion7());
+        directory.Open(viewer, first, state);
+        directory.RelayBetween(other, first);
+        Assert.Equal(0, directory.Allocations.Count);
+        directory.RelayBetween(viewer, first);
+        var (toViewer, toHost) = (await MessageAsync(viewerSocket, "relayed"), await MessageAsync(hostSocket, "relayed"));
+        Assert.Equal(toViewer.GetProperty("allocation").GetString(), toHost.GetProperty("allocation").GetString());
+        var allocation = directory.Allocations.Find(BinaryPrimitives.ReadUInt64BigEndian([0, .. toViewer.GetProperty("allocation").GetBytesFromBase64()]))!;
+        Assert.NotNull(allocation);
+        foreach (var told in new[] { toViewer, toHost })
+            Assert.Equal(allocation.Secrets[told.GetProperty("slot").GetInt32()], told.GetProperty("secret").GetBytesFromBase64());
+        Assert.NotEqual(toViewer.GetProperty("slot").GetInt32(), toHost.GetProperty("slot").GetInt32());
+
+        directory.Open(viewer, second, state);
+        directory.Close(viewer, first);
+        clock.Advance(ConnectionDirectory.RelayGrace);
+        directory.SweepRelays();
+        Assert.Same(allocation, directory.Allocations.Find(allocation.Id));
+        directory.Close(host, second);
+        directory.SweepRelays();
+        Assert.Same(allocation, directory.Allocations.Find(allocation.Id));
+        clock.Advance(ConnectionDirectory.RelayGrace);
+        directory.SweepRelays();
+        Assert.Null(directory.Allocations.Find(allocation.Id));
     }
 
     [Fact]

@@ -10,6 +10,7 @@ struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.onScreen) private var onScreen
     @Environment(\.openURL) private var openURL
 
     private var screen: Screen {
@@ -42,7 +43,10 @@ struct RootView: View {
             case .onboarding:
                 OnboardingView().transition(.opacity.combined(with: .scale(scale: 0.98)))
             case .main:
-                MainTabView().transition(.opacity)
+                // The lock cover's own window hides this one without taking it off the screen.
+                MainTabView()
+                    .environment(\.onScreen, onScreen && !model.lock.locked)
+                    .transition(.opacity)
             }
         }
         .animation(theme.motion.fade, value: screen)

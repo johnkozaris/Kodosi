@@ -543,6 +543,10 @@
         <translation>공유됨</translation>
     </message>
     <message>
+        <source>Can&apos;t show the page</source>
+        <translation>페이지를 표시할 수 없어요</translation>
+    </message>
+    <message>
         <source>New tab</source>
         <translation>새 탭</translation>
     </message>
@@ -582,18 +586,6 @@
         <source>Getting the browser, %1%</source>
         <translation>브라우저 내려받는 중(%1%)</translation>
     </message>
-    <message>
-        <source>Starting the browser</source>
-        <translation>브라우저 시작 중</translation>
-    </message>
-    <message>
-        <source>The browser is asleep</source>
-        <translation>브라우저가 절전 상태예요</translation>
-    </message>
-    <message>
-        <source>Wake it</source>
-        <translation>깨우기</translation>
-    </message>
 </context>
 <context>
     <name>CanvasDock</name>
@@ -604,6 +596,10 @@
     <message>
         <source>Files</source>
         <translation>파일</translation>
+    </message>
+    <message>
+        <source>Screen</source>
+        <translation>화면</translation>
     </message>
     <message>
         <source>Close</source>
@@ -768,6 +764,22 @@
         <translation>휴지통으로 이동</translation>
     </message>
     <message>
+        <source>This computer&apos;s screen</source>
+        <translation>이 컴퓨터의 화면</translation>
+    </message>
+    <message>
+        <source>Your other devices show it on this canvas.</source>
+        <translation>다른 기기에서는 이 캔버스에 보여요.</translation>
+    </message>
+    <message>
+        <source>Sharing is off</source>
+        <translation>공유가 꺼져 있어요</translation>
+    </message>
+    <message>
+        <source>Turn on</source>
+        <translation>켜기</translation>
+    </message>
+    <message>
         <source>The file is missing</source>
         <translation>파일을 찾을 수 없어요</translation>
     </message>
@@ -778,6 +790,49 @@
     <message>
         <source>Try again</source>
         <translation>다시 시도</translation>
+    </message>
+</context>
+<context>
+    <name>CanvasScreen</name>
+    <message>
+        <source>Main display</source>
+        <translation>주 디스플레이</translation>
+    </message>
+    <message>
+        <source>Display %1</source>
+        <translation>디스플레이 %1</translation>
+    </message>
+    <message>
+        <source>Window</source>
+        <translation>윈도우</translation>
+    </message>
+    <message>
+        <source>Screen</source>
+        <translation>화면</translation>
+    </message>
+    <message>
+        <source>Show another display or window</source>
+        <translation>다른 디스플레이나 윈도우 보기</translation>
+    </message>
+    <message>
+        <source>Show the whole screen</source>
+        <translation>화면 전체 보기</translation>
+    </message>
+    <message>
+        <source>Allow control on %1</source>
+        <translation>%1에서 제어를 허용하세요</translation>
+    </message>
+    <message>
+        <source>Can&apos;t show the screen</source>
+        <translation>화면을 표시할 수 없어요</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>복사됨</translation>
+    </message>
+    <message>
+        <source>View only</source>
+        <translation>보기 전용</translation>
     </message>
 </context>
 <context>
@@ -2665,6 +2720,26 @@
         <translation>종료</translation>
     </message>
     <message>
+        <source>Screen</source>
+        <translation>화면</translation>
+    </message>
+    <message>
+        <source>While someone watches, Kodosi shows who, with a way to stop.</source>
+        <translation>누군가 보고 있는 동안 Kodosi가 누구인지와 중단하는 방법을 보여줘요.</translation>
+    </message>
+    <message>
+        <source>Let my other devices see and control this computer</source>
+        <translation>내 다른 기기에서 이 컴퓨터를 보고 제어할 수 있게 하기</translation>
+    </message>
+    <message>
+        <source>Allow on this computer</source>
+        <translation>이 컴퓨터에서 허용</translation>
+    </message>
+    <message>
+        <source>Allow…</source>
+        <translation>허용…</translation>
+    </message>
+    <message>
         <source>Privacy policy</source>
         <translation>개인정보 처리방침</translation>
     </message>
@@ -4428,6 +4503,10 @@
         <translation>브라우저 열기</translation>
     </message>
     <message>
+        <source>Open Screen</source>
+        <translation>화면 열기</translation>
+    </message>
+    <message>
         <source>Add a file…</source>
         <translation>파일 추가…</translation>
     </message>
@@ -4887,6 +4966,37 @@
     </message>
 </context>
 <context>
+    <name>VideoCover</name>
+    <message>
+        <source>Sharing is off on %1</source>
+        <translation>%1에서 공유가 꺼져 있어요</translation>
+    </message>
+    <message>
+        <source>%1 is offline</source>
+        <translation>%1 오프라인</translation>
+    </message>
+    <message>
+        <source>%1 is locked</source>
+        <translation>%1 잠김</translation>
+    </message>
+    <message>
+        <source>%1 is on another account</source>
+        <translation>%1에서 다른 계정을 사용 중이에요</translation>
+    </message>
+    <message>
+        <source>%1 is asleep</source>
+        <translation>%1 잠자기 상태</translation>
+    </message>
+    <message>
+        <source>Allow screen recording on %1</source>
+        <translation>%1에서 화면 녹화를 허용하세요</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>다시 시도</translation>
+    </message>
+</context>
+<context>
     <name>WindowControls</name>
     <message>
         <source>Minimize</source>
@@ -5085,6 +5195,10 @@
 </context>
 <context>
     <name>kodosi::CanvasModel</name>
+    <message>
+        <source>the screen of this computer</source>
+        <translation>이 컴퓨터의 화면</translation>
+    </message>
     <message>
         <source>the shared browser</source>
         <translation>공유 브라우저</translation>

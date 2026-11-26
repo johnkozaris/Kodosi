@@ -42,10 +42,12 @@ Run from the repository root (`just --list` shows every available recipe):
 | `just documents-app-check` | Format-check and lint the standalone Tauri documents app |
 | `just documents-app-run <files>` | Launch the standalone documents app with one window per file |
 | `just browser-check` | Format-check, lint, and test the shared browser crate and engine |
+| `just stream-check` | Format-check, lint, and test the stream crates and encoders |
+| `just screen-check` | Format-check, lint, and test the screen crates and the Kodosi Screen helper |
 | `just browser-engine-build` | Build Kodosi Browser for development into `.tools/kodosi-browser/` |
 | `just rust-check` | Run all Rust formatting, Clippy, dependency, Ghostty, and test checks |
 | `just backend-check` | Verify the .NET SDK pin, build, and run backend tests (DB tests require Docker) |
-| `just check-all` | Run Rust, documents, browser, backend, and translation checks |
+| `just check-all` | Run Rust, documents, browser, stream, screen, backend, and translation checks |
 | `just mac-build`, `just mac-check` | Build or fully check the macOS app |
 | `just linux-build`, `just linux-check` | Build or fully check the Linux app |
 | `just windows-check` | Build and check the Windows app (run on Windows) |
@@ -66,7 +68,7 @@ Run the checks covering everything you touched:
 | Area changed | Command |
 | --- | --- |
 | Runtime, protocol contract, or Rust dependency | `just rust-check` |
-| Live documents or shared browser | `just documents-check`, `just documents-app-check`, `just browser-check` |
+| Live documents, shared browser, video streams, or screens | `just documents-check`, `just documents-app-check`, `just browser-check`, `just stream-check`, `just screen-check` |
 | Backend | `just backend-check` |
 | Sign-in theme or extension | `just sign-in-check` |
 | Any user-facing string | `just translations-check` |
@@ -143,6 +145,26 @@ time, so Chromium is never compiled from source):
   allowing app and engine releases to ship independently. Bump `VERSION` whenever the link protocol
   changes, and bump `browser/engine/Cargo.toml` on every engine change so hosts recognize the
   newer build in the feed.
+
+### Kodosi Screen
+
+Kodosi Screen, the helper that captures a computer's screen and plays viewers' input there, ships
+with each desktop app, which builds it with `screen/build/build-helper.py`:
+
+- On a Mac it is an app of its own inside the Mac app's `Contents/Helpers`, where the Mac build
+  puts it and signs it, so that macOS grants Screen Recording and Accessibility to it alone. The
+  host starts it through Launch Services, so it needs its own permissions in System Settings even
+  when the terminal that starts the host has them.
+- On Linux and Windows it is the `kodosi-screen` program next to the `kodosi` program, where the
+  app's build puts it, optimized even in a development build because it may encode video in
+  software. The host runs it as its child. On Linux it shares the screen through the desktop's
+  portal (remote desktop and screen cast, with the clipboard where the desktop offers it), PipeWire
+  and libei, so it needs a desktop whose portal offers remote desktop with libei input, such as
+  KDE Plasma 6. Building it needs PipeWire's headers and libclang (`libpipewire-0.3-dev` and
+  `libclang-dev` on Ubuntu), also for `just screen-check`.
+
+A host that does not run from an app, such as `just rust-cli-build`, finds the helper through
+`KODOSI_SCREEN_HELPER`: the `Kodosi Screen.app` folder on a Mac, the program elsewhere.
 
 ## Texts and languages
 

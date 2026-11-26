@@ -15,3 +15,6 @@ control is keyboard-accessible, works with screen readers, and shows visible foc
 - HTML pages and live document editors only load when Chromium's sandbox is available. In
   environments that block the sandbox (such as running as root on Linux), canvas files fall back
   to cards that let you open the file externally or save a copy.
+- The app shows another computer's screen on the canvas of that computer's terminals, as the Mac
+  app does. Settings offer to share this computer's own screen only where the system lets Kodosi
+  capture it.

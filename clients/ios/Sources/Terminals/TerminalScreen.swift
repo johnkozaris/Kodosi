@@ -113,6 +113,8 @@ private struct TerminalScreenContent: View {
                                        interrupt: controller.interrupt)
                         {
                             openBrowser(of: session)
+                        } openScreen: {
+                            openScreen(of: session)
                         } addFile: {
                             addingFile = true
                         },
@@ -153,6 +155,8 @@ private struct TerminalScreenContent: View {
                     }
                     TerminalMenu(session: session, prompt: $prompt, showsSharing: $showsSharing, interrupt: controller.interrupt) {
                         openBrowser(of: session)
+                    } openScreen: {
+                        openScreen(of: session)
                     } addFile: {
                         addingFile = true
                     }
@@ -255,6 +259,15 @@ private struct TerminalScreenContent: View {
         Task {
             do {
                 try await model.terminals.canvas.openBrowser(of: session)
+            } catch { model.notices.show(error) }
+        }
+        canvasOpen = true
+    }
+
+    private func openScreen(of session: RuntimeSession) {
+        Task {
+            do {
+                try await model.terminals.canvas.openScreen(of: session)
             } catch { model.notices.show(error) }
         }
         canvasOpen = true

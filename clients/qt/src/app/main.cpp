@@ -238,6 +238,8 @@ int main(int argc, char* argv[])
             documents.apply(event);
         if (type.startsWith(QStringLiteral("browser.")))
             canvas.applyBrowser(event);
+        if (type.startsWith(QStringLiteral("screen.")))
+            canvas.applyScreen(event);
         if (type == QStringLiteral("provider.result") || type == QStringLiteral("provider.error")) {
             history.apply(event, payload);
             providerFiles.apply(event);

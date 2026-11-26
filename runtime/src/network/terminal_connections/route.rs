@@ -2,7 +2,12 @@ use std::{collections::VecDeque, net::SocketAddr, sync::atomic::AtomicUsize};
 
 use tokio::sync::watch;
 
-use super::{channel::Transport, peers::Lane, wire::Frame, *};
+use super::{
+    channel::Transport,
+    peers::{Lane, Media},
+    wire::Frame,
+    *,
+};
 
 #[cfg(test)]
 pub(super) mod tests;
@@ -23,8 +28,12 @@ const ANSWER_WAIT: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Path {
+    /// Frames ride the server's pipe.
     Relay,
+    /// Frames ride a QUIC lane straight between the two devices.
     Direct,
+    /// Frames ride a QUIC lane that the server's UDP relay forwards.
+    Forwarded,
 }
 
 /// Only the viewer initiates promotion to a direct lane; either side may fall back to the relay.
@@ -63,6 +72,7 @@ pub(super) struct Route {
 pub(super) struct Paths {
     lanes: mpsc::Sender<Lane>,
     path: watch::Receiver<Path>,
+    link: watch::Receiver<Option<Media>>,
     late: watch::Receiver<bool>,
 }
 
@@ -72,6 +82,7 @@ impl Route {
         let (delivered, incoming) = mpsc::unbounded_channel();
         let (lanes, attached) = mpsc::channel(1);
         let (moved, path) = watch::channel(Path::Relay);
+        let (linked, link) = watch::channel(None);
         let (lateness, late) = watch::channel(false);
         let waiting = Arc::new(AtomicUsize::new(0));
         let now = tokio::time::Instant::now();
@@ -98,6 +109,7 @@ impl Route {
                 incoming: delivered,
                 waiting: Arc::clone(&waiting),
                 path: moved,
+                link: linked,
                 late: lateness,
             }
             .run(),
@@ -108,7 +120,12 @@ impl Route {
                 incoming,
                 waiting,
             },
-            Paths { lanes, path, late },
+            Paths {
+                lanes,
+                path,
+                link,
+                late,
+            },
         )
     }
 }
@@ -141,6 +158,11 @@ impl Paths {
 
     pub(super) fn path(&self) -> watch::Receiver<Path> {
         self.path.clone()
+    }
+
+    /// The QUIC connection under the lane while the route sends on it, for video datagrams.
+    pub(super) fn link(&self) -> watch::Receiver<Option<Media>> {
+        self.link.clone()
     }
 
     async fn went_direct(&mut self) -> bool {
@@ -179,6 +201,7 @@ struct Actor<R> {
     incoming: mpsc::UnboundedSender<Incoming>,
     waiting: Arc<AtomicUsize>,
     path: watch::Sender<Path>,
+    link: watch::Sender<Option<Media>>,
     late: watch::Sender<bool>,
 }
 
@@ -454,13 +477,30 @@ impl<R: Transport> Actor<R> {
     }
 
     fn publish(&self) {
-        let path = match (&self.lane, self.sending, self.held) {
-            (Some(_), Carrier::Lane, false) => Path::Direct,
-            _ => Path::Relay,
+        let lane = match (&self.lane, self.sending, self.held) {
+            (Some(lane), Carrier::Lane, false) => Some(lane),
+            _ => None,
+        };
+        let path = match lane {
+            Some(lane) if lane.forwarded() => Path::Forwarded,
+            Some(_) => Path::Direct,
+            None => Path::Relay,
         };
         self.path.send_if_modified(|current| {
             let changed = *current != path;
             *current = path;
+            changed
+        });
+        let media = lane.and_then(Lane::media);
+        self.link.send_if_modified(|current| {
+            let changed = match (current.as_ref(), media.as_ref()) {
+                (Some(current), Some(media)) => !current.same(media),
+                (None, None) => false,
+                _ => true,
+            };
+            if changed {
+                current.clone_from(&media);
+            }
             changed
         });
     }
@@ -510,10 +550,13 @@ fn number(rest: &[u8]) -> Result<u64> {
 }
 
 /// Direct-path discovery for a route. Peer addresses are exchanged inside the encrypted channel
-/// so the relay server never sees them.
+/// so the relay server never sees them, and only between the devices of one person: the devices
+/// of two people meet only through the server's UDP relay, so neither learns the other's address.
 pub(super) struct Finder {
     frames: mpsc::Receiver<Frame>,
     side: Side,
+    /// The pipe whose relay allocation the finder holds until it ends.
+    relayed: Option<(Arc<Peers>, Uuid)>,
     stop: CancellationToken,
 }
 
@@ -527,6 +570,8 @@ enum Side {
         paths: Paths,
         key: Vec<u8>,
         pipe: Uuid,
+        /// The viewer is a device of this person, which may learn this device's addresses.
+        own: bool,
         frames: mpsc::Sender<Frame>,
         answering: Option<tokio::task::AbortHandle>,
     },
@@ -543,8 +588,8 @@ impl Finder {
     pub(super) fn viewer(
         peers: Option<Arc<Peers>>,
         paths: Paths,
-        host_key: Vec<u8>,
-        pipe: Uuid,
+        (host_key, pipe, own): (Vec<u8>, Uuid, bool),
+        link: Arc<Link>,
     ) -> Self {
         let Some(peers) = peers else {
             return Self::relay();
@@ -552,13 +597,19 @@ impl Finder {
         let (frames, outgoing) = mpsc::channel(4);
         let stop = CancellationToken::new();
         let (answers, answered) = mpsc::channel(1);
-        tokio::spawn(
-            stop.clone()
-                .run_until_cancelled_owned(look(peers, paths, host_key, pipe, frames, answered)),
-        );
+        peers.wanted(pipe);
+        let relayed = Some((Arc::clone(&peers), pipe));
+        tokio::spawn(stop.clone().run_until_cancelled_owned(look(
+            peers,
+            paths,
+            (host_key, pipe, own, link),
+            frames,
+            answered,
+        )));
         Self {
             frames: outgoing,
             side: Side::Viewer { answers },
+            relayed,
             stop,
         }
     }
@@ -568,6 +619,7 @@ impl Finder {
         Self {
             frames: outgoing,
             side: Side::Relay { frames },
+            relayed: None,
             stop: CancellationToken::new(),
         }
     }
@@ -576,20 +628,22 @@ impl Finder {
     pub(super) fn host(
         peers: Option<Arc<Peers>>,
         paths: Paths,
-        viewer_key: Vec<u8>,
-        pipe: Uuid,
+        (viewer_key, pipe, own): (Vec<u8>, Uuid, bool),
     ) -> Self {
         let Some(peers) = peers else {
             return Self::relay();
         };
         let (frames, outgoing) = mpsc::channel(4);
+        peers.wanted(pipe);
         Self {
             frames: outgoing,
+            relayed: Some((Arc::clone(&peers), pipe)),
             side: Side::Host {
                 peers,
                 paths,
                 key: viewer_key,
                 pipe,
+                own,
                 frames,
                 answering: None,
             },
@@ -613,6 +667,7 @@ impl Finder {
                     paths,
                     key,
                     pipe,
+                    own,
                     frames,
                     answering,
                 },
@@ -625,8 +680,7 @@ impl Finder {
                     tokio::spawn(self.stop.clone().run_until_cancelled_owned(answer(
                         Arc::clone(peers),
                         paths.clone(),
-                        key.clone(),
-                        *pipe,
+                        (key.clone(), *pipe, *own),
                         addresses,
                         frames.clone(),
                     )))
@@ -647,6 +701,9 @@ impl Finder {
 impl Drop for Finder {
     fn drop(&mut self) {
         self.stop.cancel();
+        if let Some((peers, pipe)) = self.relayed.take() {
+            peers.forget_relayed(pipe);
+        }
         #[cfg(feature = "host")]
         if let Side::Host {
             answering: Some(answering),
@@ -658,32 +715,47 @@ impl Drop for Finder {
     }
 }
 
+/// Offers this device's addresses to the host of a terminal of its own person, or none to the
+/// host of another person's, and connects to its answer, straight or through the relay, again
+/// after each loss of the connection.
 async fn look(
     peers: Arc<Peers>,
     mut paths: Paths,
-    host_key: Vec<u8>,
-    pipe: Uuid,
+    (host_key, pipe, own, link): (Vec<u8>, Uuid, bool, Arc<Link>),
     frames: mpsc::Sender<Frame>,
     mut answers: mpsc::Receiver<Vec<SocketAddr>>,
 ) {
     let mut failures = 0_u32;
     let mut changes = peers.changes();
     loop {
-        let addresses = peers.addresses().await;
+        let relays = peers.relays();
+        if !own && !relays {
+            return;
+        }
+        let addresses = if own {
+            peers.addresses().await
+        } else {
+            Vec::new()
+        };
         // Drain any late PathAnswer left over from a previous timed-out offer.
         while answers.try_recv().is_ok() {}
-        if addresses.is_empty() {
+        if own && addresses.is_empty() {
             if changes.changed().await.is_err() {
                 return;
             }
             failures = 0;
             continue;
         }
+        if relays {
+            link.relay(pipe);
+        }
         if frames.send(Frame::PathOffer { addresses }).await.is_err() {
             return;
         }
         let theirs = match tokio::time::timeout(ANSWER_WAIT, answers.recv()).await {
-            Ok(Some(theirs)) if !theirs.is_empty() => theirs,
+            Ok(Some(theirs)) if own && !theirs.is_empty() => theirs,
+            // Another person's host never learns this device's address, whatever it answers.
+            Ok(Some(_)) | Err(_) if !own => Vec::new(),
             Ok(_) => return,
             Err(_) => Vec::new(),
         };
@@ -719,16 +791,21 @@ async fn look(
     }
 }
 
+/// Answers an offer with this device's addresses for a device of its own person, or with none for
+/// another person's, which then meets this device only through the relay.
 #[cfg(feature = "host")]
 async fn answer(
     peers: Arc<Peers>,
     paths: Paths,
-    viewer_key: Vec<u8>,
-    pipe: Uuid,
+    (viewer_key, pipe, own): (Vec<u8>, Uuid, bool),
     theirs: Vec<SocketAddr>,
     frames: mpsc::Sender<Frame>,
 ) {
-    let ours = peers.addresses().await;
+    let (ours, theirs) = if own {
+        (peers.addresses().await, theirs)
+    } else {
+        (Vec::new(), Vec::new())
+    };
     let expected = peers.expect(&viewer_key, pipe);
     if frames
         .send(Frame::PathAnswer { addresses: ours })

@@ -152,6 +152,12 @@ A terminal and its open canvas form two lobes of one body, with a soft waist at 
 them. Canvas tab controls sit in a recessed well, with files and browser tabs sitting above their
 content. Drop targets show a dashed copper outline while the dragged item appears as a lifted chip.
 
+The shared browser and a computer's screen show one state on their picture, calm by default: the
+picture alone while live; the last picture dimmed with a pulsing `glowOrange` dot while it comes
+back, which turns into a Reconnecting pill if that takes a while; one line under an icon in a well
+when the computer is away; and Try again only when something broke unexpectedly. A spinner without
+words appears only when there is no picture yet, and a green check says Copied for a moment.
+
 ### Conversation and Dosi
 Your own messages align right as bubbles; other people show an avatar and name, and agents show
 their icon, owner, and terminal name. Mentions render as tinted chips.

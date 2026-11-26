@@ -37,11 +37,13 @@ mod channel;
 #[cfg(feature = "host")]
 mod host;
 mod link;
+mod media;
 #[cfg(feature = "host")]
 mod pacer;
 mod participant;
 mod peers;
 mod route;
+mod scream;
 
 #[cfg(feature = "host")]
 pub(crate) use calls::{Answering, answer as answer_calls};
@@ -333,7 +335,12 @@ async fn admitted(
     send_json(&mut socket, json!({"type":"hello","protocolVersion":crate::protocol::TERMINAL_CONNECTION_VERSION,"deviceId":credentials.keys.device_id,"deviceSession":device_session,"hosts":cfg!(feature = "host")})).await?;
     let ready = read_json(&mut socket).await?;
     match wire::text(&ready, "type")? {
-        "ready" => Ok(Some(socket)),
+        "ready" => {
+            if let Ok(peers) = network.peers(credentials) {
+                peers.relay_at(relay(&ready));
+            }
+            Ok(Some(socket))
+        }
         "refused" if ready.get("reason").and_then(Value::as_str) == Some("version") => {
             let reported = |name: &str| ready.get(name).and_then(Value::as_u64).unwrap_or_default();
             super::http::supported(
@@ -350,6 +357,23 @@ async fn admitted(
             "The connection service did not admit this device."
         ))),
     }
+}
+
+/// The `host:port` of the Kodosi server's UDP relay, when `ready` names one.
+fn relay(ready: &Value) -> Option<String> {
+    let relay = ready.get("relay")?;
+    let address = relay
+        .get("address")?
+        .as_str()
+        .filter(|address| (1..=253).contains(&address.len()))?;
+    let port = u16::try_from(relay.get("port")?.as_u64()?)
+        .ok()
+        .filter(|port| *port != 0)?;
+    Some(if address.contains(':') {
+        format!("[{address}]:{port}")
+    } else {
+        format!("{address}:{port}")
+    })
 }
 
 async fn send_json(socket: &mut Socket, value: Value) -> Result<()> {

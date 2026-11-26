@@ -216,6 +216,31 @@ Codex, Cursor, OpenCode(macOS 및 Linux)는 Kodosi로 시작했을 때 사용법
 - 터미널에 접근할 수 있는 사람은 누구나 그 캔버스를 보고 공유 브라우저를 함께 쓸 수 있어요. 터미널을
   닫으면 캔버스가 비워지고 공유 터미널 브라우저의 로그인 정보도 삭제돼요.
 
+### 컴퓨터의 화면
+
+- 휴대폰이나 다른 컴퓨터에서 컴퓨터를 보고 제어하려면 그 컴퓨터에서 공유를 켜세요. Mac에서는
+  **설정 › 일반**의 **내 다른 기기에서 이 Mac을 보고 제어할 수 있게 하기**를, Linux와 Windows에서는
+  **설정 › 계정**의 **내 다른 기기에서 이 컴퓨터를 보고 제어할 수 있게 하기**를 켜면 돼요.
+  - Mac에서는 이어서 macOS가 Kodosi의 일부인 Kodosi Screen이 화면을 녹화하고 제어하도록 허용할지
+    물어요. 이 권한은 Kodosi Screen만 가지므로 터미널의 프로그램은 갖지 않아요. macOS가 묻지 않으면
+    같은 설정의 **허용…**에서 권한을 켜는 위치를 확인할 수 있어요.
+  - Linux에서는 Wayland 환경의 KDE Plasma 6과 GNOME에서 공유할 수 있어요. KDE에서는 공유를 켜기만
+    하면 되고, GNOME은 Kodosi가 화면을 공유해도 되는지 한 번 묻고 그 답을 기억해요.
+  - Windows에서는 권한이 필요 없어요. Kodosi는 관리자 권한으로 실행되는 프로그램을 제어할 수 없고,
+    Windows가 관리자 승인을 요청하는 동안에는 화면이 잠긴 것으로 표시돼요. 누가 보고 있는지 알려
+    주는 아이콘은 고정하기 전까지 작업 표시줄의 ^ 안에 숨겨져 있을 수 있어요.
+- 그 컴퓨터에 있는 터미널의 동작 메뉴에서 **화면 열기**를 고르거나, 에이전트가
+  `kodosi show screen`을 실행하게 하세요. 화면 위에서 다른 디스플레이를 고르거나 Mac에서는 창 하나를
+  고를 수 있고, 핀치로 확대하며, 컴퓨터 앞에 앉은 것처럼 가리키고 클릭하고 입력할 수 있어요.
+  단축키는 누른 키의 글자를 기준으로 동작하며, Linux와 Windows에서는 ⌘가 Ctrl로 동작해요. 그곳에서
+  복사한 텍스트는 내 기기로 오고, 붙여넣는 내용은 내 기기에서 가져와요.
+- 화면을 보여 줄 수 없을 때는 그 이유를 한 줄로 알려 줘요. 컴퓨터가 잠겨 있거나, 잠자기 상태이거나,
+  오프라인이거나, 다른 계정을 사용 중이거나, 공유가 꺼져 있는 경우예요. 상황이 바뀌면 화면이 저절로
+  다시 나타나요.
+- 화면은 내 기기에서만 보여요. 친구와 공유하는 터미널에서도 마찬가지예요. 누군가 보는 동안에는
+  컴퓨터의 메뉴 막대나 시스템 트레이에 보고 있는 기기와 공유를 멈추는 버튼이 표시돼요. 멈추면 컴퓨터
+  앞에 있는 사람이 다시 켤 때까지 공유가 꺼져 있어요.
+
 ## 5. Dosi에게 묻기
 
 Dosi는 다른 에이전트들을 조율해 주는 에이전트예요. 사이드바 아래쪽의 Dosi 얼굴을 클릭하거나 ⌘J를
@@ -364,7 +389,7 @@ Mac은 Kodosi가 로컬 네트워크를 사용할 수 있을 때만 깨우기 �
 | `kodosi terminal wait <terminal> --until done,failed` | 터미널이 지정한 상태 중 하나가 될 때까지 대기해요. |
 | `kodosi terminal show <terminal>` | 앱에서 해당 터미널에 포커스를 맞춰요. |
 | `kodosi dosi say "What needs me?"` | Dosi에게 메시지를 보내요. `kodosi dosi show`로 대화 내역을 출력하고, `kodosi dosi stop`으로 진행 중인 차례를 취소할 수 있어요. |
-| `kodosi show <file>` | 이 터미널의 캔버스에 파일을 열어요. 캔버스는 이 터미널을 보고 있는 사람들에게 열려요. `kodosi show <address>`로 공유 브라우저에 URL을 열고, `kodosi show browser`로 브라우저를 현재 상태 그대로 띄우며, `kodosi canvas`로 캔버스 항목 목록을 보고, `kodosi canvas remove <file>`로 항목을 제거할 수 있어요. |
+| `kodosi show <file>` | 이 터미널의 캔버스에 파일을 열어요. 캔버스는 이 터미널을 보고 있는 사람들에게 열려요. `kodosi show <address>`로 공유 브라우저에 URL을 열고, `kodosi show browser`로 브라우저를 현재 상태 그대로 띄우며, `kodosi show screen`이나 `kodosi show window <words>`로 컴퓨터의 화면을 주인의 기기에 보여 주고, `kodosi canvas`로 캔버스 항목 목록을 보고, `kodosi canvas remove <file>`로 항목을 제거할 수 있어요. |
 | `kodosi browser open <address>` | 이 터미널의 공유 브라우저에서 URL을 열어요(다른 모든 agent-browser 명령도 함께 사용할 수 있어요). |
 | `kodosi skill` | Kodosi에서 협업하기 위한 에이전트 skill을 출력해요. `kodosi skill canvas`는 캔버스용 skill을 출력해요. |
 | `kodosi dosi skill` | 다른 에이전트가 Dosi처럼 동작하도록 하는 skill을 출력해요. |
