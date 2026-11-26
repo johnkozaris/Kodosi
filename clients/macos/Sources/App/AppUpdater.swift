@@ -22,7 +22,6 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
             if configured {
                 controller.updater.automaticallyDownloadsUpdates = automatic
             }
-            restartIfQuiet()
         }
     }
 

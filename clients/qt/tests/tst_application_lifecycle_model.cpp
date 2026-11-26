@@ -122,6 +122,9 @@ void ApplicationLifecycleModelTest::anInstalledUpdateRestartsKodosiByItselfOnlyW
     model.applyRestart(true, 0);
     QVERIFY(!model.restartRequested());
     model.setUpdatesAutomatically(true);
+    QVERIFY(!model.restartRequested());
+    model.applyRestart(false, 0);
+    model.applyRestart(true, 0);
     QVERIFY(model.restartRequested());
     QVERIFY(model.restartsQuietly());
 }
