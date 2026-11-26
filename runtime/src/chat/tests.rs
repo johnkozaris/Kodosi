@@ -837,6 +837,52 @@ fn a_stop_in_the_terminal_leaves_the_command_of_codex_to_the_person() {
     ));
 }
 
+#[test]
+fn a_message_goes_into_the_turn_of_codex_and_starts_the_next_turn_when_the_turn_ended_first() {
+    let (before, after) = stopped_turn();
+    let ended = after
+        .lines()
+        .position(|line| line.contains("turn/completed"))
+        .expect("the end of the turn");
+    let until = after.lines().take(ended + 1).collect::<Vec<_>>().join("\n");
+    let mut play = Play::codex(&[codex!("first"), &before], &[]);
+    play.chat
+        .queue("Print only the even numbers.".to_owned(), Some(sam()));
+
+    let steer = play.agent.commands(&play.chat);
+    assert_eq!(steer.len(), 1, "{steer:?}");
+    assert_eq!(steer[0]["m"], "turn/steer");
+    assert_eq!(
+        steer[0]["p"]["threadId"],
+        "00000001-0000-7000-8000-000000000000"
+    );
+    assert_eq!(steer[0]["p"]["expectedTurnId"], "turn10");
+    assert_eq!(
+        steer[0]["p"]["input"][0]["text"],
+        "Print only the even numbers."
+    );
+
+    play.more(&until, &[]);
+    assert_eq!(
+        play.chat.queued().len(),
+        1,
+        "the message waits for Codex's answer"
+    );
+    play.take(&json!({
+        "k": "reply",
+        "tag": steer[0]["tag"],
+        "e": {"code": -32600, "message": "no active turn to steer"},
+    }));
+
+    let start = play.agent.commands(&play.chat);
+    assert_eq!(start.len(), 1, "{start:?}");
+    assert_eq!(start[0]["m"], "turn/start");
+    assert_eq!(
+        start[0]["p"]["input"][0]["text"],
+        "Print only the even numbers."
+    );
+}
+
 #[cfg(unix)]
 #[tokio::test]
 async fn the_next_host_ends_a_server_of_codex_that_the_host_before_left() {
@@ -987,6 +1033,51 @@ fn always_allows_the_commands_of_copilot_for_the_session_and_the_next_one_asks_n
             .map(|tool| tool.state)
             .collect::<Vec<_>>(),
         [ToolState::Done, ToolState::Done]
+    );
+}
+
+#[test]
+fn a_message_goes_into_the_turn_of_copilot_at_once_and_a_command_waits_for_its_end() {
+    let (running, _) = split_at(copilot!("always"), "\"session.idle\"");
+    let mut play = Play::copilot(&[&running], &[ChatAnswer::Always]);
+    play.chat
+        .queue("Also count the pens.".to_owned(), Some(sam()));
+    play.chat.queue("/compact".to_owned(), Some(sam()));
+
+    assert_eq!(
+        play.agent.commands(&play.chat),
+        [json!({"do": "prompt", "n": 1, "text": "Also count the pens.", "steer": true})]
+    );
+    play.take(&json!({
+        "k": "event",
+        "type": "user.message",
+        "data": {"content": "Also count the pens."},
+        "at": 1_795_270_669_500_u64,
+    }));
+    let said = play
+        .view
+        .items
+        .iter()
+        .rev()
+        .find_map(|item| match &item.body {
+            ChatBody::Person { text, by } => Some((text.as_str(), by.clone())),
+            _ => None,
+        });
+    assert_eq!(said, Some(("Also count the pens.", Some(sam()))));
+    assert!(
+        play.agent.commands(&play.chat).is_empty(),
+        "a command waits for the end of the turn"
+    );
+
+    play.take(&json!({
+        "k": "event",
+        "type": "session.idle",
+        "data": {},
+        "at": 1_795_270_669_615_u64,
+    }));
+    assert_eq!(
+        play.agent.commands(&play.chat),
+        [json!({"do": "prompt", "n": 2, "text": "/compact"})]
     );
 }
 
