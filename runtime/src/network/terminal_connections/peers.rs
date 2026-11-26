@@ -992,6 +992,10 @@ fn udp_socket() -> io::Result<std::net::UdpSocket> {
         })
         .ok_or_else(|| io::Error::from(io::ErrorKind::AddrNotAvailable))?;
     socket.set_nonblocking(true)?;
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    if let Err(error) = kodosi_os::net::carry_as_screen_sharing(&socket) {
+        tracing::warn!(%error, "the direct connection socket keeps the default traffic class");
+    }
     Ok(socket)
 }
 

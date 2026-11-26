@@ -3,6 +3,8 @@
 pub mod console;
 pub mod fs;
 pub mod ipc;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+pub mod net;
 pub mod process;
 pub mod secrets;
 
