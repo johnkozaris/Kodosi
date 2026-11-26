@@ -581,6 +581,7 @@
     </plurals>
     <string name="chat_recap">振り返り</string>
     <string name="chat_shows_in_terminal">%1$s はこれをターミナルに表示しています。</string>
+    <string name="chat_reads_before_next_step">%1$s は次のステップの前にこれを読みます。</string>
     <string name="chat_show_terminal">ターミナルを表示</string>
     <string name="chat_commands">コマンド</string>
     <string name="chat_tokens_of">%2$s トークン中 %1$s</string>

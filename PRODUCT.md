@@ -94,9 +94,9 @@ messages, answers, and stops travel back the same way. Kodosi never scrapes the 
 simulates keypresses for chat, so UI updates to an agent don't break it. Answering in chat answers
 the agent's real prompt, and permissions stay with the provider. A message sent while the agent
 works joins the running turn, as typing in the agent's terminal does, when the agent's interface
-takes it there; otherwise it waits in a queue for the next turn. Agents that don't report chat
-events simply use the normal terminal view. Each terminal opens in whichever view its agent works
-in, across all devices.
+takes it there; otherwise it waits in a queue for the next turn. Stopping a turn never drops a
+message that the agent hasn't read. Agents that don't report chat events simply use the normal
+terminal view. Each terminal opens in whichever view its agent works in, across all devices.
 
 ### People and agents are equals in a project
 Both humans and agents read and write the same project chat and tasks, and decide what to pick up

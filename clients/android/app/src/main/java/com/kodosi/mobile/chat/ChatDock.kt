@@ -357,9 +357,18 @@ private fun Queued(chat: TerminalChat, queued: ChatQueued, agent: AgentKind, sho
                             .wrapContentHeight()
                     )
                 }
+            } else if (queued.given) {
+                Text(
+                    stringResource(R.string.chat_reads_before_next_step, agentLabel(agent)),
+                    style = KodosiType.caption,
+                    color = colors.inkMuted,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
             }
         }
-        if (!queued.terminal) ActionIcon(AppSymbol.CLOSE, R.string.remove, { chat.unqueue(queued) }, face = 24.dp)
+        if (!queued.terminal && !queued.given) {
+            ActionIcon(AppSymbol.CLOSE, R.string.remove, { chat.unqueue(queued) }, face = 24.dp)
+        }
     }
 }
 

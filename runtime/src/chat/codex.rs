@@ -261,6 +261,9 @@ impl Codex {
         };
         if self.turn.is_some() {
             self.handed[index].steering = false;
+            if let Some(queued) = &self.handed[index].queued {
+                chat.give(queued);
+            }
         } else if let Some(Handed {
             queued: Some(queued),
             ..

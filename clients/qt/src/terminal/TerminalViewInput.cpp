@@ -354,10 +354,12 @@ void TerminalView::keyPressEvent(QKeyEvent* event)
         QQuickItem::keyPressEvent(event);
         return;
     }
+    // Programs that select text themselves, such as agent CLIs that take the mouse, copy on this
+    // key. With nothing selected in the terminal, the key goes on to the program, as in Ghostty.
     if (event->key() == Qt::Key_C
-        && event->modifiers().testFlags(Qt::ControlModifier | Qt::ShiftModifier)) {
+        && event->modifiers().testFlags(Qt::ControlModifier | Qt::ShiftModifier)
+        && copySelection()) {
         m_copyShortcutActive = true;
-        (void)copySelection();
         event->accept();
         return;
     }

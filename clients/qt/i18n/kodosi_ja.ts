@@ -877,6 +877,10 @@
         <translation>ターミナルを表示</translation>
     </message>
     <message>
+        <source>%1 reads this before its next step.</source>
+        <translation>%1 は次のステップの前にこれを読みます。</translation>
+    </message>
+    <message>
         <source>No agent runs in this terminal</source>
         <translation>このターミナルではエージェントが動いていません</translation>
     </message>

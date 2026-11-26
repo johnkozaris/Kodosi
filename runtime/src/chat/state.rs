@@ -249,6 +249,7 @@ impl Chat {
             by,
             refused: None,
             terminal: false,
+            given: false,
         });
         self.tell_queued();
         Some(id)
@@ -262,15 +263,24 @@ impl Chat {
     }
 
     pub(super) fn refuse(&mut self, id: &str, reason: String) {
-        if let Some(queued) = self.queued.iter_mut().find(|queued| queued.id == id) {
-            queued.refused = Some(reason);
-            self.tell_queued();
-        }
+        self.change_queued(id, |queued| queued.refused = Some(reason));
     }
 
     pub(super) fn in_terminal(&mut self, id: &str) {
+        self.change_queued(id, |queued| queued.terminal = true);
+    }
+
+    pub(super) fn give(&mut self, id: &str) {
+        self.change_queued(id, |queued| queued.given = true);
+    }
+
+    pub(super) fn take_back(&mut self, id: &str) {
+        self.change_queued(id, |queued| queued.given = false);
+    }
+
+    fn change_queued(&mut self, id: &str, change: impl FnOnce(&mut ChatQueued)) {
         if let Some(queued) = self.queued.iter_mut().find(|queued| queued.id == id) {
-            queued.terminal = true;
+            change(queued);
             self.tell_queued();
         }
     }

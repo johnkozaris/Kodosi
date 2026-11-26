@@ -857,7 +857,8 @@ void TerminalChat::shape()
         const auto waiting = value.toObject();
         queued.append(QVariantMap { { QStringLiteral("id"), text(waiting, "id") }, { QStringLiteral("text"), text(waiting, "text") },
             { QStringLiteral("refused"), text(waiting, "refused") },
-            { QStringLiteral("terminal"), waiting.value(QStringLiteral("terminal")).toBool() } });
+            { QStringLiteral("terminal"), waiting.value(QStringLiteral("terminal")).toBool() },
+            { QStringLiteral("given"), waiting.value(QStringLiteral("given")).toBool() } });
     }
     if (queued != m_queued) {
         m_queued = queued;

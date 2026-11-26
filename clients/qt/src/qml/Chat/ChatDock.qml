@@ -467,12 +467,14 @@ Item {
                 required property var modelData
                 readonly property bool refused: (modelData.refused || "").length > 0
                 readonly property bool terminal: !refused && modelData.terminal === true
+                readonly property bool given: !refused && !terminal && modelData.given === true
+                readonly property bool removable: !terminal && !given
 
                 Layout.fillWidth: true
                 implicitHeight: queuedColumn.implicitHeight
 
                 KIconButton {
-                    visible: !waiting.terminal
+                    visible: waiting.removable
                     anchors.right: queuedColumn.left
                     anchors.rightMargin: 6
                     y: (bubble.height - height) / 2
@@ -488,8 +490,9 @@ Item {
                     id: queuedColumn
 
                     anchors.right: parent.right
-                    width: Math.min(parent.width - (waiting.terminal ? 40 : 68), Math.max(queuedWords.implicitWidth + 40, refusedWords.visible ? refusedWords.implicitWidth : 0,
-                        terminalWords.visible ? terminalText.implicitWidth + terminalWords.spacing + showTerminal.implicitWidth : 0))
+                    width: Math.min(parent.width - (waiting.removable ? 68 : 40), Math.max(queuedWords.implicitWidth + 40, refusedWords.visible ? refusedWords.implicitWidth : 0,
+                        terminalWords.visible ? terminalText.implicitWidth + terminalWords.spacing + showTerminal.implicitWidth : 0,
+                        givenWords.visible ? givenWords.implicitWidth : 0))
                     spacing: 3
 
                     Rectangle {
@@ -593,6 +596,18 @@ Item {
                                 verticalAlignment: Text.AlignVCenter
                             }
                         }
+                    }
+                    PlainLabel {
+                        id: givenWords
+
+                        anchors.right: parent.right
+                        width: Math.min(implicitWidth, parent.width)
+                        visible: waiting.given
+                        text: qsTr("%1 reads this before its next step.").arg(root.agent)
+                        wrapMode: Text.WordWrap
+                        horizontalAlignment: Text.AlignRight
+                        color: root.look.inkMuted
+                        font.pixelSize: KodosiTheme.fontCaption
                     }
                 }
             }

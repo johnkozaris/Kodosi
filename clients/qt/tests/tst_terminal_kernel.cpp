@@ -379,6 +379,7 @@ private slots:
     void wheelScrollsGhosttyViewportWithoutChangingSequence();
     void terminalViewGatesDeniedCommandsAndRevocation();
     void terminalViewPastesClipboardThroughBoundedAuthority();
+    void terminalViewGivesTheCopyKeyToTheProgramWhenNothingIsSelected();
     void terminalProgramsWriteTheClipboardAndTheFocusedViewOfTheirOwnTerminalAnswersReads();
     void terminalProgramsReadTheClipboardOnlyWhenAllowed();
     void terminalViewMailboxRejectsReversedDisplayRevisions();
@@ -896,6 +897,27 @@ void TerminalKernelTest::terminalViewPastesClipboardThroughBoundedAuthority()
     QCoreApplication::sendEvent(&view, &oversized);
     QCOMPARE(dispatcher.inputCommands.size(), 4);
     QCOMPARE(errors.count(), 1);
+}
+
+void TerminalKernelTest::terminalViewGivesTheCopyKeyToTheProgramWhenNothingIsSelected()
+{
+    kodosi::TerminalSessionRegistry registry;
+    FakeTerminalDispatcher dispatcher;
+    kodosi::TerminalView view(m_window.contentItem());
+    view.setSize(QSizeF(800, 400));
+    view.setTerminalInteraction(true, false);
+    const kodosi::TerminalSubscription subscription {QStringLiteral("copy-key"), QStringLiteral("copy-key-subscription"), 1};
+    QVERIFY(view.attach(registry, dispatcher, subscription, QStringLiteral("incarnation")));
+    makeTerminalReady(registry, subscription);
+    registry.receiveData({subscription, 1, QByteArrayLiteral("\x1b[>3u")});
+    QCoreApplication::processEvents();
+
+    QKeyEvent press(QEvent::KeyPress, Qt::Key_C, Qt::ControlModifier | Qt::ShiftModifier, QStringLiteral("C"));
+    QCoreApplication::sendEvent(&view, &press);
+    QKeyEvent release(QEvent::KeyRelease, Qt::Key_C, Qt::ControlModifier | Qt::ShiftModifier, QStringLiteral("C"));
+    QCoreApplication::sendEvent(&view, &release);
+    const QVector<QByteArray> pressAndRelease {QByteArrayLiteral("\x1b[99;6u"), QByteArrayLiteral("\x1b[99;6:3u")};
+    QCOMPARE(dispatcher.inputCommands, pressAndRelease);
 }
 
 void TerminalKernelTest::terminalProgramsWriteTheClipboardAndTheFocusedViewOfTheirOwnTerminalAnswersReads()

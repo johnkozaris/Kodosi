@@ -880,6 +880,10 @@
         <translation>Εμφάνιση τερματικού</translation>
     </message>
     <message>
+        <source>%1 reads this before its next step.</source>
+        <translation>Το %1 το διαβάζει πριν από το επόμενο βήμα του.</translation>
+    </message>
+    <message>
         <source>No agent runs in this terminal</source>
         <translation>Δεν τρέχει κανένας agent σε αυτό το τερματικό</translation>
     </message>

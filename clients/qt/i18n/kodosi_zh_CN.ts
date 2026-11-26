@@ -877,6 +877,10 @@
         <translation>显示终端</translation>
     </message>
     <message>
+        <source>%1 reads this before its next step.</source>
+        <translation>%1 会在下一步之前读取此消息。</translation>
+    </message>
+    <message>
         <source>No agent runs in this terminal</source>
         <translation>此终端中没有运行的 Agent</translation>
     </message>

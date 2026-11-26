@@ -468,6 +468,10 @@ pub struct ChatQueued {
     /// The agent shows this command in its terminal, where a person finishes it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub terminal: bool,
+    /// The agent has this message for the turn that runs and reads it before its next step, so
+    /// it can no longer be removed.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub given: bool,
 }
 
 /// A slash command of the agent, as its own menu lists it.

@@ -262,7 +262,7 @@ private struct ChatQueuedRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: 6) {
             Spacer(minLength: 40)
-            if !queued.terminal {
+            if !queued.terminal, !queued.given {
                 IconButton(title: "Remove", bundle: .module, symbol: "xmark",
                            identifier: "chat.queued.remove.\(AccessibilityIdentifier.token(queued.id))", size: 22)
                 {
@@ -291,6 +291,9 @@ private struct ChatQueuedRow: View {
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("chat.queued.terminal")
                     }
+                } else if queued.given {
+                    Text("\(agent.label) reads this before its next step.", bundle: .module)
+                        .appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted)
                 }
             }
         }

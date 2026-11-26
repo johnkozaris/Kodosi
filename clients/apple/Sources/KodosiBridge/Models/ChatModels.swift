@@ -317,9 +317,12 @@ public struct ChatQueued: Decodable, Equatable, Identifiable, Sendable {
     public let refused: String?
     /// The agent shows this command in its terminal, where a person finishes it.
     public let terminal: Bool
+    /// The agent has this message for the turn that runs and reads it before its next step, so it
+    /// can no longer be removed.
+    public let given: Bool
 
     private enum Key: String, CodingKey {
-        case id, text, refused, terminal
+        case id, text, refused, terminal, given
     }
 
     public init(from decoder: any Decoder) throws {
@@ -328,6 +331,7 @@ public struct ChatQueued: Decodable, Equatable, Identifiable, Sendable {
         text = try fields.decode(String.self, forKey: .text)
         refused = try fields.decodeIfPresent(String.self, forKey: .refused)
         terminal = try fields.decodeIfPresent(Bool.self, forKey: .terminal) ?? false
+        given = try fields.decodeIfPresent(Bool.self, forKey: .given) ?? false
     }
 }
 

@@ -581,6 +581,7 @@
     </plurals>
     <string name="chat_recap">요약</string>
     <string name="chat_shows_in_terminal">%1$s의 터미널에 표시돼요.</string>
+    <string name="chat_reads_before_next_step">%1$s이(가) 다음 단계 전에 이 메시지를 읽어요.</string>
     <string name="chat_show_terminal">터미널 보기</string>
     <string name="chat_commands">명령</string>
     <string name="chat_tokens_of">%2$s 토큰 중 %1$s</string>

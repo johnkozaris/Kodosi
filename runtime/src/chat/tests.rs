@@ -1081,6 +1081,50 @@ fn a_message_goes_into_the_turn_of_copilot_at_once_and_a_command_waits_for_its_e
     );
 }
 
+#[test]
+fn a_stop_takes_back_the_message_that_copilot_has_not_read_and_sends_it_after_the_turn() {
+    let (running, _) = split_at(copilot!("always"), "\"session.idle\"");
+    let mut play = Play::copilot(&[&running], &[ChatAnswer::Always]);
+    play.chat
+        .queue("Also count the pens.".to_owned(), Some(sam()));
+    assert_eq!(
+        play.agent.commands(&play.chat),
+        [json!({"do": "prompt", "n": 1, "text": "Also count the pens.", "steer": true})]
+    );
+    play.take(&json!({"k": "did", "n": 1}));
+    assert!(play.view.queued[0].given, "Copilot has the message");
+
+    play.stop();
+    assert_eq!(play.calls.last(), Some(&json!({"do": "stop", "back": [1]})));
+    play.take(&json!({"k": "did", "n": 1, "back": true}));
+    assert!(!play.view.queued[0].given, "Copilot gave the message back");
+    assert!(
+        play.agent.commands(&play.chat).is_empty(),
+        "the message waits for the end of the stopped turn"
+    );
+
+    for kind in ["abort", "session.idle"] {
+        play.take(&json!({"k": "event", "type": kind, "data": {}, "at": 1_795_270_669_615_u64}));
+    }
+    assert_eq!(play.ends().last(), Some(&TurnEnd::Stopped));
+    assert_eq!(
+        play.agent.commands(&play.chat),
+        [json!({"do": "prompt", "n": 2, "text": "Also count the pens."})]
+    );
+}
+
+#[test]
+fn a_message_that_codex_took_into_its_turn_is_given() {
+    let (before, _) = stopped_turn();
+    let mut play = Play::codex(&[codex!("first"), &before], &[]);
+    play.chat
+        .queue("Print only the even numbers.".to_owned(), Some(sam()));
+    let steer = play.agent.commands(&play.chat);
+
+    play.take(&json!({"k": "reply", "tag": steer[0]["tag"], "r": {"turnId": "turn10"}}));
+    assert!(play.view.queued[0].given);
+}
+
 /// The lines of a record before its first line with `mark`, and the lines from there.
 fn split_at(record: &str, mark: &str) -> (String, String) {
     let at = record

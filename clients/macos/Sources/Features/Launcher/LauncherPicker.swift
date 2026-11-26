@@ -163,6 +163,13 @@ struct PickerList: View {
             }
             return .handled
         }
+        .onKeyPress(.escape) {
+            guard !filter.isEmpty else { return .ignored }
+            caret = nil
+            filter = ""
+            return .handled
+        }
+        .takesPopoverEscape(!filter.isEmpty)
         .onKeyPress(phases: .down, action: startFilter)
         .onChange(of: filter) { _, _ in
             highlighted = self.matches.first { $0.kind != .note }?.id

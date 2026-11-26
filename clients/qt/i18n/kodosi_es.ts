@@ -880,6 +880,10 @@
         <translation>Mostrar el terminal</translation>
     </message>
     <message>
+        <source>%1 reads this before its next step.</source>
+        <translation>%1 lo lee antes de su siguiente paso.</translation>
+    </message>
+    <message>
         <source>No agent runs in this terminal</source>
         <translation>No hay ningún agente en este terminal</translation>
     </message>

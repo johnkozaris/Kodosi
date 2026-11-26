@@ -1464,6 +1464,9 @@
                           }
                         ]
                       },
+                      "given": {
+                        "type": "boolean"
+                      },
                       "id": {
                         "type": "string"
                       },
@@ -2786,6 +2789,9 @@
                                       "type": "null"
                                     }
                                   ]
+                                },
+                                "given": {
+                                  "type": "boolean"
                                 },
                                 "id": {
                                   "type": "string"

@@ -245,7 +245,7 @@ struct ChatRowView: View {
             }
         case let .answer(text, live):
             AgentProse(text: text, live: live).frame(maxWidth: .infinity, alignment: .leading)
-                .copiesMessage(live ? nil : text).padding(.top, 6)
+                .copiesMessage(live ? nil : text, at: .bottom).padding(.top, 6)
         case let .plan(text, live):
             VStack(alignment: .leading, spacing: 6) {
                 Label { Text(verbatim: ChatWords.mode(.plan)) } icon: { Image(systemName: ChatWords.symbol(.plan)) }
@@ -253,7 +253,7 @@ struct ChatRowView: View {
                 AgentProse(text: text, live: live).padding(12).frame(maxWidth: .infinity, alignment: .leading)
                     .raised(Radius.lg, fill: theme.colors.raised)
             }
-            .copiesMessage(live ? nil : text)
+            .copiesMessage(live ? nil : text, at: .bottom)
             .padding(.top, 8)
         case let .work(items):
             ChatWork(items: items, hold: hold).padding(.top, 4)

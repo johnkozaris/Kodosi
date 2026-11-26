@@ -146,8 +146,6 @@ Item {
                 NumberAnimation { target: entry; property: "opacity"; from: 0; to: 1; duration: KodosiTheme.motionFade }
                 NumberAnimation { target: entry; property: "scale"; from: 0.97; to: 1; duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic }
             }
-            HoverHandler { id: hover }
-
             Loader {
                 id: body
 
@@ -157,6 +155,8 @@ Item {
                 sourceComponent: entry.kind === "day" ? dayView
                     : entry.kind === "person" ? (entry.mine ? mineView : otherView)
                     : entry.agents ? agentView : compactedView
+
+                HoverHandler { id: hover }
             }
 
             Component {
@@ -347,7 +347,7 @@ Item {
                     }
                     CopyKey {
                         x: parent.width - width
-                        y: prose.y - 10
+                        y: prose.y + prose.height - height + 10
                         enabled: entry.line.live !== true
                         message: entry.line.text || ""
                         shown: hover.hovered
@@ -412,7 +412,7 @@ Item {
                     }
                     CopyKey {
                         x: parent.width - width
-                        y: plan.topPadding - 10
+                        y: plan.height - plan.bottomPadding - height + 10
                         enabled: entry.line.live !== true
                         message: entry.line.text || ""
                         shown: hover.hovered
