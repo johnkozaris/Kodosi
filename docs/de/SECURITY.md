@@ -54,9 +54,42 @@ die von der Chromium-Sandbox benötigten User-Namespaces anzulegen. Aus demselbe
 geteilte Browser unter Linux nicht als root.
 
 Die Kodosi-Apps enthalten den Kodosi Browser nicht im Paket. Wenn du auf einem Computer zum ersten
-Mal einen geteilten Browser öffnest, lädt Kodosi ihn von `updates.kodosi.com` herunter und prüft
-täglich auf Updates. Downloads werden nur akzeptiert, wenn der Update-Feed eine gültige Signatur
-des Kodosi-Updateschlüssels trägt und der SHA-256-Wert der Datei mit dem Feed übereinstimmt.
+Mal einen geteilten Browser öffnest, lädt Kodosi ihn aus den Releases von Kodosi auf GitHub herunter
+und prüft täglich im Update-Feed von Kodosi auf `updates.kodosi.com`, ob es Updates gibt. Downloads
+werden nur akzeptiert, wenn der Update-Feed eine gültige Signatur des Kodosi-Updateschlüssels trägt
+und der SHA-256-Wert der Datei mit dem Feed übereinstimmt.
+
+### Was der Kodosi Browser an Google sendet
+
+Der Kodosi Browser ist Chromium und ruft von sich aus diese Dienste von Google auf, aber keinen
+davon mit deinen Cookies:
+
+- Updates seiner Komponenten, etwa der Liste widerrufener Zertifikate: Ungefähr alle fünf Stunden
+  fragt er bei `update.googleapis.com` nach neuen Versionen und lädt sie von den Download-Servern
+  von Google herunter (zum Beispiel `edgedl.me.gvt1.com`). Er sendet die ID und Version jeder
+  Komponente, seine eigene Version sowie Betriebssystem und Prozessor, aber keine Browserdaten.
+- Safe Browsing: Er führt Listen gefährlicher Websites, die er von `safebrowsing.googleapis.com`
+  bezieht, und sendet dabei nur den Stand seiner Listen. Passt die Adresse einer Seite zu einer
+  Liste, sendet er die ersten 4 Bytes eines Hashwerts der Adresse, nie die Adresse selbst. Hält die
+  Phishing-Prüfung, die er auf deinem Computer ausführt, eine Seite für Phishing, sendet er die
+  Adresse dieser Seite zur Bestätigung an `sb-ssl.google.com`.
+- Netzwerkzeit: Wenn er sich der Uhrzeit nicht sicher ist, fragt er `clients2.google.com`. Die
+  Antwort zeigt ihm, ob das Zertifikat einer Website abgelaufen ist, auch wenn deine Uhr falsch
+  geht. Die Anfrage enthält nichts über dich.
+
+**Formularvorhersagen von Google** bleiben ausgeschaltet, bis du sie unter
+**Einstellungen › Browser** einschaltest. Dann sendet der Kodosi Browser für jedes Formular, das er
+anzeigt, einen Hashwert an `content-autofill.googleapis.com`, gebildet aus dem Namen der Website und
+den Namen der Felder des Formulars, und Google antwortet, wofür jedes Feld da ist. Wenn du ein
+Formular absendest, teilt er außerdem mit, welche Art von Daten jedes Feld enthielt, nie aber, was
+du eingegeben hast. Der Kodosi Browser verbindet sich nie schon vor einer Suche mit `www.google.com`
+und fragt Google nie mit deinen Google-Cookies, ob die Adressleiste von Chrome selbst den KI-Modus
+anbieten darf.
+
+Auch **Websiteübergreifende Cookies** bleiben ausgeschaltet, bis du sie unter
+**Einstellungen › Browser** einschaltest. Solange sie ausgeschaltet sind, erhält eine Website, die
+in der Seite einer anderen Website erscheint, etwa ein YouTube-Video oder ein Anmelde-Button, dort
+ihre Cookies nicht und kann dich deshalb nicht über die Websites hinweg erkennen, die du besuchst.
 
 ## Direkte Verbindungen
 

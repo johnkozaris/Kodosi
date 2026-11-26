@@ -19,7 +19,7 @@ use tokio::{
 };
 
 use crate::{
-    Error,
+    Error, Privacy,
     devtools::{self, Devtools},
     link::{EncodedFrame, EngineTab, FrameKind, FromEngine, ToEngine},
     message::Size,
@@ -119,6 +119,7 @@ impl Engine {
         profiles: &Path,
         profile: &str,
         system_keychain: bool,
+        privacy: Privacy,
     ) -> Result<Arc<Self>, Error> {
         let folder = profiles.join(profile);
         tokio::fs::create_dir_all(&folder).await?;
@@ -126,7 +127,10 @@ impl Engine {
         let link = folder.join(LINK_FILE);
         socket.write_address(&link).await?;
         let port = free_port().await?;
-        let mut process = launch(program, &arguments(&folder, &link, port, system_keychain))?;
+        let mut process = launch(
+            program,
+            &arguments(&folder, &link, port, system_keychain, privacy),
+        )?;
         let address = wait_for_address(port, &mut process).await?;
         let (kept, released) = oneshot::channel();
         keep(process, released);
@@ -677,12 +681,22 @@ fn deliver(sender: mpsc::Sender<Event>, event: Event) {
     }
 }
 
-fn arguments(profile: &Path, link: &Path, port: u16, system_keychain: bool) -> Vec<String> {
+fn arguments(
+    profile: &Path,
+    link: &Path,
+    port: u16,
+    system_keychain: bool,
+    privacy: Privacy,
+) -> Vec<String> {
     let mut arguments = vec![
         format!("--kodosi-profile={}", profile.display()),
         format!("--kodosi-link={}", link.display()),
         format!("--kodosi-debug-port={port}"),
+        format!("--disable-features={}", features_off(privacy).join(",")),
     ];
+    if !privacy.cross_site_cookies {
+        arguments.push("--enable-features=ForceThirdPartyCookieBlockingEnabled".to_owned());
+    }
     if !system_keychain {
         arguments.extend([
             "--use-mock-keychain".to_owned(),
@@ -690,6 +704,18 @@ fn arguments(profile: &Path, link: &Path, port: u16, system_keychain: bool) -> V
         ]);
     }
     arguments
+}
+
+/// Chromium features that call Google by themselves. `AimEnabled` asks Google, with its cookies,
+/// whether Chromium's own address bar may offer AI Mode, and `PreconnectToSearch` connects to the
+/// search engine early. Kodosi Browser has no such address bar, and its windowless pages never
+/// count as being in front, which the early connection waits for.
+fn features_off(privacy: Privacy) -> Vec<&'static str> {
+    let mut features = vec!["AimEnabled", "PreconnectToSearch"];
+    if !privacy.form_predictions {
+        features.push("AutofillServerCommunication");
+    }
+    features
 }
 
 /// Passing a host-chosen debug port keeps `navigator.webdriver` false.
@@ -832,23 +858,70 @@ mod tests {
 
     #[test]
     fn the_engine_gets_its_profile_link_and_debug_port_and_no_token() {
-        let options = arguments(Path::new("/p"), Path::new("/p/link.json"), 9000, true);
+        let options = arguments(
+            Path::new("/p"),
+            Path::new("/p/link.json"),
+            9000,
+            true,
+            Privacy::default(),
+        );
         assert_eq!(
             options,
             [
                 "--kodosi-profile=/p",
                 "--kodosi-link=/p/link.json",
-                "--kodosi-debug-port=9000"
+                "--kodosi-debug-port=9000",
+                "--disable-features=AimEnabled,PreconnectToSearch,AutofillServerCommunication",
+                "--enable-features=ForceThirdPartyCookieBlockingEnabled"
             ]
         );
     }
 
     #[test]
-    fn a_profile_that_is_thrown_away_keeps_its_key_out_of_the_system_keychain() {
-        let options = arguments(Path::new("/p"), Path::new("/p/link.json"), 9000, false);
+    fn each_choice_that_a_person_turns_on_comes_back_alone() {
+        let options = |privacy| {
+            arguments(
+                Path::new("/p"),
+                Path::new("/p/link.json"),
+                9000,
+                true,
+                privacy,
+            )[3..]
+                .to_vec()
+        };
+        let predictions = Privacy {
+            form_predictions: true,
+            ..Privacy::default()
+        };
+        let cookies = Privacy {
+            cross_site_cookies: true,
+            ..Privacy::default()
+        };
         assert_eq!(
-            options[3..],
-            ["--use-mock-keychain", "--password-store=basic"]
+            options(predictions),
+            [
+                "--disable-features=AimEnabled,PreconnectToSearch",
+                "--enable-features=ForceThirdPartyCookieBlockingEnabled"
+            ]
         );
+        assert_eq!(
+            options(cookies),
+            ["--disable-features=AimEnabled,PreconnectToSearch,AutofillServerCommunication"]
+        );
+    }
+
+    #[test]
+    fn a_profile_that_is_thrown_away_keeps_its_key_out_of_the_system_keychain() {
+        let options = arguments(
+            Path::new("/p"),
+            Path::new("/p/link.json"),
+            9000,
+            false,
+            Privacy::default(),
+        );
+        assert!(options.ends_with(&[
+            "--use-mock-keychain".to_owned(),
+            "--password-store=basic".to_owned()
+        ]));
     }
 }

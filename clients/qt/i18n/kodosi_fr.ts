@@ -438,6 +438,26 @@
         <translation>Télécharger</translation>
     </message>
     <message>
+        <source>Kodosi Browser starts again when you change one of these, and its open pages load again.</source>
+        <translation>Kodosi Browser redémarre quand vous modifiez l&apos;un de ces réglages, et ses pages ouvertes se rechargent.</translation>
+    </message>
+    <message>
+        <source>Form predictions from Google</source>
+        <translation>Prédictions de formulaires par Google</translation>
+    </message>
+    <message>
+        <source>Sends Google a code of each form to learn what its fields are for</source>
+        <translation>Envoie à Google un code de chaque formulaire pour savoir à quoi servent ses champs</translation>
+    </message>
+    <message>
+        <source>Cross-site cookies</source>
+        <translation>Cookies intersites</translation>
+    </message>
+    <message>
+        <source>Sites shown inside a page, such as YouTube or Google, know you there</source>
+        <translation>Les sites affichés dans une page, comme YouTube ou Google, vous y reconnaissent</translation>
+    </message>
+    <message>
         <source>Sites then know you in your private terminals on this computer. Passkeys and sign-ins bound to a device stay in their own browser.</source>
         <translation>Les sites vous reconnaissent alors dans vos terminaux privés sur cet ordinateur. Les clés d&apos;accès et les connexions liées à un appareil restent dans leur propre navigateur.</translation>
     </message>

@@ -820,6 +820,17 @@ void CanvasModel::removeBrowsingData()
     browserStep(QStringLiteral("clear"), QStringLiteral("browser.clear"));
 }
 
+void CanvasModel::setBrowserPrivacy(bool formPredictions, bool crossSiteCookies)
+{
+    if (!m_browserWork.isEmpty())
+        return;
+    m_browserFormPredictions = formPredictions;
+    m_browserCrossSiteCookies = crossSiteCookies;
+    browserStep(QStringLiteral("privacy"), QStringLiteral("browser.set"),
+        { { QStringLiteral("formPredictions"), formPredictions },
+            { QStringLiteral("crossSiteCookies"), crossSiteCookies } });
+}
+
 void CanvasModel::applyBrowser(const QJsonObject& event)
 {
     const auto request = event.value(QStringLiteral("requestId")).toString();
@@ -839,6 +850,8 @@ void CanvasModel::applyBrowser(const QJsonObject& event)
             m_browserEngine = event.value(QStringLiteral("engine")).toString();
             const auto getting = event.value(QStringLiteral("getting"));
             m_browserGetting = getting.isDouble() ? getting.toInt() : -1;
+            m_browserFormPredictions = event.value(QStringLiteral("formPredictions")).toBool();
+            m_browserCrossSiteCookies = event.value(QStringLiteral("crossSiteCookies")).toBool();
             m_browserKnown = true;
             if (m_browserChecked && m_browserWork.isEmpty()) {
                 if (!m_browserChecked->isEmpty() && *m_browserChecked == m_browserEngine)

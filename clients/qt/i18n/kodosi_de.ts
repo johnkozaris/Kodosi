@@ -438,6 +438,26 @@
         <translation>Laden</translation>
     </message>
     <message>
+        <source>Kodosi Browser starts again when you change one of these, and its open pages load again.</source>
+        <translation>Kodosi Browser startet neu, wenn du eine dieser Einstellungen änderst, und seine offenen Seiten laden neu.</translation>
+    </message>
+    <message>
+        <source>Form predictions from Google</source>
+        <translation>Formularvorhersagen von Google</translation>
+    </message>
+    <message>
+        <source>Sends Google a code of each form to learn what its fields are for</source>
+        <translation>Sendet Google einen Code jedes Formulars, um zu erfahren, wofür seine Felder da sind</translation>
+    </message>
+    <message>
+        <source>Cross-site cookies</source>
+        <translation>Websiteübergreifende Cookies</translation>
+    </message>
+    <message>
+        <source>Sites shown inside a page, such as YouTube or Google, know you there</source>
+        <translation>Websites, die in einer Seite erscheinen, etwa YouTube oder Google, erkennen dich dort</translation>
+    </message>
+    <message>
         <source>Sites then know you in your private terminals on this computer. Passkeys and sign-ins bound to a device stay in their own browser.</source>
         <translation>Websites kennen dich dann in deinen privaten Terminals auf diesem Computer. Passkeys und gerätegebundene Anmeldungen bleiben in ihrem eigenen Browser.</translation>
     </message>

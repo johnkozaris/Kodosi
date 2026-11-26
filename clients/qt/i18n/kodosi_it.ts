@@ -438,6 +438,26 @@
         <translation>Scarica</translation>
     </message>
     <message>
+        <source>Kodosi Browser starts again when you change one of these, and its open pages load again.</source>
+        <translation>Kodosi Browser si riavvia quando cambi una di queste impostazioni, e le sue pagine aperte si ricaricano.</translation>
+    </message>
+    <message>
+        <source>Form predictions from Google</source>
+        <translation>Previsioni dei moduli da Google</translation>
+    </message>
+    <message>
+        <source>Sends Google a code of each form to learn what its fields are for</source>
+        <translation>Invia a Google un codice di ogni modulo per sapere a cosa servono i suoi campi</translation>
+    </message>
+    <message>
+        <source>Cross-site cookies</source>
+        <translation>Cookie tra siti</translation>
+    </message>
+    <message>
+        <source>Sites shown inside a page, such as YouTube or Google, know you there</source>
+        <translation>I siti mostrati dentro una pagina, come YouTube o Google, ti riconoscono lì</translation>
+    </message>
+    <message>
         <source>Sites then know you in your private terminals on this computer. Passkeys and sign-ins bound to a device stay in their own browser.</source>
         <translation>Così i siti ti riconoscono nei tuoi terminali privati su questo computer. Le passkey e gli accessi legati a un dispositivo restano nel loro browser.</translation>
     </message>

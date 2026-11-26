@@ -235,6 +235,11 @@ En cuanto el lienzo tiene contenido, la cabecera del terminal añade los botones
   terminales privados. En macOS, si el sistema restringe el acceso a los datos de un navegador
   (como Safari), haz clic en **Permitir…** junto a ese navegador para conceder Acceso total al
   disco.
+- También en **Ajustes › Navegador**, **Predicciones de formularios de Google** permite que Kodosi
+  Browser pregunte a Google para qué sirven los campos de un formulario, y **Cookies entre sitios**
+  permite que un sitio que aparece dentro de la página de otro sitio, como un vídeo de YouTube, te
+  reconozca allí. Ambas opciones permanecen desactivadas hasta que las actives. Kodosi Browser se
+  reinicia cuando cambias una, y sus páginas abiertas se vuelven a cargar.
 - Cualquier persona con acceso a un terminal ve su lienzo y comparte su navegador. Cerrar el
   terminal limpia su lienzo y descarta las sesiones del navegador de los terminales compartidos.
 

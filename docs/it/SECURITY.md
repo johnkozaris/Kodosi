@@ -54,10 +54,42 @@ Kodosi Browser a creare gli user namespace richiesti dalla sandbox di Chromium. 
 motivo, su Linux il browser condiviso non viene eseguito come root.
 
 Le app di Kodosi non includono Kodosi Browser. La prima volta che apri un browser condiviso su un
-computer, Kodosi lo scarica da `updates.kodosi.com` e verifica ogni giorno la disponibilità di
-aggiornamenti. Un download viene accettato solo se il feed degli aggiornamenti reca una firma valida
-della chiave di aggiornamento di Kodosi e se l'hash SHA-256 del file corrisponde a quello indicato
-nel feed.
+computer, Kodosi lo scarica dalle release di Kodosi su GitHub, e verifica ogni giorno la
+disponibilità di aggiornamenti nel feed degli aggiornamenti di Kodosi su `updates.kodosi.com`. Un
+download viene accettato solo se il feed degli aggiornamenti reca una firma valida della chiave di
+aggiornamento di Kodosi e se l'hash SHA-256 del file corrisponde a quello indicato nel feed.
+
+### Cosa invia Kodosi Browser a Google
+
+Kodosi Browser è Chromium, che contatta da solo questi servizi di Google, senza mai inviare loro i
+tuoi cookie:
+
+- Aggiornamenti dei suoi componenti, come l'elenco dei certificati revocati: circa ogni cinque ore
+  chiede a `update.googleapis.com` se ci sono nuove versioni e le scarica dai server di download di
+  Google (come `edgedl.me.gvt1.com`). Invia l'ID e la versione di ogni componente, la propria
+  versione, il sistema operativo e il processore, ma nessun dato di navigazione.
+- Navigazione sicura: mantiene elenchi di siti pericolosi ottenuti da `safebrowsing.googleapis.com`,
+  inviando solo lo stato dei propri elenchi. Quando l'indirizzo di una pagina corrisponde a un
+  elenco, invia i primi 4 byte di un hash dell'indirizzo, mai l'indirizzo stesso. Se il controllo
+  anti-phishing che esegue sul tuo computer ritiene che una pagina sia di phishing, invia
+  l'indirizzo di quella pagina a `sb-ssl.google.com` per averne conferma.
+- Ora di rete: quando non è sicuro dell'ora, interroga `clients2.google.com`, che gli indica se il
+  certificato di un sito è scaduto anche se il tuo orologio è sbagliato. La richiesta non contiene
+  nulla su di te.
+
+L'opzione **Previsioni dei moduli da Google** resta disattivata finché non la attivi in
+**Impostazioni › Browser**. Una volta attivata, Kodosi Browser invia a
+`content-autofill.googleapis.com` un hash di ogni modulo che mostra, calcolato dal nome del sito e
+dai nomi dei campi del modulo, e Google risponde indicando a cosa serve ciascun campo. Quando invii
+un modulo, indica anche che tipo di dati conteneva ciascun campo, mai ciò che hai digitato. Kodosi
+Browser non si connette mai a `www.google.com` in previsione di una ricerca, e non chiede mai a
+Google, con i tuoi cookie di Google, se la barra degli indirizzi di Chrome stessa può offrire la
+Modalità AI.
+
+Anche l'opzione **Cookie tra siti** resta disattivata finché non la attivi in
+**Impostazioni › Browser**. Finché è disattivata, un sito mostrato dentro la pagina di un altro
+sito, come un video di YouTube o un pulsante di accesso, lì non riceve i propri cookie, quindi non
+può riconoscerti nei diversi siti che visiti.
 
 ## Connessioni dirette
 

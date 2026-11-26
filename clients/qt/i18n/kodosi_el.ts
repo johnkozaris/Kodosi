@@ -438,6 +438,26 @@
         <translation>Λήψη</translation>
     </message>
     <message>
+        <source>Kodosi Browser starts again when you change one of these, and its open pages load again.</source>
+        <translation>Το Kodosi Browser ξεκινά ξανά όταν αλλάζετε μία από αυτές τις ρυθμίσεις, και οι ανοιχτές σελίδες του φορτώνουν ξανά.</translation>
+    </message>
+    <message>
+        <source>Form predictions from Google</source>
+        <translation>Προβλέψεις φορμών από την Google</translation>
+    </message>
+    <message>
+        <source>Sends Google a code of each form to learn what its fields are for</source>
+        <translation>Στέλνει στην Google έναν κωδικό κάθε φόρμας, για να μάθει σε τι χρησιμεύουν τα πεδία της</translation>
+    </message>
+    <message>
+        <source>Cross-site cookies</source>
+        <translation>Cookies μεταξύ ιστοτόπων</translation>
+    </message>
+    <message>
+        <source>Sites shown inside a page, such as YouTube or Google, know you there</source>
+        <translation>Οι ιστότοποι που εμφανίζονται μέσα σε μια σελίδα, όπως το YouTube ή η Google, σας αναγνωρίζουν εκεί</translation>
+    </message>
+    <message>
         <source>Sites then know you in your private terminals on this computer. Passkeys and sign-ins bound to a device stay in their own browser.</source>
         <translation>Οι ιστότοποι θα σας αναγνωρίζουν στα ιδιωτικά τερματικά σας σε αυτόν τον υπολογιστή. Τα passkeys και οι συνδέσεις που δεσμεύονται σε συσκευή μένουν στον δικό τους browser.</translation>
     </message>

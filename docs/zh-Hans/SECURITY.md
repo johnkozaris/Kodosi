@@ -22,7 +22,19 @@ HTML 页面和实时文档视图运行在隔离的框架中，既没有网络访
 
 在 Linux 上，Kodosi 仅在 Chromium 沙盒能够正常运行的环境中渲染页面。在 Ubuntu 上，Kodosi 附带了 AppArmor 配置文件，允许应用、其渲染进程以及 Kodosi Browser 创建 Chromium 沙盒所需的用户命名空间。出于同样原因，共享浏览器在 Linux 上不会以 root 身份运行。
 
-Kodosi 应用本身不内置 Kodosi Browser。在一台电脑上首次打开共享浏览器时，Kodosi 会从 `updates.kodosi.com` 下载它，并每日检查更新。只有当更新源包含 Kodosi 更新密钥的有效签名，且下载文件的 SHA-256 校验值与更新源一致时，Kodosi 才会接受该下载。
+Kodosi 应用本身不内置 Kodosi Browser。在一台电脑上首次打开共享浏览器时，Kodosi 会从 Kodosi 在 GitHub 上的发布版本中下载它，并每日在 `updates.kodosi.com` 上的 Kodosi 更新源中检查更新。只有当更新源包含 Kodosi 更新密钥的有效签名，且下载文件的 SHA-256 校验值与更新源一致时，Kodosi 才会接受该下载。
+
+### Kodosi Browser 会向 Google 发送什么
+
+Kodosi Browser 是 Chromium，它会自行调用以下 Google 服务，且其中任何一项都不会携带你的 Cookie：
+
+- 组件更新（例如已吊销证书列表）：大约每 5 小时向 `update.googleapis.com` 查询新版本，并从 Google 的下载服务器（例如 `edgedl.me.gvt1.com`）下载。它会发送每个组件的 ID 和版本、自身的版本以及操作系统和处理器信息，但不会发送任何浏览数据。
+- 安全浏览：它会从 `safebrowsing.googleapis.com` 获取并保存危险网站列表，过程中只发送其列表的状态。当某个页面的地址与列表匹配时，它会发送该地址哈希值的前 4 个字节，绝不发送地址本身。如果它在你电脑上运行的钓鱼检测将某个页面判定为钓鱼页面，它会将该页面的地址发送到 `sb-ssl.google.com` 进行确认。
+- 网络时间：当它不确定当前时间时，会向 `clients2.google.com` 查询；即使你的时钟不准，查询结果也能让它判断网站的证书是否已过期。该请求不包含任何关于你的信息。
+
+**Google 表单预测** 会一直保持关闭，直到你在 **设置 › 浏览器** 中将其开启。开启后，Kodosi Browser 会针对其显示的每个表单，将由网站名称和表单各字段名称生成的哈希值发送到 `content-autofill.googleapis.com`，Google 则会答复每个字段的用途。当你提交表单时，它还会告知每个字段填写的是哪类数据，但绝不会告知你输入的内容。Kodosi Browser 绝不会在搜索之前预先连接 `www.google.com`，也绝不会携带你的 Google Cookie 向 Google 询问 Chrome 自带的地址栏能否提供 AI 模式。
+
+**跨站 Cookie** 同样会一直保持关闭，直到你在 **设置 › 浏览器** 中将其开启。关闭期间，显示在另一网站页面中的网站（例如 YouTube 视频或登录按钮）无法在那里获取自己的 Cookie，因此无法在你访问的各个网站之间认出你。
 
 ## 直接连接
 

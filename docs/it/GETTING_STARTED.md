@@ -234,6 +234,11 @@ Quando il canvas contiene qualcosa, nell'intestazione del terminale compaiono i 
   copiato, oppure **Rimuovi tutto** per cancellare tutti gli accessi e i dati dei siti dai terminali
   privati. Su macOS, se il sistema limita l'accesso ai dati di un browser (come Safari), fai clic su
   **Consenti…** accanto a quel browser per concedere l'Accesso completo al disco.
+- Sempre in **Impostazioni › Browser**, **Previsioni dei moduli da Google** permette a Kodosi
+  Browser di chiedere a Google a cosa servono i campi di un modulo, e **Cookie tra siti** permette a
+  un sito mostrato dentro la pagina di un altro sito, come un video di YouTube, di riconoscerti lì.
+  Entrambe le opzioni restano disattivate finché non le attivi. Kodosi Browser si riavvia quando ne
+  cambi una, e le sue pagine aperte si ricaricano.
 - Chiunque abbia accesso a un terminale ne vede il canvas e condivide il suo browser. Chiudere il
   terminale svuota il canvas ed elimina gli accessi del browser dei terminali condivisi.
 

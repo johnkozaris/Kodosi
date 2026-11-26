@@ -211,6 +211,10 @@ copper dot whenever something is new:
   logins and site data across private terminals. On macOS, if the OS restricts access to a
   browser's data (such as Safari), click **Allow…** next to that browser to grant Full Disk
   Access.
+- Also in **Settings › Browser**, **Form predictions from Google** lets Kodosi Browser ask Google
+  what the fields of a form are for, and **Cross-site cookies** let a site shown inside another
+  site's page, such as a YouTube video, recognize you there. Both stay off until you turn them on.
+  Kodosi Browser starts again when you change one, and its open pages load again.
 - Anyone with access to a terminal sees its canvas and shares its browser. Closing the terminal
   clears its canvas and discards shared-terminal browser logins.
 

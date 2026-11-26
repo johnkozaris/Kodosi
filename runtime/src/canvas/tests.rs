@@ -319,6 +319,7 @@ async fn a_browser_ends_at_once_while_kodosi_browser_comes() {
             shared: tokio::sync::watch::channel(false).1,
             show: Box::new(|_| {}),
             last_tab_closed: Box::new(|_| {}),
+            restarted: Box::new(|_| {}),
         },
         Places::of(folder.path(), browser::agent_browser()),
         host,

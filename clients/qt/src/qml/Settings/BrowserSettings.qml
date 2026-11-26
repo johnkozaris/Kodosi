@@ -52,6 +52,55 @@ ColumnLayout {
     }
     ListGroup {
         Layout.fillWidth: true
+        footer: qsTr("Kodosi Browser starts again when you change one of these, and its open pages load again.")
+
+        ListRow {
+            id: formPredictions
+
+            iconName: "text"
+            tint: "#5fa57e"
+            title: qsTr("Form predictions from Google")
+            subtitle: qsTr("Sends Google a code of each form to learn what its fields are for")
+
+            KSwitch {
+                Accessible.id: objectName
+                Accessible.name: formPredictions.title
+                checked: Models.Canvas.browserFormPredictions
+                enabled: Models.Canvas.browserKnown && !root.busy
+                objectName: "settings.browser.formPredictions"
+
+                onToggled: {
+                    const wanted = checked;
+                    checked = Qt.binding(() => Models.Canvas.browserFormPredictions);
+                    Models.Canvas.setBrowserPrivacy(wanted, Models.Canvas.browserCrossSiteCookies);
+                }
+            }
+        }
+        ListRow {
+            id: crossSiteCookies
+
+            iconName: "eye"
+            tint: "#8c7bd1"
+            title: qsTr("Cross-site cookies")
+            subtitle: qsTr("Sites shown inside a page, such as YouTube or Google, know you there")
+
+            KSwitch {
+                Accessible.id: objectName
+                Accessible.name: crossSiteCookies.title
+                checked: Models.Canvas.browserCrossSiteCookies
+                enabled: Models.Canvas.browserKnown && !root.busy
+                objectName: "settings.browser.crossSiteCookies"
+
+                onToggled: {
+                    const wanted = checked;
+                    checked = Qt.binding(() => Models.Canvas.browserCrossSiteCookies);
+                    Models.Canvas.setBrowserPrivacy(Models.Canvas.browserFormPredictions, wanted);
+                }
+            }
+        }
+    }
+    ListGroup {
+        Layout.fillWidth: true
         footer: [qsTr("Sites then know you in your private terminals on this computer. Passkeys and sign-ins bound to a device stay in their own browser.")]
             .concat(Qt.platform.os === "windows" ? [qsTr("Chrome keeps its sign-ins locked on Windows, so sign in on the canvas.")] : [])
             .join(" ")

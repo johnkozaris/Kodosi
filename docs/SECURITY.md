@@ -51,9 +51,37 @@ namespaces Chromium's sandbox requires. For the same reason, the shared browser 
 root on Linux.
 
 Kodosi apps don't bundle Kodosi Browser. The first time you open a shared browser on a computer,
-Kodosi downloads it from `updates.kodosi.com` and checks daily for updates. Downloads are only
-accepted if the update feed carries a valid signature from Kodosi's update key and the file's
-SHA-256 matches the feed.
+Kodosi downloads it from Kodosi's releases on GitHub, and it checks daily for updates in Kodosi's
+update feed on `updates.kodosi.com`. Downloads are only accepted if the update feed carries a valid
+signature from Kodosi's update key and the file's SHA-256 matches the feed.
+
+### What Kodosi Browser sends to Google
+
+Kodosi Browser is Chromium, which calls these services of Google by itself, none of them with your
+cookies:
+
+- Updates of its parts, such as the list of revoked certificates: about every five hours it asks
+  `update.googleapis.com` for new versions, and downloads them from Google's download servers
+  (such as `edgedl.me.gvt1.com`). It sends the ID and version of each part, its own version, and
+  the operating system and processor, but no browsing data.
+- Safe Browsing: it keeps lists of dangerous sites from `safebrowsing.googleapis.com`, sending only
+  the state of its lists. When a page's address matches a list, it sends the first 4 bytes of a
+  hash of the address, never the address. If its phishing check on your computer takes a page for
+  phishing, it sends that page's address to `sb-ssl.google.com` to confirm.
+- Network time: when it isn't sure of the time, it asks `clients2.google.com`, which tells it
+  whether a site's certificate expired even if your clock is wrong. The request carries nothing
+  about you.
+
+**Form predictions from Google** stays off until you turn it on in **Settings › Browser**. Then
+Kodosi Browser sends `content-autofill.googleapis.com` a hash of each form it shows, made from the
+site's name and the names of the form's fields, and Google answers what each field is for. When you
+send a form, it also tells which kind of data each field held, never what you typed. Kodosi Browser
+never connects to `www.google.com` ahead of a search, and never asks Google, with your Google
+cookies, whether Chrome's own address bar may offer AI Mode.
+
+**Cross-site cookies** also stay off until you turn them on in **Settings › Browser**. While they're
+off, a site shown inside another site's page, such as a YouTube video or a sign-in button, doesn't
+get its cookies there, so it can't recognize you across the sites you visit.
 
 ## Direct connections
 

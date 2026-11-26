@@ -240,6 +240,12 @@ Dès que le canvas contient un élément, l'en-tête du terminal ajoute les bout
   données de sites dans vos terminaux privés. Sur macOS, si le système restreint l'accès aux données
   d'un navigateur (comme Safari), cliquez sur **Autoriser…** à côté de ce navigateur pour accorder
   l'accès complet au disque.
+- Également dans **Réglages › Navigateur**, **Prédictions de formulaires par Google** permet à
+  Kodosi Browser de demander à Google à quoi servent les champs d'un formulaire, et
+  **Cookies intersites** permet à un site affiché dans la page d'un autre site, comme une vidéo
+  YouTube, de vous y reconnaître. Les deux options restent désactivées tant que vous ne les activez
+  pas. Kodosi Browser redémarre quand vous modifiez l'une d'elles, et ses pages ouvertes se
+  rechargent.
 - Toute personne ayant accès à un terminal voit son canvas et partage son navigateur. Fermer le
   terminal vide son canvas et supprime les connexions du navigateur du terminal partagé.
 
