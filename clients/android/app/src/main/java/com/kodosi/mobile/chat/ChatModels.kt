@@ -302,7 +302,12 @@ data class ChatQueued(
     val by: ChatPerson? = null,
     val refused: String? = null,
     /** The agent shows this command in its terminal, where a person finishes it. */
-    val terminal: Boolean = false
+    val terminal: Boolean = false,
+    /**
+     * The agent has this message for the turn that runs and reads it before its next step, so it
+     * can no longer be removed.
+     */
+    val given: Boolean = false
 )
 
 /** A slash command of the agent, as its own menu lists it. */

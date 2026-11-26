@@ -758,7 +758,8 @@ impl Copilot {
     }
 
     /// Handles acknowledgement of a handed prompt. A bare `/plan` has empty text and only
-    /// switches modes without emitting `user.message`, so it is unqueued immediately here.
+    /// switches modes without emitting `user.message`, so it is unqueued immediately here. A
+    /// message that Copilot gave back before a stop waits in the queue for the next turn.
     fn did(&mut self, chat: &mut Chat, event: &Value) {
         let n = event.get("n").and_then(Value::as_u64);
         let Some(index) = self.handed.iter().position(|handed| Some(handed.n) == n) else {
@@ -777,11 +778,17 @@ impl Copilot {
                     }
                 }
             }
+            None if event.get("back").and_then(Value::as_bool) == Some(true) => {
+                if let Some(handed) = self.handed.remove(index) {
+                    chat.take_back(&handed.queued);
+                }
+            }
             None if self.handed[index].text.is_empty() => {
                 if let Some(handed) = self.handed.remove(index) {
                     chat.unqueue(&handed.queued);
                 }
             }
+            None if self.handed[index].into_turn => chat.give(&self.handed[index].queued),
             None => {}
         }
     }
@@ -1025,10 +1032,20 @@ impl Agent for Copilot {
                     .collect(),
             );
         }
-        if self.turn.is_some() {
-            Stop::Command(json!({"do": "stop"}))
-        } else {
-            Stop::Nothing
+        match &mut self.turn {
+            Some(turn) => {
+                turn.stopped = true;
+                // Copilot's abort clears the messages that it has not read yet, so the link
+                // takes them back first.
+                let back = self
+                    .handed
+                    .iter()
+                    .filter(|handed| handed.into_turn)
+                    .map(|handed| handed.n)
+                    .collect::<Vec<_>>();
+                Stop::Command(json!({"do": "stop", "back": back}))
+            }
+            None => Stop::Nothing,
         }
     }
 }

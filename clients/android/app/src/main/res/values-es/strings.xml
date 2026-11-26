@@ -627,6 +627,7 @@
     </plurals>
     <string name="chat_recap">Resumen</string>
     <string name="chat_shows_in_terminal">%1$s lo muestra en su terminal.</string>
+    <string name="chat_reads_before_next_step">%1$s lo lee antes de su siguiente paso.</string>
     <string name="chat_show_terminal">Mostrar el terminal</string>
     <string name="chat_commands">Comandos</string>
     <string name="chat_tokens_of">%1$s de %2$s tokens</string>

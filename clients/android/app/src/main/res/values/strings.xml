@@ -611,6 +611,7 @@
     </plurals>
     <string name="chat_recap">Recap</string>
     <string name="chat_shows_in_terminal">%1$s shows this in its terminal.</string>
+    <string name="chat_reads_before_next_step">%1$s reads this before its next step.</string>
     <string name="chat_show_terminal">Show the terminal</string>
     <string name="chat_commands">Commands</string>
     <string name="chat_tokens_of">%1$s of %2$s tokens</string>

@@ -880,6 +880,10 @@
         <translation>Mostra il terminale</translation>
     </message>
     <message>
+        <source>%1 reads this before its next step.</source>
+        <translation>%1 lo legge prima del suo prossimo passo.</translation>
+    </message>
+    <message>
         <source>No agent runs in this terminal</source>
         <translation>Nessun agente è in esecuzione in questo terminale</translation>
     </message>

@@ -877,6 +877,10 @@
         <translation>터미널 보기</translation>
     </message>
     <message>
+        <source>%1 reads this before its next step.</source>
+        <translation>%1이(가) 다음 단계 전에 이 메시지를 읽어요.</translation>
+    </message>
+    <message>
         <source>No agent runs in this terminal</source>
         <translation>이 터미널에서 실행 중인 에이전트가 없어요</translation>
     </message>

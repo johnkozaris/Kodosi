@@ -604,6 +604,7 @@
     </plurals>
     <string name="chat_recap">Rückblick</string>
     <string name="chat_shows_in_terminal">%1$s zeigt das in seinem Terminal.</string>
+    <string name="chat_reads_before_next_step">%1$s liest das vor seinem nächsten Schritt.</string>
     <string name="chat_show_terminal">Terminal zeigen</string>
     <string name="chat_commands">Befehle</string>
     <string name="chat_tokens_of">%1$s von %2$s Tokens</string>

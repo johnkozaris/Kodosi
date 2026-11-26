@@ -604,6 +604,7 @@
     </plurals>
     <string name="chat_recap">Ανακεφαλαίωση</string>
     <string name="chat_shows_in_terminal">Το %1$s το δείχνει στο τερματικό του.</string>
+    <string name="chat_reads_before_next_step">Το %1$s το διαβάζει πριν από το επόμενο βήμα του.</string>
     <string name="chat_show_terminal">Εμφάνιση τερματικού</string>
     <string name="chat_commands">Εντολές</string>
     <string name="chat_tokens_of">%1$s από %2$s tokens</string>
