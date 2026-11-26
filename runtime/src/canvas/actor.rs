@@ -48,7 +48,7 @@ impl CanvasServices {
     pub(crate) async fn close(&self) {
         self.documents.close().await;
         self.browsers.close().await;
-        self.screen.saved().await;
+        self.screen.close().await;
     }
 }
 

@@ -286,9 +286,38 @@ impl Pipe {
 
 impl Drop for Pipe {
     fn drop(&mut self) {
-        drop(self.events.try_send(Event::Leave {
-            viewer: self.viewer.clone(),
+        let leave = Event::Leave {
+            viewer: std::mem::take(&mut self.viewer),
             seat: self.seat,
-        }));
+        };
+        // A lost leave would keep the screen captured and encoded for a viewer who is gone.
+        if let Err(mpsc::error::TrySendError::Full(leave)) = self.events.try_send(leave) {
+            let events = self.events.clone();
+            tokio::spawn(async move { drop(events.send(leave).await) });
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn a_viewer_leaves_even_while_the_screen_is_behind() {
+        let (events, mut heard) = mpsc::channel(1);
+        events.try_send(Event::Stop).unwrap();
+        let (_, incoming) = mpsc::channel(1);
+        drop(Pipe {
+            viewer: "viewer".to_owned(),
+            seat: 3,
+            incoming,
+            mailbox: Arc::default(),
+            events,
+        });
+        assert!(matches!(heard.recv().await, Some(Event::Stop)));
+        assert!(matches!(
+            heard.recv().await,
+            Some(Event::Leave { seat: 3, .. })
+        ));
     }
 }

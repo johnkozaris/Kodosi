@@ -108,7 +108,11 @@ impl ScreenHost {
         Ok(())
     }
 
-    pub(crate) async fn saved(&self) {
+    /// Ends every view of the screen, so Kodosi Screen quits, and waits for the setting to be saved.
+    pub(crate) async fn close(&self) {
+        if let Some(screens) = self.0.screens.clone() {
+            screens.stop().await;
+        }
         self.0.saver.saved().await;
     }
 

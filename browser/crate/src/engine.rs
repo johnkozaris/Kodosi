@@ -107,7 +107,7 @@ pub(crate) struct Engine {
     placed: watch::Sender<()>,
     stopped: watch::Sender<bool>,
     /// Dropping this sender releases the engine process task, killing the child.
-    _kept: oneshot::Sender<()>,
+    kept: Mutex<Option<oneshot::Sender<()>>>,
     downloads: PathBuf,
     next_window: AtomicI64,
     next_page: AtomicI64,
@@ -166,7 +166,7 @@ impl Engine {
             routes: Arc::default(),
             placed: watch::Sender::new(()),
             stopped: watch::Sender::new(false),
-            _kept: kept,
+            kept: Mutex::new(Some(kept)),
             downloads,
             next_window: AtomicI64::new(1),
             next_page: AtomicI64::new(1),
@@ -186,7 +186,7 @@ impl Engine {
             routes: Arc::default(),
             placed: watch::Sender::new(()),
             stopped: watch::Sender::new(false),
-            _kept: oneshot::channel().0,
+            kept: Mutex::new(Some(oneshot::channel().0)),
             downloads: PathBuf::new(),
             next_window: AtomicI64::new(1),
             next_page: AtomicI64::new(1),
@@ -204,8 +204,15 @@ impl Engine {
     }
 
     pub(crate) fn command(&self, command: ToEngine) {
-        if self.commands.try_send(command).is_err() {
-            tracing::debug!("the browser's queue is full");
+        match self.commands.try_send(command) {
+            Err(mpsc::error::TrySendError::Full(command)) if command.must_arrive() => {
+                let commands = self.commands.clone();
+                tokio::spawn(async move { drop(commands.send(command).await) });
+            }
+            Err(mpsc::error::TrySendError::Full(_)) => {
+                tracing::debug!("the browser's queue is full");
+            }
+            _ => {}
         }
     }
 
@@ -426,7 +433,14 @@ impl Engine {
             .await
             .is_err()
         {
-            tracing::warn!("the browser did not quit in time");
+            // A hung engine would hold its profile's lock against the next one.
+            tracing::warn!("the browser did not quit in time, so it is killed");
+            drop(
+                self.kept
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .take(),
+            );
         }
         self.stopped.send_replace(true);
     }

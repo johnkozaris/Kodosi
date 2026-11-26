@@ -142,6 +142,17 @@ pub enum ToEngine {
     Quit,
 }
 
+#[cfg(feature = "host")]
+impl ToEngine {
+    /// Commands that end work in the engine, which keeps running what a dropped one would end.
+    pub(crate) const fn must_arrive(&self) -> bool {
+        matches!(
+            self,
+            Self::Stop { .. } | Self::CloseWindow { .. } | Self::ClosePage { .. } | Self::Quit
+        )
+    }
+}
+
 /// Tab metadata reported by the engine; popups opened by a tab appear as tabs in the same window.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
