@@ -1,11 +1,9 @@
 //! This computer's screen on a terminal's canvas, which its owner's devices watch and control
-//! once the person at the computer allowed it here. Kodosi Screen, an app inside Kodosi's, does
-//! the capture, so that macOS grants Screen Recording and Accessibility to it alone.
+//! once the person at the computer allowed it here. Kodosi Screen, a helper program of
+//! Kodosi's, does the capture, so that macOS grants Screen Recording and Accessibility to it
+//! alone and the desktop's portal on Linux asks in Kodosi's name.
 
-#[cfg(not(target_os = "macos"))]
-mod absent;
-#[cfg(target_os = "macos")]
-mod mac;
+mod helper;
 
 use std::{
     path::Path,
@@ -16,10 +14,7 @@ use serde::{Deserialize, Serialize};
 use shared_browser::Viewer;
 use tokio::sync::watch;
 
-#[cfg(not(target_os = "macos"))]
-use self::absent::Screens;
-#[cfg(target_os = "macos")]
-use self::mac::Screens;
+use self::helper::Screens;
 use super::{PipeEnds, ScreenAccess, ScreenShown};
 use crate::{runtime::saver::Saver, text::Text};
 

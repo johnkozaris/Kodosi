@@ -1,4 +1,4 @@
-//! Kodosi Screen on a Mac, through the screen library.
+//! Kodosi Screen, the helper that captures this computer's screen, through the screen library.
 
 use std::{
     path::{Path, PathBuf},
@@ -20,32 +20,35 @@ use crate::{
 pub(super) struct Screens(screen::Screens);
 
 impl Screens {
-    /// Kodosi Screen is in the Helpers folder of Kodosi's app; `KODOSI_SCREEN_HELPER` names
-    /// another one for development. Its socket goes in the host's private IPC folder, since Unix
-    /// socket paths are short.
+    /// Kodosi Screen ships next to the host's program: in the Helpers folder of Kodosi's app on a
+    /// Mac, beside the `kodosi` program elsewhere. `KODOSI_SCREEN_HELPER` names another one for
+    /// development. On a Mac its socket goes in the host's private IPC folder, since Unix socket
+    /// paths are short; on Linux it keeps what the desktop granted it in the data root.
     pub(super) fn new(
         data_root: &Path,
         stopped: impl Fn() + Send + Sync + 'static,
     ) -> Option<Self> {
         let helper = std::env::var_os("KODOSI_SCREEN_HELPER")
             .map(PathBuf::from)
-            .or_else(|| {
-                let program = std::env::current_exe().ok()?;
-                let program = kodosi_os::fs::canonicalize(&program).unwrap_or(program);
-                Some(
-                    program
-                        .parent()?
-                        .parent()?
-                        .join("Helpers/Kodosi Screen.app"),
-                )
-            })
-            .filter(|helper| helper.is_dir())?;
+            .or_else(beside_the_host)
+            .filter(|helper| {
+                if cfg!(target_os = "macos") {
+                    helper.is_dir()
+                } else {
+                    helper.is_file()
+                }
+            })?;
         let sockets = kodosi_os::ipc::private_dir(&crate::local_host::namespace(data_root))
             .map_or_else(|_| data_root.join("screen"), |folder| folder.join("screen"));
+        let arguments = if cfg!(target_os = "linux") {
+            vec!["--grant".into(), data_root.join("screen-grant.json").into()]
+        } else {
+            Vec::new()
+        };
         Some(Self(screen::Screens::new(screen::Settings {
             helper,
             sockets,
-            arguments: Vec::new(),
+            arguments,
             notice: Arc::new(|devices| {
                 let language = crate::text::language();
                 let watching = match devices {
@@ -95,6 +98,17 @@ impl Screens {
             tracing::warn!(%problem, "Kodosi Screen could not ask for its permissions");
         }
     }
+}
+
+fn beside_the_host() -> Option<PathBuf> {
+    let program = std::env::current_exe().ok()?;
+    let program = kodosi_os::fs::canonicalize(&program).unwrap_or(program);
+    let folder = program.parent()?;
+    Some(if cfg!(target_os = "macos") {
+        folder.parent()?.join("Helpers/Kodosi Screen.app")
+    } else {
+        folder.join(format!("kodosi-screen{}", std::env::consts::EXE_SUFFIX))
+    })
 }
 
 impl Viewed for screen::Pipe {
