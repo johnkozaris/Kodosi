@@ -556,7 +556,9 @@ impl Live {
         let hopeless = self.flow.hopeless(now);
         if !hopeless.is_empty() {
             for viewer in hopeless {
-                self.seats.remove(&viewer);
+                if let Some(gone) = self.seats.remove(&viewer) {
+                    self.let_go(gone.pressed);
+                }
             }
             self.changed_watchers();
         }

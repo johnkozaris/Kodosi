@@ -262,6 +262,7 @@ impl Session {
 
     async fn stop(&mut self) {
         app::follow(None);
+        self.hands.let_go();
         if let Some(capture) = self.capture.take() {
             capture.stop().await;
         }

@@ -165,6 +165,29 @@ impl Hands {
         post(&event);
     }
 
+    /// Lets go of the keys and the button that viewers hold, which would stay down once the
+    /// capture stops and their own release no longer comes through.
+    pub(super) fn let_go(&mut self) {
+        let button = std::mem::replace(&mut self.held, MouseButton::None);
+        if button != MouseButton::None
+            && let Some(event) = CGEvent::new(None)
+        {
+            let at = CGEvent::location(Some(&event));
+            self.mouse(released(button), at, button, 0, CGEventFlags::empty());
+        }
+        for (code, key) in std::mem::take(&mut self.keys) {
+            let Some(event) = CGEvent::new_keyboard_event(self.source.as_deref(), key, false)
+            else {
+                continue;
+            };
+            if keys::is_modifier(&code) {
+                CGEvent::set_type(Some(&event), CGEventType::FlagsChanged);
+            }
+            CGEvent::set_flags(Some(&event), CGEventFlags::empty());
+            post(&event);
+        }
+    }
+
     fn text(&self, text: &str) {
         let units: Vec<u16> = text.encode_utf16().collect();
         for chunk in units.chunks(TEXT_CHUNK) {
