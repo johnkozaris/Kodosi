@@ -625,6 +625,15 @@
         <item quantity="one">Tasks: %1$d of %2$d done</item>
         <item quantity="other">Tasks: %1$d of %2$d done</item>
     </plurals>
+    <string name="talk">Talk</string>
+    <string name="talk_type_instead">Type instead</string>
+    <string name="talk_listening">Listening</string>
+    <string name="talk_getting_ready">Getting ready</string>
+    <string name="talk_tap_send">Tap Send to answer</string>
+    <string name="talk_unsent">Your message, not sent yet</string>
+    <string name="talk_allow_microphone">Allow the microphone for Kodosi in Settings.</string>
+    <string name="talk_unavailable">This device can\'t turn your speech into text.</string>
+    <string name="talk_failed">Kodosi couldn\'t start listening.</string>
     <string name="local_network_title">Reach your computer directly</string>
     <string name="local_network_reason">On the same Wi-Fi, your phone connects straight to your own computer, which is faster. Android calls this permission “nearby devices”.</string>
     <string name="local_network_continue">Continue</string>

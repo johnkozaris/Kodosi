@@ -320,7 +320,8 @@ private struct TerminalScreenContent: View {
             ZStack {
                 if chatting, session.isConnected {
                     TerminalChatView(chat: model.terminals.canvas.chat(session.id), agent: session.agent, me: model.terminals.userId,
-                                     otherComputer: session.otherComputer)
+                                     otherComputer: session.otherComputer,
+                                     names: [session.name, session.projectName, session.folderName].compactMap(\.self))
                     {
                         model.terminals.pick(.terminal, of: session.id, over: session.face)
                     } modelKey: { name, effort, open in

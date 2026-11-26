@@ -26,6 +26,14 @@ row) and the chat view. Each terminal opens in whichever view its agent runs in,
 switch views at any time. In the chat, a long press on a message or a finished answer copies it
 whole, as written, or opens it to select part of it.
 
+### Talking in chat
+In the chat view, the mic key lets you talk instead of typing. Your words appear as your next
+message while you speak, and the message sends after a long pause, so you can stop to think; Send
+sends it without waiting for the pause. While the agent asks a question, only Send answers it with
+your words. Tap the words to change them, or switch back to the keyboard: words that did not go
+out stay in the composer. Speech turns into text on the device, so no audio leaves it, and replies
+stay text.
+
 ### Full-screen canvas
 The canvas opens full screen on demand and never interrupts you automatically. When an agent shows
 or updates something, a banner names the item so you can tap to open it.

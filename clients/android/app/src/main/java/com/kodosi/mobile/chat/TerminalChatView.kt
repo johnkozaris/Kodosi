@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -82,6 +83,19 @@ fun TerminalChatView(model: AppModel, session: RuntimeSession, modifier: Modifie
     val opener = remember(links, session.hostName) {
         LinkOpener { address, _ -> links.open(address, session.hostName) }
     }
+    val submit: (String) -> Boolean = { text ->
+        chat.submit(text).also { submitted ->
+            if (submitted) {
+                sent++
+                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+            }
+        }
+    }
+    val talk = rememberChatTalk(chat, session, view, submit) { words ->
+        draft.setTextAndPlaceCursorAtEnd(joinedWords(draft.text.toString().trimEnd(), words))
+        // Talk mode also ends as the chat view leaves, when the draft no longer follows its field.
+        chat.draft = draft.text.toString()
+    }
     CompositionLocalProvider(LocalLinkOpener provides opener, LocalProseFolder provides view.facts.folder) {
         Box(modifier, contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = 760.dp).fillMaxSize()) {
@@ -92,14 +106,9 @@ fun TerminalChatView(model: AppModel, session: RuntimeSession, modifier: Modifie
                     view,
                     session.agent,
                     draft,
+                    talk,
                     known,
-                    send = {
-                        if (chat.submit(draft.text.toString())) {
-                            draft.clearText()
-                            sent++
-                            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                        }
-                    },
+                    send = { if (submit(draft.text.toString())) draft.clearText() },
                     showTerminal = {
                         hideKeyboard()
                         model.terminals.pick(TerminalFace.TERMINAL, session.id, session.face)

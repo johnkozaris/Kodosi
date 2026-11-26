@@ -2,11 +2,13 @@ import KodosiBridge
 import SwiftUI
 
 /// What sits below the conversation: the agent's task list, the subagents working for it, queued
-/// messages, the agent's question, the composer, and the session facts.
+/// messages, the agent's question, the composer, and the session facts. On iOS a person can also
+/// talk in place of the composer; `names` are the words that talking should spell right.
 struct ChatDock<ModelKey: View>: View {
     @Environment(\.theme) private var theme
     @Bindable var chat: TerminalChat
     let agent: AgentKind
+    let names: [String]
     var focused: FocusState<Bool>.Binding
     let modelKey: (_ model: String, _ effort: String?, _ open: Binding<Bool>) -> ModelKey
     let showTerminal: () -> Void
@@ -16,6 +18,9 @@ struct ChatDock<ModelKey: View>: View {
     @State private var picked = 0
     @State private var modelOpen = false
     @State private var usageOpen = false
+    #if os(iOS)
+        @State private var talk = ChatTalk()
+    #endif
 
     private var typed: Bool {
         !chat.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -74,7 +79,11 @@ struct ChatDock<ModelKey: View>: View {
                     ChatCommandList(commands: suggestions, picked: min(picked, suggestions.count - 1), choose: choose)
                         .transition(AnyTransition.rise)
                 }
-                composer
+                #if os(iOS)
+                    ChatTalkArea(talk: talk, chat: chat, type: typeInstead) { composer }
+                #else
+                    composer
+                #endif
                 ChatFactsRow(facts: chat.facts, modelKey: modelKey, modelOpen: $modelOpen, usageOpen: $usageOpen)
                     .padding(.horizontal, 6)
             }
@@ -99,6 +108,10 @@ struct ChatDock<ModelKey: View>: View {
                 if id != nil, !typed {
                     focused.wrappedValue = false
                 }
+            }
+            .talking(talk, in: chat) {
+                sends += 1
+                sent()
             }
         #endif
     }
@@ -129,12 +142,18 @@ struct ChatDock<ModelKey: View>: View {
                 .onKeyPress(.downArrow) { move(1) }
                 .onKeyPress(.escape) { .handled }
                 .accessibilityIdentifier("chat.input")
+            #if os(iOS)
+                if !typed {
+                    TalkKey(enabled: chat.canWrite, action: startTalking)
+                        .transition(AnyTransition.pop)
+                }
+            #endif
             if stops {
                 StopKey { chat.stop() }
                     .tip(Text("Stop", bundle: .module))
                     .accessibilityIdentifier("chat.stop")
                     .transition(AnyTransition.pop)
-            } else {
+            } else if showsSend {
                 SendKey(enabled: typed && chat.canWrite, action: send)
                     .tip(Text("Send", bundle: .module))
                     .accessibilityLabel(Text("Send", bundle: .module))
@@ -144,6 +163,28 @@ struct ChatDock<ModelKey: View>: View {
         }
         .composerField(focused: focused.wrappedValue)
     }
+
+    /// On iOS the microphone takes the place of Send until there is something to send.
+    private var showsSend: Bool {
+        #if os(iOS)
+            typed
+        #else
+            true
+        #endif
+    }
+
+    #if os(iOS)
+        private func startTalking() {
+            focused.wrappedValue = false
+            talk.begin(in: chat, names: [agent.label] + names)
+        }
+
+        /// Ends talking and opens the keyboard on the words that did not go out.
+        private func typeInstead() {
+            talk.end()
+            Task { focused.wrappedValue = true }
+        }
+    #endif
 
     private func breakLine() {
         var draft = chat.draft

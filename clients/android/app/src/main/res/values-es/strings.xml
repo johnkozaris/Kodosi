@@ -643,6 +643,15 @@
         <item quantity="many">Tareas: %1$d de %2$d listas</item>
         <item quantity="other">Tareas: %1$d de %2$d listas</item>
     </plurals>
+    <string name="talk">Hablar</string>
+    <string name="talk_type_instead">Escribir</string>
+    <string name="talk_listening">Escuchando</string>
+    <string name="talk_getting_ready">Preparando</string>
+    <string name="talk_tap_send">Toca Enviar para responder</string>
+    <string name="talk_unsent">Tu mensaje, aún sin enviar</string>
+    <string name="talk_allow_microphone">Permite el micrófono para Kodosi en Ajustes.</string>
+    <string name="talk_unavailable">Este dispositivo no puede convertir tu voz en texto.</string>
+    <string name="talk_failed">Kodosi no pudo empezar a escuchar.</string>
     <string name="local_network_title">Conecta directamente con tu ordenador</string>
     <string name="local_network_reason">En la misma red Wi-Fi, tu teléfono se conecta directamente a tu propio ordenador, y es más rápido. Android llama a este permiso «Dispositivos cercanos».</string>
     <string name="local_network_continue">Continuar</string>

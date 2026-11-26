@@ -1,10 +1,13 @@
 package com.kodosi.mobile.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -40,7 +43,8 @@ fun MessageComposer(
     enabled: Boolean = true,
     focusRequester: FocusRequester? = null,
     placeholder: String = stringResource(R.string.write_message),
-    stop: (() -> Unit)? = null
+    stop: (() -> Unit)? = null,
+    talk: (() -> Unit)? = null
 ) {
     val colors = KodosiTheme.colors
     val interaction = remember { MutableInteractionSource() }
@@ -77,19 +81,36 @@ fun MessageComposer(
         )
         val fading = fade<Float>()
         val popping = snappy<Float>()
-        AnimatedContent(
-            stop != null && draft.text.isBlank(),
-            transitionSpec = {
-                (fadeIn(fading) + scaleIn(popping, initialScale = 0.9f)) togetherWith
-                    (fadeOut(fading) + scaleOut(popping, targetScale = 0.9f))
-            },
-            label = "composer key"
-        ) { stops ->
-            if (stops && stop != null) {
-                KodosiStopKey(stop)
-            } else {
-                KodosiSendKey(enabled && !busy && draft.text.isNotBlank(), busy, send)
+        val blank = draft.text.isBlank()
+        val talks = talk != null && blank
+        Row {
+            AnimatedVisibility(
+                talks,
+                enter = fadeIn(fading) + scaleIn(popping, initialScale = 0.9f) + expandHorizontally(fade()),
+                exit = fadeOut(fading) + scaleOut(popping, targetScale = 0.9f) + shrinkHorizontally(fade()),
+                label = "talk key"
+            ) { KodosiQuietKey(AppSymbol.MIC, stringResource(R.string.talk), { talk?.invoke() }, enabled) }
+            AnimatedContent(
+                when {
+                    stop != null && blank -> TrailingKey.STOP
+                    talks -> TrailingKey.NONE
+                    else -> TrailingKey.SEND
+                },
+                transitionSpec = {
+                    (fadeIn(fading) + scaleIn(popping, initialScale = 0.9f)) togetherWith
+                        (fadeOut(fading) + scaleOut(popping, targetScale = 0.9f))
+                },
+                label = "composer key"
+            ) { key ->
+                when {
+                    key == TrailingKey.NONE -> Unit
+                    key == TrailingKey.STOP && stop != null -> KodosiStopKey(stop)
+                    else -> KodosiSendKey(enabled && !busy && draft.text.isNotBlank(), busy, send)
+                }
             }
         }
     }
 }
+
+/** The key after the talk key: the stop key while the agent works, the send key, or none. */
+private enum class TrailingKey { SEND, STOP, NONE }

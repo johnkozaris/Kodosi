@@ -135,7 +135,8 @@ enum class AppSymbol {
     SPARKLE,
     CLOCK,
     MOON,
-    POWER
+    POWER,
+    MIC
 }
 
 @Composable
@@ -530,6 +531,8 @@ private class SymbolPainter(private val symbol: AppSymbol) : androidx.compose.ui
             AppSymbol.MOON -> outline("M20 14.5 A8 8 0 1 1 9.5 4 A6.5 6.5 0 0 0 20 14.5 Z")
 
             AppSymbol.POWER -> outline("M12 3 V11 M7.1 6.3 A7.5 7.5 0 1 0 16.9 6.3")
+
+            AppSymbol.MIC -> outline("M9 6 A3 3 0 0 1 15 6 V11 A3 3 0 0 1 9 11 Z M5 11 A7 7 0 0 0 19 11 M12 18 V21")
         }
     }
 }

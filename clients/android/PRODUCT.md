@@ -43,6 +43,13 @@ queued for the next turn), and Android's predictive back gesture are all support
 view, a long press on a message or a finished agent answer offers to copy it as written or to
 select part of it.
 
+In the chat view, the mic key lets you talk instead of typing. Your words appear as your next
+message while you speak, and the message sends after a long pause, so you can stop to think; Send
+sends it without waiting for the pause. While the agent asks a question, only Send answers it with
+your words. Tap the words to change them, or switch back to the keyboard: words that did not go
+out stay in the composer. Speech turns into text on the device, so no audio leaves it, and replies
+stay text.
+
 From a terminal's menu, its owner shares it with friends or with a project, and everyone else sees
 who shared it with them. A change that lets someone new in waits for the owner's OK in a dialog,
 one question at a time; when the owner says no, the change ends without a message.
