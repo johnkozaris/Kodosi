@@ -167,7 +167,7 @@ private struct ScreenBar: View {
                 }
                 .transition(.opacity)
             }
-            if feed.access?.input == false {
+            if feed.access?.input == false, [.live, .resting].contains(feed.showing) {
                 ExplainedKey(words: String(localized: "Allow control on \(computer)", bundle: .module)) {
                     Text("View only", bundle: .module)
                         .appTextStyle(.footnote).fontWeight(.medium).foregroundStyle(theme.colors.caution)
