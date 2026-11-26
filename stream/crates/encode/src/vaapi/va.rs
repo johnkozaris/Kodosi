@@ -769,34 +769,52 @@ impl Display {
         kind: c_int,
         bytes: &[u8],
     ) -> Result<Id, Status> {
-        let mut buffer = NO_ID;
         // SAFETY: libva copies the bytes, which live for the call.
-        checked(unsafe {
-            (self.library.create_buffer)(
-                self.handle,
-                context,
-                kind,
-                unsigned(bytes.len())?,
-                1,
-                bytes.as_ptr().cast_mut().cast(),
-                &raw mut buffer,
-            )
-        })?;
-        Ok(buffer)
+        unsafe { self.copied(context, kind, bytes.as_ptr().cast(), bytes.len()) }
     }
 
-    /// A buffer that holds a copy of a parameter structure.
+    /// A buffer that holds a copy of a parameter structure, padding and all.
     pub(super) fn create_parameters<T>(
         &self,
         context: Id,
         kind: c_int,
         parameters: &T,
     ) -> Result<Id, Status> {
-        // SAFETY: the parameters are plain C data that live for the call.
-        let bytes = unsafe {
-            std::slice::from_raw_parts(ptr::from_ref(parameters).cast::<u8>(), size_of::<T>())
-        };
-        self.create_buffer(context, kind, bytes)
+        // SAFETY: the parameters live for the call, and libva only copies their bytes.
+        unsafe {
+            self.copied(
+                context,
+                kind,
+                ptr::from_ref(parameters).cast(),
+                size_of::<T>(),
+            )
+        }
+    }
+
+    /// # Safety
+    ///
+    /// `data` must point at `size` bytes that stay valid for the call.
+    unsafe fn copied(
+        &self,
+        context: Id,
+        kind: c_int,
+        data: *const c_void,
+        size: usize,
+    ) -> Result<Id, Status> {
+        let mut buffer = NO_ID;
+        // SAFETY: the caller keeps `size` bytes at `data` valid, and libva copies them.
+        checked(unsafe {
+            (self.library.create_buffer)(
+                self.handle,
+                context,
+                kind,
+                unsigned(size)?,
+                1,
+                data.cast_mut(),
+                &raw mut buffer,
+            )
+        })?;
+        Ok(buffer)
     }
 
     pub(super) fn destroy_buffer(&self, buffer: Id) {
@@ -855,13 +873,14 @@ impl Display {
     ) -> Result<(), Status> {
         let row = width * 4;
         let (pitch, offset) = (image.pitches[0] as usize, image.offsets[0] as usize);
-        if pitch < row || bgra.len() < row * height {
+        let end = offset + pitch * height.saturating_sub(1) + row;
+        if pitch < row || bgra.len() < row * height || end > image.data_size as usize {
             return Err(OUT_OF_RANGE);
         }
         self.mapped(image.buffer, |data| {
             let data = data.cast::<u8>();
             for (index, source) in bgra.chunks_exact(row).take(height).enumerate() {
-                // SAFETY: the image holds `height` rows of `pitch` bytes after `offset`.
+                // SAFETY: the image's data holds every row, as checked above.
                 unsafe {
                     data.add(offset + index * pitch)
                         .copy_from_nonoverlapping(source.as_ptr(), row);
