@@ -2579,6 +2579,18 @@
         <translation>Τα τερματικά σας συνεχίζουν να τρέχουν. Ανοίξτε ξανά το Kodosi για να τα δείτε.</translation>
     </message>
     <message>
+        <source>Update automatically</source>
+        <translation>Αυτόματη ενημέρωση</translation>
+    </message>
+    <message>
+        <source>Kodosi installs updates by itself while nobody uses it.</source>
+        <translation>Το Kodosi εγκαθιστά τις ενημερώσεις μόνο του όταν κανείς δεν το χρησιμοποιεί.</translation>
+    </message>
+    <message>
+        <source>Kodosi installs updates when you restart it.</source>
+        <translation>Το Kodosi εγκαθιστά τις ενημερώσεις όταν το επανεκκινείτε.</translation>
+    </message>
+    <message>
         <source>Stay awake</source>
         <translation>Αποτροπή ύπνου</translation>
     </message>

@@ -2558,6 +2558,18 @@
         <translation>你的终端会继续运行。再次打开 Kodosi 即可查看。</translation>
     </message>
     <message>
+        <source>Update automatically</source>
+        <translation>自动更新</translation>
+    </message>
+    <message>
+        <source>Kodosi installs updates by itself while nobody uses it.</source>
+        <translation>Kodosi 会在无人使用时自动安装更新。</translation>
+    </message>
+    <message>
+        <source>Kodosi installs updates when you restart it.</source>
+        <translation>Kodosi 会在你重启它时安装更新。</translation>
+    </message>
+    <message>
         <source>Stay awake</source>
         <translation>保持唤醒</translation>
     </message>

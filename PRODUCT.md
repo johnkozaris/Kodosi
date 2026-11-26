@@ -157,4 +157,4 @@ Simplified Chinese. The `kodosi` CLI, logs, and internal error details stay in E
   terminals running on your computers.
 - Desktop apps download updates in the background and restart to install them only while nobody
   uses Kodosi, no agent is busy, and no terminal runs another program, so an update never ends
-  someone's work.
+  someone's work. One setting turns this off for people who want to choose the moment.

@@ -123,9 +123,10 @@ identifier la conversation qu'exécutait un agent, celui-ci affiche la liste de 
 pour vous laisser en sélectionner une.
 
 Kodosi installe les mises à jour tout seul lorsque personne ne l'utilise, qu'aucun agent n'est
-occupé et qu'aucun autre programme ne tourne dans un terminal. Si vous redémarrez vous-même pour une
-mise à jour, les agents qui étaient au milieu d'une tâche continuent ensuite. Après tout autre
-arrêt, un tel agent attend que vous appuyiez sur **Continuer** dans son terminal.
+occupé et qu'aucun autre programme ne tourne dans un terminal. Pour choisir vous-même le moment,
+désactivez **Mettre à jour automatiquement** dans **Réglages › Général**. Si vous redémarrez
+vous-même pour une mise à jour, les agents qui étaient au milieu d'une tâche continuent ensuite.
+Après tout autre arrêt, un tel agent attend que vous appuyiez sur **Continuer** dans son terminal.
 
 Sur macOS, les programmes lancés dans Kodosi héritent des autorisations macOS accordées à Kodosi,
 comme dans toute autre app de terminal. Si macOS empêche un programme de modifier une autre app,

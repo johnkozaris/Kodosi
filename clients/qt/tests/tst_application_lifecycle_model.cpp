@@ -14,6 +14,7 @@ private slots:
     void anOutdatedHostRestartsOnlyWhenItRunsInTheBackground();
     void anOutdatedHostThatComesBackIsRestartedOnlyOnce();
     void aLaunchOfANewerVersionOffersTheRestart();
+    void anInstalledUpdateRestartsKodosiByItselfOnlyWhileItUpdatesAutomatically();
 };
 
 void ApplicationLifecycleModelTest::anOutdatedHostRestartsOnlyWhenItRunsInTheBackground()
@@ -109,6 +110,23 @@ void ApplicationLifecycleModelTest::aLaunchOfANewerVersionOffersTheRestart()
     QCOMPARE(offered.count(), 1);
     model.offerRestart(QString {}, QStringLiteral("0.2.2"));
     QCOMPARE(offered.count(), 2);
+}
+
+void ApplicationLifecycleModelTest::anInstalledUpdateRestartsKodosiByItselfOnlyWhileItUpdatesAutomatically()
+{
+    kodosi::RuntimeBridge runtime;
+    kodosi::ApplicationLifecycleModel model(runtime, [](kodosi::ApplicationLifecycleModel::Completion) {}, [](bool) {});
+
+    model.setUpdatesAutomatically(false);
+    model.setUpdateInstalled();
+    model.applyRestart(true, 0);
+    QVERIFY(!model.restartRequested());
+    model.setUpdatesAutomatically(true);
+    QVERIFY(!model.restartRequested());
+    model.applyRestart(false, 0);
+    model.applyRestart(true, 0);
+    QVERIFY(model.restartRequested());
+    QVERIFY(model.restartsQuietly());
 }
 
 QTEST_GUILESS_MAIN(ApplicationLifecycleModelTest)

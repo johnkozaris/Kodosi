@@ -23,6 +23,12 @@ class DesktopSettings final : public QObject {
     Q_PROPERTY(bool keepRunning READ keepRunning WRITE setKeepRunning NOTIFY settingsChanged FINAL)
     Q_PROPERTY(bool opensCanvas READ opensCanvas WRITE setOpensCanvas NOTIFY settingsChanged FINAL)
     Q_PROPERTY(bool notifies READ notifies WRITE setNotifies NOTIFY settingsChanged FINAL)
+    Q_PROPERTY(
+        bool updatesAutomatically
+        READ updatesAutomatically
+        WRITE setUpdatesAutomatically
+        NOTIFY settingsChanged
+        FINAL)
     Q_PROPERTY(QVariantMap viewers READ viewers NOTIFY settingsChanged FINAL)
     Q_PROPERTY(QVariantMap shownViews READ shownViews NOTIFY settingsChanged FINAL)
     Q_PROPERTY(QVariantMap viewPreferences READ viewPreferences NOTIFY settingsChanged FINAL)
@@ -49,6 +55,8 @@ public:
     bool keepRunning() const { return m_keepRunning.value_or(m_keepRunningByDefault); }
     bool opensCanvas() const { return m_opensCanvas; }
     bool notifies() const { return m_notifies; }
+    // Kodosi restarts by itself to install an update while nobody uses it.
+    bool updatesAutomatically() const { return m_updatesAutomatically; }
     bool closeHintShown() const { return m_closeHintShown; }
     QVariantMap viewers() const;
     QVariantMap shownViews() const;
@@ -67,6 +75,7 @@ public:
     void setKeepRunning(bool keep);
     void setOpensCanvas(bool opens);
     void setNotifies(bool notifies);
+    void setUpdatesAutomatically(bool automatic);
     void setCloseHintShown();
     Q_INVOKABLE void setBranchFolder(const QString& path);
     Q_INVOKABLE void setViewer(const QString& name, bool on);
@@ -89,6 +98,7 @@ private:
     bool m_blink = false;
     bool m_opensCanvas = true;
     bool m_notifies = true;
+    bool m_updatesAutomatically = true;
     std::optional<bool> m_keepRunning;
     QMap<QString, bool> m_viewers;
     bool m_closeHintShown = false;

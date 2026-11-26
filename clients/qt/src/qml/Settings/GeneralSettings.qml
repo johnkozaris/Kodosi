@@ -200,6 +200,27 @@ ColumnLayout {
             }
         }
         ListRow {
+            iconName: "refresh"
+            tint: "#5fa57e"
+            title: qsTr("Update automatically")
+            subtitle: Models.DesktopSettings.updatesAutomatically
+                ? qsTr("Kodosi installs updates by itself while nobody uses it.")
+                : qsTr("Kodosi installs updates when you restart it.")
+
+            KSwitch {
+                Accessible.id: objectName
+                Accessible.name: qsTr("Update automatically")
+                checked: Models.DesktopSettings.updatesAutomatically
+                objectName: "settings.updatesAutomatically"
+
+                onToggled: {
+                    const wanted = checked;
+                    checked = Qt.binding(() => Models.DesktopSettings.updatesAutomatically);
+                    Models.DesktopSettings.updatesAutomatically = wanted;
+                }
+            }
+        }
+        ListRow {
             iconName: "sun"
             tint: "#d98a5f"
             title: qsTr("Stay awake")

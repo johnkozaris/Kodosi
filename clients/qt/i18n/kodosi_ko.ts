@@ -2558,6 +2558,18 @@
         <translation>터미널은 계속 실행돼요. Kodosi를 다시 열면 볼 수 있어요.</translation>
     </message>
     <message>
+        <source>Update automatically</source>
+        <translation>자동으로 업데이트</translation>
+    </message>
+    <message>
+        <source>Kodosi installs updates by itself while nobody uses it.</source>
+        <translation>Kodosi는 아무도 사용하지 않을 때 업데이트를 스스로 설치해요.</translation>
+    </message>
+    <message>
+        <source>Kodosi installs updates when you restart it.</source>
+        <translation>Kodosi는 다시 시작할 때 업데이트를 설치해요.</translation>
+    </message>
+    <message>
         <source>Stay awake</source>
         <translation>깨어 있기</translation>
     </message>

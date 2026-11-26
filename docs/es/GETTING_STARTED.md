@@ -121,9 +121,10 @@ Si Kodosi no puede identificar qué conversación estaba ejecutando un agente, e
 lista de sus conversaciones para que elijas una.
 
 Kodosi instala las actualizaciones por sí solo cuando nadie lo usa, ningún agente está ocupado y
-ningún otro programa se ejecuta en un terminal. Si reinicias tú para actualizar, los agentes que
-estaban a mitad de una tarea continúan después. Tras cualquier otra parada, ese agente espera hasta
-que pulses **Continuar** en su terminal.
+ningún otro programa se ejecuta en un terminal. Para elegir tú el momento, desactiva **Actualizar
+automáticamente** en **Ajustes › General**. Si reinicias tú para actualizar, los agentes que estaban
+a mitad de una tarea continúan después. Tras cualquier otra parada, ese agente espera hasta que
+pulses **Continuar** en su terminal.
 
 En macOS, los programas dentro de Kodosi heredan los permisos de macOS concedidos a Kodosi, igual
 que en cualquier otra app de terminal. Si macOS impide que un programa modifique otra app, activa

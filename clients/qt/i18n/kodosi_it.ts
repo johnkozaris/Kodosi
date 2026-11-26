@@ -2579,6 +2579,18 @@
         <translation>I tuoi terminali continuano a funzionare. Riapri Kodosi per vederli.</translation>
     </message>
     <message>
+        <source>Update automatically</source>
+        <translation>Aggiorna automaticamente</translation>
+    </message>
+    <message>
+        <source>Kodosi installs updates by itself while nobody uses it.</source>
+        <translation>Kodosi installa gli aggiornamenti da solo quando nessuno lo usa.</translation>
+    </message>
+    <message>
+        <source>Kodosi installs updates when you restart it.</source>
+        <translation>Kodosi installa gli aggiornamenti quando lo riavvii.</translation>
+    </message>
+    <message>
         <source>Stay awake</source>
         <translation>Resta attivo</translation>
     </message>

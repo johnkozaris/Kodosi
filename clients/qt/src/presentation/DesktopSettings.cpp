@@ -54,6 +54,7 @@ DesktopSettings::DesktopSettings(std::unique_ptr<QSettings> settings, bool keepR
     m_closeHintShown = m_settings->value(QStringLiteral("app/closeHintShown"), false).toBool();
     m_opensCanvas = m_settings->value(QStringLiteral("canvas/opensItself"), true).toBool();
     m_notifies = m_settings->value(QStringLiteral("app/notifies"), true).toBool();
+    m_updatesAutomatically = m_settings->value(QStringLiteral("app/updatesAutomatically"), true).toBool();
     m_language = m_settings->value(QStringLiteral("app/language")).toString();
     for (const auto& [name, usual] : viewerDefaults())
         m_viewers.insert(name, m_settings->value(QStringLiteral("viewers/") + name, usual).toBool());
@@ -195,6 +196,14 @@ void DesktopSettings::setNotifies(bool notifies)
     persist();
     emit settingsChanged();
 }
+void DesktopSettings::setUpdatesAutomatically(bool automatic)
+{
+    if (automatic == m_updatesAutomatically)
+        return;
+    m_updatesAutomatically = automatic;
+    persist();
+    emit settingsChanged();
+}
 void DesktopSettings::setLanguage(const QString& language)
 {
     if (language == m_language)
@@ -265,6 +274,7 @@ bool DesktopSettings::persist()
     m_settings->setValue(QStringLiteral("app/closeHintShown"), m_closeHintShown);
     m_settings->setValue(QStringLiteral("canvas/opensItself"), m_opensCanvas);
     m_settings->setValue(QStringLiteral("app/notifies"), m_notifies);
+    m_settings->setValue(QStringLiteral("app/updatesAutomatically"), m_updatesAutomatically);
     if (m_language.isEmpty())
         m_settings->remove(QStringLiteral("app/language"));
     else

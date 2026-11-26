@@ -2579,6 +2579,18 @@
         <translation>Vos terminaux continuent de fonctionner. Rouvrez Kodosi pour les voir.</translation>
     </message>
     <message>
+        <source>Update automatically</source>
+        <translation>Mettre à jour automatiquement</translation>
+    </message>
+    <message>
+        <source>Kodosi installs updates by itself while nobody uses it.</source>
+        <translation>Kodosi installe les mises à jour tout seul lorsque personne ne l&apos;utilise.</translation>
+    </message>
+    <message>
+        <source>Kodosi installs updates when you restart it.</source>
+        <translation>Kodosi installe les mises à jour quand vous le redémarrez.</translation>
+    </message>
+    <message>
         <source>Stay awake</source>
         <translation>Rester éveillé</translation>
     </message>

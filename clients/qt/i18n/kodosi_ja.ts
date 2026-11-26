@@ -2558,6 +2558,18 @@
         <translation>ターミナルは実行を続けます。もう一度 Kodosi を開くと表示されます。</translation>
     </message>
     <message>
+        <source>Update automatically</source>
+        <translation>自動的にアップデート</translation>
+    </message>
+    <message>
+        <source>Kodosi installs updates by itself while nobody uses it.</source>
+        <translation>Kodosi は、誰も使っていないときにアップデートを自動でインストールします。</translation>
+    </message>
+    <message>
+        <source>Kodosi installs updates when you restart it.</source>
+        <translation>Kodosi は、再起動したときにアップデートをインストールします。</translation>
+    </message>
+    <message>
         <source>Stay awake</source>
         <translation>スリープ防止</translation>
     </message>

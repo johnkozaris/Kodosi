@@ -121,7 +121,8 @@ precedenza. Se Kodosi non riesce a individuare quale conversazione fosse attiva,
 proprie conversazioni per farti scegliere quale riprendere.
 
 Kodosi installa gli aggiornamenti da solo quando nessuno lo usa, nessun agente è al lavoro e nessun
-altro programma è in esecuzione in un terminale. Se riavvii tu per un aggiornamento, gli agenti che
+altro programma è in esecuzione in un terminale. Per scegliere tu il momento, disattiva **Aggiorna
+automaticamente** in **Impostazioni › Generale**. Se riavvii tu per un aggiornamento, gli agenti che
 erano a metà di un'attività proseguono dopo. Dopo qualsiasi altra interruzione, un agente del genere
 aspetta finché non premi **Continua** nel suo terminale.
 

@@ -46,7 +46,7 @@ stops to install an update leaves a note of that, and when the next host starts 
 agents continue on their own once they report that they are ready. After any other stop, the
 terminal offers to continue its agent until someone does, types, or the agent works again. The host
 tells the desktop apps whether a restart now would lose nothing while nobody uses its terminals,
-and the apps install a waiting update then.
+and apps that update automatically install a waiting update then.
 
 ## Terminals
 
