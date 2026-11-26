@@ -26,7 +26,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.LifecycleStartEffect
 import com.kodosi.mobile.terminals.RuntimeSession
 import com.kodosi.mobile.terminals.agentLabel
 import java.util.Locale
@@ -96,6 +96,12 @@ internal class ChatTalk(
     private var language = ""
     private var ready = false
 
+    /** The recognizer heard words in this talk mode, so it worked, and a stop keeps them quietly. */
+    private var heard = false
+
+    /** Talk mode asked for the language's model once after the recognizer said it does not have it. */
+    private var fetched = false
+
     /** The recognizer gave this session's speech in segments, so its results only repeat them. */
     private var segmented = false
 
@@ -111,6 +117,8 @@ internal class ChatTalk(
         val starting = newRecognizer()
         on = true
         listening = false
+        heard = false
+        fetched = false
         note = null
         turn = TalkTurn(SystemClock.uptimeMillis())
         publish()
@@ -296,16 +304,24 @@ internal class ChatTalk(
                 apply(turn.stopping(now, asking()))
             }
 
+            // Google's recognizer can list no languages until it downloaded one, and then says that
+            // it lacks the model only once it listens.
+            error == SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE && !heard && !fetched -> {
+                fetched = true
+                listening = false
+                download()
+            }
+
             else -> stop(error)
         }
     }
 
-    /** Talk mode stops: with a note when it never listened, else quietly with the words kept. */
+    /** Talk mode stops: with a note while it heard no words, else quietly with the words kept. */
     private fun stop(error: Int) {
         Log.w(TAG, "Talk mode stopped on speech recognition error $error.")
         finish(
             when {
-                listening -> null
+                heard -> null
 
                 error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> TalkNote.MICROPHONE
 
@@ -316,6 +332,12 @@ internal class ChatTalk(
             },
             turn.takeUnsent()
         )
+    }
+
+    /** Words came, so the recognizer works: a later stop keeps them quietly, and refusals get new retries. */
+    private fun wordsCame() {
+        heard = true
+        retries = 0
     }
 
     private fun finish(why: TalkNote?, unsent: String) {
@@ -354,22 +376,26 @@ internal class ChatTalk(
 
         override fun onPartialResults(partialResults: Bundle?) {
             if (!current) return
-            retries = 0
-            apply(turn.hearing(partialResults.partialWords(), SystemClock.uptimeMillis(), asking()))
+            val words = partialResults.partialWords()
+            if (words.isNotBlank()) wordsCame()
+            apply(turn.hearing(words, SystemClock.uptimeMillis(), asking()))
         }
 
         override fun onSegmentResults(segmentResults: Bundle) {
             if (!current) return
             segmented = true
-            retries = 0
-            apply(turn.settling(segmentResults.finalWords(), SystemClock.uptimeMillis(), asking()))
+            val words = segmentResults.finalWords()
+            if (words.isNotBlank()) wordsCame()
+            apply(turn.settling(words, SystemClock.uptimeMillis(), asking()))
         }
 
         override fun onResults(results: Bundle?) {
             if (!current) return
             val now = SystemClock.uptimeMillis()
+            val words = results.finalWords()
+            if (words.isNotBlank()) wordsCame()
             // After segments, the results repeat the speech of the whole session.
-            apply(if (segmented) turn.stopping(now, asking()) else turn.settling(results.finalWords(), now, asking()))
+            apply(if (segmented) turn.stopping(now, asking()) else turn.settling(words, now, asking()))
             listen()
         }
 
@@ -453,7 +479,10 @@ internal fun rememberChatTalk(
     val talk = remember(chat) { ChatTalk(context, submit, keep, asking = { chat.view.value.question != null }) }
     val hints = talkHints(session, view.facts.folder)
     SideEffect { talk.hints = hints }
-    LifecycleResumeEffect(talk) { onPauseOrDispose { talk.end() } }
+    // A system dialog over the chat, such as the one that downloads the language, leaves talk mode
+    // on, and talk mode keeps the chat linked meanwhile; leaving the app ends it.
+    LifecycleStartEffect(talk) { onStopOrDispose { talk.end() } }
+    LaunchedEffect(talk, talk.on) { if (talk.on) chat.watch() }
     val writable = view.canWrite
     LaunchedEffect(talk, writable) { if (!writable) talk.end() }
     LaunchedEffect(talk, talk.on) {
