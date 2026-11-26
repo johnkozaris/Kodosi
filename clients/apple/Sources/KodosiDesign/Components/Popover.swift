@@ -87,6 +87,22 @@ public extension View {
                 isPresented ? [KodosiFlyoutItem(anchor: anchor, content: AnyView(content()))] : []
             }
         }
+
+        /// The popover leaves Escape to its content, as a search field with text clears it first; the
+        /// next Escape closes the popover.
+        func takesPopoverEscape(_ takes: Bool) -> some View {
+            preference(key: KodosiPopoverEscapeKey.self, value: takes)
+        }
+    }
+
+    struct KodosiPopoverEscapeKey: PreferenceKey {
+        static var defaultValue: Bool {
+            false
+        }
+
+        static func reduce(value: inout Bool, nextValue: () -> Bool) {
+            value = value || nextValue()
+        }
     }
 
     struct KodosiFlyoutItem {
@@ -186,6 +202,7 @@ public extension View {
         @State private var size = CGSize.zero
         @State private var shown = false
         @State private var monitor: Any?
+        @State private var contentTakesEscape = false
 
         private static let gap: CGFloat = 6
         private static let margin: CGFloat = 10
@@ -219,6 +236,7 @@ public extension View {
                     }
                 }
             }
+            .onPreferenceChange(KodosiPopoverEscapeKey.self) { contentTakesEscape = $0 }
             .allowsHitTesting(!item.closing)
             .animation(theme.motion.hover, value: item.closing)
             .onAppear {
@@ -240,7 +258,7 @@ public extension View {
             KodosiPopoverState.add(1)
             let dismiss = item.dismiss
             monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-                guard event.keyCode == 53, !event.goesToSheetOrAlert else { return event }
+                guard event.keyCode == 53, !event.goesToSheetOrAlert, !contentTakesEscape else { return event }
                 dismiss()
                 return nil
             }
