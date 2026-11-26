@@ -156,6 +156,10 @@ content. Drop targets show a dashed copper outline while the dragged item appear
 Your own messages align right as bubbles; other people show an avatar and name, and agents show
 their icon, owner, and terminal name. Mentions render as tinted chips.
 
+Talking in a chat replaces the composer with a talk bar: a key back to typing, bars that rise with
+your voice, and Send, whose ring fills during the pause that sends. Words that did not go out yet
+wait above it as your own message, faint where the recognizer may still change them.
+
 Dosi's avatar doubles the copper cursor into two eyes on a dark squircle, sitting directly at the
 bottom of the sidebar without a container box. Its face and a single monospace status line report
 activity; nothing pops up unprompted.

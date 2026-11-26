@@ -28,6 +28,14 @@ agent works in, the header switches between them, the terminal screen stays live
 shown, and you can switch the agent's model from either view. Pointing at a message or a finished
 answer in the chat shows a key that copies it whole, as written.
 
+In the chat view, the mic key lets you talk instead of typing. Your words appear as your next
+message while you speak, and the message sends after a long pause, so you can stop to think; Send
+sends it without waiting for the pause. While the agent asks a question, only Send answers it with
+your words. Click the words to change them, or go back to typing: words that did not go out stay in
+the composer. One chat listens at a time, so talking in another chat ends the first. Speech turns
+into text on this Mac, so no audio leaves it, and replies stay text. A Mac that can't turn speech
+into text in any of your languages shows no mic key.
+
 ## Canvas, projects, and Dosi
 
 The canvas opens beside its terminal and can expand to take over the main stage while keeping the
