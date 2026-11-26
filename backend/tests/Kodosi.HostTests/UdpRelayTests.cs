@@ -16,6 +16,7 @@ public sealed class UdpRelayTests : IAsyncDisposable
 {
     private static readonly TimeSpan Wait = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan Silence = TimeSpan.FromMilliseconds(300);
+    private static readonly TimeSpan Resend = TimeSpan.FromSeconds(1);
     private readonly CancellationTokenSource stop = new();
     private readonly Socket server = UdpRelay.Open(0);
     private readonly RelayAllocations allocations = new(TimeProvider.System);
@@ -102,11 +103,12 @@ public sealed class UdpRelayTests : IAsyncDisposable
             await flood.SendToAsync(new[] { UdpRelay.Bind }, Relay);
             await flood.SendToAsync(request, Relay);
         }
-        await BindAsync(device, allocation, 0);
+        var bound = await AskAsync(device, () => Bind(allocation, 0, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()), Relay);
+        Assert.Equal(UdpRelay.Bound, bound?[0]);
         using var asker = new Socket(AddressFamily.InterNetworkV6, SocketType.Dgram, ProtocolType.Udp);
         asker.Bind(new IPEndPoint(IPAddress.IPv6Loopback, 0));
-        await asker.SendToAsync(request, new IPEndPoint(IPAddress.IPv6Loopback, Relay.Port));
-        Assert.Equal([0x01, 0x01], (await ReceiveAsync(asker, Wait))?[..2]);
+        var answer = await AskAsync(asker, () => request, new IPEndPoint(IPAddress.IPv6Loopback, Relay.Port));
+        Assert.Equal([0x01, 0x01], answer?[..2]);
     }
 
     public async ValueTask DisposeAsync()
@@ -121,6 +123,22 @@ public sealed class UdpRelayTests : IAsyncDisposable
     {
         await device.SendToAsync(Bind(allocation, slot, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()), Relay);
         Assert.Equal(UdpRelay.Bound, (await ReceiveAsync(device, Wait))?[0]);
+    }
+
+    /// Asks until an answer comes, once a second as devices do: Linux caps the relay's socket buffer,
+    /// so a flood fills it and the system drops the next packet before the relay reads it.
+    private static async Task<byte[]?> AskAsync(Socket socket, Func<byte[]> packet, IPEndPoint relay)
+    {
+        var until = DateTimeOffset.UtcNow + Wait;
+        while (DateTimeOffset.UtcNow < until)
+        {
+            await socket.SendToAsync(packet(), relay);
+            if (await ReceiveAsync(socket, Resend) is { } answer)
+            {
+                return answer;
+            }
+        }
+        return null;
     }
 
     private static Socket Device()
