@@ -773,7 +773,7 @@ impl Copilot {
                             turn.refuses_messages = true;
                         }
                     } else {
-                        chat.refuse(&handed.queued, error);
+                        chat.refuse(&handed.queued, Some(error));
                         self.held = true;
                     }
                 }

@@ -380,7 +380,10 @@ impl Room {
                     .viewers
                     .get(&viewer)
                     .map(|viewer| viewer.person.clone());
-                if self.chat.queue(ends_of(text, MOST_MESSAGE), by).is_some() {
+                if let Some(id) = self.chat.queue(ends_of(text, MOST_MESSAGE), by) {
+                    if !agent.takes(text) {
+                        self.chat.in_terminal(&id);
+                    }
                     agent.retry();
                 }
             }

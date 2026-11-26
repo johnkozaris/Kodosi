@@ -560,6 +560,33 @@ fn a_command_of_the_chat_runs_as_in_the_terminal_and_a_session_without_checks_ca
     );
 }
 
+#[test]
+fn a_message_that_a_stop_in_the_terminal_dropped_waits_for_the_next_turn_of_claude_code() {
+    let mut play = Play::of(record!("text"), &[]);
+    play.chat
+        .queue("Use the staging database.".to_owned(), Some(sam()));
+    let sent = json!({"do": "prompt", "n": 1, "text": "Use the staging database."});
+    assert_eq!(play.agent.commands(&play.chat), [sent]);
+
+    let stopped = "the prompt was removed from the queue before it ran";
+    play.take(&json!({"k": "did", "n": 1, "drop": stopped}));
+    assert_eq!(play.view.queued[0].refused, None, "a stop refuses nothing");
+    assert!(
+        play.agent.commands(&play.chat).is_empty(),
+        "Claude Code takes nothing until a person writes to it"
+    );
+
+    play.take(&json!({"k": "turn"}));
+    play.take(&json!({"k": "turnEnd", "reason": "answer"}));
+    assert_eq!(
+        play.agent.commands(&play.chat),
+        [json!({"do": "prompt", "n": 2, "text": "Use the staging database."})]
+    );
+    let blocked = "a hook answered without passing the prompt on";
+    play.take(&json!({"k": "did", "n": 2, "drop": blocked}));
+    assert_eq!(play.view.queued[0].refused.as_deref(), Some(blocked));
+}
+
 fn events(record: &str) -> Vec<Value> {
     record
         .lines()
@@ -1110,6 +1137,60 @@ fn a_stop_takes_back_the_message_that_copilot_has_not_read_and_sends_it_after_th
     assert_eq!(
         play.agent.commands(&play.chat),
         [json!({"do": "prompt", "n": 2, "text": "Also count the pens."})]
+    );
+}
+
+#[test]
+fn codex_compacts_for_the_chat_and_leaves_a_command_of_its_terminal_to_the_person() {
+    const THREAD: &str = "00000001-0000-7000-8000-000000000000";
+    let mut play = Play::codex(&[codex!("first")], &[]);
+    for text in ["/status", "/compact", "Count the pens."] {
+        let id = play.chat.queue(text.to_owned(), Some(sam()));
+        if !play.agent.takes(text) {
+            play.chat.in_terminal(&id.expect("room in the queue"));
+        }
+    }
+
+    let compact = play.agent.commands(&play.chat);
+    assert_eq!(compact.len(), 1, "{compact:?}");
+    assert_eq!(compact[0]["m"], "thread/compact/start");
+    assert_eq!(compact[0]["p"], json!({"threadId": THREAD}));
+    play.take(&json!({"k": "reply", "tag": compact[0]["tag"], "r": {}}));
+    let turn = json!({"id": "turn20", "status": "completed"});
+    let item = json!({"type": "contextCompaction", "id": "item20"});
+    play.take(&json!({"k": "note", "m": "turn/started", "p": {"threadId": THREAD, "turn": turn}}));
+    play.take(&json!({
+        "k": "note",
+        "m": "item/started",
+        "p": {"threadId": THREAD, "turnId": "turn20", "item": item},
+    }));
+    assert_eq!(play.view.now, Some(ChatNow::Compacting));
+    play.take(&json!({
+        "k": "note",
+        "m": "item/completed",
+        "p": {"threadId": THREAD, "turnId": "turn20", "item": item},
+    }));
+    play.take(
+        &json!({"k": "note", "m": "turn/completed", "p": {"threadId": THREAD, "turn": turn}}),
+    );
+
+    assert_eq!(play.people().last(), Some(&"/compact"));
+    assert!(play.view.items.iter().any(|item| matches!(
+        item.body,
+        ChatBody::Note {
+            note: ChatNote::Compacted
+        }
+    )));
+    let start = play.agent.commands(&play.chat);
+    assert_eq!(start.len(), 1, "{start:?}");
+    assert_eq!(start[0]["m"], "turn/start");
+    assert_eq!(start[0]["p"]["input"][0]["text"], "Count the pens.");
+    assert_eq!(
+        (
+            play.view.queued[0].text.as_str(),
+            play.view.queued[0].terminal
+        ),
+        ("/status", true)
     );
 }
 
