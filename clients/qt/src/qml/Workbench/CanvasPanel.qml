@@ -28,6 +28,9 @@ Item {
     readonly property string loadKey: current && current.item && !current.missing && documentView.length === 0
         ? current.key + "\n" + current.item.revision : ""
     readonly property bool local: session.kind === "local"
+    readonly property bool hostOffline: session.kind === "remote" && session.status === "offline"
+    // Whether the person at the computer shares its screen, which stays on the canvas while not.
+    readonly property bool screenShared: !!canvas && !!canvas.screen && canvas.screen.shared === true
     readonly property bool agent: Models.DesktopSettings.agentOf(session.program || "") !== "shell"
     property string readyKey: ""
     property string placedKey: ""
@@ -548,7 +551,7 @@ Item {
                         visible: !root.shelf
                         sourceComponent: !root.current || root.documentView.length > 0 ? null
                             : root.current.kind === "browser" ? browserView
-                            : root.current.kind === "screen" ? screenView
+                            : root.current.kind === "screen" ? (root.local ? hereScreenView : screenView)
                             : root.current.missing ? missingView
                             : root.readyKey !== root.current.key ? (root.failure.length > 0 ? failureView : loadingView)
                             : root.current.kind === "picture" ? pictureView
@@ -619,6 +622,8 @@ Item {
         CanvasBrowser {
             sessionId: root.sessionId
             browser: root.current.browser
+            computer: root.session.hostLabel || ""
+            offline: root.hostOffline
             askTitle: root.agent && root.session.canControl === true
                 ? qsTr("Ask %1 about this").arg(Models.DesktopSettings.agentLabel(root.session.program)) : ""
             onAsking: words => root.askAbout("browser", words)
@@ -630,6 +635,31 @@ Item {
         CanvasScreen {
             sessionId: root.sessionId
             computer: root.session.hostLabel || ""
+            shared: root.screenShared
+            offline: root.hostOffline
+        }
+    }
+    // Other devices show this computer's screen; this one only says that it is on the canvas.
+    Component {
+        id: hereScreenView
+
+        Item {
+            EmptyState {
+                anchors.centerIn: parent
+                width: Math.min(340, parent.width - 32)
+                title: qsTr("This computer's screen")
+                message: root.screenShared ? qsTr("Your other devices show it on this canvas.") : qsTr("Sharing is off")
+                objectName: "canvas.screen.here"
+                art: IconWell { iconName: "display" }
+
+                KButton {
+                    visible: !root.screenShared
+                    text: qsTr("Turn on")
+                    objectName: "canvas.screen.here.share"
+                    Accessible.id: objectName
+                    onClicked: Models.Canvas.shareScreen(true)
+                }
+            }
         }
     }
     Component {

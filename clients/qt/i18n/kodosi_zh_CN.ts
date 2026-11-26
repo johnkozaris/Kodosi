@@ -515,6 +515,10 @@
         <translation>已共享</translation>
     </message>
     <message>
+        <source>Can&apos;t show the page</source>
+        <translation>无法显示此页面</translation>
+    </message>
+    <message>
         <source>New tab</source>
         <translation>新标签页</translation>
     </message>
@@ -529,10 +533,6 @@
     <message>
         <source>Shared browser</source>
         <translation>共享浏览器</translation>
-    </message>
-    <message>
-        <source>Try again</source>
-        <translation>重试</translation>
     </message>
     <message>
         <source>Copy</source>
@@ -557,18 +557,6 @@
     <message>
         <source>Getting the browser, %1%</source>
         <translation>正在下载浏览器，%1%</translation>
-    </message>
-    <message>
-        <source>Starting the browser</source>
-        <translation>正在启动浏览器</translation>
-    </message>
-    <message>
-        <source>The browser is asleep</source>
-        <translation>浏览器正在休眠</translation>
-    </message>
-    <message>
-        <source>Wake it</source>
-        <translation>唤醒</translation>
     </message>
 </context>
 <context>
@@ -748,6 +736,22 @@
         <translation>移到回收站</translation>
     </message>
     <message>
+        <source>This computer&apos;s screen</source>
+        <translation>这台电脑的屏幕</translation>
+    </message>
+    <message>
+        <source>Your other devices show it on this canvas.</source>
+        <translation>你的其他设备会在这个画布上显示它。</translation>
+    </message>
+    <message>
+        <source>Sharing is off</source>
+        <translation>共享已关闭</translation>
+    </message>
+    <message>
+        <source>Turn on</source>
+        <translation>打开</translation>
+    </message>
+    <message>
         <source>The file is missing</source>
         <translation>文件缺失</translation>
     </message>
@@ -787,32 +791,20 @@
         <translation>显示整个屏幕</translation>
     </message>
     <message>
-        <source>To control %1 from here, turn on Kodosi Screen there in System Settings, under Privacy &amp; Security, Accessibility.</source>
-        <translation>要从这里控制 %1，请在那台电脑上打开 Kodosi Screen：系统设置 &gt;“隐私与安全性”&gt;“辅助功能”。</translation>
+        <source>Allow control on %1</source>
+        <translation>请在 %1 上允许控制</translation>
+    </message>
+    <message>
+        <source>Can&apos;t show the screen</source>
+        <translation>无法显示屏幕</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>已复制</translation>
     </message>
     <message>
         <source>View only</source>
         <translation>仅查看</translation>
-    </message>
-    <message>
-        <source>Kodosi Screen cannot record %1</source>
-        <translation>Kodosi Screen 无法录制 %1</translation>
-    </message>
-    <message>
-        <source>On %1, turn on Kodosi Screen in System Settings, under Privacy &amp; Security, Screen &amp; System Audio Recording.</source>
-        <translation>请在 %1 上打开 Kodosi Screen：系统设置 &gt;“隐私与安全性”&gt;“录屏与系统录音”。</translation>
-    </message>
-    <message>
-        <source>The screen did not open</source>
-        <translation>未能打开屏幕</translation>
-    </message>
-    <message>
-        <source>Try again</source>
-        <translation>重试</translation>
-    </message>
-    <message>
-        <source>Waiting for the screen</source>
-        <translation>正在等待屏幕</translation>
     </message>
 </context>
 <context>
@@ -2595,6 +2587,26 @@
     <message>
         <source>Quit</source>
         <translation>退出</translation>
+    </message>
+    <message>
+        <source>Screen</source>
+        <translation>屏幕</translation>
+    </message>
+    <message>
+        <source>While someone watches, Kodosi shows who, with a way to stop.</source>
+        <translation>有人观看时，Kodosi 会显示是谁，并提供停止的方法。</translation>
+    </message>
+    <message>
+        <source>Let my other devices see and control this computer</source>
+        <translation>允许我的其他设备查看和控制这台电脑</translation>
+    </message>
+    <message>
+        <source>Allow on this computer</source>
+        <translation>在这台电脑上允许</translation>
+    </message>
+    <message>
+        <source>Allow…</source>
+        <translation>允许…</translation>
     </message>
     <message>
         <source>Privacy policy</source>
@@ -4813,6 +4825,37 @@
     <message>
         <source>Opens the launcher with this account</source>
         <translation>用此账号打开启动器</translation>
+    </message>
+</context>
+<context>
+    <name>VideoCover</name>
+    <message>
+        <source>Sharing is off on %1</source>
+        <translation>%1 上的共享已关闭</translation>
+    </message>
+    <message>
+        <source>%1 is offline</source>
+        <translation>%1 已离线</translation>
+    </message>
+    <message>
+        <source>%1 is locked</source>
+        <translation>%1 已锁定</translation>
+    </message>
+    <message>
+        <source>%1 is on another account</source>
+        <translation>%1 正在使用其他账户</translation>
+    </message>
+    <message>
+        <source>%1 is asleep</source>
+        <translation>%1 已进入睡眠</translation>
+    </message>
+    <message>
+        <source>Allow screen recording on %1</source>
+        <translation>请在 %1 上允许录屏</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>重试</translation>
     </message>
 </context>
 <context>

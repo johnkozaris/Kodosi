@@ -32,7 +32,8 @@ std::unique_ptr<VideoPlanes> gpuPlanes(QRhi& rhi);
 class VideoNode final : public QSGGeometryNode {
 public:
     VideoNode();
-    void show(std::shared_ptr<const VideoFrame> frame, const QRectF& rect);
+    // `rest` dims and greys the picture, from 0 for none to 1 for a picture that is not live.
+    void show(std::shared_ptr<const VideoFrame> frame, const QRectF& rect, float rest);
 
 private:
     QRectF m_rect;

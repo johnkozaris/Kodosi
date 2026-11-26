@@ -12,6 +12,9 @@ Item {
 
     required property string sessionId
     required property string computer
+    // Whether the person at the computer shares its screen.
+    required property bool shared
+    required property bool offline
     property real pressedAt: 0
     property point pressedPoint: Qt.point(0, 0)
     property int pressedButton: Qt.NoButton
@@ -20,7 +23,8 @@ Item {
     // edge while it rested there.
     property point mouseAt: Qt.point(0, 0)
     property bool panStopped: false
-    readonly property bool records: video.access.screen !== false
+    readonly property bool live: video.showing === "live"
+    readonly property bool pictured: live || video.showing === "resting"
     readonly property bool controls: video.access.input !== false
     // The edge band of a zoomed view that moves it, and how fast at the very edge, in points a second.
     readonly property real panBand: 36
@@ -83,7 +87,7 @@ Item {
                 onClicked: sources.popupFor(sourceKey, Qt.point(0, sourceKey.height + 4))
             }
             KIconButton {
-                visible: video.zoomed
+                visible: video.zoomed && root.pictured
                 glyph: "shrink"
                 size: 26
                 Accessible.name: qsTr("Show the whole screen")
@@ -91,10 +95,9 @@ Item {
                 onClicked: video.showWhole()
             }
             Tag {
-                readonly property string explanation: qsTr("To control %1 from here, turn on Kodosi Screen there in System Settings, under Privacy & Security, Accessibility.")
-                    .arg(root.computer)
+                readonly property string explanation: qsTr("Allow control on %1").arg(root.computer)
 
-                visible: !root.controls
+                visible: !root.controls && root.pictured
                 text: qsTr("View only")
                 tone: Tag.Caution
                 objectName: "canvas.screen.viewOnly"
@@ -114,7 +117,7 @@ Item {
 
             Layout.fillWidth: true
             Layout.fillHeight: true
-            color: video.shows && root.records && video.problem.length === 0 ? KodosiTheme.darkLook.terminal : KodosiTheme.sheet
+            color: root.pictured ? KodosiTheme.darkLook.terminal : KodosiTheme.sheet
             clip: true
             activeFocusOnTab: true
             objectName: "canvas.screen.picture"
@@ -122,24 +125,21 @@ Item {
             Accessible.role: Accessible.Graphic
             Accessible.name: root.sourceName()
 
+            Behavior on color { ColorAnimation { duration: KodosiTheme.motionFade } }
+
+            // A paste there pastes what this device copied.
             Keys.onPressed: event => {
-                if (event.matches(StandardKey.Paste)) {
-                    video.paste();
-                    event.accepted = true;
-                    return;
-                }
+                if (event.matches(StandardKey.Paste))
+                    video.giveClipboard();
                 event.accepted = video.key(event.key, event.text, event.modifiers, true);
             }
-            Keys.onReleased: event => {
-                if (!event.matches(StandardKey.Paste))
-                    event.accepted = video.key(event.key, event.text, event.modifiers, false);
-            }
+            Keys.onReleased: event => event.accepted = video.key(event.key, event.text, event.modifiers, false)
 
             MouseArea {
                 id: area
 
                 anchors.fill: parent
-                enabled: root.records
+                enabled: root.pictured
                 acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                 hoverEnabled: true
 
@@ -172,25 +172,34 @@ Item {
                 documents: Models.CanvasDocuments
                 canvas: Models.Canvas
                 sessionId: root.sessionId
+                shared: root.shared
+                offline: root.offline
                 active: KodosiTheme.shown
-                // A reason means the picture can't come back by itself, so the reason shows instead.
-                visible: shows && root.records && problem.length === 0
+                rest: root.live ? 0 : 1
+                opacity: root.pictured ? 1 : 0
+                visible: opacity > 0
+
+                Behavior on rest { NumberAnimation { duration: KodosiTheme.motionFade } }
+                Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
             }
             PinchHandler {
                 target: null
+                enabled: root.pictured
                 onScaleChanged: delta => video.zoom(delta, centroid.position.x, centroid.position.y)
             }
             DragHandler {
                 target: null
+                enabled: root.pictured
                 minimumPointCount: 2
                 onTranslationChanged: delta => video.pan(-delta.x, -delta.y)
             }
-            // A zoomed view moves while the pointer rests at its edge, as Screen Sharing's does.
+            // A zoomed view moves while the pointer rests at its edge, as Screen Sharing's does. A view
+            // that follows another device's does not, or resting there would take the screen over.
             FrameAnimation {
                 readonly property real dx: root.edgePan(root.mouseAt.x, surface.width)
                 readonly property real dy: root.edgePan(root.mouseAt.y, surface.height)
 
-                running: video.zoomed && (area.containsMouse || area.pressed) && !root.panStopped
+                running: root.pictured && video.zoomed && !video.follows && (area.containsMouse || area.pressed) && !root.panStopped
                     && surface.width > root.panBand * 3 && surface.height > root.panBand * 3 && (dx !== 0 || dy !== 0)
                 onTriggered: {
                     if (!video.pan(dx * frameTime, dy * frameTime)) {
@@ -208,51 +217,80 @@ Item {
                 width: at.width ?? 0
                 height: at.height ?? 0
                 source: at.image ?? ""
-                visible: root.records && !!at.image && !(area.containsMouse && root.controls)
+                visible: root.pictured && !!at.image && !(area.containsMouse && root.controls)
                 smooth: true
                 Accessible.ignored: true
             }
-            EmptyState {
-                anchors.centerIn: parent
-                width: Math.min(420, parent.width - 48)
-                visible: !root.records
-                title: qsTr("Kodosi Screen cannot record %1").arg(root.computer)
-                message: qsTr("On %1, turn on Kodosi Screen in System Settings, under Privacy & Security, Screen & System Audio Recording.")
-                    .arg(root.computer)
+            VideoCover {
+                anchors.fill: parent
+                showing: video.showing
+                computer: root.computer
+                failure: qsTr("Can't show the screen")
+                problem: video.problem
+                objectName: "canvas.screen.cover"
+                onRetried: video.retry()
             }
-            EmptyState {
-                anchors.centerIn: parent
-                width: Math.min(420, parent.width - 48)
-                visible: root.records && video.problem.length > 0
-                title: qsTr("The screen did not open")
-                message: video.problem
-                objectName: "canvas.screen.failed"
+            Item {
+                id: copiedNote
 
-                KButton { text: qsTr("Try again"); onClicked: video.retry() }
-            }
-            Column {
-                anchors.centerIn: parent
-                spacing: 10
-                visible: root.records && !video.shows && video.problem.length === 0
+                property bool shown: false
 
-                Spinner {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    size: 18
-                }
-                PlainLabel {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: qsTr("Waiting for the screen")
-                    color: KodosiTheme.inkMuted
-                    font.pixelSize: KodosiTheme.fontFootnote
-                }
-            }
-            ReconnectingNotice {
                 anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: parent.top
-                anchors.topMargin: 10
-                look: KodosiTheme.darkLook
-                shown: video.shows && video.reconnecting && video.problem.length === 0
-                objectName: "canvas.screen.reconnecting"
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 10
+                implicitWidth: copiedRow.implicitWidth + 24
+                implicitHeight: KodosiTheme.scaled(30)
+                opacity: shown ? 1 : 0
+                visible: opacity > 0
+                objectName: "canvas.screen.copied"
+                Accessible.role: Accessible.StaticText
+                Accessible.name: copiedLabel.text
+
+                Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
+
+                Connections {
+                    function onCopied() {
+                        copiedNote.shown = true;
+                        copiedNote.Accessible.announce(copiedLabel.text);
+                        copiedLeave.restart();
+                    }
+
+                    target: video
+                }
+                Timer {
+                    id: copiedLeave
+
+                    interval: 1500
+                    onTriggered: copiedNote.shown = false
+                }
+                Raised {
+                    anchors.fill: parent
+                    radius: height / 2
+                    look: KodosiTheme.darkLook
+                    fill: KodosiTheme.darkLook.lifted
+                    elevation: 2
+                }
+                RowLayout {
+                    id: copiedRow
+
+                    anchors.centerIn: parent
+                    spacing: 6
+
+                    KIcon {
+                        Layout.preferredWidth: KodosiTheme.scaled(12)
+                        Layout.preferredHeight: KodosiTheme.scaled(12)
+                        name: "check"
+                        color: KodosiTheme.darkLook.ready
+                        strokeWidth: 2.2
+                    }
+                    PlainLabel {
+                        id: copiedLabel
+
+                        text: qsTr("Copied")
+                        color: KodosiTheme.darkLook.ink
+                        font.pixelSize: KodosiTheme.fontFootnote
+                    }
+                }
             }
         }
     }

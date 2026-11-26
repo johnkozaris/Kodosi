@@ -4,6 +4,7 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavutil/buffer.h>
 #include <libavutil/frame.h>
+#include <libavutil/hwcontext.h>
 }
 
 #include <climits>
@@ -46,6 +47,20 @@ QSize VideoFrame::size() const
 bool VideoFrame::onGpu() const
 {
     return m_frame->hw_frames_ctx != nullptr;
+}
+
+std::shared_ptr<const VideoFrame> inMemory(const std::shared_ptr<const VideoFrame>& frame)
+{
+    if (!frame || !frame->onGpu())
+        return frame;
+    auto* copy = av_frame_alloc();
+    if (copy == nullptr)
+        return nullptr;
+    if (av_hwframe_transfer_data(copy, frame->av(), 0) < 0) {
+        av_frame_free(&copy);
+        return nullptr;
+    }
+    return std::make_shared<VideoFrame>(copy);
 }
 
 VideoGpu::~VideoGpu()

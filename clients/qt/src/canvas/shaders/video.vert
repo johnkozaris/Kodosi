@@ -8,6 +8,7 @@ layout(location = 0) out vec2 at;
 layout(std140, binding = 0) uniform Placement {
     mat4 matrix;
     float opacity;
+    float rest;
 };
 
 void main()

@@ -516,6 +516,10 @@
         <translation>Partagé</translation>
     </message>
     <message>
+        <source>Can&apos;t show the page</source>
+        <translation>Impossible d&apos;afficher la page</translation>
+    </message>
+    <message>
         <source>New tab</source>
         <translation>Nouvel onglet</translation>
     </message>
@@ -530,10 +534,6 @@
     <message>
         <source>Shared browser</source>
         <translation>Navigateur partagé</translation>
-    </message>
-    <message>
-        <source>Try again</source>
-        <translation>Réessayer</translation>
     </message>
     <message>
         <source>Copy</source>
@@ -558,18 +558,6 @@
     <message>
         <source>Getting the browser, %1%</source>
         <translation>Téléchargement du navigateur, %1 %</translation>
-    </message>
-    <message>
-        <source>Starting the browser</source>
-        <translation>Démarrage du navigateur</translation>
-    </message>
-    <message>
-        <source>The browser is asleep</source>
-        <translation>Le navigateur est en veille</translation>
-    </message>
-    <message>
-        <source>Wake it</source>
-        <translation>Le réveiller</translation>
     </message>
 </context>
 <context>
@@ -749,6 +737,22 @@
         <translation>Placer dans la corbeille</translation>
     </message>
     <message>
+        <source>This computer&apos;s screen</source>
+        <translation>L&apos;écran de cet ordinateur</translation>
+    </message>
+    <message>
+        <source>Your other devices show it on this canvas.</source>
+        <translation>Vos autres appareils l&apos;affichent sur ce canvas.</translation>
+    </message>
+    <message>
+        <source>Sharing is off</source>
+        <translation>Le partage est désactivé</translation>
+    </message>
+    <message>
+        <source>Turn on</source>
+        <translation>Activer</translation>
+    </message>
+    <message>
         <source>The file is missing</source>
         <translation>Le fichier est introuvable</translation>
     </message>
@@ -788,32 +792,20 @@
         <translation>Afficher tout l’écran</translation>
     </message>
     <message>
-        <source>To control %1 from here, turn on Kodosi Screen there in System Settings, under Privacy &amp; Security, Accessibility.</source>
-        <translation>Pour contrôler %1 d’ici, activez Kodosi Screen sur place dans Réglages Système, sous Confidentialité et sécurité, Accessibilité.</translation>
+        <source>Allow control on %1</source>
+        <translation>Autorisez le contrôle sur %1</translation>
+    </message>
+    <message>
+        <source>Can&apos;t show the screen</source>
+        <translation>Impossible d&apos;afficher l&apos;écran</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>Copié</translation>
     </message>
     <message>
         <source>View only</source>
         <translation>Affichage seul</translation>
-    </message>
-    <message>
-        <source>Kodosi Screen cannot record %1</source>
-        <translation>Kodosi Screen ne peut pas enregistrer %1</translation>
-    </message>
-    <message>
-        <source>On %1, turn on Kodosi Screen in System Settings, under Privacy &amp; Security, Screen &amp; System Audio Recording.</source>
-        <translation>Sur %1, activez Kodosi Screen dans Réglages Système, sous Confidentialité et sécurité, Enregistrement de l’écran et des sons du système.</translation>
-    </message>
-    <message>
-        <source>The screen did not open</source>
-        <translation>L’écran ne s’est pas ouvert</translation>
-    </message>
-    <message>
-        <source>Try again</source>
-        <translation>Réessayer</translation>
-    </message>
-    <message>
-        <source>Waiting for the screen</source>
-        <translation>En attente de l’écran</translation>
     </message>
 </context>
 <context>
@@ -2616,6 +2608,26 @@
     <message>
         <source>Quit</source>
         <translation>Quitter</translation>
+    </message>
+    <message>
+        <source>Screen</source>
+        <translation>Écran</translation>
+    </message>
+    <message>
+        <source>While someone watches, Kodosi shows who, with a way to stop.</source>
+        <translation>Pendant que quelqu&apos;un regarde, Kodosi indique qui, avec un moyen d&apos;arrêter.</translation>
+    </message>
+    <message>
+        <source>Let my other devices see and control this computer</source>
+        <translation>Permettre à mes autres appareils de voir et contrôler cet ordinateur</translation>
+    </message>
+    <message>
+        <source>Allow on this computer</source>
+        <translation>Autoriser sur cet ordinateur</translation>
+    </message>
+    <message>
+        <source>Allow…</source>
+        <translation>Autoriser…</translation>
     </message>
     <message>
         <source>Privacy policy</source>
@@ -4845,6 +4857,37 @@
     <message>
         <source>Opens the launcher with this account</source>
         <translation>Ouvre le lanceur avec ce compte</translation>
+    </message>
+</context>
+<context>
+    <name>VideoCover</name>
+    <message>
+        <source>Sharing is off on %1</source>
+        <translation>Le partage est désactivé sur %1</translation>
+    </message>
+    <message>
+        <source>%1 is offline</source>
+        <translation>%1 est hors ligne</translation>
+    </message>
+    <message>
+        <source>%1 is locked</source>
+        <translation>%1 est verrouillé</translation>
+    </message>
+    <message>
+        <source>%1 is on another account</source>
+        <translation>%1 est sur un autre compte</translation>
+    </message>
+    <message>
+        <source>%1 is asleep</source>
+        <translation>%1 est en veille</translation>
+    </message>
+    <message>
+        <source>Allow screen recording on %1</source>
+        <translation>Autorisez l&apos;enregistrement de l&apos;écran sur %1</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>Réessayer</translation>
     </message>
 </context>
 <context>

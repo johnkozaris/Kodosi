@@ -378,6 +378,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/EmptyState.qml
         qml/Controls/HelperMarks.qml
         qml/Controls/IconTile.qml
+        qml/Controls/IconWell.qml
         qml/Controls/KButton.qml
         qml/Controls/KFocusIndicator.qml
         qml/Controls/KDialog.qml
@@ -468,6 +469,7 @@ qt_add_qml_module(kodosi-ui
         qml/Workbench/TerminalDivider.qml
         qml/Workbench/TerminalStage.qml
         qml/Workbench/TerminalTile.qml
+        qml/Workbench/VideoCover.qml
     RESOURCES
         qml/assets/kodosi-wordmark.png
         qml/assets/providers/antigravity-dark.svg

@@ -105,7 +105,7 @@ QList<CanvasModel::Shown> CanvasModel::shown(const QString& sessionId) const
         result.append({ browserItem, number(browser.value(QStringLiteral("changed"))) });
     // The screen does not change as a file or the browser does: it shows itself when an agent or a
     // person shows it.
-    if (session->canvas.value(screenItem).isObject())
+    if (session->canvas.value(screenItem).typeId() == QMetaType::QVariantMap)
         result.append({ screenItem, 0 });
     return result;
 }
@@ -156,6 +156,8 @@ void CanvasModel::observe()
             m_noticed.insert(id, m_started);
         }
         const auto canvas = m_sessions.session(id).value_or(SessionCatalogModel::Session {}).canvas;
+        if (canvas.value(browserItem).toMap().value(QStringLiteral("state")).toString() != QStringLiteral("asleep"))
+            m_woken.remove(id);
         const auto sequence = number(canvas.value(QStringLiteral("sequence")));
         if (!m_sequences.contains(id) || m_sequences.value(id) != sequence) {
             m_sequences.insert(id, sequence);
@@ -176,13 +178,16 @@ void CanvasModel::observe()
     const auto gone = [&ids](const QString& id) { return !ids.contains(id); };
     m_firstSeen.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_marks.removeIf([&](const auto& entry) { return gone(entry.key()); });
-    m_sequences.removeIf([&](const auto& entry) { return gone(entry.key()); });
+    // A terminal that went took its canvas along.
+    if (m_sequences.removeIf([&](const auto& entry) { return gone(entry.key()); }) > 0)
+        moved = true;
     m_picks.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_lastFiles.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_closed.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_opening.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_chosen.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_shelves.removeIf(gone);
+    m_woken.removeIf(gone);
     m_shut.removeIf(gone);
     m_readings.removeIf([&](const auto& entry) { return gone(entry.value().sessionId); });
     for (const auto& id : QStringList(m_storedOrder)) {
@@ -410,6 +415,11 @@ void CanvasModel::expect(const QString& sessionId, const QString& section)
 bool CanvasModel::opens(const QString& sessionId) const
 {
     return m_opening.contains(sessionId);
+}
+
+bool CanvasModel::holds(const QString& sessionId, const QString& key) const
+{
+    return std::ranges::any_of(shown(sessionId), [&](const Shown& entry) { return entry.key == key; });
 }
 
 bool CanvasModel::isNew(const QString& sessionId, const QString& key) const
@@ -904,6 +914,52 @@ void CanvasModel::applyBrowser(const QJsonObject& event)
     askBrowserStatus();
 }
 
+void CanvasModel::refreshScreenSharing()
+{
+    askScreen(QStringLiteral("screen.status"));
+}
+
+void CanvasModel::shareScreen(bool allowed)
+{
+    m_screenSharing.insert(QStringLiteral("allowed"), allowed);
+    emit screenSharingChanged();
+    askScreen(QStringLiteral("screen.allow"), { { QStringLiteral("allowed"), allowed } });
+}
+
+void CanvasModel::askScreen(const QString& type, QJsonObject fields)
+{
+    const auto request = QUuid::createUuidV7().toString(QUuid::WithoutBraces);
+    fields.insert(QStringLiteral("type"), type);
+    fields.insert(QStringLiteral("requestId"), request);
+    if (const auto sent = m_commands.send(QJsonDocument(fields).toJson(QJsonDocument::Compact)); !sent) {
+        m_screenProblem = sent.error().message;
+        emit screenSharingChanged();
+        return;
+    }
+    m_screenRequests.insert(request, type);
+}
+
+void CanvasModel::applyScreen(const QJsonObject& event)
+{
+    const auto asked = m_screenRequests.take(event.value(QStringLiteral("requestId")).toString());
+    if (asked.isEmpty())
+        return;
+    if (event.value(QStringLiteral("type")).toString() == QStringLiteral("screen.error")) {
+        m_screenProblem = event.value(QStringLiteral("message")).toString();
+        emit screenSharingChanged();
+        // The switch went over before the answer, so it goes back to what the computer does.
+        if (asked == QStringLiteral("screen.allow"))
+            refreshScreenSharing();
+        return;
+    }
+    m_screenProblem.clear();
+    m_screenSharing = { { QStringLiteral("allowed"), event.value(QStringLiteral("allowed")).toBool() },
+        { QStringLiteral("available"), event.value(QStringLiteral("available")).toBool() } };
+    if (const auto access = event.value(QStringLiteral("access")); access.isObject())
+        m_screenSharing.insert(QStringLiteral("access"), access.toObject().toVariantMap());
+    emit screenSharingChanged();
+}
+
 void CanvasModel::act(const QString& sessionId, const QVariantMap& action)
 {
     if (const auto error = ask(Asked::Act, sessionId,
@@ -916,6 +972,21 @@ void CanvasModel::act(const QString& sessionId, const QVariantMap& action)
 void CanvasModel::wake(const QString& sessionId)
 {
     act(sessionId, { { QStringLiteral("do"), QStringLiteral("wake") } });
+}
+
+void CanvasModel::wakeAsleep(const QString& sessionId)
+{
+    const auto session = m_sessions.session(sessionId);
+    const auto browser = session ? session->canvas.value(browserItem).toMap() : QVariantMap {};
+    if (browser.value(QStringLiteral("state")).toString() != QStringLiteral("asleep")
+        || !browser.value(QStringLiteral("problem")).toString().isEmpty() || m_woken.contains(sessionId))
+        return;
+    m_woken.insert(sessionId);
+    if (const auto error = ask(Asked::Wake, sessionId,
+            { { QStringLiteral("type"), QStringLiteral("act") },
+                { QStringLiteral("action"), QJsonObject { { QStringLiteral("do"), QStringLiteral("wake") } } } });
+        !error.isEmpty())
+        m_woken.remove(sessionId);
 }
 
 std::optional<QPointF> CanvasModel::browserPoint(QPointF point, QSizeF view, QSizeF browser, bool clamped)
@@ -1033,6 +1104,9 @@ void CanvasModel::apply(const QJsonObject& event)
             emit problem(message);
         }
         return;
+    // The browser says itself when it does not wake.
+    case Asked::Wake:
+        return;
     case Asked::Remove:
         if (failed)
             emit problem(message);
@@ -1066,6 +1140,9 @@ void CanvasModel::abandonPending(const QString& message)
             applyBrowser({ { QStringLiteral("type"), QStringLiteral("browser.error") }, { QStringLiteral("requestId"), id },
                 { QStringLiteral("message"), message } });
     }
+    for (const auto& id : m_screenRequests.keys())
+        applyScreen({ { QStringLiteral("type"), QStringLiteral("screen.error") }, { QStringLiteral("requestId"), id },
+            { QStringLiteral("message"), message } });
 }
 
 void CanvasModel::reset()
@@ -1082,6 +1159,8 @@ void CanvasModel::reset()
     m_opening.clear();
     m_chosen.clear();
     m_shelves.clear();
+    m_woken.clear();
+    m_screenRequests.clear();
     m_stored.clear();
     m_storedOrder.clear();
     m_readings.clear();

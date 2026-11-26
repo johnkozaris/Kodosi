@@ -7,10 +7,13 @@
 #include <kodosi_runtime.h>
 
 #include <QClipboard>
+#include <QCoreApplication>
 #include <QGuiApplication>
+#include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QQuickWindow>
+#include <QThreadPool>
 #include <QTimer>
 #include <QtEndian>
 
@@ -40,11 +43,38 @@ constexpr int settleWait = 250;
 constexpr qsizetype mostTyped = 16 * 1024;
 constexpr int mostWaitingStates = 64;
 constexpr qsizetype mostWaitingStateBytes = 8 * 1024 * 1024;
+// What the last pictures of feeds that no view shows may take together.
+constexpr qsizetype mostKeptBytes = 64 * 1024 * 1024;
 
 int viewerModifiers(int modifiers)
 {
     return (modifiers & Qt::AltModifier ? 1 : 0) | (modifiers & Qt::ControlModifier ? 2 : 0)
         | (modifiers & Qt::MetaModifier ? 4 : 0) | (modifiers & Qt::ShiftModifier ? 8 : 0);
+}
+
+// A picture that the GPU decoded holds its decoder's surfaces, so a copy in memory takes its place
+// where it stays. The copy takes a moment, which the window does not wait for: `done` gets the
+// picture and its copy on the window's thread, while `owner` lives.
+template <typename Done>
+void copyIntoMemory(std::shared_ptr<const VideoFrame> frame, QObject& owner, Done done)
+{
+    QThreadPool::globalInstance()->start([owner = QPointer(&owner), frame = std::move(frame), done = std::move(done)] {
+        auto copy = inMemory(frame);
+        QMetaObject::invokeMethod(QCoreApplication::instance(), [owner, frame, copy = std::move(copy), done] {
+            if (owner)
+                done(frame, copy);
+        });
+    });
+}
+
+// Hovering, letting go and lifting a key follow what the viewer did before, so they do not act.
+bool acts(const QJsonObject& event)
+{
+    const auto kind = event.value(QStringLiteral("kind")).toString();
+    const auto action = event.value(QStringLiteral("action")).toString();
+    if (kind == QStringLiteral("mouse"))
+        return action != QStringLiteral("move") && action != QStringLiteral("release");
+    return kind != QStringLiteral("key") || action != QStringLiteral("up");
 }
 }
 
@@ -111,6 +141,14 @@ public:
     {
         std::lock_guard lock(m_showing);
         return { std::exchange(m_picturePipe, {}), std::exchange(m_picture, {}) };
+    }
+
+    // Nobody watches until a new pipe comes, which starts a decoder of its own.
+    void forgetDecoder()
+    {
+        m_decoder.reset();
+        std::lock_guard lock(m_showing);
+        m_picture = {};
     }
 
     bool tookState(quint64 generation, qsizetype bytes)
@@ -280,9 +318,101 @@ private:
     std::atomic<quint64> m_stateGeneration { 0 };
 };
 
+// The last picture of each feed, in this process's memory, and what its view left, from when a view of
+// the feed goes until the next one comes or the feed leaves the canvas.
+class KeptFeeds final : public QObject {
+    Q_OBJECT
+
+public:
+    struct Feed {
+        std::shared_ptr<const VideoFrame> still;
+        std::optional<QRectF> region;
+        QVariantMap view;
+    };
+
+    static KeptFeeds& of(CanvasModel& canvas)
+    {
+        if (auto* kept = canvas.findChild<KeptFeeds*>(QString(), Qt::FindDirectChildrenOnly))
+            return *kept;
+        return *new KeptFeeds(canvas);
+    }
+
+    void keep(const QString& sessionId, const QString& key, Feed feed)
+    {
+        if (!m_canvas.holds(sessionId, key))
+            return;
+        const auto id = feedId(sessionId, key);
+        auto still = feed.still;
+        m_order.removeOne(id);
+        m_order.append(id);
+        m_feeds.insert(id, std::move(feed));
+        if (still && still->onGpu()) {
+            copyIntoMemory(std::move(still), *this, [this, id](const auto& picture, const auto& copy) {
+                const auto found = m_feeds.find(id);
+                if (found != m_feeds.end() && found->still == picture)
+                    found->still = copy;
+            });
+        }
+        fit();
+    }
+
+    std::optional<Feed> take(const QString& sessionId, const QString& key)
+    {
+        const auto id = feedId(sessionId, key);
+        m_order.removeOne(id);
+        const auto found = m_feeds.find(id);
+        if (found == m_feeds.end())
+            return std::nullopt;
+        auto feed = std::move(*found);
+        m_feeds.erase(found);
+        return feed;
+    }
+
+private:
+    explicit KeptFeeds(CanvasModel& canvas)
+        : QObject(&canvas)
+        , m_canvas(canvas)
+    {
+        connect(&canvas, &CanvasModel::changed, this, &KeptFeeds::prune);
+    }
+
+    static QString feedId(const QString& sessionId, const QString& key) { return sessionId + QLatin1Char('\n') + key; }
+
+    void prune()
+    {
+        for (const auto& id : QStringList(m_order)) {
+            if (!m_canvas.holds(id.section(QLatin1Char('\n'), 0, 0), id.section(QLatin1Char('\n'), 1))) {
+                m_feeds.remove(id);
+                m_order.removeOne(id);
+            }
+        }
+    }
+
+    // Keeps the pictures of the feeds left last, as many as fit together.
+    void fit()
+    {
+        qsizetype bytes = 0;
+        for (auto id = m_order.crbegin(); id != m_order.crend(); ++id) {
+            const auto found = m_feeds.find(*id);
+            if (found == m_feeds.end() || !found->still)
+                continue;
+            const auto size = found->still->size();
+            bytes += qsizetype(size.width()) * size.height() * 3 / 2;
+            if (bytes > mostKeptBytes)
+                found->still.reset();
+        }
+    }
+
+    CanvasModel& m_canvas;
+    QHash<QString, Feed> m_feeds;
+    // The feeds that views left, the one left last at the end.
+    QStringList m_order;
+};
+
 StreamVideo::StreamVideo(const QString& key, QQuickItem* parent)
     : QQuickItem(parent)
     , m_key(key)
+    , m_lastShowing(QStringLiteral("waiting"))
     , m_stream(new VideoStream)
 {
     setFlag(ItemHasContents);
@@ -304,9 +434,12 @@ StreamVideo::StreamVideo(const QString& key, QQuickItem* parent)
     });
 }
 
+// Closes the pipe without a signal, since what listens may be going too.
 StreamVideo::~StreamVideo()
 {
-    leave();
+    keep();
+    if (m_documents && !m_pipe.isEmpty())
+        m_documents->close(m_pipe);
     m_decoding.quit();
     m_decoding.wait();
 }
@@ -334,17 +467,21 @@ QObject* StreamVideo::canvas() const
 void StreamVideo::setCanvas(QObject* canvas)
 {
     m_canvas = qobject_cast<CanvasModel*>(canvas);
-    if (m_canvas)
-        connect(m_canvas, &CanvasModel::videoChosen, this, &StreamVideo::chosen);
+    if (!m_canvas)
+        return;
+    connect(m_canvas, &CanvasModel::videoChosen, this, &StreamVideo::chosen);
+    takeUp();
 }
 
 void StreamVideo::setSessionId(const QString& sessionId)
 {
     if (sessionId == m_sessionId)
         return;
+    keep();
     leave();
     m_sessionId = sessionId;
     forgetTerminal();
+    takeUp();
     join();
 }
 
@@ -356,15 +493,48 @@ void StreamVideo::chosen(const QString& sessionId, const QString& section)
 
 void StreamVideo::forgetTerminal()
 {
-    setReconnecting(false);
-    setProblem({});
+    m_problem.clear();
     m_region.reset();
+    m_live = false;
+    m_tookUp = false;
     if (m_frame) {
         m_frame.reset();
         update();
-        emit showsChanged();
     }
     forget();
+    restate();
+}
+
+void StreamVideo::componentComplete()
+{
+    QQuickItem::componentComplete();
+    takeUp();
+    join();
+}
+
+void StreamVideo::keep()
+{
+    if (!std::exchange(m_tookUp, false) || !m_canvas)
+        return;
+    KeptFeeds::of(*m_canvas).keep(m_sessionId, m_key, { .still = m_frame, .region = m_region, .view = kept() });
+}
+
+// The view shows what the last view of its feed left, resting, until the stream is live.
+void StreamVideo::takeUp()
+{
+    if (m_tookUp || !m_canvas || m_sessionId.isEmpty() || !isComponentComplete())
+        return;
+    m_tookUp = true;
+    auto feed = KeptFeeds::of(*m_canvas).take(m_sessionId, m_key);
+    if (!feed)
+        return;
+    resume(feed->view);
+    if (feed->still && !m_frame) {
+        m_frame = std::move(feed->still);
+        m_region = feed->region;
+        update();
+    }
+    restate();
 }
 
 void StreamVideo::setActive(bool active)
@@ -375,17 +545,32 @@ void StreamVideo::setActive(bool active)
     if (active)
         join();
     else
-        leave();
+        pause();
+}
+
+// The runtime keeps the pipe waiting while the computer is offline, and one that failed meanwhile
+// opens again once the computer is back.
+void StreamVideo::setOffline(bool offline)
+{
+    if (offline == m_offline)
+        return;
+    m_offline = offline;
+    if (!offline && !m_problem.isEmpty())
+        retry();
+    restate();
 }
 
 void StreamVideo::join()
 {
-    if (!m_active || !m_documents || m_sessionId.isEmpty() || !m_pipe.isEmpty())
+    if (!m_active || !watchable() || !m_documents || m_sessionId.isEmpty() || !m_pipe.isEmpty()
+        || !isComponentComplete())
         return;
     auto* stream = m_stream;
     auto& commands = m_documents->commands();
     m_pipe = m_documents->openReader(m_sessionId, m_key, *m_stream,
         [stream, &commands](const QByteArray& event, bool afterDrop) { stream->read(event, afterDrop, commands); });
+    if (!m_pipe.isEmpty())
+        setProblem({});
 }
 
 void StreamVideo::leave()
@@ -394,6 +579,28 @@ void StreamVideo::leave()
         m_documents->close(m_pipe);
     m_pipe.clear();
     m_watching = false;
+    m_live = false;
+    restate();
+}
+
+void StreamVideo::pause()
+{
+    leave();
+    QMetaObject::invokeMethod(m_stream, [stream = m_stream] { stream->forgetDecoder(); });
+    if (m_frame && m_frame->onGpu()) {
+        copyIntoMemory(m_frame, *this, [this](const auto& picture, const auto& copy) {
+            if (m_frame == picture && copy) {
+                m_frame = copy;
+                update();
+            }
+        });
+    }
+}
+
+void StreamVideo::stale()
+{
+    m_live = false;
+    restate();
 }
 
 void StreamVideo::opened(const QString& pipe)
@@ -423,7 +630,6 @@ void StreamVideo::watch()
                 decoder(QStringLiteral("hevc"), VideoCodec::Hevc) } },
         { QStringLiteral("anchors"), true },
         { QStringLiteral("opened"), m_canvas && m_canvas->takeChoice(m_sessionId, m_key) } });
-    watched();
 }
 
 void StreamVideo::received(const QString& pipe, quint64 generation, const QByteArray& message)
@@ -438,22 +644,25 @@ void StreamVideo::showPicture()
     auto [pipe, picture] = m_stream->takePicture();
     if (pipe != m_pipe || !picture.frame)
         return;
-    const bool first = !m_frame;
+    const bool moved = picture.region != m_region;
     m_frame = std::move(picture.frame);
     m_region = picture.region;
+    m_live = true;
     update();
-    setReconnecting(false);
-    if (first)
-        emit showsChanged();
+    if (moved)
+        this->moved();
+    restate();
 }
 
+// Without a reason, the runtime opens the pipe again by itself.
 void StreamVideo::lost(const QString& pipe, const QString& reason)
 {
     if (pipe != m_pipe)
         return;
     m_watching = false;
-    setReconnecting(true);
+    m_live = false;
     setProblem(reason);
+    restate();
 }
 
 void StreamVideo::closed(const QString& pipe, const QString& reason)
@@ -464,7 +673,9 @@ void StreamVideo::closed(const QString& pipe, const QString& reason)
         m_documents->forget(pipe);
     m_pipe.clear();
     m_watching = false;
+    m_live = false;
     setProblem(reason);
+    restate();
 }
 
 void StreamVideo::retry()
@@ -482,12 +693,28 @@ void StreamVideo::broke(const QString& pipe)
     m_documents->renew(pipe);
 }
 
-void StreamVideo::setReconnecting(bool reconnecting)
+QString StreamVideo::showing() const
 {
-    if (reconnecting == m_reconnecting)
-        return;
-    m_reconnecting = reconnecting;
-    emit reconnectingChanged();
+    if (const auto reason = away(); !reason.isEmpty())
+        return reason;
+    if (!m_problem.isEmpty())
+        return QStringLiteral("failed");
+    if (m_frame)
+        return m_live ? QStringLiteral("live") : QStringLiteral("resting");
+    return QStringLiteral("waiting");
+}
+
+QString StreamVideo::away() const
+{
+    return m_offline ? QStringLiteral("offline") : QString();
+}
+
+void StreamVideo::restate()
+{
+    if (auto now = showing(); now != m_lastShowing) {
+        m_lastShowing = std::move(now);
+        emit showingChanged();
+    }
 }
 
 void StreamVideo::setProblem(const QString& problem)
@@ -495,7 +722,19 @@ void StreamVideo::setProblem(const QString& problem)
     if (problem == m_problem)
         return;
     m_problem = problem;
-    emit problemChanged();
+    if (!problem.isEmpty())
+        qCWarning(kodosiVideo).noquote() << "A canvas video stopped:" << problem;
+    m_lastShowing = showing();
+    emit showingChanged();
+}
+
+void StreamVideo::setRest(qreal rest)
+{
+    if (rest == m_rest)
+        return;
+    m_rest = rest;
+    update();
+    emit restChanged();
 }
 
 void StreamVideo::post(const QJsonObject& message)
@@ -519,6 +758,8 @@ void StreamVideo::input(const QJsonObject& event)
 {
     if (!takesInput())
         return;
+    if (acts(event))
+        acting();
     post({ { QStringLiteral("type"), QStringLiteral("input") }, { QStringLiteral("input"), event } });
     if (event.value(QStringLiteral("kind")).toString() == QStringLiteral("mouse")) {
         const auto action = event.value(QStringLiteral("action")).toString();
@@ -647,7 +888,7 @@ QSGNode* StreamVideo::updatePaintNode(QSGNode* node, UpdatePaintNodeData*)
     }
     if (video == nullptr)
         video = new VideoNode;
-    video->show(m_frame, pictureRect());
+    video->show(m_frame, pictureRect(), static_cast<float>(m_rest));
     return video;
 }
 

@@ -45,6 +45,8 @@ Item {
         case "chevrons": return "M7 9.5 L12 4.5 L17 9.5 M7 14.5 L12 19.5 L17 14.5"
         case "close": return "M6 6 L18 18 M18 6 L6 18"
         case "eye": return "M2.5 12 Q12 3.5 21.5 12 Q12 20.5 2.5 12 Z M12 9.2 A2.8 2.8 0 1 0 12 14.8 A2.8 2.8 0 1 0 12 9.2"
+        case "eye-off": return "M2.5 12 Q12 3.5 21.5 12 Q12 20.5 2.5 12 Z M12 9.2 A2.8 2.8 0 1 0 12 14.8 A2.8 2.8 0 1 0 12 9.2 M4 4 L20 20"
+        case "record": return "M12 3.5 A8.5 8.5 0 1 0 12 20.5 A8.5 8.5 0 1 0 12 3.5 M12 8.5 A3.5 3.5 0 1 0 12 15.5 A3.5 3.5 0 1 0 12 8.5"
         case "stop": return "M7 7 H17 V17 H7 Z"
         case "chevron-left": return "M15 5 L8 12 L15 19"
         case "chevron-right": return "M9 5 L16 12 L9 19"

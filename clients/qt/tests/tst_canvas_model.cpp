@@ -5,12 +5,15 @@
 #include "runtime/RuntimeBridge.hpp"
 
 #include <QBuffer>
+#include <QClipboard>
+#include <QGuiApplication>
 #include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QSignalSpy>
 #include <QtTest/QTest>
 
+#include <algorithm>
 #include <utility>
 
 namespace {
@@ -81,6 +84,24 @@ QJsonObject answer(const Commands& commands, QJsonObject answer)
         { QStringLiteral("requestId"), commands.values.last().value(QStringLiteral("requestId")) },
         { QStringLiteral("operation"), QStringLiteral("canvas.request") }, { QStringLiteral("sessionId"), test::id(1) },
         { QStringLiteral("answer"), answer } };
+}
+
+QJsonObject opened(const QString& pipe)
+{
+    return { { QStringLiteral("type"), QStringLiteral("document.opened") }, { QStringLiteral("pipe"), pipe } };
+}
+
+// The screen's state, as the `sequence`th frame on its pipe.
+QJsonObject screenSays(const QString& pipe, int sequence, QJsonObject state)
+{
+    state.insert(QStringLiteral("source"), QJsonObject { { QStringLiteral("kind"), QStringLiteral("display") }, { QStringLiteral("id"), 1 } });
+    state.insert(QStringLiteral("width"), 1600);
+    state.insert(QStringLiteral("height"), 1000);
+    if (!state.contains(QStringLiteral("access")))
+        state.insert(QStringLiteral("access"), QJsonObject { { QStringLiteral("screen"), true }, { QStringLiteral("input"), true } });
+    return { { QStringLiteral("type"), QStringLiteral("document.frame") }, { QStringLiteral("pipe"), pipe },
+        { QStringLiteral("sequence"), sequence }, { QStringLiteral("more"), false },
+        { QStringLiteral("data"), QString::fromLatin1((QByteArray(1, 0) + QJsonDocument(state).toJson()).toBase64()) } };
 }
 
 QJsonObject part(const QString& key, int revision, qsizetype offset, qsizetype total, const QByteArray& data)
@@ -281,6 +302,161 @@ private slots:
         QCOMPARE(QRectF(region.value(QStringLiteral("x")).toDouble(), region.value(QStringLiteral("y")).toDouble(),
                      region.value(QStringLiteral("width")).toDouble(), region.value(QStringLiteral("height")).toDouble()),
             QRectF(600, 120, 800, 500));
+    }
+
+    void aScreenSaysTheReasonThatMattersMostWhenItShowsNothing()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasDocuments documents(commands, commands, sessions);
+        kodosi::ScreenVideo video;
+        video.setSize(QSizeF(800, 500));
+        video.setDocuments(&documents);
+        video.setSessionId(test::id(1));
+        video.setActive(true);
+        const auto pipe = commands.routes.last();
+        const QJsonObject unrecorded { { QStringLiteral("screen"), false }, { QStringLiteral("input"), true } };
+        commands.deliver(pipe, opened(pipe));
+        commands.deliver(pipe,
+            screenSays(pipe, 0, { { QStringLiteral("away"), QStringLiteral("locked") }, { QStringLiteral("access"), unrecorded } }));
+        QTRY_COMPARE(video.showing(), QStringLiteral("locked"));
+        video.setOffline(true);
+        QCOMPARE(video.showing(), QStringLiteral("offline"));
+        video.setShared(false);
+        QCOMPARE(video.showing(), QStringLiteral("sharingOff"));
+
+        video.setShared(true);
+        video.setOffline(false);
+        const auto again = commands.routes.last();
+        commands.deliver(again, opened(again));
+        commands.deliver(again, screenSays(again, 0, { { QStringLiteral("access"), unrecorded } }));
+        QTRY_COMPARE(video.showing(), QStringLiteral("recording"));
+        commands.deliver(again, screenSays(again, 1, {}));
+        QTRY_COMPARE(video.showing(), QStringLiteral("waiting"));
+        QTest::ignoreMessage(QtWarningMsg, "A canvas video stopped: Kodosi Screen stopped.");
+        commands.deliver(again, { { QStringLiteral("type"), QStringLiteral("document.lost") }, { QStringLiteral("pipe"), again },
+                                    { QStringLiteral("message"), QStringLiteral("Kodosi Screen stopped.") } });
+        QTRY_COMPARE(video.showing(), QStringLiteral("failed"));
+    }
+
+    void aScreenThatIsNotSharedHasNoPipeUntilItIs()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasDocuments documents(commands, commands, sessions);
+        kodosi::ScreenVideo video;
+        video.setDocuments(&documents);
+        video.setSessionId(test::id(1));
+        video.setActive(true);
+        const auto pipe = commands.routes.last();
+
+        video.setShared(false);
+        QVERIFY(commands.routes.isEmpty());
+        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("document.close"));
+        QCOMPARE(commands.values.last().value(QStringLiteral("pipe")).toString(), pipe);
+        video.setActive(false);
+        video.setActive(true);
+        video.retry();
+        QVERIFY(commands.routes.isEmpty());
+
+        video.setShared(true);
+        QCOMPARE(commands.routes.size(), 1);
+        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("document.open"));
+    }
+
+    void aTerminalsScreenComesBackAsItsViewLeftIt()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasModel canvas(commands, sessions);
+        kodosi::CanvasDocuments documents(commands, commands, sessions);
+        sessions.apply(test::snapshot({ terminal({ { QStringLiteral("sequence"), 1 },
+            { QStringLiteral("screen"), QJsonObject { { QStringLiteral("shared"), true } } } }) }));
+        const auto open = [&](kodosi::ScreenVideo& video) {
+            video.setSize(QSizeF(800, 500));
+            video.setDocuments(&documents);
+            video.setCanvas(&canvas);
+            video.setSessionId(test::id(1));
+        };
+        {
+            kodosi::ScreenVideo video;
+            open(video);
+            video.setActive(true);
+            const auto pipe = commands.routes.last();
+            commands.deliver(pipe, opened(pipe));
+            commands.deliver(pipe, screenSays(pipe, 0, {}));
+            QTRY_VERIFY(!video.source().isEmpty());
+            video.zoom(2, 600, 120);
+        }
+        commands.values.clear();
+
+        kodosi::ScreenVideo video;
+        open(video);
+        QVERIFY(video.zoomed());
+        video.setActive(true);
+        const auto pipe = commands.routes.last();
+        commands.deliver(pipe, opened(pipe));
+        commands.deliver(pipe, screenSays(pipe, 0, {}));
+        QTRY_VERIFY(!commands.told(QStringLiteral("look")).isEmpty());
+        const auto region = commands.told(QStringLiteral("look")).value(QStringLiteral("region")).toObject();
+        QCOMPARE(QRectF(region.value(QStringLiteral("x")).toDouble(), region.value(QStringLiteral("y")).toDouble(),
+                     region.value(QStringLiteral("width")).toDouble(), region.value(QStringLiteral("height")).toDouble()),
+            QRectF(600, 120, 800, 500));
+    }
+
+    void textCopiedOnTheComputerComesHereAndAPasteThereTakesTextFromHere()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasDocuments documents(commands, commands, sessions);
+        kodosi::ScreenVideo video;
+        video.setDocuments(&documents);
+        video.setSessionId(test::id(1));
+        video.setActive(true);
+        const auto pipe = commands.routes.last();
+        QSignalSpy copied(&video, &kodosi::ScreenVideo::copied);
+        commands.deliver(pipe, opened(pipe));
+        commands.deliver(pipe, screenSays(pipe, 0, { { QStringLiteral("copied"), QStringLiteral("from the computer") } }));
+        QTRY_COMPARE(copied.size(), 1);
+        QCOMPARE(QGuiApplication::clipboard()->text(), QStringLiteral("from the computer"));
+
+        QGuiApplication::clipboard()->setText(QStringLiteral("from here"));
+        video.giveClipboard();
+        QCOMPARE(commands.told(QStringLiteral("clipboard")).value(QStringLiteral("text")).toString(), QStringLiteral("from here"));
+    }
+
+    void aBrowserThatFellAsleepWakesOnceUntilItFallsAsleepAgain()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasModel model(commands, sessions);
+        const auto id = test::id(1);
+        const auto browser = [](int sequence, const QString& state, const QString& problem = {}) {
+            QJsonObject shown { { QStringLiteral("state"), state }, { QStringLiteral("changed"), 1 }, { QStringLiteral("width"), 800 },
+                { QStringLiteral("height"), 600 } };
+            if (!problem.isEmpty())
+                shown.insert(QStringLiteral("problem"), problem);
+            return terminal({ { QStringLiteral("sequence"), sequence }, { QStringLiteral("browser"), shown } });
+        };
+        const auto wakes = [&commands] {
+            return static_cast<int>(std::ranges::count_if(commands.values, [](const QJsonObject& value) {
+                const auto action = value.value(QStringLiteral("request")).toObject().value(QStringLiteral("action")).toObject();
+                return action.value(QStringLiteral("do")).toString() == QStringLiteral("wake");
+            }));
+        };
+
+        sessions.apply(test::snapshot({ browser(1, QStringLiteral("asleep")) }));
+        model.wakeAsleep(id);
+        model.wakeAsleep(id);
+        QCOMPARE(wakes(), 1);
+        sessions.apply(test::snapshot({ browser(2, QStringLiteral("starting")) }));
+        sessions.apply(test::snapshot({ browser(3, QStringLiteral("asleep")) }));
+        model.wakeAsleep(id);
+        QCOMPARE(wakes(), 2);
+        sessions.apply(test::snapshot({ browser(4, QStringLiteral("awake")) }));
+        sessions.apply(test::snapshot({ browser(5, QStringLiteral("asleep"), QStringLiteral("Kodosi Browser did not start.")) }));
+        model.wakeAsleep(id);
+        QCOMPARE(wakes(), 2);
     }
 
     void aLargeFrameGoesInPartsOfWholeLetterGroups()

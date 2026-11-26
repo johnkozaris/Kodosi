@@ -126,7 +126,9 @@ public:
     }
     std::unique_ptr<QObject> view(const QString& sessionId)
     {
-        return window(QStringLiteral(R"(CanvasBrowser { anchors.fill: parent; sessionId: "%1"; browser: ({ state: "awake" }) })")
+        return window(QStringLiteral(R"(CanvasBrowser {
+                anchors.fill: parent; sessionId: "%1"; browser: ({ state: "awake" }); computer: "studio"; offline: false
+            })")
                 .arg(sessionId));
     }
     std::unique_ptr<QObject> panel(const QString& sessionId)

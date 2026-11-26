@@ -4,3 +4,4 @@ EXPORTS
     av_frame_alloc
     av_frame_free
     av_hwdevice_ctx_create
+    av_hwframe_transfer_data

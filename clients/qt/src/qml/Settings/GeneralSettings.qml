@@ -12,8 +12,23 @@ ColumnLayout {
     readonly property var ownedProjects: Models.Projects.projects
         .filter(project => project.ownerUserId === Models.Account.userId)
         .map(project => project.name)
+    // What the system lets Kodosi do may change while the person is in its settings.
+    readonly property bool windowActive: Window.active
 
     spacing: 18
+
+    onVisibleChanged: {
+        if (visible)
+            Models.Canvas.refreshScreenSharing();
+    }
+    onWindowActiveChanged: {
+        if (windowActive && visible)
+            Models.Canvas.refreshScreenSharing();
+    }
+    Component.onCompleted: {
+        if (visible)
+            Models.Canvas.refreshScreenSharing();
+    }
 
     Connections {
         function onDeletionChanged() {
@@ -255,6 +270,67 @@ ColumnLayout {
 
                 onClicked: quitConfirmation.request(false)
             }
+        }
+    }
+    // This computer's screen on the canvas of its terminals, for its owner's other devices. Only the
+    // person here turns it on, and turning it on asks the system for what it needs.
+    ListGroup {
+        id: screenGroup
+
+        readonly property var sharing: Models.Canvas.screenSharing
+        readonly property var access: sharing.access || null
+
+        Layout.fillWidth: true
+        visible: !root.inBrowser && sharing.available === true
+        title: qsTr("Screen")
+        footer: qsTr("While someone watches, Kodosi shows who, with a way to stop.")
+
+        ListRow {
+            iconName: "display"
+            tint: "#3f7fbf"
+            title: qsTr("Let my other devices see and control this computer")
+
+            KSwitch {
+                Accessible.id: objectName
+                Accessible.name: qsTr("Let my other devices see and control this computer")
+                checked: Models.Canvas.screenSharing.allowed === true
+                objectName: "settings.screen.share"
+
+                onToggled: {
+                    const wanted = checked;
+                    checked = Qt.binding(() => Models.Canvas.screenSharing.allowed === true);
+                    Models.Canvas.shareScreen(wanted);
+                }
+            }
+        }
+        ListRow {
+            visible: screenGroup.sharing.allowed === true && !!screenGroup.access
+                && (screenGroup.access.screen === false || screenGroup.access.input === false)
+            iconName: "lock"
+            tint: "#8a6cc9"
+            title: qsTr("Allow on this computer")
+
+            KButton {
+                Accessible.id: objectName
+                compact: true
+                objectName: "settings.screen.allow"
+                text: qsTr("Allow…")
+
+                onClicked: Models.Canvas.shareScreen(true)
+            }
+        }
+    }
+    PlainLabel {
+        Layout.fillWidth: true
+        visible: screenGroup.visible && Models.Canvas.screenProblem.length > 0
+        text: Models.Canvas.screenProblem
+        color: KodosiTheme.ink
+        wrapMode: Text.WordWrap
+        padding: 10
+        leftPadding: 12
+        background: Rectangle {
+            color: KodosiTheme.cautionSoft
+            radius: KodosiTheme.radiusMd
         }
     }
     ListGroup {

@@ -40,6 +40,10 @@ private:
     AVFrame* m_frame;
 };
 
+// The picture in this process's memory, where it holds no decoder's surfaces: the same picture when the
+// processor decoded it, a copy of it from the GPU otherwise, or nothing when the GPU gives no copy.
+std::shared_ptr<const VideoFrame> inMemory(const std::shared_ptr<const VideoFrame>& frame);
+
 // The GPU that Qt Quick draws with, when it also decodes video and Qt Quick can sample its pictures.
 struct VideoGpu {
     VideoGpu() = default;

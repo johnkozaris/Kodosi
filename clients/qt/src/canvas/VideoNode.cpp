@@ -61,13 +61,16 @@ private:
     QRhiTexture* m_texture = nullptr;
 };
 
-// Planes that the processor uploads: the software decoder's pictures, or black while nothing else shows.
+// Planes that the processor uploads: the software decoder's pictures, pictures copied from the GPU, or
+// black while nothing else shows.
 class MemoryPlanes final : public VideoPlanes {
 public:
     bool take(QRhi& rhi, QRhiResourceUpdateBatch& updates, std::shared_ptr<const VideoFrame> frame) override
     {
         const auto* av = frame->av();
-        if (av->format != AV_PIX_FMT_YUV420P && av->format != AV_PIX_FMT_YUVJ420P)
+        // NV12 keeps chroma as the shader samples it, Cb and Cr side by side.
+        const bool sideBySide = av->format == AV_PIX_FMT_NV12;
+        if (!sideBySide && av->format != AV_PIX_FMT_YUV420P && av->format != AV_PIX_FMT_YUVJ420P)
             return false;
         const auto size = frame->size();
         if (!fit(rhi, size))
@@ -77,6 +80,13 @@ public:
             QByteArray::fromRawData(reinterpret_cast<const char*>(av->data[0]), qsizetype(av->linesize[0]) * size.height()),
             av->linesize[0]);
         const auto half = chromaSize(size);
+        if (sideBySide) {
+            upload(updates, m_chroma.get(),
+                QByteArray::fromRawData(reinterpret_cast<const char*>(av->data[1]), qsizetype(av->linesize[1]) * half.height()),
+                av->linesize[1]);
+            m_frame = std::move(frame);
+            return true;
+        }
         m_chromaPlane.resize(qsizetype(half.width()) * 2 * half.height());
         auto* interleaved = reinterpret_cast<uint8_t*>(m_chromaPlane.data());
         for (int row = 0; row < half.height(); ++row) {
@@ -168,6 +178,8 @@ public:
     std::shared_ptr<const VideoFrame> frame;
     PlaneTexture luma;
     PlaneTexture chroma;
+    float rest = 0;
+    bool restMoved = true;
 
 private:
     // Planes of the other kind replace the ones on screen only once they hold the picture, so the last
@@ -198,7 +210,7 @@ public:
         setShaderFileName(FragmentStage, QStringLiteral(":/kodosi/shaders/video.frag.qsb"));
     }
 
-    bool updateUniformData(RenderState& state, QSGMaterial*, QSGMaterial*) override
+    bool updateUniformData(RenderState& state, QSGMaterial* newMaterial, QSGMaterial* oldMaterial) override
     {
         auto* uniforms = state.uniformData();
         bool changed = false;
@@ -210,6 +222,11 @@ public:
         if (state.isOpacityDirty()) {
             const float opacity = state.opacity();
             std::memcpy(uniforms->data() + matrixBytes, &opacity, sizeof(opacity));
+            changed = true;
+        }
+        if (auto* video = static_cast<VideoMaterial*>(newMaterial); newMaterial != oldMaterial || video->restMoved) {
+            std::memcpy(uniforms->data() + matrixBytes + sizeof(float), &video->rest, sizeof(video->rest));
+            video->restMoved = false;
             changed = true;
         }
         return changed;
@@ -241,11 +258,16 @@ VideoNode::VideoNode()
     setFlag(OwnsMaterial);
 }
 
-void VideoNode::show(std::shared_ptr<const VideoFrame> frame, const QRectF& rect)
+void VideoNode::show(std::shared_ptr<const VideoFrame> frame, const QRectF& rect, float rest)
 {
     auto* video = static_cast<VideoMaterial*>(material());
     if (video->frame != frame) {
         video->frame = std::move(frame);
+        markDirty(DirtyMaterial);
+    }
+    if (video->rest != rest) {
+        video->rest = rest;
+        video->restMoved = true;
         markDirty(DirtyMaterial);
     }
     if (rect != m_rect) {

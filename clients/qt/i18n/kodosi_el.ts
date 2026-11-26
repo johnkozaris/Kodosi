@@ -516,6 +516,10 @@
         <translation>Κοινόχρηστο</translation>
     </message>
     <message>
+        <source>Can&apos;t show the page</source>
+        <translation>Δεν είναι δυνατή η εμφάνιση της σελίδας</translation>
+    </message>
+    <message>
         <source>New tab</source>
         <translation>Νέα καρτέλα</translation>
     </message>
@@ -530,10 +534,6 @@
     <message>
         <source>Shared browser</source>
         <translation>Κοινόχρηστος browser</translation>
-    </message>
-    <message>
-        <source>Try again</source>
-        <translation>Δοκιμάστε ξανά</translation>
     </message>
     <message>
         <source>Copy</source>
@@ -558,18 +558,6 @@
     <message>
         <source>Getting the browser, %1%</source>
         <translation>Λήψη του browser, %1%</translation>
-    </message>
-    <message>
-        <source>Starting the browser</source>
-        <translation>Εκκίνηση του browser</translation>
-    </message>
-    <message>
-        <source>The browser is asleep</source>
-        <translation>Ο browser είναι σε αδράνεια</translation>
-    </message>
-    <message>
-        <source>Wake it</source>
-        <translation>Αφύπνιση</translation>
     </message>
 </context>
 <context>
@@ -749,6 +737,22 @@
         <translation>Μετακίνηση στον κάδο</translation>
     </message>
     <message>
+        <source>This computer&apos;s screen</source>
+        <translation>Η οθόνη αυτού του υπολογιστή</translation>
+    </message>
+    <message>
+        <source>Your other devices show it on this canvas.</source>
+        <translation>Οι άλλες συσκευές σας την εμφανίζουν σε αυτό το canvas.</translation>
+    </message>
+    <message>
+        <source>Sharing is off</source>
+        <translation>Η κοινή χρήση είναι ανενεργή</translation>
+    </message>
+    <message>
+        <source>Turn on</source>
+        <translation>Ενεργοποίηση</translation>
+    </message>
+    <message>
         <source>The file is missing</source>
         <translation>Το αρχείο λείπει</translation>
     </message>
@@ -788,32 +792,20 @@
         <translation>Εμφάνιση ολόκληρης της οθόνης</translation>
     </message>
     <message>
-        <source>To control %1 from here, turn on Kodosi Screen there in System Settings, under Privacy &amp; Security, Accessibility.</source>
-        <translation>Για να ελέγχετε το %1 από εδώ, ενεργοποιήστε εκεί το Kodosi Screen στις Ρυθμίσεις συστήματος, στην ενότητα Απόρρητο και ασφάλεια, Προσβασιμότητα.</translation>
+        <source>Allow control on %1</source>
+        <translation>Επιτρέψτε τον έλεγχο στο %1</translation>
+    </message>
+    <message>
+        <source>Can&apos;t show the screen</source>
+        <translation>Δεν είναι δυνατή η εμφάνιση της οθόνης</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>Αντιγράφηκε</translation>
     </message>
     <message>
         <source>View only</source>
         <translation>Μόνο προβολή</translation>
-    </message>
-    <message>
-        <source>Kodosi Screen cannot record %1</source>
-        <translation>Το Kodosi Screen δεν μπορεί να καταγράψει το %1</translation>
-    </message>
-    <message>
-        <source>On %1, turn on Kodosi Screen in System Settings, under Privacy &amp; Security, Screen &amp; System Audio Recording.</source>
-        <translation>Στο %1, ενεργοποιήστε το Kodosi Screen στις Ρυθμίσεις συστήματος, στην ενότητα Απόρρητο και ασφάλεια, Εγγραφή οθόνης και ήχου συστήματος.</translation>
-    </message>
-    <message>
-        <source>The screen did not open</source>
-        <translation>Η οθόνη δεν άνοιξε</translation>
-    </message>
-    <message>
-        <source>Try again</source>
-        <translation>Δοκιμάστε ξανά</translation>
-    </message>
-    <message>
-        <source>Waiting for the screen</source>
-        <translation>Αναμονή για την οθόνη</translation>
     </message>
 </context>
 <context>
@@ -2616,6 +2608,26 @@
     <message>
         <source>Quit</source>
         <translation>Έξοδος</translation>
+    </message>
+    <message>
+        <source>Screen</source>
+        <translation>Οθόνη</translation>
+    </message>
+    <message>
+        <source>While someone watches, Kodosi shows who, with a way to stop.</source>
+        <translation>Όσο κάποιος παρακολουθεί, το Kodosi δείχνει ποιος είναι, με έναν τρόπο να το σταματήσετε.</translation>
+    </message>
+    <message>
+        <source>Let my other devices see and control this computer</source>
+        <translation>Να βλέπουν και να ελέγχουν αυτόν τον υπολογιστή οι άλλες συσκευές μου</translation>
+    </message>
+    <message>
+        <source>Allow on this computer</source>
+        <translation>Επιτρέψτε το σε αυτόν τον υπολογιστή</translation>
+    </message>
+    <message>
+        <source>Allow…</source>
+        <translation>Να επιτρέπεται…</translation>
     </message>
     <message>
         <source>Privacy policy</source>
@@ -4845,6 +4857,37 @@
     <message>
         <source>Opens the launcher with this account</source>
         <translation>Ανοίγει τον launcher με αυτόν τον λογαριασμό</translation>
+    </message>
+</context>
+<context>
+    <name>VideoCover</name>
+    <message>
+        <source>Sharing is off on %1</source>
+        <translation>Η κοινή χρήση είναι ανενεργή στο %1</translation>
+    </message>
+    <message>
+        <source>%1 is offline</source>
+        <translation>%1: εκτός σύνδεσης</translation>
+    </message>
+    <message>
+        <source>%1 is locked</source>
+        <translation>%1: κλειδωμένο</translation>
+    </message>
+    <message>
+        <source>%1 is on another account</source>
+        <translation>Στο %1 είναι ενεργός άλλος λογαριασμός</translation>
+    </message>
+    <message>
+        <source>%1 is asleep</source>
+        <translation>%1: σε αναστολή λειτουργίας</translation>
+    </message>
+    <message>
+        <source>Allow screen recording on %1</source>
+        <translation>Επιτρέψτε την εγγραφή οθόνης στο %1</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>Δοκιμάστε ξανά</translation>
     </message>
 </context>
 <context>

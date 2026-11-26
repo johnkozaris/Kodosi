@@ -18,17 +18,23 @@ class CanvasModel;
 
 // A view of a video pipe: the shared browser's or the screen's. Decodes and acknowledges frames on a
 // dedicated thread so a busy GUI thread does not build up a frame queue or stall the feedback the
-// host uses to keep the picture as sharp as this device and the link allow.
+// host uses to keep the picture as sharp as this device and the link allow. The last picture of a
+// view stays for the next view of the same feed, which shows it resting until the stream is live.
 class StreamVideo : public QQuickItem {
     Q_OBJECT
     Q_PROPERTY(QObject* documents READ documents WRITE setDocuments FINAL)
     Q_PROPERTY(QObject* canvas READ canvas WRITE setCanvas FINAL)
     Q_PROPERTY(QString sessionId READ sessionId WRITE setSessionId FINAL)
     Q_PROPERTY(bool active READ active WRITE setActive FINAL)
-    Q_PROPERTY(bool shows READ shows NOTIFY showsChanged FINAL)
-    Q_PROPERTY(bool reconnecting READ reconnecting NOTIFY reconnectingChanged FINAL)
-    // Why the stream did not open, or went away, as the runtime tells it.
-    Q_PROPERTY(QString problem READ problem NOTIFY problemChanged FINAL)
+    // The terminal's computer is offline, which the runtime waits out with the pipe.
+    Q_PROPERTY(bool offline READ offline WRITE setOffline FINAL)
+    // Why the computer shows nothing, as `away()` names it, or else "failed", "live", "resting" while
+    // the last picture shows and the stream is not live, or "waiting" for a first picture.
+    Q_PROPERTY(QString showing READ showing NOTIFY showingChanged FINAL)
+    // Why the stream failed, as the runtime tells it.
+    Q_PROPERTY(QString problem READ problem NOTIFY showingChanged FINAL)
+    // How far the picture rests, from 0 for a live picture to 1 for one dimmed and greyed.
+    Q_PROPERTY(qreal rest READ rest WRITE setRest NOTIFY restChanged FINAL)
 
 public:
     ~StreamVideo() override;
@@ -41,9 +47,12 @@ public:
     void setSessionId(const QString& sessionId);
     [[nodiscard]] bool active() const { return m_active; }
     void setActive(bool active);
-    [[nodiscard]] bool shows() const { return m_frame != nullptr; }
-    [[nodiscard]] bool reconnecting() const { return m_reconnecting; }
+    [[nodiscard]] bool offline() const { return m_offline; }
+    void setOffline(bool offline);
+    [[nodiscard]] QString showing() const;
     [[nodiscard]] QString problem() const { return m_problem; }
+    [[nodiscard]] qreal rest() const { return m_rest; }
+    void setRest(qreal rest);
 
     Q_INVOKABLE void pointer(const QString& action, qreal x, qreal y, int button, int clicks, int modifiers);
     Q_INVOKABLE void wheel(qreal x, qreal y, QPoint pixels, QPoint angle, int modifiers);
@@ -54,9 +63,8 @@ public:
     Q_INVOKABLE void retry();
 
 signals:
-    void showsChanged();
-    void reconnectingChanged();
-    void problemChanged();
+    void showingChanged();
+    void restChanged();
 
 protected:
     // `key` names the pipe: the canvas's browser or screen.
@@ -71,16 +79,37 @@ protected:
     [[nodiscard]] virtual QRectF pictureRect() const;
     // Whether the stream plays this viewer's input.
     [[nodiscard]] virtual bool takesInput() const { return true; }
+    // Why the computer shows nothing, the reason that matters most first, or nothing.
+    [[nodiscard]] virtual QString away() const;
+    // Whether there is a stream to watch at all.
+    [[nodiscard]] virtual bool watchable() const { return true; }
+    // What the view leaves for the next view of its feed, besides the picture.
+    [[nodiscard]] virtual QVariantMap kept() const { return {}; }
+    // Takes up what the last view of the feed left.
+    virtual void resume(const QVariantMap&) { }
     // The view turned to another terminal, so what the stream said is gone.
     virtual void forget() { }
     // A new pipe is a new seat at the stream, which starts as it is.
     virtual void seated() { }
-    // The stream heard this viewer's watch.
-    virtual void watched() { }
     // The view's size settled, after a resize.
     virtual void settled() { }
+    // The newest picture shows another part of the source than the one before.
+    virtual void moved() { }
+    // This viewer is about to act on the stream, which then follows whoever acted last.
+    virtual void acting() { }
 
     void post(const QJsonObject& message);
+    void join();
+    void leave();
+    // Closes the pipe while the view stays, so the decoder goes and the picture stays in memory.
+    void pause();
+    // The picture stopped being live though the pipe stays, until the next picture comes.
+    void stale();
+    // Leaves the picture and `kept()` for the next view of the feed. A view that keeps more than the
+    // picture calls it from its own destructor, while `kept()` still answers for it.
+    void keep();
+    // Tells what the view shows again once something that it depends on changed.
+    void restate();
     [[nodiscard]] bool watching() const { return m_watching; }
     [[nodiscard]] QSize pictureSize() const;
     // The part of the source that the newest picture shows, when only a part.
@@ -89,11 +118,11 @@ protected:
     QSGNode* updatePaintNode(QSGNode* node, UpdatePaintNodeData* data) override;
     void geometryChange(const QRectF& next, const QRectF& previous) override;
     void itemChange(ItemChange change, const ItemChangeData& value) override;
+    void componentComplete() override;
 
 private:
-    void join();
-    void leave();
     void forgetTerminal();
+    void takeUp();
     void chosen(const QString& sessionId, const QString& section);
     void opened(const QString& pipe);
     void watch();
@@ -102,7 +131,6 @@ private:
     void lost(const QString& pipe, const QString& reason);
     void closed(const QString& pipe, const QString& reason);
     void broke(const QString& pipe);
-    void setReconnecting(bool reconnecting);
     void setProblem(const QString& problem);
     void input(const QJsonObject& event);
     void sendSize();
@@ -116,12 +144,18 @@ private:
     QString m_sessionId;
     QString m_pipe;
     bool m_active = false;
+    bool m_offline = false;
     bool m_watching = false;
+    // Whether this view took up what the last view of its feed left, which it then leaves in turn.
+    bool m_tookUp = false;
     std::shared_ptr<const VideoFrame> m_frame;
     std::optional<QRectF> m_region;
+    // Whether the picture came on the open pipe, which has not been lost since.
+    bool m_live = false;
     QTimer m_settle;
-    bool m_reconnecting = false;
     QString m_problem;
+    QString m_lastShowing;
+    qreal m_rest = 0;
     QJsonObject m_sentSize;
     bool m_holding = false;
     QThread m_decoding;

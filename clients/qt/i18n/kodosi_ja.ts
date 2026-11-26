@@ -515,6 +515,10 @@
         <translation>共有中</translation>
     </message>
     <message>
+        <source>Can&apos;t show the page</source>
+        <translation>ページを表示できません</translation>
+    </message>
+    <message>
         <source>New tab</source>
         <translation>新規タブ</translation>
     </message>
@@ -529,10 +533,6 @@
     <message>
         <source>Shared browser</source>
         <translation>共有ブラウザ</translation>
-    </message>
-    <message>
-        <source>Try again</source>
-        <translation>再試行</translation>
     </message>
     <message>
         <source>Copy</source>
@@ -557,18 +557,6 @@
     <message>
         <source>Getting the browser, %1%</source>
         <translation>ブラウザをダウンロード中（%1%）</translation>
-    </message>
-    <message>
-        <source>Starting the browser</source>
-        <translation>ブラウザを起動中</translation>
-    </message>
-    <message>
-        <source>The browser is asleep</source>
-        <translation>ブラウザはスリープ中です</translation>
-    </message>
-    <message>
-        <source>Wake it</source>
-        <translation>スリープ解除</translation>
     </message>
 </context>
 <context>
@@ -748,6 +736,22 @@
         <translation>ゴミ箱に移動</translation>
     </message>
     <message>
+        <source>This computer&apos;s screen</source>
+        <translation>このコンピュータの画面</translation>
+    </message>
+    <message>
+        <source>Your other devices show it on this canvas.</source>
+        <translation>ほかのデバイスでは、このキャンバスに表示されます。</translation>
+    </message>
+    <message>
+        <source>Sharing is off</source>
+        <translation>共有はオフです</translation>
+    </message>
+    <message>
+        <source>Turn on</source>
+        <translation>オンにする</translation>
+    </message>
+    <message>
         <source>The file is missing</source>
         <translation>ファイルが見つかりません</translation>
     </message>
@@ -787,32 +791,20 @@
         <translation>画面全体を表示</translation>
     </message>
     <message>
-        <source>To control %1 from here, turn on Kodosi Screen there in System Settings, under Privacy &amp; Security, Accessibility.</source>
-        <translation>ここから %1 を操作するには、そのコンピュータのシステム設定の「プライバシーとセキュリティ」&gt;「アクセシビリティ」で Kodosi Screen をオンにしてください。</translation>
+        <source>Allow control on %1</source>
+        <translation>%1 で操作を許可してください</translation>
+    </message>
+    <message>
+        <source>Can&apos;t show the screen</source>
+        <translation>画面を表示できません</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>コピーしました</translation>
     </message>
     <message>
         <source>View only</source>
         <translation>表示のみ</translation>
-    </message>
-    <message>
-        <source>Kodosi Screen cannot record %1</source>
-        <translation>Kodosi Screen は %1 を収録できません</translation>
-    </message>
-    <message>
-        <source>On %1, turn on Kodosi Screen in System Settings, under Privacy &amp; Security, Screen &amp; System Audio Recording.</source>
-        <translation>%1 で、システム設定の「プライバシーとセキュリティ」&gt;「画面収録とシステムオーディオ録音」にある Kodosi Screen をオンにしてください。</translation>
-    </message>
-    <message>
-        <source>The screen did not open</source>
-        <translation>画面を開けませんでした</translation>
-    </message>
-    <message>
-        <source>Try again</source>
-        <translation>再試行</translation>
-    </message>
-    <message>
-        <source>Waiting for the screen</source>
-        <translation>画面を待っています</translation>
     </message>
 </context>
 <context>
@@ -2595,6 +2587,26 @@
     <message>
         <source>Quit</source>
         <translation>終了</translation>
+    </message>
+    <message>
+        <source>Screen</source>
+        <translation>画面</translation>
+    </message>
+    <message>
+        <source>While someone watches, Kodosi shows who, with a way to stop.</source>
+        <translation>誰かが見ているあいだ、Kodosi はそれが誰かを表示し、止める方法も示します。</translation>
+    </message>
+    <message>
+        <source>Let my other devices see and control this computer</source>
+        <translation>ほかのデバイスからこのコンピュータを表示・操作できるようにする</translation>
+    </message>
+    <message>
+        <source>Allow on this computer</source>
+        <translation>このコンピュータで許可</translation>
+    </message>
+    <message>
+        <source>Allow…</source>
+        <translation>許可…</translation>
     </message>
     <message>
         <source>Privacy policy</source>
@@ -4813,6 +4825,37 @@
     <message>
         <source>Opens the launcher with this account</source>
         <translation>このアカウントでランチャーを開きます</translation>
+    </message>
+</context>
+<context>
+    <name>VideoCover</name>
+    <message>
+        <source>Sharing is off on %1</source>
+        <translation>%1 で共有がオフになっています</translation>
+    </message>
+    <message>
+        <source>%1 is offline</source>
+        <translation>%1 はオフラインです</translation>
+    </message>
+    <message>
+        <source>%1 is locked</source>
+        <translation>%1 はロックされています</translation>
+    </message>
+    <message>
+        <source>%1 is on another account</source>
+        <translation>%1 は別のアカウントを使用中です</translation>
+    </message>
+    <message>
+        <source>%1 is asleep</source>
+        <translation>%1 はスリープ中です</translation>
+    </message>
+    <message>
+        <source>Allow screen recording on %1</source>
+        <translation>%1 で画面収録を許可してください</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>再試行</translation>
     </message>
 </context>
 <context>

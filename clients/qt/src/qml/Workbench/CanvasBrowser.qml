@@ -13,6 +13,8 @@ Item {
 
     required property string sessionId
     required property var browser
+    required property string computer
+    required property bool offline
     property string askTitle: ""
     property real pressedAt: 0
     property point pressedPoint: Qt.point(0, 0)
@@ -21,6 +23,16 @@ Item {
     readonly property string browserState: browser.state || ""
     readonly property var activeTab: (browser.tabs || []).find(tab => tab.active) || null
     readonly property string failure: browser.problem || ""
+    // What the page shows: the engine download as before, or as the video tells, where the browser's
+    // own problem counts as the video's failure.
+    readonly property string showing: video.showing === "offline" ? "offline"
+        : browser.getting !== undefined ? "getting"
+        : failure.length > 0 ? "failed"
+        : video.showing
+    readonly property bool live: showing === "live"
+    readonly property bool pictured: live || showing === "resting"
+    // A browser that fell asleep wakes once its page shows, as the person would wake it.
+    readonly property bool wakes: browserState === "asleep" && failure.length === 0 && !offline && KodosiTheme.shown
     readonly property var parts: video.window
     readonly property var tabs: (parts.tabs || []).length > 0 ? parts.tabs
         : (browser.tabs || []).map(tab => ({ id: tab.id, title: tab.title, address: tab.url, active: tab.active, loading: false }))
@@ -31,6 +43,14 @@ Item {
     onChoosingChanged: {
         if (choosing && !Models.DesktopFiles.requestPageFiles(sessionId, parts.chooser.several === true))
             video.step({ kind: "files", paths: [] });
+    }
+    onWakesChanged: {
+        if (wakes)
+            Models.Canvas.wakeAsleep(sessionId);
+    }
+    Component.onCompleted: {
+        if (wakes)
+            Models.Canvas.wakeAsleep(sessionId);
     }
 
     Connections {
@@ -353,19 +373,10 @@ Item {
 
                 HoverHandler { id: sharedHover }
             }
-            PlainLabel {
-                Layout.fillWidth: true
-                Layout.minimumWidth: 60
-                visible: root.failure.length > 0
-                text: root.failure
-                color: KodosiTheme.caution
-                font.pixelSize: KodosiTheme.fontCaption
-                elide: Text.ElideRight
-            }
             RowLayout {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 80
-                visible: root.failure.length === 0 && !!root.browser.last
+                visible: !!root.browser.last
                 spacing: 5
 
                 AgentMark { kind: Models.DesktopSettings.agentNamed(root.browser.last ? root.browser.last.agent : ""); size: 14 }
@@ -383,12 +394,14 @@ Item {
 
             Layout.fillWidth: true
             Layout.fillHeight: true
-            color: root.browserState === "awake" ? KodosiTheme.darkLook.terminal : KodosiTheme.sheet
+            color: root.pictured ? KodosiTheme.darkLook.terminal : KodosiTheme.sheet
             activeFocusOnTab: true
             objectName: "canvas.browser.page"
             Accessible.id: objectName
             Accessible.role: Accessible.Graphic
             Accessible.name: root.activeTab ? root.activeTab.title || root.activeTab.url : qsTr("Shared browser")
+
+            Behavior on color { ColorAnimation { duration: KodosiTheme.motionFade } }
 
             Keys.onPressed: event => {
                 pointer.shown = null;
@@ -411,27 +424,32 @@ Item {
                 documents: Models.CanvasDocuments
                 canvas: Models.Canvas
                 sessionId: root.sessionId
+                offline: root.offline
                 active: !root.browser.problem && KodosiTheme.shown
-                // A reason means the picture can't come back by itself, so the reason shows instead.
-                visible: root.browserState === "awake" && shows && problem.length === 0
-            }
-            Spinner {
-                anchors.centerIn: parent
-                size: 18
-                visible: root.browserState === "awake" && !video.shows && video.problem.length === 0
-            }
-            EmptyState {
-                anchors.centerIn: parent
-                width: Math.min(320, parent.width - 32)
-                visible: root.browserState === "awake" && video.problem.length > 0
-                title: video.problem
-                objectName: "canvas.browser.failed"
+                rest: root.live ? 0 : 1
+                opacity: root.pictured ? 1 : 0
+                visible: opacity > 0
 
-                KButton { text: qsTr("Try again"); onClicked: video.retry() }
+                Behavior on rest { NumberAnimation { duration: KodosiTheme.motionFade } }
+                Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
+            }
+            VideoCover {
+                anchors.fill: parent
+                showing: root.showing
+                computer: root.computer
+                failure: qsTr("Can't show the page")
+                problem: root.failure || video.problem
+                objectName: "canvas.browser.cover"
+                onRetried: {
+                    if (root.failure.length > 0)
+                        Models.Canvas.wake(root.sessionId);
+                    else
+                        video.retry();
+                }
             }
             MouseArea {
                 anchors.fill: parent
-                enabled: root.browserState === "awake"
+                enabled: root.pictured
                 acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                 hoverEnabled: true
                 cursorShape: root.cursor(root.parts.shape || "")
@@ -582,14 +600,6 @@ Item {
                     }
                 }
             }
-            ReconnectingNotice {
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: parent.top
-                anchors.topMargin: 10
-                look: KodosiTheme.darkLook
-                shown: root.browserState === "awake" && video.shows && video.reconnecting && video.problem.length === 0
-                objectName: "canvas.browser.reconnecting"
-            }
             KMenu {
                 id: pageMenu
 
@@ -719,23 +729,13 @@ Item {
             EmptyState {
                 anchors.centerIn: parent
                 width: Math.min(320, parent.width - 32)
-                visible: root.browserState !== "awake"
-                title: root.browser.getting !== undefined ? qsTr("Getting the browser, %1%").arg(root.browser.getting)
-                    : root.browserState === "starting" ? qsTr("Starting the browser") : qsTr("The browser is asleep")
-                message: root.browserState === "asleep" ? root.browser.problem || "" : ""
+                visible: root.showing === "getting"
+                title: qsTr("Getting the browser, %1%").arg(root.browser.getting ?? 0)
                 art: KIcon {
                     width: 28
                     height: 28
-                    name: root.browserState === "starting" ? "globe" : "moon"
+                    name: "globe"
                     color: KodosiTheme.inkMuted
-                }
-
-                KButton {
-                    visible: root.browserState === "asleep"
-                    text: qsTr("Wake it")
-                    objectName: "canvas.browser.wake"
-                    Accessible.id: objectName
-                    onClicked: Models.Canvas.wake(root.sessionId)
                 }
             }
         }
