@@ -10,8 +10,8 @@ use tokio::sync::{mpsc, oneshot, watch};
 use uuid::Uuid;
 
 use super::{
-    BROWSER_PIPE, Canvas, CanvasAnswer, CanvasBrowser, CanvasOpen, CanvasRequest, PipeEnds,
-    SCREEN_PIPE, ScreenShown,
+    BROWSER_PIPE, Canvas, CanvasAnswer, CanvasBrowser, CanvasOpen, CanvasRequest, CanvasScreen,
+    PipeEnds, SCREEN_PIPE, ScreenShown,
     attach::{Part, Uploads},
     browser::{self, Browser, Places, Terminal},
     engine::BrowserHost,
@@ -223,7 +223,7 @@ impl CanvasHandle {
         local: bool,
     ) -> Result<PipeEnds, Text> {
         if key == SCREEN_PIPE {
-            if !self.state.borrow().screen {
+            if self.state.borrow().screen.is_none() {
                 return Err(text!("This computer's screen is not on the canvas."));
             }
             let viewer = shared_browser::Viewer {
@@ -415,8 +415,7 @@ impl Actor {
                     }
                 }
                 changed = self.allowed.changed() => {
-                    if changed.is_ok() && !*self.allowed.borrow_and_update() {
-                        self.screen_shown = false;
+                    if changed.is_ok() {
                         self.publish();
                     }
                 }
@@ -462,7 +461,9 @@ impl Actor {
                 .browser
                 .as_ref()
                 .map(|(_, state)| state.borrow().clone()),
-            screen: self.screen_shown,
+            screen: self.screen_shown.then(|| CanvasScreen {
+                shared: *self.allowed.borrow(),
+            }),
             open: self.open.as_ref().filter(shows).cloned(),
             change: self.change.as_ref().filter(shows).cloned(),
         };
@@ -550,8 +551,7 @@ impl Actor {
                 from,
             } => {
                 self.files.restore(paths, &self.stamp);
-                // The screen comes back only while the person at the computer still shares it.
-                self.screen_shown |= screen && self.screen.check().is_ok();
+                self.screen_shown |= screen && self.screen.available();
                 let earlier = browser::own_profile(&self.data_root, from);
                 let profile = browser::own_profile(&self.data_root, self.id);
                 drop(
@@ -700,7 +700,7 @@ impl Actor {
                 drop(reply.send(Ok(CanvasAnswer::Done)));
             }
             CanvasRequest::ShowScreen => {
-                let answer = self.screen.check().map(|()| CanvasAnswer::Done);
+                let answer = self.screen.offered().map(|()| CanvasAnswer::Done);
                 if answer.is_ok() {
                     self.screen_shown = true;
                     self.publish();

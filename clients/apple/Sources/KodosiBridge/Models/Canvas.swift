@@ -1,11 +1,17 @@
 import CoreGraphics
 import Foundation
 
+/// The screen stays on the canvas while the person at its computer does not share it, so that the
+/// owner's devices say why it does not show and watch it again once it is shared.
+public struct CanvasScreen: Decodable, Equatable, Sendable {
+    public let shared: Bool
+}
+
 public struct Canvas: Decodable, Equatable, Sendable {
     public let items: [CanvasItem]
     public let browser: CanvasBrowser?
     /// The screen of the terminal's computer, which only its owner's devices see.
-    public let screen: Bool
+    public let screen: CanvasScreen?
     /// Most recent item the agent explicitly opened; each device handles it once.
     public let open: CanvasOpen?
     /// Most recent file or agent-driven browser change; each device handles it once.
@@ -15,7 +21,7 @@ public struct Canvas: Decodable, Equatable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         items = try container.decodeIfPresent([CanvasItem].self, forKey: .items) ?? []
         browser = try container.decodeIfPresent(CanvasBrowser.self, forKey: .browser)
-        screen = try container.decodeIfPresent(Bool.self, forKey: .screen) ?? false
+        screen = try container.decodeIfPresent(CanvasScreen.self, forKey: .screen)
         open = try container.decodeIfPresent(CanvasOpen.self, forKey: .open)
         change = try container.decodeIfPresent(CanvasOpen.self, forKey: .change)
     }
@@ -23,7 +29,7 @@ public struct Canvas: Decodable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey { case items, browser, screen, open, change }
 
     public var shown: [CanvasShown] {
-        items.map(CanvasShown.item) + (browser.map { [CanvasShown.browser($0)] } ?? []) + (screen ? [.screen] : [])
+        items.map(CanvasShown.item) + (browser.map { [CanvasShown.browser($0)] } ?? []) + (screen == nil ? [] : [.screen])
     }
 
     public var newest: CanvasShown? {
@@ -35,14 +41,14 @@ public struct Canvas: Decodable, Equatable, Sendable {
     }
 
     public var sections: [CanvasSection] {
-        (items.isEmpty ? [] : [.files]) + (browser == nil ? [] : [.browser]) + (screen ? [.screen] : [])
+        (items.isEmpty ? [] : [.files]) + (browser == nil ? [] : [.browser]) + (screen == nil ? [] : [.screen])
     }
 
     public func changed(of section: CanvasSection) -> UInt64? {
         switch section {
         case .files: items.map(\.changed).max()
         case .browser: browser?.changed
-        case .screen: screen ? CanvasShown.screen.changed : nil
+        case .screen: screen == nil ? nil : CanvasShown.screen.changed
         }
     }
 

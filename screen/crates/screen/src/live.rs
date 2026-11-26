@@ -18,7 +18,9 @@ use tokio::{
 
 use crate::{
     host::Started,
-    link::{self, Access, FromHelper, Message, Notice, Pointer, Shape, Source, Sources, ToHelper},
+    link::{
+        self, Access, Away, FromHelper, Message, Notice, Pointer, Shape, Source, Sources, ToHelper,
+    },
     wire::{State, ToScreen},
 };
 
@@ -205,6 +207,8 @@ pub(crate) struct Live {
     helper: mpsc::Sender<Bytes>,
     encodable: Vec<Codec>,
     access: Access,
+    /// While nobody can see the screen, nothing captures it.
+    away: Option<Away>,
     calls: Calls,
     flow: Flow,
     seats: HashMap<String, Seat>,
@@ -241,6 +245,7 @@ impl Live {
             helper,
             encodable: started.encodable,
             access: started.access,
+            away: started.away,
             calls,
             flow: Flow::new(),
             seats: HashMap::new(),
@@ -471,6 +476,13 @@ impl Live {
                     self.access = access;
                     self.dirty = true;
                 }
+                FromHelper::Away { away } => {
+                    self.away = away;
+                    // A capture that failed while the screen was away starts again at once.
+                    self.capture_failed_at = None;
+                    self.update_capture();
+                    self.dirty = true;
+                }
                 FromHelper::Pointer { pointer } => {
                     self.pointer = pointer;
                     self.publish();
@@ -664,6 +676,9 @@ impl Live {
     }
 
     fn wanted_capture(&self) -> Option<Capture> {
+        if self.away.is_some() {
+            return None;
+        }
         if self.capture_failed_at.is_some() {
             return self.capture;
         }
@@ -723,6 +738,7 @@ impl Live {
                 pointer: self.pointer,
                 shapes,
                 access: self.access,
+                away: self.away,
                 control: self.control.as_deref() == Some(viewer),
             });
         }
@@ -794,6 +810,7 @@ mod tests {
                     screen: true,
                     input: true,
                 },
+                away: None,
             };
             let calls = Calls {
                 notice: Arc::new(|names| Notice {
@@ -851,6 +868,10 @@ mod tests {
                 },
             )
             .await;
+        }
+
+        async fn tell(&mut self, said: FromHelper) {
+            self.helper.write_all(&link::json(&said)).await.unwrap();
         }
 
         async fn leave(&self, viewer: &str) {
@@ -974,6 +995,25 @@ mod tests {
             )
             .await;
         assert_ne!(computer.capture().await, (2772, 1800, Codec::H264));
+    }
+
+    #[tokio::test]
+    async fn a_locked_screen_is_not_captured_until_it_unlocks() {
+        let mut computer = Computer::start().await;
+        computer
+            .watch("phone", view(390, 844, 3.0), vec![HEVC], true)
+            .await;
+        computer.capture().await;
+        computer
+            .tell(FromHelper::Away {
+                away: Some(Away::Locked),
+            })
+            .await;
+        computer
+            .next(|said| matches!(said, ToHelper::Stop).then_some(()))
+            .await;
+        computer.tell(FromHelper::Away { away: None }).await;
+        assert_eq!(computer.capture().await, (1170, 760, Codec::Hevc));
     }
 
     #[tokio::test]

@@ -2284,7 +2284,7 @@ impl Runtime {
                         .filter_map(|path| path.into_string().ok())
                         .collect(),
                     browser: local.terminal.canvas.address(),
-                    screen: local.terminal.canvas.state().borrow().screen,
+                    screen: local.terminal.canvas.state().borrow().screen.is_some(),
                     quiet_settings,
                 }
             })
@@ -3903,7 +3903,7 @@ impl Runtime {
                     entry.context = metadata.context;
                     let owner = entry.is_owner;
                     entry.canvas = metadata.canvas.map(|canvas| crate::canvas::Canvas {
-                        screen: canvas.screen && owner,
+                        screen: canvas.screen.filter(|_| owner),
                         ..*canvas
                     });
                     entry.face = metadata.face;

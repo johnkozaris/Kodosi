@@ -12,7 +12,7 @@ use stream::{Codec, Encoded, Format, FrameKind, Region, viewer::Input};
 use tokio::io::{AsyncRead, AsyncReadExt as _};
 
 /// The helper ships inside the same app as the host, so both sides must match.
-pub const VERSION: u32 = 1;
+pub const VERSION: u32 = 2;
 /// The largest message either side takes.
 const MOST_MESSAGE: usize = 16 * 1024 * 1024;
 const JSON: u8 = 0;
@@ -87,12 +87,17 @@ pub enum FromHelper {
         version: u32,
         encodable: Vec<Codec>,
         access: Access,
+        away: Option<Away>,
     },
     Sources {
         sources: Sources,
     },
     Access {
         access: Access,
+    },
+    /// Why nobody can see the screen now, or `None` once it shows again.
+    Away {
+        away: Option<Away>,
     },
     /// Where the pointer is in the shown source's points, or `None` when it is elsewhere.
     Pointer {
@@ -107,6 +112,17 @@ pub enum FromHelper {
     Failed {
         problem: String,
     },
+}
+
+/// Why the screen shows nothing for a while, which ends by itself.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Away {
+    Locked,
+    /// The display sleeps and does not wake, as when a laptop's lid is closed.
+    Asleep,
+    /// Someone else's account is on the computer's display.
+    AnotherAccount,
 }
 
 /// What macOS lets the helper do.

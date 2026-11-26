@@ -105,7 +105,7 @@ QList<CanvasModel::Shown> CanvasModel::shown(const QString& sessionId) const
         result.append({ browserItem, number(browser.value(QStringLiteral("changed"))) });
     // The screen does not change as a file or the browser does: it shows itself when an agent or a
     // person shows it.
-    if (session->canvas.value(screenItem).toBool())
+    if (session->canvas.value(screenItem).isObject())
         result.append({ screenItem, 0 });
     return result;
 }

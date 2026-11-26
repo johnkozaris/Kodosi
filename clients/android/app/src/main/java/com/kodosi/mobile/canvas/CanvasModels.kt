@@ -8,7 +8,7 @@ data class Canvas(
     val items: List<CanvasItem> = emptyList(),
     val browser: CanvasBrowser? = null,
     // The screen of the terminal's computer, which only its owner's devices see.
-    val screen: Boolean = false,
+    val screen: CanvasScreen? = null,
     val open: CanvasOpen? = null,
     val change: CanvasOpen? = null
 ) {
@@ -19,7 +19,7 @@ data class Canvas(
     fun partChanges(): Map<String, Long> = buildMap {
         items.maxOfOrNull { it.changed }?.let { put("files", it) }
         browser?.let { put("browser", it.changed) }
-        if (screen) put("screen", 0L)
+        if (screen != null) put("screen", 0L)
     }
 
     fun shownFile(chosen: String?): CanvasItem? =
@@ -33,6 +33,11 @@ data class Canvas(
         return if (part == "files") items.maxBy { it.changed }.key else part
     }
 }
+
+// The screen stays on the canvas while the person at its computer does not share it, so that the
+// owner's devices say why it does not show and watch it again once it is shared.
+@Serializable
+data class CanvasScreen(val shared: Boolean = false)
 
 // The part of the canvas that a key of it shows.
 fun canvasPart(key: String): String = if (key == "browser" || key == "screen") key else "files"

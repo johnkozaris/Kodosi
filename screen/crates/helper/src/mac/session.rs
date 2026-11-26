@@ -9,7 +9,7 @@ use objc2_core_graphics::{
     CGPreflightPostEventAccess, CGPreflightScreenCaptureAccess, CGRequestPostEventAccess,
     CGRequestScreenCaptureAccess,
 };
-use screen::link::{self, Access, FromHelper, Message, Source, Sources, ToHelper, VERSION};
+use screen::link::{self, Access, Away, FromHelper, Message, Source, Sources, ToHelper, VERSION};
 use stream::viewer::{Input, MouseAction};
 use stream_encode::{Encoder, Settings};
 use tokio::{
@@ -25,6 +25,7 @@ use super::{
     app,
     capture::{Capture, Frames, Wanted},
     input::Hands,
+    power::{self, Power},
     raise,
     sources::{self, Content},
 };
@@ -41,6 +42,9 @@ pub(super) enum Event {
     Stopped,
     /// The capture or its encoder failed.
     Failed(String),
+    /// The screen locked or unlocked, the displays slept or woke, or the account on the display
+    /// changed.
+    Changed,
 }
 
 /// Connects to the host and serves it until the link closes.
@@ -92,6 +96,11 @@ struct Session {
     say: mpsc::Sender<Bytes>,
     events: mpsc::UnboundedSender<Event>,
     access: Access,
+    away: Option<Away>,
+    /// The display slept at the last look, which woke it while someone watched.
+    slept: bool,
+    watched: bool,
+    power: Power,
     content: Option<Content>,
     sources: Sources,
     capture: Option<Capture>,
@@ -106,6 +115,10 @@ impl Session {
             say,
             events,
             access: Access::default(),
+            away: None,
+            slept: false,
+            watched: false,
+            power: Power::default(),
             content: None,
             sources: Sources::default(),
             capture: None,
@@ -116,11 +129,13 @@ impl Session {
 
     async fn hello(&mut self, token: String) {
         self.access = access();
+        self.away = self.away_now();
         self.tell(FromHelper::Hello {
             token,
             version: VERSION,
             encodable: Encoder::encodable(),
             access: self.access,
+            away: self.away,
         })
         .await;
         self.look().await;
@@ -175,7 +190,16 @@ impl Session {
             ToHelper::Held { marks } => self.encoder(|encoder| encoder.held(&marks)),
             ToHelper::Bitrate { bitrate } => self.encoder(|encoder| encoder.set_bitrate(bitrate)),
             ToHelper::Input { input } => self.play(&input).await,
-            ToHelper::Notice { notice } => app::notice(notice),
+            ToHelper::Notice { notice } => {
+                let first = notice.is_some() && !self.watched;
+                self.watched = notice.is_some();
+                app::notice(notice);
+                // Opening the screen wakes its display.
+                if first {
+                    self.slept = false;
+                    self.look().await;
+                }
+            }
             ToHelper::Ask => {
                 if !self.access.screen {
                     CGRequestScreenCaptureAccess();
@@ -216,6 +240,7 @@ impl Session {
             earlier.stop().await;
         }
         self.capture = Some(Capture::start(content, wanted, frames).await?);
+        self.power.keep_awake(true);
         app::follow(Some(wanted.source));
         Ok(())
     }
@@ -225,6 +250,7 @@ impl Session {
         if let Some(capture) = self.capture.take() {
             capture.stop().await;
         }
+        self.power.keep_awake(false);
         self.frames = None;
     }
 
@@ -246,6 +272,7 @@ impl Session {
                     self.fail(problem).await;
                 }
             }
+            Event::Changed => self.look().await,
         }
     }
 
@@ -278,20 +305,40 @@ impl Session {
         self.hands.play(input, bounds);
     }
 
+    /// Tells the host what changed, the sources before the screen comes back, so that it
+    /// captures what is there now.
     async fn look(&mut self) {
         self.check_access().await;
-        if !self.access.screen {
-            return;
+        let away = self.away_now();
+        if away.is_none()
+            && self.access.screen
+            && let Ok(content) = Content::now().await
+        {
+            let sources = content.sources();
+            self.content = Some(content);
+            if !same(&sources, &self.sources) {
+                self.sources = sources.clone();
+                self.tell(FromHelper::Sources { sources }).await;
+            }
         }
-        let Ok(content) = Content::now().await else {
-            return;
-        };
-        let sources = content.sources();
-        self.content = Some(content);
-        if !same(&sources, &self.sources) {
-            self.sources = sources.clone();
-            self.tell(FromHelper::Sources { sources }).await;
+        if away != self.away {
+            self.away = away;
+            self.tell(FromHelper::Away { away }).await;
         }
+    }
+
+    /// A display that sleeps while someone watches wakes, and is away only when it sleeps on.
+    fn away_now(&mut self) -> Option<Away> {
+        if let Some(away) = power::session_away() {
+            self.slept = false;
+            return Some(away);
+        }
+        let asleep = power::display_asleep();
+        let slept = std::mem::replace(&mut self.slept, asleep);
+        if asleep && self.watched {
+            self.power.wake();
+        }
+        (asleep && slept).then_some(Away::Asleep)
     }
 
     async fn check_access(&mut self) {

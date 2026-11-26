@@ -56,8 +56,8 @@ pub struct Canvas {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub browser: Option<CanvasBrowser>,
     /// This computer's screen is on the canvas, for its owner's devices.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub screen: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub screen: Option<CanvasScreen>,
     /// Most recent item explicitly opened via `kodosi show` (a file, the browser or the screen).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub open: Option<CanvasOpen>,
@@ -244,6 +244,14 @@ pub enum CanvasRequest {
     ShowScreen,
 }
 
+/// The screen stays on the canvas while the person at the computer does not share it, so that its
+/// owner's devices see why it does not show, and watch it again as soon as it is shared.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CanvasScreen {
+    pub shared: bool,
+}
+
 /// What macOS lets Kodosi Screen do on this computer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -314,7 +322,7 @@ pub enum CanvasAnswer {
 impl Canvas {
     #[cfg(feature = "host")]
     pub(crate) fn is_empty(&self) -> bool {
-        self.items.is_empty() && self.browser.is_none() && !self.screen
+        self.items.is_empty() && self.browser.is_none() && self.screen.is_none()
     }
 
     pub(crate) fn is_valid(&self) -> bool {

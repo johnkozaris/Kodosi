@@ -11,6 +11,7 @@ mod capture;
 mod input;
 mod keys;
 mod pointer;
+mod power;
 mod raise;
 mod session;
 mod sources;

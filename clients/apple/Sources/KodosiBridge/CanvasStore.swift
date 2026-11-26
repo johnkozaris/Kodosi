@@ -181,7 +181,7 @@ public final class CanvasStore {
         shelves.formIntersection(ids)
         let browsing = Set(sessions.filter { $0.canvas?.browser != nil }.map(\.id))
         feeds = feeds.filter { browsing.contains($0.key) }
-        let watching = Set(sessions.filter { $0.canvas?.screen == true }.map(\.id))
+        let watching = Set(sessions.filter { $0.canvas?.screen != nil }.map(\.id))
         screens = screens.filter { watching.contains($0.key) }
         chats = chats.filter { ids.contains($0.key) }
         for key in stored.keys where !ids.contains(key.session) {
@@ -232,7 +232,7 @@ public final class CanvasStore {
             return switch section {
             case .files: session.canvas?.sections.contains(.files) == true
             case .browser: true
-            case .screen: session.canvas?.screen == true || session.showsScreen
+            case .screen: session.canvas?.screen != nil || session.showsScreen
             }
         }
     }
@@ -448,7 +448,7 @@ public final class CanvasStore {
 
     /// Puts the computer's screen on the canvas, which only its owner's devices do.
     public func openScreen(of session: RuntimeSession) async throws {
-        guard session.canvas?.screen != true else {
+        guard session.canvas?.screen == nil else {
             show(.screen, in: session)
             return
         }

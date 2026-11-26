@@ -21,7 +21,7 @@ use tokio::{
 };
 
 use crate::{
-    link::{self, Access, FromHelper, Message, Notice, VERSION},
+    link::{self, Access, Away, FromHelper, Message, Notice, VERSION},
     live::{Calls, Event, Live, Mailbox, Wanted},
     wire::ToScreen,
 };
@@ -187,6 +187,7 @@ pub(crate) struct Started {
     pub(crate) writer: tokio::net::unix::OwnedWriteHalf,
     pub(crate) encodable: Vec<stream::Codec>,
     pub(crate) access: Access,
+    pub(crate) away: Option<Away>,
 }
 
 /// Opens the helper through Launch Services, so that macOS asks for its permissions in its own
@@ -229,11 +230,13 @@ async fn start(settings: &Settings) -> Result<Started, Error> {
             version,
             encodable,
             access,
+            away,
         })) if said == token && version == VERSION => Ok(Started {
             reader,
             writer,
             encodable,
             access,
+            away,
         }),
         _ => Err(Error::Helper("it is another version".to_owned())),
     }

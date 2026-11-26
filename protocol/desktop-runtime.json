@@ -12162,7 +12162,23 @@
                           ]
                         },
                         "screen": {
-                          "type": "boolean"
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "shared": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "shared"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "sequence": {
                           "format": "u64",

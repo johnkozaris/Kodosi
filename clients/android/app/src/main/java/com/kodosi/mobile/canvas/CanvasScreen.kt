@@ -215,7 +215,7 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
         } else {
             null
         },
-        if (canvas?.screen == true && "screen" !in closed) {
+        if (canvas?.screen != null && "screen" !in closed) {
             "screen" to DockItem(stringResource(R.string.screen), AppSymbol.DISPLAY)
         } else {
             null
@@ -255,16 +255,16 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
                             }
                         )
                     }
-                    if (session?.showsScreen == true && (canvas?.screen != true || "screen" in closed)) {
+                    if (session?.showsScreen == true && (canvas?.screen == null || "screen" in closed)) {
                         KodosiMenuItem(
                             text = { Text(stringResource(R.string.screen)) },
-                            enabled = canvas?.screen == true || session.canControl,
+                            enabled = canvas?.screen != null || session.canControl,
                             onClick = {
                                 adding = false
                                 model.preferences.canvasPart(sessionId, "screen", true)
                                 part = "screen"
                                 model.video.choose(sessionId)
-                                if (canvas?.screen != true) {
+                                if (canvas?.screen == null) {
                                     scope.launch { model.runAction { model.canvas.showScreen(sessionId) } }
                                 }
                             }
@@ -383,7 +383,7 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
                         }
                     )
 
-                    part == "screen" && canvas?.screen == true -> ScreenView(
+                    part == "screen" && canvas?.screen != null -> ScreenView(
                         model,
                         sessionId,
                         session.hostName ?: stringResource(R.string.remote_computer)

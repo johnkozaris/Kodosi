@@ -15,9 +15,11 @@ use objc2::{
 };
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationPolicy, NSImage, NSMenu, NSMenuItem, NSStatusBar,
-    NSStatusItem, NSVariableStatusItemLength,
+    NSStatusItem, NSVariableStatusItemLength, NSWorkspace, NSWorkspaceScreensDidSleepNotification,
+    NSWorkspaceScreensDidWakeNotification, NSWorkspaceSessionDidBecomeActiveNotification,
+    NSWorkspaceSessionDidResignActiveNotification,
 };
-use objc2_foundation::{NSString, ns_string};
+use objc2_foundation::{NSDistributedNotificationCenter, NSString, ns_string};
 use screen::{Notice, link::Source};
 use tokio::sync::mpsc;
 
@@ -34,6 +36,7 @@ thread_local! {
 struct Shell {
     main: MainThreadMarker,
     stop: Retained<StopButton>,
+    _changes: Retained<Changes>,
     notice: RefCell<Option<Retained<NSStatusItem>>>,
     pointer: RefCell<Pointing>,
 }
@@ -46,6 +49,7 @@ pub(super) fn run(main: MainThreadMarker, link: PathBuf, token: String) {
     let shell = Shell {
         main,
         stop: StopButton::new(main, events.clone()),
+        _changes: Changes::observe(main, events.clone()),
         notice: RefCell::new(None),
         pointer: RefCell::new(Pointing::new(say.clone())),
     };
@@ -162,5 +166,65 @@ impl StopButton {
         let this = Self::alloc(main).set_ivars(events);
         // SAFETY: `NSObject`'s `init` takes nothing.
         unsafe { msg_send![super(this), init] }
+    }
+}
+
+define_class!(
+    /// Hears when the screen locks or unlocks, the displays sleep or wake, or the account on
+    /// the display changes, so that viewers learn it at once.
+    #[unsafe(super(NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[name = "KodosiScreenChanges"]
+    #[ivars = mpsc::UnboundedSender<Event>]
+    struct Changes;
+
+    unsafe impl NSObjectProtocol for Changes {}
+
+    impl Changes {
+        #[unsafe(method(changed:))]
+        fn changed(&self, _notification: Option<&AnyObject>) {
+            drop(self.ivars().send(Event::Changed));
+        }
+    }
+);
+
+impl Changes {
+    fn observe(main: MainThreadMarker, events: mpsc::UnboundedSender<Event>) -> Retained<Self> {
+        let this = Self::alloc(main).set_ivars(events);
+        // SAFETY: `NSObject`'s `init` takes nothing.
+        let this: Retained<Self> = unsafe { msg_send![super(this), init] };
+        let distributed = NSDistributedNotificationCenter::defaultCenter();
+        for name in [
+            ns_string!("com.apple.screenIsLocked"),
+            ns_string!("com.apple.screenIsUnlocked"),
+        ] {
+            // SAFETY: `changed:` takes the notification, and the observer lives as long as the
+            // app.
+            unsafe {
+                distributed.addObserver_selector_name_object(
+                    &this,
+                    sel!(changed:),
+                    Some(name),
+                    None,
+                );
+            }
+        }
+        let workspace = NSWorkspace::sharedWorkspace().notificationCenter();
+        // SAFETY: AppKit's notification names, which live as long as the app.
+        let names = unsafe {
+            [
+                NSWorkspaceScreensDidSleepNotification,
+                NSWorkspaceScreensDidWakeNotification,
+                NSWorkspaceSessionDidBecomeActiveNotification,
+                NSWorkspaceSessionDidResignActiveNotification,
+            ]
+        };
+        for name in names {
+            // SAFETY: as above.
+            unsafe {
+                workspace.addObserver_selector_name_object(&this, sel!(changed:), Some(name), None);
+            }
+        }
+        this
     }
 }

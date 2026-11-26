@@ -4,7 +4,7 @@
 use serde::{Deserialize, Serialize};
 use stream::{Decoder, Region, Size, viewer::Input};
 
-use crate::link::{Access, Pointer, Shape, Source, Sources};
+use crate::link::{Access, Away, Pointer, Shape, Source, Sources};
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(
@@ -66,6 +66,8 @@ pub(crate) struct State {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(crate) shapes: Vec<Shape>,
     pub(crate) access: Access,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) away: Option<Away>,
     /// True for the viewer whose view the capture's size follows.
     pub(crate) control: bool,
 }

@@ -73,8 +73,8 @@ impl ScreenHost {
     /// The person at the computer turns the sharing on there, so it is the time for macOS to
     /// ask them for what Kodosi Screen may not do yet.
     pub(crate) fn allow(&self, allowed: bool) -> Result<(), Text> {
-        if allowed && !self.available() {
-            return Err(text!("This computer cannot share its screen."));
+        if allowed {
+            self.offered()?;
         }
         self.0.set(allowed);
         if let Some(screens) = self.0.screens.clone().filter(|_| allowed) {
@@ -88,11 +88,19 @@ impl ScreenHost {
         self.screens().ok()?.access().await
     }
 
+    /// Refuses where Kodosi Screen did not come with the app, so the screen never shows.
+    pub(crate) fn offered(&self) -> Result<(), Text> {
+        if self.available() {
+            Ok(())
+        } else {
+            Err(text!("This computer cannot share its screen."))
+        }
+    }
+
     /// Refuses unless the person at the computer allowed the sharing.
     pub(crate) fn check(&self) -> Result<(), Text> {
-        if !self.available() {
-            Err(text!("This computer cannot share its screen."))
-        } else if *self.0.allowed.borrow() {
+        self.offered()?;
+        if *self.0.allowed.borrow() {
             Ok(())
         } else {
             Err(off())

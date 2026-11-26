@@ -268,8 +268,13 @@ fn listed(canvas: &Value) -> String {
             |tab| format!("browser  {state}  {tab}"),
         ));
     }
-    if canvas["screen"] == true {
-        lines.push("screen  this computer's screen, for its owner's devices".to_owned());
+    let screen = &canvas["screen"];
+    if screen.is_object() {
+        lines.push(if screen["shared"] == true {
+            "screen  this computer's screen, for its owner's devices".to_owned()
+        } else {
+            "screen  this computer's screen, which its owner's devices see once the person at it turns sharing on in Kodosi's settings".to_owned()
+        });
     }
     if lines.is_empty() {
         "The canvas of this terminal shows nothing.".to_owned()
