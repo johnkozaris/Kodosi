@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 use super::{Completion, Runtime, TerminalTarget, messages};
 use crate::Result;
+use crate::protocol::SessionEntry;
 use crate::terminal::{ProgramState, Waiting};
 
 /// An agent that comes back after an update but never says it is ready gets the key instead.
@@ -61,8 +62,31 @@ fn stops(prompt: bool, program: Option<&str>) -> bool {
     !prompt && !program.is_some_and(crate::agents::is_agent_name)
 }
 
-fn busy(working: bool, waiting: Option<Waiting>) -> bool {
-    working || waiting == Some(Waiting::Blocked)
+/// The terminal's program is in the middle of a task: it or its helpers work, or it waits for an
+/// answer.
+pub(super) fn busy(entry: &SessionEntry) -> bool {
+    super::works(entry) || entry.helpers > 0 || super::waits(entry) == Some(Waiting::Blocked)
+}
+
+/// Someone other than this computer's person has the terminal open, and may type in it.
+fn joined(entry: &SessionEntry, me: Option<&str>) -> bool {
+    entry
+        .connected_users
+        .iter()
+        .any(|user| Some(user.as_str()) != me)
+}
+
+/// What a restart now costs: how many terminals lose a running program, and whether it cuts off
+/// an agent's task or someone else in a terminal.
+fn cost<'a>(entries: impl IntoIterator<Item = &'a SessionEntry>, me: Option<&str>) -> (u32, bool) {
+    entries
+        .into_iter()
+        .fold((0u32, false), |(stopping, used), entry| {
+            (
+                stopping.saturating_add(u32::from(stops(entry.prompt, entry.program.as_deref()))),
+                used || busy(entry) || joined(entry, me),
+            )
+        })
 }
 
 impl Runtime {
@@ -122,15 +146,14 @@ impl Runtime {
     /// terminals would lose a program that does not come back.
     pub(super) fn tell_restart(&mut self) {
         let now = Instant::now();
-        let terminals = self.local.values().filter(|local| local.comes_back());
-        let (mut stopping, mut working) = (0u32, false);
-        for local in terminals {
-            if stops(local.entry.prompt, local.entry.program.as_deref()) {
-                stopping = stopping.saturating_add(1);
-            }
-            working |= busy(local.entry.working, local.entry.waiting);
-        }
-        let quiet = if stopping == 0 && !working && self.attention.away() {
+        let (stopping, used) = cost(
+            self.local
+                .values()
+                .filter(|local| local.comes_back())
+                .map(|local| &local.entry),
+            self.scope.user.as_deref(),
+        );
+        let quiet = if stopping == 0 && !used && self.attention.away() {
             let since = *self.restart.quiet_since.get_or_insert(now);
             now.duration_since(since) >= QUIET_FOR
         } else {

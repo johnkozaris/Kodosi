@@ -45,8 +45,8 @@ Each snapshot also notes whether the terminal's agent was in the middle of a tas
 stops to install an update leaves a note of that, and when the next host starts soon after, those
 agents continue on their own once they report that they are ready. After any other stop, the
 terminal offers to continue its agent until someone does, types, or the agent works again. The host
-tells the desktop apps whether a restart now would lose nothing while the person is away, and the
-apps install a waiting update then.
+tells the desktop apps whether a restart now would lose nothing while nobody uses its terminals,
+and the apps install a waiting update then.
 
 ## Terminals
 

@@ -1226,8 +1226,8 @@ pub enum EventBody {
     },
     #[serde(rename = "system.updateRequired")]
     SystemUpdateRequired {},
-    /// Whether restarting this computer's Kodosi now loses nothing while its person is away, and
-    /// how many terminals would lose a program that does not come back.
+    /// Whether restarting this computer's Kodosi now loses nothing while nobody uses its terminals,
+    /// and how many terminals would lose a program that does not come back.
     #[serde(rename = "system.restart")]
     SystemRestart { quiet: bool, stops: u32 },
     /// Whether the account reaches the server. A short drop, such as when the computer wakes,

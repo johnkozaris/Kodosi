@@ -140,7 +140,7 @@ impl Worktree {
 
     /// The changes since the branch started as one unified diff, new files included.
     pub(crate) async fn diff(&self) -> Result<String> {
-        let mut diff = git(
+        let mut diff = git_at_most(
             &self.path,
             &[
                 "diff",
@@ -149,6 +149,7 @@ impl Worktree {
                 "--no-renames",
                 &self.base,
             ],
+            MOST_DIFF_BYTES + 1,
         )
         .await?;
         for file in self.new_files().await? {
@@ -284,32 +285,62 @@ async fn remove(worktree: &Worktree) {
 
 #[cfg(feature = "host")]
 async fn git(directory: &Path, arguments: &[&str]) -> Result<String> {
-    let output = tokio::process::Command::new("git")
+    git_at_most(directory, arguments, usize::MAX).await
+}
+
+/// Runs Git and keeps at most `most` bytes of what it prints. Git stops once it printed more, so a
+/// large diff cannot fill the memory.
+#[cfg(feature = "host")]
+async fn git_at_most(directory: &Path, arguments: &[&str], most: usize) -> Result<String> {
+    use tokio::io::AsyncReadExt;
+    let unavailable = || Error::Refused(text!("Git is not available on this computer."));
+    let mut child = tokio::process::Command::new("git")
         .arg("-C")
         .arg(directory)
         .args(arguments)
         .env("GIT_TERMINAL_PROMPT", "0")
         .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
         .kill_on_drop(true)
-        .output()
-        .await
-        .map_err(|_| Error::Refused(text!("Git is not available on this computer.")))?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
-    } else {
-        let message = String::from_utf8_lossy(&output.stderr);
-        Err(Error::Invalid(
-            message
-                .lines()
-                .find_map(|line| {
-                    line.strip_prefix("fatal: ")
-                        .or_else(|| line.strip_prefix("error: "))
-                })
-                .or_else(|| message.lines().last())
-                .unwrap_or("Git refused the command.")
-                .to_owned(),
-        ))
+        .spawn()
+        .map_err(|_| unavailable())?;
+    let (Some(printed), Some(mut complaint)) = (child.stdout.take(), child.stderr.take()) else {
+        return Err(unavailable());
+    };
+    let complaint = tokio::spawn(async move {
+        let mut text = Vec::new();
+        drop(complaint.read_to_end(&mut text).await);
+        text
+    });
+    let mut output = Vec::new();
+    printed
+        .take(u64::try_from(most).map_or(u64::MAX, |most| most.saturating_add(1)))
+        .read_to_end(&mut output)
+        .await?;
+    if output.len() > most {
+        drop(child.start_kill());
+        drop(child.wait().await);
+        output.truncate(most);
+        return Ok(String::from_utf8_lossy(&output).into_owned());
     }
+    let status = child.wait().await?;
+    if status.success() {
+        return Ok(String::from_utf8_lossy(&output).trim().to_owned());
+    }
+    let message = complaint.await.unwrap_or_default();
+    let message = String::from_utf8_lossy(&message);
+    Err(Error::Invalid(
+        message
+            .lines()
+            .find_map(|line| {
+                line.strip_prefix("fatal: ")
+                    .or_else(|| line.strip_prefix("error: "))
+            })
+            .or_else(|| message.lines().last())
+            .unwrap_or("Git refused the command.")
+            .to_owned(),
+    ))
 }
 
 #[cfg(all(test, feature = "host"))]

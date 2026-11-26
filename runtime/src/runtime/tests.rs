@@ -3040,6 +3040,38 @@ async fn folders_from_another_computer_fill_only_its_terminals_and_an_open_view_
     );
 }
 
+#[tokio::test]
+async fn an_open_view_keeps_continue_and_changes_when_the_list_refreshes() {
+    let (mut runtime, _root) = registry_fixture();
+    sign_in(&mut runtime, true);
+    let remote = my_terminal("laptop");
+    runtime.replace_remotes(vec![remote.clone()]);
+    let (connection, _requests, _updates) = crate::network::test_remote_connection(remote.clone());
+    runtime.connections.insert(
+        remote.id,
+        RemoteTerminal::spawn(connection, runtime.changes.clone()),
+    );
+    let changes = crate::worktree::WorktreeChanges {
+        added: 120,
+        removed: 34,
+    };
+    runtime.change(SessionChange::Metadata {
+        id: remote.id,
+        incarnation: remote.incarnation_id,
+        instance_id: runtime.connections[&remote.id].instance_id,
+        metadata: crate::terminal::TerminalMetadata {
+            stopped: true,
+            changes: Some(changes),
+            ..Default::default()
+        },
+    });
+    runtime.replace_remotes(vec![remote.clone()]);
+    runtime.jobs.shutdown().await;
+    let entry = &runtime.remotes[&remote.id];
+    assert!(entry.stopped);
+    assert_eq!(entry.changes, Some(changes));
+}
+
 fn know_friends(runtime: &mut Runtime, friends: &[(&str, &str, &str)]) {
     let friends = friends
         .iter()
@@ -5052,6 +5084,35 @@ async fn an_agent_cut_off_by_an_update_goes_on_and_one_cut_off_otherwise_waits()
         after_quit.unfinished(&saved(true)),
         Some(restore::Unfinished::Offer)
     );
+}
+
+#[cfg(all(unix, feature = "host"))]
+#[tokio::test]
+async fn an_agent_saved_while_it_works_comes_back_unfinished() {
+    use crate::terminal::{ProgramState, ProgramStatus};
+    let (mut runtime, storage) = registry_fixture();
+    let (id, terminal) = hosted(&mut runtime, storage.path()).await;
+    runtime.local.get_mut(&id).unwrap().entry.program = Some("claude".to_owned());
+    let mut busy = Vec::new();
+    for state in [ProgramState::Working, ProgramState::Idle] {
+        let status = ProgramStatus {
+            state,
+            kind: None,
+            progress: None,
+            title: None,
+            message: None,
+        };
+        runtime.change(SessionChange::Status {
+            id,
+            status: Some(status),
+        });
+        runtime.save_terminals(HashMap::new());
+        runtime.restore.saved().await;
+        let saved = restore::Restore::load(&runtime.config.data_root).take();
+        busy.push(saved.iter().any(|saved| saved.id == id && saved.busy));
+    }
+    assert_eq!(busy, [true, false]);
+    terminal.close().await.unwrap();
 }
 
 #[cfg(feature = "host")]

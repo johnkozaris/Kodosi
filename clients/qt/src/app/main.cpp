@@ -31,6 +31,7 @@
 #include "terminal/TerminalView.hpp"
 #include <kodosi_runtime.h>
 #include <QApplication>
+#include <QDateTime>
 #include <QProcess>
 #include <QQmlApplicationEngine>
 #include <QRegularExpression>
@@ -112,8 +113,6 @@ int main(int argc, char* argv[])
     QGuiApplication::setDesktopFileName(QStringLiteral("com.kodosi.Kodosi"));
 #endif
     std::optional<QSize> windowSize;
-    // Kodosi opens again by itself after a quiet update, so it stays out of the way.
-    bool quietly = false;
     kodosi::AppActivation launch { .route = {}, .token = kodosi::takeActivationToken(), .appVersion = {} };
     const auto arguments = app.arguments();
     for (int i = 1; i < arguments.size(); ++i) {
@@ -125,8 +124,6 @@ int main(int argc, char* argv[])
             if (!match.hasMatch() || match.captured(1).toInt() < 820 || match.captured(2).toInt() < 560)
                 return EXIT_FAILURE;
             windowSize = QSize(match.captured(1).toInt(), match.captured(2).toInt());
-        } else if (arguments[i] == QStringLiteral("--quietly")) {
-            quietly = true;
         } else if (!arguments[i].startsWith(QLatin1Char('-'))) {
             if (launch.route)
                 return EXIT_FAILURE;
@@ -158,6 +155,14 @@ int main(int argc, char* argv[])
         isolated->setFallbacksEnabled(false);
         return isolated;
     };
+    // Kodosi opened again by itself after a quiet update, so it stays out of the way. The time is
+    // saved rather than passed on, because Windows opens an updated package again by itself.
+    const auto quietly = [&settings] {
+        const auto store = settings();
+        const auto restarted = store->value(QStringLiteral("app/reopensQuietly")).toLongLong();
+        store->remove(QStringLiteral("app/reopensQuietly"));
+        return restarted > 0 && qAbs(QDateTime::currentSecsSinceEpoch() - restarted) < 120;
+    }();
     kodosi::AppLanguage::install(
         app, kodosi::AppLanguage::resolved(settings()->value(QStringLiteral("app/language")).toString()));
     kodosi_set_language(kodosi::AppLanguage::current().toUtf8().constData());
@@ -340,12 +345,13 @@ int main(int argc, char* argv[])
     const auto code = app.exec();
     if (lifecycle.restartRequested()) {
         claim.release();
+        if (lifecycle.restartsQuietly())
+            settings()->setValue(QStringLiteral("app/reopensQuietly"), QDateTime::currentSecsSinceEpoch());
 #ifdef Q_OS_WIN
         if (kodosi::PackageUpdate::openAgainAfterExit())
             return code;
 #endif
-        QProcess::startDetached(executable,
-            lifecycle.restartsQuietly() ? QStringList { QStringLiteral("--quietly") } : QStringList {});
+        QProcess::startDetached(executable, {});
     }
     return code;
 }

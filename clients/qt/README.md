@@ -49,7 +49,8 @@ Add-AppxPackage -Path build\release\kodosi-<version>-windows-x64.msix -AllowUnsi
 The MSIX package puts `kodosi` on `PATH`, registers the `kodosi://` URL handler, stores data in
 `%USERPROFILE%\.kodosi`, and pulls updates from its
 [App Installer file](packaging/windows/Kodosi.appinstaller.in). Because Windows only applies MSIX
-updates at launch, a running instance downloads the update and prompts you to restart. The repo
+updates at launch, a running instance downloads the update and restarts to apply it once nothing
+would be lost, or when you choose to restart. The repo
 currently ships prebuilt Ghostty binaries for x64 only (built via the Windows Ghostty library
 workflow), so Windows builds target x64 only.
 

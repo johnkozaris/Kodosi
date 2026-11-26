@@ -19,7 +19,11 @@ pub(super) fn diff_file(data_root: &Path, worktree: &Worktree) -> Option<PathBuf
     Some(data_root.join(FOLDER).join(format!("{name}.diff")))
 }
 
+/// Leaves an unchanged diff as it is, since every viewer of the canvas reloads a file that changed.
 fn write_diff(file: &Path, diff: &str) -> Result<()> {
+    if std::fs::read(file).is_ok_and(|written| written == diff.as_bytes()) {
+        return Ok(());
+    }
     if let Some(folder) = file.parent() {
         kodosi_os::fs::create_private_dir(folder)?;
     }

@@ -1187,12 +1187,10 @@ fn forget_stale_title(entry: &mut SessionEntry, shared: Option<&TerminalStatus>)
     }
 }
 
-fn show_program(entry: &mut SessionEntry) {
-    use crate::terminal::ProgramState;
-    let closing = entry.status == SessionStatus::Closing;
-    let state = entry.program_status.as_ref().map(|status| status.state);
-    entry.working = !closing
-        && state.map_or_else(
+/// The program works by its own reports, or by a spinner in its title when it reports nothing.
+fn works(entry: &SessionEntry) -> bool {
+    entry.status != SessionStatus::Closing
+        && entry.program_status.as_ref().map_or_else(
             || {
                 reads_title(entry)
                     && entry
@@ -1200,9 +1198,21 @@ fn show_program(entry: &mut SessionEntry) {
                         .as_deref()
                         .is_some_and(crate::terminal::title_spins)
             },
-            |state| state == ProgramState::Working,
-        );
-    entry.waiting = state.and_then(|state| state.waiting(closing));
+            |status| status.state == crate::terminal::ProgramState::Working,
+        )
+}
+
+fn waits(entry: &SessionEntry) -> Option<crate::terminal::Waiting> {
+    let closing = entry.status == SessionStatus::Closing;
+    entry
+        .program_status
+        .as_ref()
+        .and_then(|status| status.state.waiting(closing))
+}
+
+fn show_program(entry: &mut SessionEntry) {
+    entry.working = works(entry);
+    entry.waiting = waits(entry);
     entry.activity = entry
         .program_status
         .as_ref()
@@ -2479,8 +2489,7 @@ impl Runtime {
                         .program
                         .as_deref()
                         .is_some_and(crate::agents::is_agent_name)
-                        && (local.entry.working
-                            || local.entry.waiting == Some(crate::terminal::Waiting::Blocked)),
+                        && restart::busy(&local.entry),
                 }
             })
             .collect();
@@ -3886,8 +3895,8 @@ impl Runtime {
             project_name: remote.project_name,
             shared_with: remote.shared_with,
             restored_from: remote.restored_from.map(|id| id.to_string()),
-            stopped: false,
-            changes: None,
+            stopped: previous.filter(|_| live).is_some_and(|entry| entry.stopped),
+            changes: previous.filter(|_| live).and_then(|entry| entry.changes),
         };
         if !streaming {
             forget_stale_title(&mut entry, shared);

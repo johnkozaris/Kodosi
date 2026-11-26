@@ -243,4 +243,10 @@ async fn a_branch_counts_its_commits_edits_and_new_files_but_not_links() {
     assert!(diff.contains("+five"));
     assert!(diff.contains("+++ b/test_app.py\n@@ -0,0 +1,2 @@\n+assert True"));
     assert!(!diff.contains("hosts"));
+    assert_eq!(
+        git_at_most(&branch.path, &["diff", &branch.base], 10)
+            .await
+            .expect("cut diff"),
+        "diff --git"
+    );
 }
