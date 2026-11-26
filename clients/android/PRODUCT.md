@@ -57,6 +57,9 @@ On a terminal of one of your Macs, the canvas can show that Mac's screen, with a
 displays and windows. One finger taps, drags, and scrolls as in the shared browser, and two fingers
 zoom and move the view.
 
+While the phone runs hot, the shared browser and the screen show a softer picture, and a sharp one
+again once it cools down.
+
 ## Projects, friends, and Dosi
 
 Projects combine chat, tasks, linked repositories, members, and terminals. Wide screens show the

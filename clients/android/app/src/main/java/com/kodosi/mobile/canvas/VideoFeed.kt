@@ -5,6 +5,7 @@ import android.media.MediaCodecList
 import android.media.MediaFormat
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.PowerManager
 import android.view.Surface
 import androidx.compose.ui.unit.IntSize
 import com.kodosi.mobile.runtime.RuntimeJson
@@ -62,7 +63,10 @@ abstract class VideoFeed(
         private set
     private var behind = true
     private var last: Long? = null
+    private var surface: Surface? = null
     private var decoder: VideoDecoder? = null
+    private var pixels = IntSize.Zero
+    private var density = 1f
     private var size: JsonObject? = null
     private var sent: JsonObject? = null
     private var settling: Job? = null
@@ -86,17 +90,10 @@ abstract class VideoFeed(
     // The surface keeps its last picture while a decoder starts again, so only a new surface clears
     // the picture.
     fun surface(surface: Surface, width: Int, height: Int, density: Float) = pipes.execute {
-        decoder?.close()
+        this.surface = surface
         picture.value = false
         undecodable.value = false
-        decoder = VideoDecoder(
-            surface,
-            sized = { shown -> pictureSize.value = shown },
-            rendered = { shown -> pipes.execute { if (decoder === shown) picture.value = true } },
-            refused = { refused -> pipes.execute { if (decoder === refused) refuse() } },
-            lost = { failed -> pipes.execute { if (decoder === failed) restart() } }
-        )
-        shows()
+        resetDecoder()
         settle(width, height, density)
         restart()
     }
@@ -106,14 +103,33 @@ abstract class VideoFeed(
     fun detach() {
         val detached = CountDownLatch(1)
         pipes.execute {
-            decoder?.close()
-            decoder = null
-            shows()
+            surface = null
+            resetDecoder()
             picture.value = false
             undecodable.value = false
             detached.countDown()
         }
         detached.await(DETACH_MS, TimeUnit.MILLISECONDS)
+    }
+
+    // A feed out of sight keeps no decoder, even on a surface that stays, and the last decoder lets go
+    // of the surface before the next one connects to it.
+    private fun resetDecoder() {
+        decoder?.close()
+        decoder = null
+        val surface = surface
+        if (active && surface != null) {
+            undecodable.value = false
+            decoder = VideoDecoder(
+                surface,
+                sized = { shown -> pictureSize.value = shown },
+                rendered = { shown -> pipes.execute { if (decoder === shown) picture.value = true } },
+                refused = { refused -> pipes.execute { if (decoder === refused) refuse() } },
+                lost = { failed -> pipes.execute { if (decoder === failed) restart() } },
+                heat = { pipes.heat }
+            )
+        }
+        shows()
     }
 
     private fun refuse() {
@@ -130,10 +146,12 @@ abstract class VideoFeed(
     // before layout completed, send the initial watch as soon as we have a size.
     private fun settle(width: Int, height: Int, density: Float) {
         if (width <= 0 || height <= 0) return
+        pixels = IntSize(width, height)
+        this.density = density
         size = fields(
             "width" to (width / density).toInt().coerceAtLeast(1),
             "height" to (height / density).toInt().coerceAtLeast(1),
-            "scale" to density
+            "scale" to pipes.scale(density)
         )
         settling?.cancel()
         if (open && !watching) {
@@ -150,10 +168,12 @@ abstract class VideoFeed(
     // The view's size in pixels settled, after a resize.
     protected open fun settled(width: Int, height: Int) = Unit
 
+    internal fun rescale() = settle(pixels.width, pixels.height, density)
+
     fun show(on: Boolean) = pipes.execute {
         if (active == on) return@execute
         active = on
-        shows()
+        resetDecoder()
         if (on) {
             join()
         } else {
@@ -260,6 +280,7 @@ abstract class VideoFeed(
             return
         }
         if (bytes[0] != 1.toByte() || bytes.size <= HEADER) return
+        pipes.received(this)
         val id = ByteBuffer.wrap(bytes, 1, 4).order(ByteOrder.BIG_ENDIAN).int.toLong() and 0xffffffffL
         val flags = bytes[5].toInt()
         val key = flags and KEY != 0
@@ -336,6 +357,7 @@ internal class VideoDecoder(
     private val rendered: (VideoDecoder) -> Unit,
     private val refused: (VideoDecoder) -> Unit,
     private val lost: (VideoDecoder) -> Unit,
+    private val heat: () -> Int = { PowerManager.THERMAL_STATUS_NONE },
     private val decoders: (VideoCodec, IntSize) -> List<String> = ::deviceDecoders
 ) : AutoCloseable {
     private val thread = HandlerThread("Kodosi video decoder").apply { start() }
@@ -444,8 +466,9 @@ internal class VideoDecoder(
                 setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, MAX_FRAME)
                 setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
                 setInteger(MediaFormat.KEY_PRIORITY, REALTIME)
-                // Qualcomm's decoders then run at their highest clock; others may refuse the rate.
-                if (QUALCOMM.any(chosen::startsWith)) {
+                // Qualcomm's decoders then run at their highest clock, unless the phone is already warm;
+                // others may refuse the rate.
+                if (QUALCOMM.any(chosen::startsWith) && heat() < PowerManager.THERMAL_STATUS_MODERATE) {
                     setInteger(MediaFormat.KEY_OPERATING_RATE, Short.MAX_VALUE.toInt())
                 }
                 val supported = next.supportedVendorParameters.toSet()

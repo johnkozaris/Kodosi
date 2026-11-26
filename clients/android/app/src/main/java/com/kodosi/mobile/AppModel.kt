@@ -1,6 +1,7 @@
 package com.kodosi.mobile
 
 import android.app.Application
+import android.os.PowerManager
 import com.google.firebase.messaging.FirebaseMessaging
 import com.kodosi.mobile.account.AccountStore
 import com.kodosi.mobile.account.AppLock
@@ -94,7 +95,11 @@ class AppModel(
     val people = PeopleStore(commands)
     val dosi = DosiStore(commands)
     val canvas = CanvasStore(commands, words)
-    val video = VideoPipes(commands, wifi = StreamingWifi(application))
+    val video = VideoPipes(
+        commands,
+        wifi = StreamingWifi(application),
+        power = application.getSystemService(PowerManager::class.java)
+    )
     internal val documents = DocumentPages(application, canvas, scope, ::notify)
     val lock = AppLock(preferences)
     val phase: StateFlow<Phase>

@@ -1,13 +1,21 @@
 package com.kodosi.mobile.canvas
 
+import android.os.PowerManager
 import com.kodosi.mobile.runtime.CommandSink
 import com.kodosi.mobile.runtime.RuntimeEvent
 import com.kodosi.mobile.runtime.RuntimeEventFaults
 import com.kodosi.mobile.runtime.RuntimeEventInbox
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeMark
+import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 
 // Video pipes (the shared browser's and the screen's) run on a dedicated single thread so frame
@@ -16,17 +24,32 @@ import kotlinx.coroutines.yield
 class VideoPipes(
     private val commands: CommandSink,
     thread: Executor = Executors.newSingleThreadExecutor { Thread(it, "Kodosi video") },
-    private val wifi: StreamingWifi? = null
+    private val wifi: StreamingWifi? = null,
+    power: PowerManager? = null,
+    private val time: TimeSource = TimeSource.Monotonic
 ) : Executor by thread {
     val dispatcher: CoroutineDispatcher = thread.asCoroutineDispatcher()
 
+    private val work = CoroutineScope(dispatcher)
     private val links = mutableListOf<DocumentLink>()
     private val feeds = mutableListOf<VideoFeed>()
     private val showing = mutableSetOf<VideoFeed>()
     private val chosen = mutableSetOf<String>()
+    private lateinit var lastPicture: TimeMark
+    private var awake: Job? = null
+
+    // Android's thermal status, which rises from THERMAL_STATUS_NONE as the phone heats. Decoders read
+    // it on their own threads.
+    @Volatile
+    internal var heat = PowerManager.THERMAL_STATUS_NONE
+        private set
 
     @Volatile
     private var claimed = emptyList<ByteArray>()
+
+    init {
+        power?.addThermalStatusListener { status -> execute { heated(status) } }
+    }
 
     // Called on runtime threads to route pipe events off the main queue without parsing JSON.
     // Matching raw `"pipe":"<id>"` bytes is safe because quotes inside JSON string values are
@@ -35,9 +58,41 @@ class VideoPipes(
 
     // Called on this executor's thread whenever a feed starts or stops decoding onto a surface.
     internal fun shows(feed: VideoFeed, on: Boolean) {
-        val before = showing.isNotEmpty()
         if (on) showing.add(feed) else showing.remove(feed)
-        if (showing.isNotEmpty() != before) wifi?.keep(showing.isNotEmpty())
+        if (showing.isEmpty()) rest()
+    }
+
+    // Called on this executor's thread for each video frame that reaches a feed. Wi-Fi stays out of its
+    // power saving only while pictures arrive, so that a still page, an asleep browser or a pipe that
+    // reconnects lets it save power.
+    internal fun received(feed: VideoFeed) {
+        if (feed !in showing) return
+        lastPicture = time.markNow()
+        if (awake != null) return
+        wifi?.keep(true)
+        awake = work.launch {
+            while (lastPicture.elapsedNow() < QUIET) delay(QUIET - lastPicture.elapsedNow())
+            awake = null
+            wifi?.keep(false)
+        }
+    }
+
+    private fun rest() {
+        val check = awake ?: return
+        check.cancel()
+        awake = null
+        wifi?.keep(false)
+    }
+
+    // A hot phone asks the host for pictures of half its density.
+    internal fun scale(density: Float) = if (hot) (density / 2).coerceAtLeast(1f) else density
+
+    private val hot get() = heat >= PowerManager.THERMAL_STATUS_SEVERE
+
+    private fun heated(status: Int) {
+        val wasHot = hot
+        heat = status
+        if (hot != wasHot) feeds.forEach(VideoFeed::rescale)
     }
 
     // Methods on the returned link must only be called on this executor's thread.
@@ -94,6 +149,10 @@ class VideoPipes(
 
     private fun claim() {
         claimed = links.mapNotNull { link -> link.pipe?.let { "\"pipe\":\"$it\"".encodeToByteArray() } }
+    }
+
+    private companion object {
+        val QUIET = 5.seconds
     }
 }
 
