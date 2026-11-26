@@ -1998,58 +1998,6 @@
         }
       }
     },
-    "Allow speech recognition for Kodosi in Settings." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Erlaube Kodosi die Spracherkennung in den Einstellungen."
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Επιτρέψτε στο Kodosi την αναγνώριση ομιλίας στις Ρυθμίσεις."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Permite el reconocimiento de voz para Kodosi en Ajustes."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Autorisez la reconnaissance vocale pour Kodosi dans les Réglages."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Consenti il riconoscimento vocale a Kodosi in Impostazioni."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "設定で Kodosi の音声認識を許可してください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "설정에서 Kodosi의 음성 인식을 허용하세요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请在“设置”中允许 Kodosi 使用语音识别。"
-          }
-        }
-      }
-    },
     "Allow the microphone for Kodosi in Settings." : {
       "localizations" : {
         "de" : {

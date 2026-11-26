@@ -35,6 +35,13 @@ import kotlinx.coroutines.delay
 private const val TICK_MILLIS = 100L
 private const val MODEL_CHECK_MILLIS = 2_000L
 
+// Google's recognizer keeps a session going for at most five minutes; talk mode starts the next one.
+private const val SESSION_MILLIS = 300_000
+
+// A recognizer that just ended a session can refuse the next one for a moment.
+private const val RETRY_MILLIS = 250L
+private const val RETRIES = 3
+
 private const val TAG = "Kodosi"
 private const val UNSTABLE_TEXT = "android.speech.extra.UNSTABLE_TEXT"
 
@@ -89,22 +96,28 @@ internal class ChatTalk(
     private var language = ""
     private var ready = false
 
+    /** The recognizer gave this session's speech in segments, so its results only repeat them. */
+    private var segmented = false
+
+    /** When talk mode starts the recognizer again after it refused, and how often it did since words came. */
+    private var retryAt: Long? = null
+    private var retries = 0
+
     /** When talk mode last asked whether its language is installed, while it waits for the download. */
     private var modelCheckedAt: Long? = null
 
     fun start() {
         if (on) return
-        val starting = SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
-        starting.setRecognitionListener(Hearing(starting))
-        recognizer = starting
+        val starting = newRecognizer()
         on = true
         listening = false
         note = null
         turn = TalkTurn(SystemClock.uptimeMillis())
         publish()
-        val wanted = (context.getSystemService(LocaleManager::class.java).systemLocales[0] ?: Locale.getDefault())
-            .stripExtensions()
-        language = wanted.toLanguageTag()
+        val locales = context.getSystemService(LocaleManager::class.java).systemLocales
+        val wanted = (0 until locales.size()).map { locales[it].stripExtensions() }
+            .ifEmpty { listOf(Locale.getDefault().stripExtensions()) }
+        language = wanted.first().toLanguageTag()
         starting.checkRecognitionSupport(
             intent(),
             context.mainExecutor,
@@ -134,6 +147,12 @@ internal class ChatTalk(
         val now = SystemClock.uptimeMillis()
         val checked = modelCheckedAt
         if (checked != null && now - checked >= MODEL_CHECK_MILLIS) checkModel(now)
+        val retry = retryAt
+        if (retry != null && now >= retry) {
+            retryAt = null
+            newRecognizer()
+            listen()
+        }
         apply(turn.tick(now, asking()))
     }
 
@@ -161,27 +180,26 @@ internal class ChatTalk(
         sendAsked = turn.sendAsked
     }
 
-    private fun prepare(wanted: Locale, support: RecognitionSupport) {
-        val installed = closestLanguage(wanted, support.installedOnDeviceLanguages)
-        val missing = closestLanguage(wanted, support.pendingOnDeviceLanguages + support.supportedOnDeviceLanguages)
-        val told = support.installedOnDeviceLanguages.isNotEmpty() ||
-            support.pendingOnDeviceLanguages.isNotEmpty() ||
-            support.supportedOnDeviceLanguages.isNotEmpty()
-        when {
-            installed != null -> {
-                language = installed
+    /**
+     * Listens in the first of the person's languages that the recognizer has or can download, so a
+     * language that the person put first wins over one that is installed already.
+     */
+    private fun prepare(wanted: List<Locale>, support: RecognitionSupport) {
+        val downloadable = support.pendingOnDeviceLanguages + support.supportedOnDeviceLanguages
+        for (locale in wanted) {
+            closestLanguage(locale, support.installedOnDeviceLanguages)?.let {
+                language = it
                 listen()
+                return
             }
-
-            missing != null -> {
-                language = missing
+            closestLanguage(locale, downloadable)?.let {
+                language = it
                 download()
+                return
             }
-
-            told -> stop(SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED)
-
-            else -> listen()
         }
+        val told = support.installedOnDeviceLanguages.isNotEmpty() || downloadable.isNotEmpty()
+        if (told) stop(SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED) else listen()
     }
 
     /** Downloads the language, and listens once it is installed, as the download says or a check finds. */
@@ -233,6 +251,7 @@ internal class ChatTalk(
     private fun listen() {
         modelCheckedAt = null
         ready = false
+        segmented = false
         recognizer?.startListening(intent())
     }
 
@@ -242,22 +261,42 @@ internal class ChatTalk(
         .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         .putExtra(RecognizerIntent.EXTRA_ENABLE_FORMATTING, RecognizerIntent.FORMATTING_OPTIMIZE_QUALITY)
         .putExtra(RecognizerIntent.EXTRA_HIDE_PARTIAL_TRAILING_PUNCTUATION, true)
+        // The agent gets the person's words as they said them.
+        .putExtra(RecognizerIntent.EXTRA_MASK_OFFENSIVE_WORDS, false)
         .putStringArrayListExtra(RecognizerIntent.EXTRA_BIASING_STRINGS, ArrayList(hints))
-        // Only a silence as long as talk mode waits for words ends the session, so the recognizer
-        // listens on while the person thinks.
-        .putExtra(
-            RecognizerIntent.EXTRA_SEGMENTED_SESSION,
-            RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS
-        )
-        .putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, TalkTurn.IDLE_MILLIS.toInt())
+        // A session lasts as long as the recognizer allows, whatever the pauses in it, and gives the
+        // speech in segments, as Chrome's continuous recognition asks for it.
+        .putExtra(RecognizerIntent.EXTRA_SEGMENTED_SESSION, RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS)
+        .putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, SESSION_MILLIS)
+
+    /** A recognizer of talk mode's own, in place of the one before. */
+    private fun newRecognizer(): SpeechRecognizer {
+        recognizer?.destroy()
+        return SpeechRecognizer.createOnDeviceSpeechRecognizer(context).also {
+            it.setRecognitionListener(Hearing(it))
+            recognizer = it
+        }
+    }
 
     private fun failed(error: Int) {
+        val now = SystemClock.uptimeMillis()
         val silent = error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
-        if (silent && ready) {
-            apply(turn.stopping(SystemClock.uptimeMillis(), asking()))
-            listen()
-        } else {
-            stop(error)
+        val refused = error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY || error == SpeechRecognizer.ERROR_CLIENT ||
+            error == SpeechRecognizer.ERROR_SERVER_DISCONNECTED
+        when {
+            silent && ready -> {
+                apply(turn.stopping(now, asking()))
+                listen()
+            }
+
+            // A new recognizer gets over a refused session or a lost recognition service.
+            refused && listening && retries < RETRIES -> {
+                retries++
+                retryAt = now + RETRY_MILLIS
+                apply(turn.stopping(now, asking()))
+            }
+
+            else -> stop(error)
         }
     }
 
@@ -283,6 +322,8 @@ internal class ChatTalk(
         recognizer?.destroy()
         recognizer = null
         modelCheckedAt = null
+        retryAt = null
+        retries = 0
         on = false
         listening = false
         level = 0f
@@ -312,16 +353,23 @@ internal class ChatTalk(
         }
 
         override fun onPartialResults(partialResults: Bundle?) {
-            if (current) apply(turn.hearing(partialResults.partialWords(), SystemClock.uptimeMillis(), asking()))
+            if (!current) return
+            retries = 0
+            apply(turn.hearing(partialResults.partialWords(), SystemClock.uptimeMillis(), asking()))
         }
 
         override fun onSegmentResults(segmentResults: Bundle) {
-            if (current) apply(turn.settling(segmentResults.finalWords(), SystemClock.uptimeMillis(), asking()))
+            if (!current) return
+            segmented = true
+            retries = 0
+            apply(turn.settling(segmentResults.finalWords(), SystemClock.uptimeMillis(), asking()))
         }
 
         override fun onResults(results: Bundle?) {
             if (!current) return
-            apply(turn.settling(results.finalWords(), SystemClock.uptimeMillis(), asking()))
+            val now = SystemClock.uptimeMillis()
+            // After segments, the results repeat the speech of the whole session.
+            apply(if (segmented) turn.stopping(now, asking()) else turn.settling(results.finalWords(), now, asking()))
             listen()
         }
 
@@ -374,14 +422,19 @@ private fun closestLanguage(wanted: Locale, offered: List<String>): String? {
 // Speech recognizers name Mandarin by its own code rather than as Chinese.
 private val Locale.spokenLanguage: String get() = if (language == "cmn") "zh" else language
 
-/** Names that the person may say: the agent's, the terminal's, its folder's and its project's. */
+/**
+ * Names that the person may say, as they say them: the agent's, the terminal's, its folder's and its
+ * project's, where "talk-in_chat" is "talk in chat".
+ */
 @Composable
 private fun talkHints(session: RuntimeSession, folder: String?): List<String> = listOfNotNull(
     agentLabel(session.agent),
     session.name,
     folder?.trimEnd('/', '\\')?.substringAfterLast('/')?.substringAfterLast('\\'),
     session.projectName
-).filter { it.isNotBlank() }.distinct()
+).map { it.replace(NAME_SEPARATORS, " ").trim() }.filter { it.isNotEmpty() }.distinct()
+
+private val NAME_SEPARATORS = Regex("""[-_./\\]+""")
 
 /**
  * The talk mode of [chat], whose time moves on while it is on, and which ends when the chat view

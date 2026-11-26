@@ -240,66 +240,6 @@
           }
         }
       }
-    },
-    "NSSpeechRecognitionUsageDescription" : {
-      "comment" : "The reason that iOS shows when Kodosi asks to recognize speech, which it does on the device.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi wandelt deine Sprache auf diesem Gerät in Text um. Kein Ton verlässt es."
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Το Kodosi μετατρέπει την ομιλία σας σε κείμενο σε αυτήν τη συσκευή. Κανένας ήχος δεν φεύγει από αυτήν."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi turns your speech into text on this device. No audio leaves it."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi convierte tu voz en texto en este dispositivo. El audio no sale de él."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi convertit votre voix en texte sur cet appareil. Aucun son ne le quitte."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi trasforma la tua voce in testo su questo dispositivo. Nessun audio lo lascia."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi はこのデバイス上で音声をテキストに変換します。音声がデバイスの外に出ることはありません。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi는 이 기기에서 음성을 텍스트로 바꿉니다. 소리는 기기 밖으로 나가지 않습니다."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi 在这台设备上把你的语音转成文字。音频不会离开这台设备。"
-          }
-        }
-      }
     }
   },
   "version" : "1.0"

@@ -82,6 +82,8 @@
             .buttonStyle(PressScaleStyle())
             .disabled(!enabled)
             .accessibilityLabel(Text("Talk", bundle: .module))
+            // VoiceOver stays quiet once talking starts, so the microphone does not hear it.
+            .accessibilityAddTraits(.startsMediaSession)
             .accessibilityIdentifier("chat.talk")
         }
     }
@@ -247,7 +249,7 @@
 
         var body: some View {
             CautionNote(message: message, identifier: "chat.talk.trouble", dismiss: dismiss) {
-                if trouble == .microphone || trouble == .recognition {
+                if trouble == .microphone {
                     Button {
                         if let settings = URL(string: UIApplication.openSettingsURLString) {
                             UIApplication.shared.open(settings)
@@ -265,7 +267,6 @@
         private var message: String {
             switch trouble {
             case .microphone: String(localized: "Allow the microphone for Kodosi in Settings.", bundle: .module)
-            case .recognition: String(localized: "Allow speech recognition for Kodosi in Settings.", bundle: .module)
             case .unsupported: String(localized: "This device can't turn your speech into text.", bundle: .module)
             case .failed: String(localized: "Kodosi couldn't start listening.", bundle: .module)
             }

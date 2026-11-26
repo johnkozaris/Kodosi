@@ -53,8 +53,6 @@
 	<string>Kodosi connects straight to your computer on this network, so that its terminals and shared browser answer at once.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Kodosi listens when you talk in a chat, and turns your words into a message on this device.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Kodosi turns your speech into text on this device. No audio leaves it.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIBackgroundModes</key>
