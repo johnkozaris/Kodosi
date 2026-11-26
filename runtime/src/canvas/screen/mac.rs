@@ -45,6 +45,7 @@ impl Screens {
         Some(Self(screen::Screens::new(screen::Settings {
             helper,
             sockets,
+            arguments: Vec::new(),
             notice: Arc::new(|devices| {
                 let language = crate::text::language();
                 let watching = match devices {

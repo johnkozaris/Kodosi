@@ -17,7 +17,7 @@ use tokio::{
 };
 
 use crate::{
-    host::Started,
+    host::{Reading, Started},
     link::{
         self, Access, Away, FromHelper, MOST_CLIPBOARD, Message, Notice, Pointer, Shape, Source,
         Sources, ToHelper, Window,
@@ -30,6 +30,8 @@ const HELPER_MESSAGES: usize = 256;
 const RETRY_CAPTURE: Duration = Duration::from_secs(1);
 /// How long the helper stays after the last viewer left, for a quick return.
 const IDLE: Duration = Duration::from_mins(1);
+/// How long a helper that runs as the host's child has to quit before it is ended.
+const QUIT_LIMIT: Duration = Duration::from_secs(2);
 /// The largest picture `VideoToolbox` encodes in real time (long side, short side).
 const MOST_PICTURE: (f64, f64) = (4096.0, 2304.0);
 /// The smallest region a viewer zooms into, in points.
@@ -214,6 +216,8 @@ pub(crate) struct Calls {
 
 pub(crate) struct Live {
     helper: mpsc::Sender<Bytes>,
+    /// The helper where it runs as the host's child.
+    child: Option<tokio::process::Child>,
     encodable: Vec<Codec>,
     access: Access,
     /// While nobody can see the screen, nothing captures it.
@@ -240,11 +244,7 @@ pub(crate) struct Live {
 }
 
 impl Live {
-    pub(crate) fn new(
-        started: Started,
-        wanted: Wanted,
-        calls: Calls,
-    ) -> (Self, tokio::net::unix::OwnedReadHalf) {
+    pub(crate) fn new(started: Started, wanted: Wanted, calls: Calls) -> (Self, Reading) {
         let (helper, mut writing) = mpsc::channel::<Bytes>(HELPER_MESSAGES);
         let mut writer = started.writer;
         tokio::spawn(async move {
@@ -256,6 +256,7 @@ impl Live {
         });
         let live = Self {
             helper,
+            child: started.child,
             encodable: started.encodable,
             access: started.access,
             away: started.away,
@@ -279,11 +280,7 @@ impl Live {
         (live, started.reader)
     }
 
-    pub(crate) async fn run(
-        mut self,
-        mut reader: tokio::net::unix::OwnedReadHalf,
-        mut events: mpsc::Receiver<Event>,
-    ) {
+    pub(crate) async fn run(mut self, mut reader: Reading, mut events: mpsc::Receiver<Event>) {
         let (heard, mut hearing) = mpsc::channel(HELPER_MESSAGES);
         tokio::spawn(async move {
             while let Ok(Some(message)) = link::read::<FromHelper>(&mut reader).await {
@@ -308,6 +305,9 @@ impl Live {
             self.let_go(seat.pressed);
         }
         self.say(&ToHelper::Quit);
+        if let Some(mut child) = self.child.take() {
+            drop(tokio::time::timeout(QUIT_LIMIT, child.wait()).await);
+        }
     }
 
     /// Returns false when the screen ends.
@@ -922,7 +922,7 @@ fn even(pixels: f64) -> u32 {
 #[cfg(test)]
 mod tests {
     use stream::viewer::{Input, KeyAction, MouseAction, MouseButton};
-    use tokio::net::UnixStream;
+    use tokio::io::DuplexStream;
 
     use super::*;
     use crate::link::Display;
@@ -933,17 +933,18 @@ mod tests {
     };
 
     struct Computer {
-        helper: UnixStream,
+        helper: DuplexStream,
         events: mpsc::Sender<Event>,
     }
 
     impl Computer {
         async fn start() -> Self {
-            let (host, mut helper) = UnixStream::pair().unwrap();
-            let (reader, writer) = host.into_split();
+            let (host, mut helper) = tokio::io::duplex(1 << 20);
+            let (reader, writer) = tokio::io::split(host);
             let started = Started {
-                reader,
-                writer,
+                reader: Box::new(reader),
+                writer: Box::new(writer),
+                child: None,
                 encodable: vec![Codec::H264, Codec::Hevc],
                 access: Access {
                     screen: true,

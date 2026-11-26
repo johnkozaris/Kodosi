@@ -1,6 +1,7 @@
 //! The host side: starts the helper when the first viewer comes and gives each viewer a pipe.
 
 use std::{
+    ffi::OsString,
     fmt,
     fmt::Write as _,
     io,
@@ -15,7 +16,7 @@ use std::{
 use bytes::Bytes;
 use stream::viewer::{self, Viewer};
 use tokio::{
-    net::UnixListener,
+    io::{AsyncRead, AsyncWrite},
     process::Command,
     sync::{Mutex, mpsc, oneshot},
 };
@@ -28,16 +29,19 @@ use crate::{
 
 const EVENTS: usize = 1024;
 const VIEWER_QUEUE: usize = 1024;
+#[cfg(target_os = "macos")]
 const CONNECT_LIMIT: Duration = Duration::from_secs(30);
 const HELLO_LIMIT: Duration = Duration::from_secs(5);
 /// Join number, so that a closing pipe only removes its own seat and not a reconnected one.
 static SEATS: AtomicU64 = AtomicU64::new(1);
 
 pub struct Settings {
-    /// The `Kodosi Screen` app.
+    /// The `Kodosi Screen` app on a Mac, its program elsewhere.
     pub helper: PathBuf,
-    /// A private folder with a short path, for the helper's socket.
+    /// On a Mac, a private folder with a short path for the helper's socket.
     pub sockets: PathBuf,
+    /// Passed on to the helper.
+    pub arguments: Vec<OsString>,
     /// Tells the person at the computer who watches.
     pub notice: Arc<dyn Fn(&[String]) -> Notice + Send + Sync>,
     /// Called when the person at the computer stops the sharing there.
@@ -181,10 +185,16 @@ impl Screens {
     }
 }
 
+/// The helper's end of the link: a socket on a Mac, the helper's own pipes elsewhere.
+pub(crate) type Reading = Box<dyn AsyncRead + Send + Unpin>;
+pub(crate) type Writing = Box<dyn AsyncWrite + Send + Unpin>;
+
 /// A connected helper and what it said first.
 pub(crate) struct Started {
-    pub(crate) reader: tokio::net::unix::OwnedReadHalf,
-    pub(crate) writer: tokio::net::unix::OwnedWriteHalf,
+    pub(crate) reader: Reading,
+    pub(crate) writer: Writing,
+    /// The helper where the host runs it as its child, which ends with the screen.
+    pub(crate) child: Option<tokio::process::Child>,
     pub(crate) encodable: Vec<stream::Codec>,
     pub(crate) access: Access,
     pub(crate) away: Option<Away>,
@@ -192,6 +202,7 @@ pub(crate) struct Started {
 
 /// Opens the helper through Launch Services, so that macOS asks for its permissions in its own
 /// name rather than in the name of the app that started the host.
+#[cfg(target_os = "macos")]
 async fn start(settings: &Settings) -> Result<Started, Error> {
     let token = token()?;
     tokio::fs::create_dir_all(&settings.sockets).await?;
@@ -199,7 +210,7 @@ async fn start(settings: &Settings) -> Result<Started, Error> {
         .sockets
         .join(format!("screen-{}.sock", &token[..12]));
     drop(tokio::fs::remove_file(&path).await);
-    let listener = UnixListener::bind(&path)?;
+    let listener = tokio::net::UnixListener::bind(&path)?;
     let opened = Command::new("/usr/bin/open")
         .args(["-g", "-n", "-a"])
         .arg(&settings.helper)
@@ -208,6 +219,7 @@ async fn start(settings: &Settings) -> Result<Started, Error> {
         .arg(&path)
         .arg("--token")
         .arg(&token)
+        .args(&settings.arguments)
         .status()
         .await;
     let accepted = match opened {
@@ -220,7 +232,34 @@ async fn start(settings: &Settings) -> Result<Started, Error> {
     };
     drop(listener);
     drop(tokio::fs::remove_file(&path).await);
-    let (mut reader, writer) = accepted?.0.into_split();
+    let (reader, writer) = accepted?.0.into_split();
+    hello(Box::new(reader), Box::new(writer), None, &token).await
+}
+
+/// Runs the helper as the host's child, linked through its standard input and output.
+#[cfg(not(target_os = "macos"))]
+async fn start(settings: &Settings) -> Result<Started, Error> {
+    let token = token()?;
+    let mut child = Command::new(&settings.helper)
+        .arg("--token")
+        .arg(&token)
+        .args(&settings.arguments)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .kill_on_drop(true)
+        .spawn()?;
+    let (Some(writer), Some(reader)) = (child.stdin.take(), child.stdout.take()) else {
+        return Err(Error::Helper("it has no pipes".to_owned()));
+    };
+    hello(Box::new(reader), Box::new(writer), Some(child), &token).await
+}
+
+async fn hello(
+    mut reader: Reading,
+    writer: Writing,
+    child: Option<tokio::process::Child>,
+    token: &str,
+) -> Result<Started, Error> {
     let hello = tokio::time::timeout(HELLO_LIMIT, link::read::<FromHelper>(&mut reader))
         .await
         .map_err(|_| Error::Helper("it said nothing".to_owned()))??;
@@ -234,6 +273,7 @@ async fn start(settings: &Settings) -> Result<Started, Error> {
         })) if said == token && version == VERSION => Ok(Started {
             reader,
             writer,
+            child,
             encodable,
             access,
             away,
