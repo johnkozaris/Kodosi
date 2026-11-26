@@ -229,19 +229,37 @@ an isolated, ephemeral profile tied to the terminal's lifetime.
 
 ### Screens
 
-[screen/](../screen/) is a standalone library with no Kodosi imports. On a Mac, Kodosi Screen, a
-helper app inside Kodosi's bundle, captures the screen and plays viewers' input. It runs under its
-own identity so that macOS grants Screen Recording and Accessibility to it alone, and the programs
-in terminals, which inherit Kodosi's permissions, do not get them. The host starts it through
-Launch Services only while the person at the computer allows the sharing, which only the
-computer's own app changes. While anyone watches, the helper's menu bar item says who, and its Stop
-turns the sharing off on every canvas.
+[screen/](../screen/) is a standalone library with no Kodosi imports. Kodosi Screen, a helper
+program, captures the screen and plays viewers' input, and the host links to it with the same
+messages on every system. On a Mac it is an app inside Kodosi's bundle that the host opens through
+Launch Services, so that macOS grants Screen Recording and Accessibility to it alone and the
+programs in terminals, which inherit Kodosi's permissions, do not get them. On Linux and Windows
+it ships beside the `kodosi` program and runs as the host's child: on Linux the desktop's screen
+sharing portal asks the person at the computer once and remembers the grant, and on Windows no
+permission is needed. The host starts the helper only while the person at the computer allows the
+sharing, which only the computer's own app changes. While anyone watches, the helper shows which
+devices watch, in the menu bar or the tray, with a way to stop that turns the sharing off on every
+canvas.
 
 One capture serves every viewer of a computer. It shows a display or one window, sized to the view
 that the person opened or used last, with as many pixels as that view shows, fewer while a phone
 runs hot, and no more than the source has. A zoomed view asks for only the part it shows, so the
-part stays sharp. The pointer travels apart from the video, as a position and a shape sent once, so
-viewers draw it, or use it as their own cursor, without waiting for frames.
+part stays sharp, and a device that does not control the screen shows that part too. The pointer
+travels apart from the video, as a position and a shape sent once, so viewers draw it, or use it
+as their own cursor, without waiting for frames.
+
+The helper handles what recovers by itself, so viewers see one state and words only when someone
+must act. It tells the host when the screen is locked, another account has the display, or the
+display sleeps although the helper woke it; meanwhile nothing is captured, and the capture starts
+again when the screen comes back. Opening the screen wakes its display, which stays awake while
+captured. The screen stays on the canvas while its computer does not share it, so viewers say why
+and watch again as soon as it is shared. An agent's window that goes away comes back on the canvas
+when it returns, unless a viewer chose another source. Shortcuts go by the letter they type, so
+they mean the same whatever the two keyboards' layouts are, and a Command key takes Control's place
+on computers that are not Macs. While the person at the computer uses its mouse or keyboard,
+viewers' input waits a moment. Text copied on the computer goes to the device in control, and a
+paste on a viewer gives the computer that device's text first; the helper leaves alone what
+password managers mark as private and does not send text back to where it came from.
 
 A computer's screen belongs to its owner: only the owner's devices list it on a canvas, and the
 host refuses anyone else's pipe to it, also in a terminal shared with friends.

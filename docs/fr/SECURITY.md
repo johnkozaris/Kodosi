@@ -55,16 +55,26 @@ quotidiennement la disponibilité de mises à jour. Un téléchargement n'est ac
 mise à jour porte une signature valide de la clé de mise à jour de Kodosi et si le condensat
 SHA-256 du fichier correspond à celui indiqué par le flux.
 
-### L'écran d'un Mac
+### L'écran d'un ordinateur
 
-Activer le partage d'écran dans les **Réglages › Général** d'un Mac permet à chacun de vos appareils
-approuvés de voir et de contrôler tout l'écran de ce Mac, pas seulement ses terminaux, depuis le
-canvas de ses terminaux. Vos amis ne le voient jamais, même dans un terminal que vous partagez avec
-eux, et la vidéo et les saisies circulent chiffrées de bout en bout comme les terminaux eux-mêmes.
-Kodosi Screen, un assistant intégré à l'app, détient les autorisations d'enregistrement de l'écran
-et d'accessibilité nécessaires, afin que les programmes de vos terminaux ne les obtiennent pas.
-Tant que quelqu'un regarde, la barre des menus du Mac indique qui ; désactiver le partage, ou
+Activer le partage d'écran dans les réglages Kodosi d'un ordinateur permet à chacun de vos appareils
+approuvés de voir et de contrôler tout l'écran de cet ordinateur, pas seulement ses terminaux,
+depuis le canvas de ses terminaux. Vos amis ne le voient jamais, même dans un terminal que vous
+partagez avec eux, et la vidéo, les saisies et le texte du presse-papiers circulent chiffrés de bout
+en bout comme les terminaux eux-mêmes. Kodosi Screen, un assistant de Kodosi, se charge de la
+capture et des saisies. Sur un Mac, il détient les autorisations d'enregistrement de l'écran et
+d'accessibilité nécessaires, afin que les programmes de vos terminaux ne les obtiennent pas. Sous
+Linux, le bureau accorde le partage à Kodosi via son portail de partage d'écran et affiche sa propre
+notification pendant que l'écran est partagé. Tant que quelqu'un regarde, la barre des menus ou la
+zone de notification de l'ordinateur indique quels appareils regardent ; désactiver le partage, ou
 cliquer sur **Arrêter le partage** à cet endroit, met fin à chaque affichage.
+
+Pendant qu'un appareil contrôle l'écran, le texte copié sur l'ordinateur va vers cet appareil, et un
+collage sur celui-ci donne à l'ordinateur le texte de cet appareil. Le texte qu'un gestionnaire de
+mots de passe marque comme privé reste sur l'ordinateur. Lorsque la personne devant l'ordinateur
+utilise sa souris ou son clavier, les saisies des personnes qui regardent patientent un instant, et
+un écran verrouillé reste verrouillé : ces personnes voient qu'il est verrouillé, pas ce qu'il
+affiche.
 
 ## Connexions directes
 

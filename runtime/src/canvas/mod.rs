@@ -251,7 +251,7 @@ pub struct CanvasScreen {
     pub shared: bool,
 }
 
-/// What macOS lets Kodosi Screen do on this computer.
+/// What the system lets Kodosi Screen do on this computer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ScreenAccess {

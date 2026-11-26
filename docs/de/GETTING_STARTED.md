@@ -228,20 +228,35 @@ und **Browser**, jeweils mit einem kupferfarbenen Punkt bei neuen Inhalten:
   Schließen des Terminals werden das Canvas geleert und die Browser-Anmeldungen geteilter Terminals
   verworfen.
 
-### Der Bildschirm eines Mac
+### Der Bildschirm eines Computers
 
-- Um einen Mac von deinem Telefon oder einem anderen Computer aus zu sehen und zu steuern, schalte
-  auf diesem Mac unter **Einstellungen › Allgemein** die Option **Meine anderen Geräte diesen Mac
-  sehen und steuern lassen** ein. macOS fragt dich dann, ob Kodosi Screen, ein Teil von Kodosi, den
-  Bildschirm aufnehmen und steuern darf. Nur Kodosi Screen bekommt diese Berechtigungen, die
-  Programme in deinen Terminals also nicht.
-- Wähle im Aktionen-Menü eines Terminals auf diesem Mac **Bildschirm öffnen**, oder lass seinen
-  Agenten `kodosi show screen` ausführen. Wähle über dem Bildschirm ein anderes Display oder ein
-  einzelnes Fenster, zoome mit zwei Fingern hinein, und zeige, klicke und tippe, als säßest du am
-  Mac.
-- Nur deine eigenen Geräte sehen den Bildschirm, auch in einem Terminal, das du mit Freunden
-  teilst. Solange jemand zusieht, zeigt die Menüleiste des Mac, wer es ist, mit einer Taste, die
-  das Teilen beendet, bis jemand am Mac es wieder einschaltet.
+- Um einen Computer von deinem Smartphone oder einem anderen Computer aus zu sehen und zu steuern,
+  schalte auf diesem Computer das Teilen ein: auf einem Mac **Meine anderen Geräte diesen Mac sehen
+  und steuern lassen** unter **Einstellungen › Allgemein**, auf Linux- und Windows-Computern **Meine
+  anderen Geräte diesen Computer sehen und steuern lassen** unter **Einstellungen › Konto**.
+  - Auf einem Mac fragt dich macOS dann, ob Kodosi Screen, ein Teil von Kodosi, den Bildschirm
+    aufnehmen und steuern darf. Nur Kodosi Screen bekommt diese Berechtigungen, die Programme in
+    deinen Terminals also nicht. Fragt macOS nicht nach, zeigt **Erlauben…** in denselben
+    Einstellungen, wo du sie einschaltest.
+  - Unter Linux funktioniert das Teilen mit KDE Plasma 6 und GNOME unter Wayland. Unter KDE genügt
+    es, das Teilen einzuschalten; GNOME fragt einmal, ob Kodosi den Bildschirm teilen darf, und
+    merkt sich deine Antwort.
+  - Windows braucht keine Berechtigung. Programme, die als Administrator laufen, kann Kodosi nicht
+    steuern, und solange Windows um die Zustimmung eines Administrators bittet, erscheint der
+    Bildschirm als gesperrt. Das Symbol, das zeigt, wer zusieht, kann sich hinter dem ^ in der
+    Taskleiste verbergen, bis du es anheftest.
+- Wähle im Aktionen-Menü eines Terminals auf diesem Computer **Bildschirm öffnen**, oder lass seinen
+  Agent `kodosi show screen` ausführen. Such dir über dem Bildschirm ein anderes Display oder, auf
+  einem Mac, ein einzelnes Fenster aus, zoome mit zwei Fingern hinein, und zeige, klicke und tippe,
+  als säßest du am Computer. Kurzbefehle richten sich nach dem Buchstaben, den du drückst, und ⌘
+  wirkt unter Linux und Windows wie Strg. Text, den du dort kopierst, landet auf deinem Gerät, und
+  was du einfügst, kommt von deinem Gerät.
+- Kann der Bildschirm nicht erscheinen, sagt er in einer Zeile, warum: Der Computer ist gesperrt, im
+  Ruhezustand oder offline, ein anderes Konto ist darauf aktiv, oder das Teilen ist aus. Sobald sich
+  das ändert, erscheint er von selbst wieder.
+- Nur deine eigenen Geräte sehen den Bildschirm, auch in einem Terminal, das du mit Freunden teilst.
+  Solange jemand zusieht, zeigt die Menüleiste oder der Infobereich des Computers, welche Geräte
+  zusehen, mit einem Button, der das Teilen beendet, bis jemand am Computer es wieder einschaltet.
 
 ## 5. Dosi fragen
 

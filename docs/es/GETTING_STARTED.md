@@ -224,18 +224,35 @@ En cuanto el lienzo tiene contenido, la cabecera del terminal añade los botones
 - Cualquier persona con acceso a un terminal ve su lienzo y comparte su navegador. Cerrar el
   terminal limpia su lienzo y descarta las sesiones del navegador de los terminales compartidos.
 
-### La pantalla de un Mac
+### La pantalla de un ordenador
 
-- Para ver y controlar un Mac desde tu teléfono u otro ordenador, activa **Dejar que mis otros
-  dispositivos vean y controlen este Mac** en **Ajustes › General** en ese Mac. macOS te pide
-  entonces que dejes que Kodosi Screen, una parte de Kodosi, grabe y controle la pantalla. Solo
-  Kodosi Screen tiene estos permisos, así que los programas de tus terminales no los reciben.
-- Elige **Abrir pantalla** en el menú de acciones de un terminal de ese Mac, o deja que su agente
-  ejecute `kodosi show screen`. Elige otra pantalla o una sola ventana encima de la pantalla,
-  pellizca para acercar y señala, haz clic y escribe como si estuvieras frente al Mac.
+- Para ver y controlar un ordenador desde tu teléfono u otro ordenador, activa la función de
+  compartir en ese ordenador: en un Mac, **Dejar que mis otros dispositivos vean y controlen este
+  Mac** en **Ajustes › General**, y en Linux y Windows, **Dejar que mis otros dispositivos vean y
+  controlen este ordenador** en **Ajustes › Cuenta**.
+  - En un Mac, macOS te pide entonces que dejes que Kodosi Screen, una parte de Kodosi, grabe y
+    controle la pantalla. Solo Kodosi Screen tiene estos permisos, así que los programas de tus
+    terminales no los reciben. Si macOS no te lo pide, **Permitir…** en los mismos ajustes te
+    muestra dónde activarlos.
+  - En Linux, compartir funciona con KDE Plasma 6 y GNOME en Wayland. En KDE basta con activar la
+    función de compartir; GNOME pregunta una vez si Kodosi puede compartir la pantalla y recuerda tu
+    respuesta.
+  - Windows no necesita ningún permiso. Kodosi no puede controlar los programas que se ejecutan como
+    administrador, y la pantalla aparece como bloqueada mientras Windows pide la aprobación de un
+    administrador. El icono que indica quién mira puede quedar oculto tras el ^ de la barra de
+    tareas hasta que lo ancles.
+- Elige **Abrir pantalla** en el menú de acciones de un terminal de ese ordenador, o deja que su
+  agente ejecute `kodosi show screen`. Escoge otra pantalla o, en un Mac, una sola ventana encima de
+  la pantalla, pellizca para acercar y señala, haz clic y escribe como si estuvieras frente al
+  ordenador. Los atajos funcionan según la letra que pulsas, y ⌘ funciona como Ctrl en Linux y
+  Windows. El texto que copias allí llega a tu dispositivo, y lo que pegas viene de tu dispositivo.
+- Cuando la pantalla no se puede mostrar, indica el motivo en una línea: el ordenador está
+  bloqueado, en reposo, sin conexión o en otra cuenta, o compartir está desactivado. Vuelve a
+  mostrarse sola en cuanto eso cambia.
 - Solo tus propios dispositivos ven la pantalla, incluso en un terminal que compartes con amigos.
-  Mientras alguien mira, la barra de menús del Mac dice quién, con un botón que deja de compartir
-  hasta que alguien frente al Mac lo vuelva a activar.
+  Mientras alguien mira, la barra de menús o la bandeja del sistema del ordenador indica qué
+  dispositivos están mirando, con un botón que deja de compartir hasta que alguien frente al
+  ordenador lo vuelva a activar.
 
 ## 5. Pregúntale a Dosi
 

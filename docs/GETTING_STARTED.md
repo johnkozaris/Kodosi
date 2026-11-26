@@ -201,18 +201,30 @@ copper dot whenever something is new:
 - Anyone with access to a terminal sees its canvas and shares its browser. Closing the terminal
   clears its canvas and discards shared-terminal browser logins.
 
-### A Mac's screen
+### A computer's screen
 
-- To see and control a Mac from your phone or another computer, turn on **Let my other devices see
-  and control this Mac** in **Settings › General** on that Mac. macOS then asks you to let Kodosi
-  Screen, a part of Kodosi, record and control the screen. Kodosi Screen alone holds these
-  permissions, so the programs in your terminals don't get them.
-- Choose **Open Screen** in the actions menu of a terminal on that Mac, or let its agent run
-  `kodosi show screen`. Pick another display or a single window above the screen, pinch to zoom
-  in, and point, click, and type as if you sat at the Mac.
+- To see and control a computer from your phone or another computer, turn on sharing on that
+  computer: **Let my other devices see and control this Mac** in **Settings › General** on a Mac,
+  or **Let my other devices see and control this computer** in **Settings › Account** on Linux and
+  Windows.
+  - On a Mac, macOS then asks you to let Kodosi Screen, a part of Kodosi, record and control the
+    screen. Kodosi Screen alone holds these permissions, so the programs in your terminals don't
+    get them. If macOS doesn't ask, **Allow…** in the same settings shows where to turn them on.
+  - On Linux, sharing works with KDE Plasma 6 and GNOME on Wayland. On KDE, turning sharing on is
+    all it takes; GNOME asks once whether Kodosi may share the screen and remembers your answer.
+  - Windows needs no permission. Kodosi can't control programs that run as administrator, and
+    the screen shows as locked while Windows asks for administrator approval. The icon that says
+    who watches may sit behind the ^ in the taskbar until you pin it.
+- Choose **Open Screen** in the actions menu of a terminal on that computer, or let its agent run
+  `kodosi show screen`. Pick another display or, on a Mac, a single window above the screen, pinch
+  to zoom in, and point, click, and type as if you sat at the computer. Shortcuts work by the letter
+  you press, and ⌘ works as Ctrl on Linux and Windows. Text you copy there lands on your device, and
+  what you paste comes from your device.
+- When the screen can't show, it says why in one line: the computer is locked, asleep, offline, on
+  another account, or not sharing. It shows again by itself once that changes.
 - Only your own devices see the screen, even in a terminal that you share with friends. While
-  someone watches, the Mac's menu bar says who, with a button that stops the sharing until someone
-  at the Mac turns it on again.
+  someone watches, the computer's menu bar or system tray says which devices watch, with a button
+  that stops the sharing until someone at the computer turns it on again.
 
 ## 5. Ask Dosi
 

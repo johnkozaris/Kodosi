@@ -49,15 +49,22 @@ Kodosi downloads it from `updates.kodosi.com` and checks daily for updates. Down
 accepted if the update feed carries a valid signature from Kodosi's update key and the file's
 SHA-256 matches the feed.
 
-### A Mac's screen
+### A computer's screen
 
-Turning on screen sharing in a Mac's **Settings › General** lets each of your approved devices see
-and control that Mac's whole screen, not only its terminals, from the canvas of its terminals.
-Friends never see it, even in a terminal that you share with them, and the video and input travel
-end to end encrypted like the terminals themselves. Kodosi Screen, a helper inside the app, holds
-the Screen Recording and Accessibility permissions that this takes, so the programs in your
-terminals do not gain them. While someone watches, the Mac's menu bar says who; turning the sharing
-off, or **Stop sharing** there, ends every view.
+Turning on screen sharing in a computer's Kodosi settings lets each of your approved devices see
+and control that computer's whole screen, not only its terminals, from the canvas of its terminals.
+Friends never see it, even in a terminal that you share with them, and the video, the input and the
+clipboard text travel end to end encrypted like the terminals themselves. Kodosi Screen, a helper
+of Kodosi's, does the capture and the input. On a Mac it holds the Screen Recording and
+Accessibility permissions that this takes, so the programs in your terminals do not gain them. On
+Linux the desktop grants the sharing to Kodosi through its screen sharing portal and shows its own
+notice while the screen is shared. While someone watches, the computer's menu bar or system tray
+says which devices watch; turning the sharing off, or **Stop sharing** there, ends every view.
+
+While a device controls the screen, text copied on the computer goes to that device, and a paste on
+it gives the computer that device's text. Text that a password manager marks as private stays on
+the computer. While the person at the computer uses its mouse or keyboard, viewers' input waits a
+moment, and a locked screen stays locked: viewers see that it is locked, not what it shows.
 
 ## Direct connections
 

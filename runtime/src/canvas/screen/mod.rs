@@ -65,8 +65,8 @@ impl ScreenHost {
         self.0.allowed.subscribe()
     }
 
-    /// The person at the computer turns the sharing on there, so it is the time for macOS to
-    /// ask them for what Kodosi Screen may not do yet.
+    /// The person at the computer turns the sharing on there, so it is the time for the system
+    /// to ask them for what Kodosi Screen may not do yet.
     pub(crate) fn allow(&self, allowed: bool) -> Result<(), Text> {
         if allowed {
             self.offered()?;

@@ -54,17 +54,25 @@ aggiornamenti. Un download viene accettato solo se il feed degli aggiornamenti r
 della chiave di aggiornamento di Kodosi e se l'hash SHA-256 del file corrisponde a quello indicato
 nel feed.
 
-### Lo schermo di un Mac
+### Lo schermo di un computer
 
-Attivando la condivisione dello schermo in **Impostazioni › Generale** di un Mac, ognuno dei tuoi
-dispositivi approvati può vedere e controllare l'intero schermo di quel Mac, non solo i suoi
+Attivando la condivisione dello schermo nelle impostazioni di Kodosi di un computer, ognuno dei tuoi
+dispositivi approvati può vedere e controllare l'intero schermo di quel computer, non solo i suoi
 terminali, dal canvas dei suoi terminali. Gli amici non lo vedono mai, nemmeno in un terminale che
-condividi con loro, e video e input viaggiano cifrati end-to-end come i terminali stessi. Kodosi
-Screen, un aiutante dentro l'app, ha le autorizzazioni di registrazione dello schermo e di
-accessibilità necessarie, così i programmi nei tuoi terminali non le ottengono. Mentre qualcuno
-guarda, la barra dei menu del Mac dice chi; disattivare la condivisione, o premere lì **Interrompi la
-condivisione**,
-chiude ogni visualizzazione.
+condividi con loro, e video, input e testo degli appunti viaggiano crittografati end-to-end come i
+terminali stessi. Kodosi Screen, un aiutante di Kodosi, si occupa della cattura e dell'input. Su un
+Mac ha le autorizzazioni di registrazione dello schermo e di accessibilità necessarie, così i
+programmi nei tuoi terminali non le ottengono. Su Linux il desktop concede la condivisione a Kodosi
+tramite il proprio portale di condivisione dello schermo e mostra un suo avviso finché lo schermo è
+condiviso. Mentre qualcuno guarda, la barra dei menu o l'area di notifica del computer indica quali
+dispositivi stanno guardando; disattivare la condivisione, o premere lì **Interrompi la
+condivisione**, chiude ogni visualizzazione.
+
+Mentre un dispositivo controlla lo schermo, il testo copiato sul computer va a quel dispositivo, e
+incollare su di esso dà al computer il testo di quel dispositivo. Il testo che un gestore di
+password contrassegna come privato resta sul computer. Finché la persona davanti al computer usa il
+mouse o la tastiera, l'input di chi guarda attende un momento, e uno schermo bloccato resta
+bloccato: chi guarda vede che è bloccato, non ciò che mostra.
 
 ## Connessioni dirette
 

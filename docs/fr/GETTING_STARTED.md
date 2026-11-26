@@ -229,19 +229,36 @@ Dès que le canvas contient un élément, l'en-tête du terminal ajoute les bout
 - Toute personne ayant accès à un terminal voit son canvas et partage son navigateur. Fermer le
   terminal vide son canvas et supprime les connexions du navigateur du terminal partagé.
 
-### L'écran d'un Mac
+### L'écran d'un ordinateur
 
-- Pour voir et contrôler un Mac depuis votre téléphone ou un autre ordinateur, activez **Permettre
-  à mes autres appareils de voir et contrôler ce Mac** dans **Réglages › Général** sur ce Mac. macOS
-  vous demande alors de laisser Kodosi Screen, une partie de Kodosi, enregistrer et contrôler
-  l'écran. Seul Kodosi Screen obtient ces autorisations, donc les programmes de vos terminaux ne
-  les obtiennent pas.
-- Choisissez **Ouvrir l’écran** dans le menu d'actions d'un terminal de ce Mac, ou laissez son agent
-  exécuter `kodosi show screen`. Choisissez un autre écran ou une seule fenêtre au-dessus de
-  l'écran, pincez pour zoomer, puis pointez, cliquez et tapez comme si vous étiez devant le Mac.
-- Seuls vos propres appareils voient l'écran, même dans un terminal que vous partagez avec des
-  amis. Tant que quelqu'un regarde, la barre des menus du Mac indique qui, avec un bouton qui
-  arrête le partage jusqu'à ce que quelqu'un devant le Mac le réactive.
+- Pour voir et contrôler un ordinateur depuis votre téléphone ou un autre ordinateur, activez le
+  partage sur cet ordinateur : sur un Mac, **Permettre à mes autres appareils de voir et contrôler
+  ce Mac** dans **Réglages › Général** ; sous Linux et Windows, **Permettre à mes autres appareils
+  de voir et contrôler cet ordinateur** dans **Réglages › Compte**.
+  - Sur un Mac, macOS vous demande alors de laisser Kodosi Screen, une partie de Kodosi, enregistrer
+    et contrôler l'écran. Seul Kodosi Screen obtient ces autorisations, donc les programmes de vos
+    terminaux ne les obtiennent pas. Si macOS ne vous le demande pas, **Autoriser…** dans ces mêmes
+    réglages indique où les activer.
+  - Sous Linux, le partage fonctionne avec KDE Plasma 6 et GNOME sous Wayland. Sous KDE, il suffit
+    d'activer le partage ; GNOME demande une seule fois si Kodosi peut partager l'écran et retient
+    votre réponse.
+  - Windows n'a besoin d'aucune autorisation. Kodosi ne peut pas contrôler les programmes exécutés
+    en tant qu'administrateur, et l'écran apparaît comme verrouillé pendant que Windows demande
+    l'approbation d'un administrateur. L'icône indiquant qui regarde peut se cacher derrière le ^ de
+    la barre des tâches jusqu'à ce que vous l'épingliez.
+- Choisissez **Ouvrir l’écran** dans le menu d'actions d'un terminal de cet ordinateur, ou laissez
+  son agent exécuter `kodosi show screen`. Sélectionnez un autre écran ou, sur un Mac, une seule
+  fenêtre au-dessus de l'écran, pincez pour zoomer, puis pointez, cliquez et tapez comme si vous
+  étiez devant l'ordinateur. Les raccourcis fonctionnent selon la lettre sur laquelle vous appuyez,
+  et ⌘ fait office de Ctrl sous Linux et Windows. Le texte que vous y copiez arrive sur votre
+  appareil, et ce que vous collez vient de votre appareil.
+- Lorsque l'écran ne peut pas s'afficher, il indique pourquoi en une ligne : l'ordinateur est
+  verrouillé, en veille, hors ligne ou sur un autre compte, ou le partage est désactivé. Il
+  réapparaît de lui-même dès que cela change.
+- Seuls vos propres appareils voient l'écran, même dans un terminal que vous partagez avec des amis.
+  Tant que quelqu'un regarde, la barre des menus ou la zone de notification de l'ordinateur indique
+  quels appareils regardent, avec un bouton qui arrête le partage jusqu'à ce que quelqu'un devant
+  l'ordinateur le réactive.
 
 ## 5. Demander à Dosi
 

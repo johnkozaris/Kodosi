@@ -223,20 +223,36 @@ Quando il canvas contiene qualcosa, nell'intestazione del terminale compaiono i 
 - Chiunque abbia accesso a un terminale ne vede il canvas e condivide il suo browser. Chiudere il
   terminale svuota il canvas ed elimina gli accessi del browser dei terminali condivisi.
 
-### Lo schermo di un Mac
+### Lo schermo di un computer
 
-- Per vedere e controllare un Mac dal telefono o da un altro computer, attiva **Consenti ai miei
-  altri dispositivi di vedere e controllare questo Mac** in **Impostazioni › Generale** su quel Mac.
-  macOS ti chiede allora di consentire a Kodosi Screen, una parte di Kodosi, di registrare e
-  controllare lo schermo. Solo Kodosi Screen riceve queste autorizzazioni, quindi i programmi nei
-  tuoi terminali non le ricevono.
-- Scegli **Apri schermo** nel menu delle azioni di un terminale su quel Mac, oppure lascia che il
-  suo agente esegua `kodosi show screen`. Scegli un altro monitor o una sola finestra sopra lo
-  schermo, avvicina due dita per ingrandire, e punta, fai clic e scrivi come se fossi davanti al
-  Mac.
+- Per vedere e controllare un computer dal telefono o da un altro computer, attiva la condivisione
+  su quel computer: su un Mac, **Consenti ai miei altri dispositivi di vedere e controllare questo
+  Mac** in **Impostazioni › Generale**; su Linux e Windows, **Consenti ai miei altri dispositivi di
+  vedere e controllare questo computer** in **Impostazioni › Account**.
+  - Su un Mac, macOS ti chiede allora di consentire a Kodosi Screen, una parte di Kodosi, di
+    registrare e controllare lo schermo. Solo Kodosi Screen riceve queste autorizzazioni, quindi i
+    programmi nei tuoi terminali non le ricevono. Se macOS non te lo chiede, **Consenti…** nelle
+    stesse impostazioni ti mostra dove attivarle.
+  - Su Linux, la condivisione funziona con KDE Plasma 6 e GNOME su Wayland. Su KDE basta attivare la
+    condivisione; GNOME chiede una sola volta se Kodosi può condividere lo schermo e ricorda la tua
+    risposta.
+  - Windows non richiede alcuna autorizzazione. Kodosi non può controllare i programmi eseguiti come
+    amministratore, e lo schermo appare bloccato mentre Windows chiede l'approvazione di un
+    amministratore. L'icona che indica chi sta guardando può restare nascosta dietro il ^ nella
+    barra delle applicazioni finché non la fissi.
+- Scegli **Apri schermo** nel menu delle azioni di un terminale su quel computer, oppure lascia che
+  il suo agente esegua `kodosi show screen`. Seleziona un altro monitor o, su un Mac, una sola
+  finestra sopra lo schermo, pizzica per ingrandire, e punta, fai clic e scrivi come se fossi
+  davanti al computer. Le scorciatoie funzionano in base alla lettera che premi, e ⌘ funziona come
+  Ctrl su Linux e Windows. Il testo che copi lì arriva sul tuo dispositivo, e ciò che incolli viene
+  dal tuo dispositivo.
+- Quando lo schermo non può essere mostrato, indica il motivo in una riga: il computer è bloccato,
+  in stop, offline o su un altro account, oppure la condivisione è disattivata. Torna a mostrarsi da
+  solo appena la situazione cambia.
 - Solo i tuoi dispositivi vedono lo schermo, anche in un terminale che condividi con gli amici.
-  Mentre qualcuno guarda, la barra dei menu del Mac dice chi, con un pulsante che interrompe la
-  condivisione finché qualcuno davanti al Mac non la riattiva.
+  Mentre qualcuno guarda, la barra dei menu o l'area di notifica del computer indica quali
+  dispositivi stanno guardando, con un pulsante che interrompe la condivisione finché qualcuno
+  davanti al computer non la riattiva.
 
 ## 5. Chiedi a Dosi
 
