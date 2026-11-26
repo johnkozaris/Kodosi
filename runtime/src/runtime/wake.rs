@@ -716,7 +716,16 @@ impl Runtime {
                 return;
             }
         };
-        if let Some(user) = self.scope.user.clone()
+        if roused.woke
+            && !roused.signaled
+            && let Some(computer) = self.device_labels().get(device)
+        {
+            self.wakes
+                .failed
+                .insert(device.to_owned(), did_not_stay_asleep(computer));
+        }
+        if roused.signaled
+            && let Some(user) = self.scope.user.clone()
             && let Some(hardware) = wake::tested_card(details)
             && let Some(known) = self
                 .wakes

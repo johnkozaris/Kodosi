@@ -407,7 +407,8 @@ impl Rouse {
         let sleeper = self.sleeper.clone();
         let card = tested_card(&self.details).map(str::to_owned);
         let roused = self.wake(TEST_WAKE_WAIT).await;
-        let Some(hardware) = card.filter(|_| roused.woke) else {
+        // A computer that came back with no signal sent woke by itself.
+        let Some(hardware) = card.filter(|_| roused.woke && roused.signaled) else {
             return Tested::Roused(roused);
         };
         // Only the computer knows if it really slept: one that stayed awake also comes back.

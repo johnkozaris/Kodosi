@@ -2665,6 +2665,40 @@ async fn sleep_warns_when_no_device_could_wake_the_computer_again() {
 }
 
 #[tokio::test]
+async fn a_wake_test_with_no_signal_sent_has_no_result() {
+    use crate::wake::{Roused, Tested};
+
+    let (mut runtime, _root) = registry_fixture();
+    sign_in(&mut runtime, true);
+    runtime.online = true;
+    my_computers(&mut runtime, &["20"]);
+    runtime.complete(wake_answer(&runtime, "20", runtime.wakes_asked(), None));
+    let details = wake_details("192.168.1.20", None);
+    let unsent = |woke| {
+        Tested::Roused(Roused {
+            woke,
+            signaled: false,
+            refused: None,
+        })
+    };
+
+    runtime.wake_tested("20", &details, unsent(false));
+    assert_eq!(runtime.wakes.unreported("owner", "20"), None);
+    assert_eq!(wake_state(&runtime, "20")["note"]["$text"], READY);
+
+    runtime.wake_tested("20", &details, unsent(true));
+    assert_eq!(
+        runtime.wakes.unreported("owner", "20"),
+        None,
+        "a computer that came back with no signal woke by itself"
+    );
+    assert_eq!(
+        wake_state(&runtime, "20")["problem"]["$text"],
+        "{computer} did not stay asleep. The test has no result."
+    );
+}
+
+#[tokio::test]
 async fn the_result_of_a_wake_test_stays_until_the_computer_has_it() {
     use crate::wake::{Roused, Tested};
 
