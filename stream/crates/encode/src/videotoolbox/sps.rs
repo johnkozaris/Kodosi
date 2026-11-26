@@ -1,6 +1,5 @@
 /// Sets `gaps_in_frame_num_value_allowed_flag` in an H.264 SPS NAL unit. Viewers resuming at
 /// an LTR anchor see gaps in `frame_num`, which decoders may otherwise treat as lost frames.
-/// Only the Mac, iPhone and iPad apps take anchors.
 pub(super) fn allowing_gaps(nal: &[u8]) -> Option<Vec<u8>> {
     let (&header, payload) = nal.split_first()?;
     let mut bits = Bits {
@@ -111,11 +110,11 @@ mod tests {
     #[test]
     fn the_set_of_videotoolbox_allows_gaps_and_keeps_the_rest() {
         let set = [
-            0x27, 0x42, 0xc0, 0x2a, 0x89, 0x8a, 0x38, 0x09, 0xa0, 0x45, 0xf3, 0xdc, 0xd4, 0x08,
-            0x08, 0x08, 0x1e, 0x10, 0x08, 0x4f,
+            0x27, 0x64, 0x0c, 0x34, 0xac, 0x13, 0x14, 0x30, 0x02, 0x80, 0x0d, 0x1a, 0x6a, 0x02,
+            0x02, 0x02, 0x0f, 0x08, 0x04, 0x23, 0x20,
         ];
         let mut allowed = set;
-        allowed[6] = 0x3c;
+        allowed[7] = 0x32;
         assert_eq!(allowing_gaps(&set), Some(allowed.to_vec()));
     }
 

@@ -27,7 +27,7 @@ use objc2_video_toolbox::{
     kVTCompressionPropertyKey_TransferFunction, kVTCompressionPropertyKey_YCbCrMatrix,
     kVTEncodeFrameOptionKey_AcknowledgedLTRTokens, kVTEncodeFrameOptionKey_BaseFrameQP,
     kVTEncodeFrameOptionKey_ForceKeyFrame, kVTEncodeFrameOptionKey_ForceLTRRefresh,
-    kVTProfileLevel_H264_ConstrainedBaseline_AutoLevel, kVTProfileLevel_HEVC_Main_AutoLevel,
+    kVTProfileLevel_H264_ConstrainedHigh_AutoLevel, kVTProfileLevel_HEVC_Main_AutoLevel,
     kVTSampleAttachmentKey_RequireLTRAcknowledgementToken,
     kVTVideoEncoderSpecification_EnableLowLatencyRateControl,
 };
@@ -214,7 +214,7 @@ impl Session {
         // type its key expects.
         unsafe {
             let profile: &CFType = match self.format.codec {
-                Codec::H264 => kVTProfileLevel_H264_ConstrainedBaseline_AutoLevel,
+                Codec::H264 => kVTProfileLevel_H264_ConstrainedHigh_AutoLevel,
                 Codec::Hevc => kVTProfileLevel_HEVC_Main_AutoLevel,
             };
             for (key, value) in [
