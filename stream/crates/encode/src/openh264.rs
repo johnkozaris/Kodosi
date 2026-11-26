@@ -23,6 +23,7 @@ use crate::{
     FRAME_RATE, Output, RETRY,
     pixels::{self, Pixels, Shared},
     refine::{Cleanup, Convergence, PASS_EVERY, STILL, frame_budget},
+    retry_after,
 };
 
 /// H.264 colour description codes for BT.709, and "unspecified" for the video format.
@@ -181,6 +182,7 @@ pub(crate) fn work(bitrate: u32, output: &dyn Output, shared: &Shared) {
         lost: false,
         missing: false,
         again: None,
+        refusals: 0,
         cleanup: Cleanup::default(),
         pass_at: None,
         sharpening: Convergence::default(),
@@ -213,6 +215,7 @@ struct Worker<'a> {
     /// Set until the latest picture has been sent and taken.
     missing: bool,
     again: Option<Instant>,
+    refusals: u32,
     cleanup: Cleanup,
     pass_at: Option<Instant>,
     sharpening: Convergence,
@@ -353,8 +356,10 @@ impl Worker<'_> {
         });
         self.lost = !taken;
         if self.lost {
-            self.again = Some(retry);
+            self.refusals += 1;
+            self.again = Some(Instant::now() + retry_after(self.refusals));
         } else {
+            self.refusals = 0;
             self.missing = false;
         }
         if pass {

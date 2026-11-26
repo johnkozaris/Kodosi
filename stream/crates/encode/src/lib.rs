@@ -26,6 +26,12 @@ const FRAME_RATE: u32 = 60;
 /// so viewers still get the latest state when the source goes idle.
 const RETRY: Duration = Duration::from_millis(100);
 
+/// Delay before the next try after the consumer refused `refusals` frames in a row. A consumer
+/// that stays full, as on a busy computer, gets fewer of the keyframes it cannot take.
+fn retry_after(refusals: u32) -> Duration {
+    RETRY * 2_u32.pow(refusals.clamp(1, 4) - 1)
+}
+
 /// Where an encoder sends its frames.
 pub trait Output: Send + Sync + 'static {
     /// Returns false when the frame could not be queued, so the encoder sends a keyframe next.

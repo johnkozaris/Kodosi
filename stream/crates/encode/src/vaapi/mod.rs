@@ -15,9 +15,10 @@ use stream::{Codec, Encoded, FrameKind};
 
 use self::{session::Session, va::Display};
 use crate::{
-    Output, RETRY, Settings,
+    Output, Settings,
     pixels::{self, Pixels, Shared, Slot},
     rate::{self, Choice, Rate, SETTLED},
+    retry_after,
 };
 
 /// A GPU that encodes H.264 as the encoder needs, and HEVC too when its driver says how.
@@ -94,6 +95,7 @@ pub(crate) fn work(settings: Settings, output: &dyn Output, shared: &Shared) -> 
         drawn_at: now,
         repair: false,
         retry_at: None,
+        refusals: 0,
     };
     while let Some(job) = worker.next() {
         if worker.code(job).is_err() {
@@ -141,6 +143,7 @@ struct Worker<'a> {
     /// Set when the next frame must be a keyframe.
     repair: bool,
     retry_at: Option<Instant>,
+    refusals: u32,
 }
 
 impl Worker<'_> {
@@ -259,9 +262,12 @@ impl Worker<'_> {
             data: Bytes::from(data),
         });
         self.rate.coded(job.choice, if taken { size } else { 0 });
-        if !taken {
+        if taken {
+            self.refusals = 0;
+        } else {
+            self.refusals += 1;
             self.repair = true;
-            self.retry_at = Some(Instant::now() + RETRY);
+            self.retry_at = Some(Instant::now() + retry_after(self.refusals));
         }
         Ok(())
     }

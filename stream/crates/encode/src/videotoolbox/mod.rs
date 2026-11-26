@@ -27,6 +27,7 @@ use self::{
 use crate::{
     Output, Picture, RETRY, Settings,
     rate::{self, Choice, Rate, SETTLED, SHARP},
+    retry_after,
 };
 
 /// Pictures in the encoder at once; more only add latency.
@@ -92,6 +93,7 @@ struct Slot {
     rate: Rate,
     waiting: usize,
     retry_at: Option<Instant>,
+    refusals: u32,
     failed: bool,
     stop: bool,
 }
@@ -160,8 +162,9 @@ impl Gate {
         }
         match sent {
             Some((false, _)) => {
+                slot.refusals += 1;
                 slot.repair = Repair::Key;
-                slot.retry_at = Some(Instant::now() + RETRY);
+                slot.retry_at = Some(Instant::now() + retry_after(slot.refusals));
             }
             None if status != 0 => {
                 drop(slot);
@@ -175,7 +178,8 @@ impl Gate {
                 }
                 slot.retry_at = Some(Instant::now() + RETRY);
             }
-            Some((true, _)) | None => {}
+            Some((true, _)) => slot.refusals = 0,
+            None => {}
         }
         drop(slot);
         self.ready.notify_one();
@@ -230,6 +234,7 @@ impl Encoder {
                 rate: Rate::new(bitrate, now),
                 waiting: 0,
                 retry_at: None,
+                refusals: 0,
                 failed: false,
                 stop: false,
             }),
@@ -799,6 +804,44 @@ mod tests {
             *refusing.0.lock().unwrap(),
             [FrameKind::Key, FrameKind::Key]
         );
+    }
+
+    /// Refuses every frame, as a link that stays full does.
+    #[derive(Default)]
+    struct Full(Mutex<Vec<Instant>>);
+
+    impl Output for Full {
+        fn frame(&self, _: Encoded) -> bool {
+            self.0.lock().unwrap().push(Instant::now());
+            false
+        }
+
+        fn failed(&self, problem: String) {
+            panic!("{problem}");
+        }
+    }
+
+    #[test]
+    fn a_link_that_stays_full_gets_keyframes_less_and_less_often() {
+        let full = Arc::new(Full::default());
+        let mut encoder = Encoder::stills(Format::default(), Arc::clone(&full) as Arc<dyn Output>);
+        encoder.encode(
+            Picture::Pixels {
+                bgra: &picture(0),
+                width: WIDTH,
+                height: HEIGHT,
+            },
+            None,
+            1.0,
+        );
+        let until = Instant::now() + Duration::from_secs(3);
+        while full.0.lock().unwrap().len() < 4 && Instant::now() < until {
+            thread::sleep(Duration::from_millis(5));
+        }
+        let tries = full.0.lock().unwrap().clone();
+        assert!(tries.len() >= 4, "the encoder tries again");
+        let (first, third) = (tries[1] - tries[0], tries[3] - tries[2]);
+        assert!(third >= first * 2, "{first:?} then {third:?}");
     }
 
     #[test]
