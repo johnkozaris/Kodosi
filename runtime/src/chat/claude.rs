@@ -9,9 +9,9 @@ use serde_json::{Value, json};
 
 use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatCommand, ChatContext, ChatControl,
-    ChatMode, ChatNote, ChatNow, ChatPerson, ChatQuestion, ChatStep, ChatTool, MOST_CALLS,
-    MOST_OUTPUT, MOST_QUESTIONS, MOST_QUEUED, MOST_TARGET, MOST_TEXT, PlanChoice, ToolDetail,
-    ToolKind, ToolState, TurnEnd,
+    ChatMode, ChatNote, ChatNow, ChatPerson, ChatQuestion, ChatSetting, ChatSettingKind, ChatStep,
+    ChatTool, MOST_CALLS, MOST_CHOICES, MOST_OUTPUT, MOST_QUESTIONS, MOST_QUEUED, MOST_TARGET,
+    MOST_TEXT, PlanChoice, ToolDetail, ToolKind, ToolState, TurnEnd,
     agent::{
         Agent, Places, Stop, answer, list, person, question, show_state, stop_open, text, words,
     },
@@ -60,6 +60,10 @@ pub(super) struct Claude {
     /// Set when Claude Code drops a chat prompt, as after a stop in its terminal; pauses queue
     /// delivery until a turn starts or a person writes again.
     held: bool,
+    /// Set when Claude Code lets its plugins change the settings of its /config view: the values
+    /// of the settings that the chat changed before Claude Code took the change, which a refusal
+    /// puts back.
+    changing: Option<HashMap<String, String>>,
     linked: bool,
     session: String,
     ways: Ways,
@@ -293,11 +297,15 @@ impl Claude {
         if let Some(usage) = event.get("usage") {
             measure(chat, usage);
         }
+        self.changing =
+            (event.get("settings").and_then(Value::as_bool) == Some(true)).then(HashMap::new);
+        let offers_settings = self.changing.is_some();
         chat.set_commands(list(event, "commands").filter_map(|command| {
             let name = words(command, "name")?;
+            let opens = opens(&name, offers_settings);
             Some(ChatCommand {
-                opens: opens(&name),
-                terminal: shows_view(&name),
+                terminal: opens.is_none() && shows_view(&name),
+                opens,
                 description: start_of(text(command, "description"), MOST_TARGET).to_owned(),
                 name,
             })
@@ -1024,6 +1032,28 @@ impl Claude {
         self.ran = Some(handed.text);
     }
 
+    /// Claude Code took a change of a setting, or refused it and the setting goes back.
+    fn was_set(&mut self, chat: &mut Chat, event: &Value) {
+        let key = text(event, "key");
+        let before = self
+            .changing
+            .as_mut()
+            .and_then(|changing| changing.remove(key));
+        match words(event, "deny") {
+            Some(refusal) => chat.change_setting(key, |setting| {
+                if let Some(before) = before {
+                    setting.value = before;
+                }
+                setting.refusal = Some(refusal);
+            }),
+            None => {
+                if let Some(value) = event.get("value").and_then(setting_words) {
+                    chat.change_setting(key, |setting| setting.value = value);
+                }
+            }
+        }
+    }
+
     /// The module stopped a command that the end of the turn had moved to the background.
     fn halted(&self, chat: &mut Chat, event: &Value) {
         if event.get("ok").and_then(Value::as_bool) != Some(true) {
@@ -1141,6 +1171,8 @@ impl Agent for Claude {
             "did" => self.did(chat, event, at),
             "recap" => self.recap(chat, event, at),
             "waits" => self.waits(chat, event),
+            "settings" => chat.set_settings(list(event, "rows").filter_map(setting)),
+            "set" => self.was_set(chat, event),
             _ => {}
         }
         self.show(chat);
@@ -1341,6 +1373,35 @@ impl Agent for Claude {
         Some(json!({"do": "change", "n": self.sent, "text": line}))
     }
 
+    fn settings(&mut self, chat: &mut Chat) -> Option<Value> {
+        if !self.linked || self.changing.is_none() {
+            return None;
+        }
+        chat.forget_refusals();
+        Some(json!({"do": "settings"}))
+    }
+
+    /// The change shows at once, and goes back if Claude Code refuses it.
+    fn set(&mut self, chat: &mut Chat, key: &str, value: &str) -> Option<Value> {
+        if !self.linked {
+            return None;
+        }
+        let changing = self.changing.as_mut()?;
+        let setting = chat
+            .settings()
+            .iter()
+            .find(|setting| setting.key == key && !setting.locked)?;
+        let typed = setting_value(setting, value)?;
+        changing
+            .entry(key.to_owned())
+            .or_insert_with(|| setting.value.clone());
+        chat.change_setting(key, |setting| {
+            value.clone_into(&mut setting.value);
+            setting.refusal = None;
+        });
+        Some(json!({"do": "set", "key": key, "value": typed}))
+    }
+
     /// How the turn of the main conversation stops for a person in the chat.
     fn stop(&mut self, chat: &Chat) -> Stop {
         if !chat.asks().is_empty() {
@@ -1360,11 +1421,70 @@ impl Agent for Claude {
 }
 
 /// The commands whose own view in the terminal a control of the chat takes the place of.
-fn opens(name: &str) -> Option<ChatControl> {
+fn opens(name: &str, offers_settings: bool) -> Option<ChatControl> {
     match name {
         "model" | "effort" => Some(ChatControl::Model),
         "usage" | "context" => Some(ChatControl::Usage),
+        "config" | "settings" if offers_settings => Some(ChatControl::Settings),
         _ => None,
+    }
+}
+
+/// A row of Claude Code's /config view.
+fn setting(row: &Value) -> Option<ChatSetting> {
+    let key = words(row, "key")?;
+    let kind = match text(row, "kind") {
+        "boolean" => ChatSettingKind::Toggle,
+        "choice" => ChatSettingKind::Choice,
+        "text" => ChatSettingKind::Text,
+        "number" => ChatSettingKind::Number,
+        _ => return None,
+    };
+    Some(ChatSetting {
+        label: words(row, "label").unwrap_or_else(|| key.clone()),
+        description: start_of(text(row, "description"), MOST_TARGET).to_owned(),
+        kind,
+        value: setting_words(row.get("value")?)?,
+        options: list(row, "options")
+            .filter_map(Value::as_str)
+            .take(MOST_CHOICES)
+            .map(|option| start_of(option, MOST_TARGET).to_owned())
+            .collect(),
+        locked: row.get("isLocked").and_then(Value::as_bool) == Some(true),
+        refusal: None,
+        key,
+    })
+}
+
+fn setting_words(value: &Value) -> Option<String> {
+    let words = match value {
+        Value::Bool(on) => on.to_string(),
+        Value::Number(number) => number.to_string(),
+        Value::String(words) => start_of(words, MOST_TARGET).to_owned(),
+        _ => return None,
+    };
+    Some(words)
+}
+
+/// The value that Claude Code takes for a setting, from its words.
+fn setting_value(setting: &ChatSetting, words: &str) -> Option<Value> {
+    match setting.kind {
+        ChatSettingKind::Toggle => words.parse::<bool>().ok().map(Value::Bool),
+        ChatSettingKind::Number => {
+            let words = words.trim();
+            words
+                .parse::<i64>()
+                .map(Value::from)
+                .or_else(|_| words.parse::<f64>().map(Value::from))
+                .ok()
+                .filter(Value::is_number)
+        }
+        ChatSettingKind::Choice => setting
+            .options
+            .iter()
+            .any(|option| option == words)
+            .then(|| Value::from(words)),
+        ChatSettingKind::Text => Some(Value::from(words)),
     }
 }
 

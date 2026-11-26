@@ -190,6 +190,7 @@ impl Play {
                 ChatChange::Queued { queued } => self.view.queued.clone_from(queued),
                 ChatChange::Tasks { tasks } => self.view.tasks.clone_from(tasks),
                 ChatChange::Commands { commands } => self.view.commands.clone_from(commands),
+                ChatChange::Settings { settings } => self.view.settings.clone_from(settings),
                 ChatChange::Facts { facts } => self.view.facts = (**facts).clone(),
                 ChatChange::State { state, now } => {
                     self.view.state = *state;
@@ -575,6 +576,86 @@ fn a_command_that_claude_code_shows_in_its_terminal_stays_until_it_ends_there() 
     play.take(&json!({"k": "did", "n": 1}));
     assert_eq!(play.view.queued, [] as [ChatQueued; 0]);
     assert_eq!(play.people().last(), Some(&"/config"));
+}
+
+#[test]
+fn the_chat_changes_the_settings_of_claude_code_and_shows_why_it_refused_one() {
+    let mut play = Play::default();
+    play.take(&json!({
+        "k": "hello",
+        "agent": "claude",
+        "session": "s1",
+        "settings": true,
+        "commands": [{"name": "config", "description": "Open settings"}, {"name": "rewind"}],
+    }));
+    let commands = play
+        .view
+        .commands
+        .iter()
+        .map(|command| (command.name.as_str(), command.opens, command.terminal))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        commands,
+        [
+            ("config", Some(ChatControl::Settings), false),
+            ("rewind", None, true)
+        ]
+    );
+
+    assert_eq!(
+        play.agent.settings(&mut play.chat),
+        Some(json!({"do": "settings"}))
+    );
+    let rows = |editor: &str| {
+        json!({"k": "settings", "rows": [
+            {"key": "verbose", "label": "Verbose output", "kind": "boolean", "value": false, "isLocked": false},
+            {"key": "editor", "label": "Editor mode", "kind": "choice", "value": editor, "options": ["normal", "vim"]},
+            {"key": "timeout", "label": "Timeout", "kind": "number", "value": 30},
+            {"key": "remoteControl", "label": "Remote Control", "kind": "choice", "value": "default", "options": ["true", "false", "default"], "isLocked": true},
+        ]})
+    };
+    play.take(&rows("normal"));
+    assert_eq!(play.view.settings.len(), 4);
+    assert_eq!(
+        play.agent.set(&mut play.chat, "remoteControl", "true"),
+        None
+    );
+    assert_eq!(play.agent.set(&mut play.chat, "editor", "emacs"), None);
+    assert_eq!(
+        play.agent.set(&mut play.chat, "timeout", "45"),
+        Some(json!({"do": "set", "key": "timeout", "value": 45}))
+    );
+
+    assert_eq!(
+        play.agent.set(&mut play.chat, "verbose", "true"),
+        Some(json!({"do": "set", "key": "verbose", "value": true}))
+    );
+    play.follow();
+    assert_eq!(
+        play.view.settings[0].value, "true",
+        "the change shows at once"
+    );
+    let refused = "Verbose output can only be changed from the /config panel.";
+    play.take(&json!({"k": "set", "key": "verbose", "deny": refused}));
+    assert_eq!(
+        (
+            play.view.settings[0].value.as_str(),
+            play.view.settings[0].refusal.as_deref()
+        ),
+        ("false", Some(refused))
+    );
+
+    assert!(play.agent.set(&mut play.chat, "editor", "vim").is_some());
+    play.take(&json!({"k": "set", "key": "editor", "value": "vim"}));
+    play.take(&rows("vim"));
+    assert_eq!(play.view.settings[1].value, "vim");
+    assert_eq!(play.view.settings[0].refusal.as_deref(), Some(refused));
+    play.agent.settings(&mut play.chat);
+    play.follow();
+    assert_eq!(
+        play.view.settings[0].refusal, None,
+        "opening the settings anew forgets why"
+    );
 }
 
 #[test]

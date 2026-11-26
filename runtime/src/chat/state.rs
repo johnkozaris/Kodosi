@@ -1,7 +1,8 @@
 use super::{
     ChatAsk, ChatBody, ChatChange, ChatCommand, ChatFacts, ChatItem, ChatNow, ChatPerson,
-    ChatQueued, ChatSnapshot, ChatState, ChatTask, ChatTool, ChatUpdate, MOST_ASKS, MOST_COMMANDS,
-    MOST_ITEMS, MOST_QUEUED, MOST_TARGET, MOST_TASKS, MOST_TEXT, ToolKind, ToolState,
+    ChatQueued, ChatSetting, ChatSnapshot, ChatState, ChatTask, ChatTool, ChatUpdate, MOST_ASKS,
+    MOST_COMMANDS, MOST_ITEMS, MOST_QUEUED, MOST_SETTINGS, MOST_TARGET, MOST_TASKS, MOST_TEXT,
+    ToolKind, ToolState,
 };
 
 #[derive(Default)]
@@ -15,6 +16,7 @@ pub(super) struct Chat {
     queued: Vec<ChatQueued>,
     tasks: Vec<ChatTask>,
     commands: Vec<ChatCommand>,
+    settings: Vec<ChatSetting>,
     changes: Vec<ChatChange>,
     made: u64,
     /// Used to shorten paths outside the terminal's working directory with `~`.
@@ -44,6 +46,7 @@ impl Chat {
             queued: self.queued.clone(),
             tasks: self.tasks.clone(),
             commands: self.commands.clone(),
+            settings: self.settings.clone(),
         }
     }
 
@@ -326,6 +329,60 @@ impl Chat {
         });
     }
 
+    pub(super) fn settings(&self) -> &[ChatSetting] {
+        &self.settings
+    }
+
+    /// Takes the agent's settings whole. A setting keeps the reason why the agent refused its last
+    /// change until the person changes it again or opens the settings anew.
+    pub(super) fn set_settings(&mut self, settings: impl IntoIterator<Item = ChatSetting>) {
+        let settings = settings
+            .into_iter()
+            .take(MOST_SETTINGS)
+            .map(|mut setting| {
+                setting.refusal = self
+                    .settings
+                    .iter()
+                    .find(|known| known.key == setting.key)
+                    .and_then(|known| known.refusal.clone());
+                setting
+            })
+            .collect::<Vec<_>>();
+        if settings == self.settings {
+            return;
+        }
+        self.settings = settings;
+        self.tell_settings();
+    }
+
+    pub(super) fn change_setting(&mut self, key: &str, change: impl FnOnce(&mut ChatSetting)) {
+        if let Some(setting) = self.settings.iter_mut().find(|setting| setting.key == key) {
+            change(setting);
+            self.tell_settings();
+        }
+    }
+
+    pub(super) fn forget_refusals(&mut self) {
+        if self
+            .settings
+            .iter()
+            .any(|setting| setting.refusal.is_some())
+        {
+            for setting in &mut self.settings {
+                setting.refusal = None;
+            }
+            self.tell_settings();
+        }
+    }
+
+    fn tell_settings(&mut self) {
+        self.changes
+            .retain(|change| !matches!(change, ChatChange::Settings { .. }));
+        self.changes.push(ChatChange::Settings {
+            settings: self.settings.clone(),
+        });
+    }
+
     pub(super) fn facts(&self) -> &ChatFacts {
         &self.facts
     }
@@ -368,6 +425,7 @@ impl Chat {
                     | ChatChange::Queued { .. }
                     | ChatChange::State { .. }
                     | ChatChange::Commands { .. }
+                    | ChatChange::Settings { .. }
             )
         });
         self.changes.insert(0, ChatChange::Reset);
