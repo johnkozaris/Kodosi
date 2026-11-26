@@ -97,9 +97,8 @@ public final class BrowserFeed {
     }
 
     /// Attaches a video surface. A new surface triggers an immediate keyframe request (leaving
-    /// `picture` intact when `window.layer` renders locally). `display` returns `false` if the
-    /// renderer failed and needs a fresh keyframe.
-    public func show(on surface: AnyObject, _ display: @escaping @Sendable (VideoSample) -> Bool) {
+    /// `picture` intact when `window.layer` renders locally).
+    public func show(on surface: AnyObject, _ display: any VideoDisplay) {
         let fresh = surface !== self.surface
         if fresh {
             self.surface = surface
@@ -112,6 +111,13 @@ public final class BrowserFeed {
         if fresh {
             channel.restart()
         }
+    }
+
+    /// Detaches a surface that goes away, so that its display goes with it.
+    public func hide(from surface: AnyObject) {
+        guard surface === self.surface else { return }
+        self.surface = nil
+        channel.hide()
     }
 
     public func wake() async {
@@ -207,7 +213,7 @@ public final class BrowserFeed {
     }
 
     private var currentSize: VideoSize {
-        VideoSize(width: Int(viewSize.width), height: Int(viewSize.height), scale: Double(viewScale))
+        VideoSize(viewSize, scale: viewScale, hot: store.hot)
     }
 
     private func settleSize() {
@@ -219,7 +225,7 @@ public final class BrowserFeed {
         }
     }
 
-    private func sendSize() {
+    func sendSize() {
         let size = currentSize
         guard !holding, size != sentSize else { return }
         sentSize = size

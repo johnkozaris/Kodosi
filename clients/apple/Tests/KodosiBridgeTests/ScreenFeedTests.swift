@@ -1,17 +1,13 @@
 import CoreGraphics
 import Foundation
 @testable import KodosiBridge
-import Synchronization
 import Testing
 
 @MainActor
 @Test func `a picture of a part of the screen shows where that part is`() async throws {
     let runtime = FeedRuntime()
-    let regions = Mutex<[CGRect?]>([])
-    runtime.screen.show(on: NSObject()) { sample in
-        regions.withLock { $0.append(sample.region) }
-        return true
-    }
+    let shown = Shown()
+    runtime.screen.show(on: NSObject(), shown)
     let watching = Task { await runtime.screen.watch() }
     defer { watching.cancel() }
     let pipe = try await runtime.open()
@@ -20,8 +16,8 @@ import Testing
     try runtime.send(FeedRuntime.keyFrame, on: pipe)
     try runtime.send(FeedRuntime.frame(2, region: part), on: pipe)
     #expect(try await runtime.messages(2) == ["ack", "ack"])
-    await eventually { regions.withLock { $0.count == 2 } }
-    #expect(regions.withLock { $0 } == [nil, part])
+    await eventually { shown.count == 2 }
+    #expect(shown.regions == [nil, part])
 }
 
 @MainActor
@@ -51,6 +47,22 @@ import Testing
     let asked = CGRect(x: region["x"] ?? 0, y: region["y"] ?? 0, width: region["width"] ?? 0, height: region["height"] ?? 0)
     #expect(asked == placement.look)
     #expect(look["source"] as? [String: AnyHashable] == ["kind": "display", "id": 1])
+}
+
+@MainActor
+@Test func `a hot device asks for half of its pixels per point until it cools down`() async throws {
+    let runtime = FeedRuntime()
+    runtime.screen.viewScale = 3
+    let watching = Task { await runtime.screen.watch() }
+    defer { watching.cancel() }
+    _ = try await runtime.open()
+
+    runtime.store.hot = true
+    let hot = try await runtime.next("size")["size"] as? [String: Double]
+    #expect(hot?["scale"] == 1.5)
+    runtime.store.hot = false
+    let cool = try await runtime.next("size")["size"] as? [String: Double]
+    #expect(cool?["scale"] == 3)
 }
 
 @MainActor

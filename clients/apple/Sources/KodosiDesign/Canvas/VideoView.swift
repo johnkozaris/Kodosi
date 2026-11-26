@@ -5,7 +5,8 @@ import SwiftUI
 /// A feed whose frames a `VideoSurface` shows.
 @MainActor
 protocol VideoFeed: AnyObject {
-    func show(on surface: AnyObject, _ display: @escaping @Sendable (VideoSample) -> Bool)
+    func show(on surface: AnyObject, _ display: any VideoDisplay)
+    func hide(from surface: AnyObject)
 }
 
 extension BrowserFeed: VideoFeed {}
@@ -25,10 +26,15 @@ extension ScreenFeed: VideoFeed {}
             view.show(feed)
             view.place(placement)
         }
+
+        static func dismantleNSView(_ view: VideoSurface, coordinator _: ()) {
+            view.feed?.hide(from: view)
+        }
     }
 
     final class VideoSurface: NSView {
         private let player = VideoPlayer(layer: CAMetalLayer())
+        private(set) weak var feed: any VideoFeed?
 
         init(feed: any VideoFeed) {
             super.init(frame: .zero)
@@ -53,8 +59,8 @@ extension ScreenFeed: VideoFeed {}
         }
 
         func show(_ feed: any VideoFeed) {
-            let player = player
-            feed.show(on: self) { player.enqueue($0) }
+            self.feed = feed
+            feed.show(on: self, player)
         }
 
         func place(_ placement: VideoPlacement?) {
@@ -80,6 +86,10 @@ extension ScreenFeed: VideoFeed {}
             view.show(feed)
             view.place(placement)
         }
+
+        static func dismantleUIView(_ view: VideoSurface, coordinator _: ()) {
+            view.feed?.hide(from: view)
+        }
     }
 
     final class VideoSurface: UIView {
@@ -89,6 +99,7 @@ extension ScreenFeed: VideoFeed {}
 
         // swiftlint:disable:next force_cast
         private lazy var player = VideoPlayer(layer: layer as! CAMetalLayer)
+        private(set) weak var feed: any VideoFeed?
 
         init(feed: any VideoFeed) {
             super.init(frame: .zero)
@@ -106,8 +117,8 @@ extension ScreenFeed: VideoFeed {}
         }
 
         func show(_ feed: any VideoFeed) {
-            let player = player
-            feed.show(on: self) { player.enqueue($0) }
+            self.feed = feed
+            feed.show(on: self, player)
         }
 
         func place(_ placement: VideoPlacement?) {

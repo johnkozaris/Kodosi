@@ -62,6 +62,22 @@ public final class CanvasStore {
     @ObservationIgnored private var screens: [String: ScreenFeed] = [:]
     @ObservationIgnored private var chats: [String: TerminalChat] = [:]
     @ObservationIgnored private let documents = NSHashTable<DocumentLink>.weakObjects()
+    /// While the device is hot, video feeds ask for fewer pixels.
+    @ObservationIgnored var hot = false {
+        didSet {
+            guard hot != oldValue else { return }
+            for feed in feeds.values {
+                feed.sendSize()
+            }
+            for screen in screens.values {
+                screen.sendSize()
+            }
+        }
+    }
+
+    #if os(iOS)
+        @ObservationIgnored private var heat: any NSObjectProtocol?
+    #endif
 
     public init(commands: CommandSink, videoPipes: VideoPipes = VideoPipes(),
                 started: UInt64 = UInt64(Date.now.timeIntervalSince1970 * 1000))
@@ -69,7 +85,27 @@ public final class CanvasStore {
         self.commands = commands
         self.videoPipes = videoPipes
         self.started = started
+        #if os(iOS)
+            hot = Self.heated
+            heat = NotificationCenter.default.addObserver(
+                forName: ProcessInfo.thermalStateDidChangeNotification, object: nil, queue: .main,
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.hot = Self.heated }
+            }
+        #endif
     }
+
+    #if os(iOS)
+        isolated deinit {
+            if let heat {
+                NotificationCenter.default.removeObserver(heat)
+            }
+        }
+
+        private static var heated: Bool {
+            [.serious, .critical].contains(ProcessInfo.processInfo.thermalState)
+        }
+    #endif
 
     /// Managed by `videoPipes` rather than `documents` so frames stay off the main actor.
     func browser(of session: String) -> DocumentLink {

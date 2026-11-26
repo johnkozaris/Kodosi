@@ -19,6 +19,15 @@ public struct VideoSample {
     public let region: CGRect?
 }
 
+/// Shows a feed's frames on a surface. The feed never makes two calls to it at once.
+public protocol VideoDisplay: Sendable {
+    /// Returns `false` if the renderer failed and needs a fresh keyframe.
+    func enqueue(_ sample: VideoSample) -> Bool
+    /// The watch ended: lets go of the decoder and its pictures. The next watch starts at a
+    /// keyframe.
+    func stop()
+}
+
 /// A feed's pipe: JSON messages after a 0 byte, and video frames after a 1 byte. Frames are
 /// acknowledged, decoded and shown on the `VideoPipes` task so a busy main thread never triggers
 /// host backpressure; per-frame acks prevent queueing and let the host match quality to the link.
@@ -34,7 +43,7 @@ final class VideoChannel<Message: Decodable & Sendable>: Sendable {
     private struct State {
         var link: DocumentLink?
         var teller: AsyncStream<Heard>.Continuation?
-        var display: (@Sendable (VideoSample) -> Bool)?
+        var display: any VideoDisplay?
         var surface = 0
         var shown = false
         var samples = VideoSamples()
@@ -65,15 +74,16 @@ final class VideoChannel<Message: Decodable & Sendable>: Sendable {
                 state.link = nil
                 state.teller = nil
             }
+            state.display?.stop()
             return (state.link, state.teller)
         }
         teller?.finish()
         link?.close()
     }
 
-    /// Hands frames to `display` from now on, which returns `false` if the renderer failed and
-    /// needs a fresh keyframe. A new surface number shows a frame before it counts as shown.
-    func show(on surface: Int, _ display: @escaping @Sendable (VideoSample) -> Bool) {
+    /// Hands frames to `display` from now on. A new surface number shows a frame before it counts
+    /// as shown.
+    func show(on surface: Int, _ display: any VideoDisplay) {
         state.withLock { state in
             state.display = display
             if state.surface != surface {
@@ -81,6 +91,11 @@ final class VideoChannel<Message: Decodable & Sendable>: Sendable {
                 state.shown = false
             }
         }
+    }
+
+    /// Lets go of the display of a surface that went away.
+    func hide() {
+        state.withLock { $0.display = nil }
     }
 
     /// The decoder starts over, so it waits for the keyframe that it asks for.
@@ -137,6 +152,8 @@ final class VideoChannel<Message: Decodable & Sendable>: Sendable {
               let (region, data) = Self.picture(message.dropFirst(Wire.frameHeader), regional: header[5] & Wire.regionFlag != 0)
         else { return }
         let (restarts, shown) = state.withLock { state -> (Bool, Heard?) in
+            // A frame still on its way when the watch stopped would start the stopped decoder again.
+            guard state.link != nil else { return (false, nil) }
             if state.holds == .stream, id != state.lastFrame &+ 1 {
                 state.holds = .gap
             }
@@ -153,7 +170,7 @@ final class VideoChannel<Message: Decodable & Sendable>: Sendable {
                 return (false, nil)
             }
             state.holds = .stream
-            let going = state.display?(VideoSample(buffer: sample, region: region)) ?? true
+            let going = state.display?.enqueue(VideoSample(buffer: sample, region: region)) ?? true
             defer { state.shown = true }
             return (!going, state.shown ? nil : .shown(state.surface))
         }
@@ -188,11 +205,18 @@ struct DeviceDecoder: Encodable {
     let hardware: Bool
 }
 
-/// The size of a view in points and its pixels per point.
+/// The size of a view in points and the pixels per point that it asks for.
 struct VideoSize: Encodable, Equatable {
     let width: Int
     let height: Int
     let scale: Double
+
+    /// A hot device asks for half of its pixels per point, though never for fewer than one.
+    init(_ size: CGSize, scale: CGFloat, hot: Bool) {
+        width = Int(size.width)
+        height = Int(size.height)
+        self.scale = Double(hot ? max(1, scale / 2) : scale)
+    }
 }
 
 /// A frame is a tag byte, its number, its flags and its codec, then the region it shows when its

@@ -10,11 +10,11 @@ import VideoToolbox
 /// arrives, a frame sooner than `AVSampleBufferDisplayLayer` shows it. Samples come on the
 /// `VideoPipes` task and layout on the main thread, so drawing runs on its own queue and always
 /// takes the newest picture.
-final class VideoPlayer: @unchecked Sendable {
+final class VideoPlayer: VideoDisplay, @unchecked Sendable {
     /// CAMetalLayer hands out drawables on any thread; the views change its other properties on the
     /// main thread only.
     let layer: CAMetalLayer
-    /// Only the feed's pipe task decodes.
+    /// The feed decodes and stops it one call at a time.
     private var decoder = VideoDecoder()
     private let pictures = Mutex(Pictures())
     private let drawing = DispatchQueue(label: "com.kodosi.video", qos: .userInteractive)
@@ -37,6 +37,15 @@ final class VideoPlayer: @unchecked Sendable {
         pictures.withLock { $0.newest = Picture(buffer: decoded.buffer, region: sample.region) }
         redraw()
         return true
+    }
+
+    /// The layer goes on showing the picture that it drew last.
+    func stop() {
+        decoder.stop()
+        pictures.withLock { pictures in
+            pictures.newest = nil
+            pictures.shown = nil
+        }
     }
 
     /// Places each picture where its part of the source shows; `nil` fits each picture whole into
@@ -146,7 +155,7 @@ private struct VideoDecoder: ~Copyable {
         self.format = format
     }
 
-    private mutating func stop() {
+    mutating func stop() {
         if let session {
             VTDecompressionSessionInvalidate(session)
         }

@@ -2,6 +2,7 @@ import CoreGraphics
 import Foundation
 @testable import KodosiBridge
 import KodosiKit
+import Synchronization
 import Testing
 
 /// A runtime that a feed's pipe talks to: it opens the pipe, hands it frames and messages, and
@@ -189,5 +190,32 @@ final class FeedRuntime {
 
     private static func message(_ command: [String: Any]) -> String? {
         body(command)?["type"] as? String
+    }
+}
+
+/// Keeps the regions of the frames that a feed shows on it, and counts the watches that stopped.
+final class Shown: VideoDisplay {
+    private let shown = Mutex<[CGRect?]>([])
+    private let stopped = Mutex(0)
+
+    var regions: [CGRect?] {
+        shown.withLock { $0 }
+    }
+
+    var count: Int {
+        regions.count
+    }
+
+    var stops: Int {
+        stopped.withLock { $0 }
+    }
+
+    func enqueue(_ sample: VideoSample) -> Bool {
+        shown.withLock { $0.append(sample.region) }
+        return true
+    }
+
+    func stop() {
+        stopped.withLock { $0 += 1 }
     }
 }

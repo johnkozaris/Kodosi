@@ -32,6 +32,9 @@ or updates something, a banner names the item so you can tap to open it.
 On a terminal of one of your Macs, the canvas can show that Mac's screen. One finger taps, drags,
 and scrolls as in the shared browser, and two fingers zoom and move the view.
 
+While the iPhone or iPad runs hot, the shared browser and the screen show a softer picture, and a
+sharp one again once it cools down.
+
 ### Remote Dosi
 Dosi runs on your computers. You pick which of your computers to message, and that machine's Dosi
 handles the turn.

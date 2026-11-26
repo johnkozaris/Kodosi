@@ -238,10 +238,10 @@ computer's own app changes. While anyone watches, the helper's menu bar item say
 turns the sharing off on every canvas.
 
 One capture serves every viewer of a computer. It shows a display or one window, sized to the view
-that the person opened or used last, with as many pixels as that view shows and no more than the
-source has. A zoomed view asks for only the part it shows, so the part stays sharp. The pointer
-travels apart from the video, as a position and a shape sent once, so viewers draw it, or use it as
-their own cursor, without waiting for frames.
+that the person opened or used last, with as many pixels as that view shows, fewer while a phone
+runs hot, and no more than the source has. A zoomed view asks for only the part it shows, so the
+part stays sharp. The pointer travels apart from the video, as a position and a shape sent once, so
+viewers draw it, or use it as their own cursor, without waiting for frames.
 
 A computer's screen belongs to its owner: only the owner's devices list it on a canvas, and the
 host refuses anyone else's pipe to it, also in a terminal shared with friends.

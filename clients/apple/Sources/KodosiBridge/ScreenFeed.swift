@@ -104,9 +104,8 @@ public final class ScreenFeed {
         }
     }
 
-    /// Attaches a video surface. A new surface asks for a keyframe at once. `display` returns
-    /// `false` if the renderer failed and needs a fresh keyframe.
-    public func show(on surface: AnyObject, _ display: @escaping @Sendable (VideoSample) -> Bool) {
+    /// Attaches a video surface. A new surface asks for a keyframe at once.
+    public func show(on surface: AnyObject, _ display: any VideoDisplay) {
         let fresh = surface !== self.surface
         if fresh {
             self.surface = surface
@@ -117,6 +116,13 @@ public final class ScreenFeed {
         if fresh {
             channel.restart()
         }
+    }
+
+    /// Detaches a surface that goes away, so that its display goes with it.
+    public func hide(from surface: AnyObject) {
+        guard surface === self.surface else { return }
+        self.surface = nil
+        channel.hide()
     }
 
     public func send(_ input: ViewerInput) {
@@ -206,7 +212,7 @@ public final class ScreenFeed {
     }
 
     private var currentSize: VideoSize {
-        VideoSize(width: Int(viewSize.width), height: Int(viewSize.height), scale: Double(viewScale))
+        VideoSize(viewSize, scale: viewScale, hot: store.hot)
     }
 
     private func settleSize() {
@@ -219,7 +225,7 @@ public final class ScreenFeed {
         }
     }
 
-    private func sendSize() {
+    func sendSize() {
         let size = currentSize
         guard joined, size != sentSize else { return }
         sentSize = size
