@@ -630,6 +630,9 @@
     <string name="chat_reads_before_next_step">%1$s lo legge prima del suo prossimo passo.</string>
     <string name="chat_waiting_for">In attesa di %1$s</string>
     <string name="chat_needs_terminal_view">Il comando richiede la vista terminale</string>
+    <string name="chat_find_setting">Trova un\'impostazione</string>
+    <string name="chat_no_setting_matches">Nessuna impostazione corrisponde</string>
+    <string name="chat_setting_locked">Bloccato</string>
     <string name="chat_commands">Comandi</string>
     <string name="chat_tokens_of">%1$s di %2$s token</string>
     <string name="chat_resets_in">Si reimposta tra %1$s</string>

@@ -173,6 +173,10 @@ Antwort-Buttons. Du kannst direkt im Chat antworten oder den Agent stoppen; gibs
 Rückfrage eigenen Text ein, erfährt der Agent, was er stattdessen tun soll. Alles, was du im Chat
 machst, passiert zugleich im zugrunde liegenden Terminal.
 
+Bei Claude Code öffnet das Zahnrad unter dem Nachrichtenfeld oder `/config` die eigenen
+Einstellungen von Claude Code. Claude Code prüft und speichert jede Änderung und sagt, warum, wenn
+es eine nicht übernimmt.
+
 Auf dem Mac, iPhone, iPad und Android klickst oder tippst du auf das Mikrofon neben dem
 Nachrichtenfeld, um zu sprechen statt zu tippen. Deine Worte erscheinen beim Sprechen als deine
 Nachricht und werden nach einer längeren Pause gesendet, damit du in Ruhe nachdenken kannst; klicke

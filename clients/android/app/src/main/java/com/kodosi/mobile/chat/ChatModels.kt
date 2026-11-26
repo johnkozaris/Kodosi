@@ -20,7 +20,8 @@ data class ChatSnapshot(
     val asks: List<ChatAsk> = emptyList(),
     val queued: List<ChatQueued> = emptyList(),
     val tasks: List<ChatTask> = emptyList(),
-    val commands: List<ChatCommand> = emptyList()
+    val commands: List<ChatCommand> = emptyList(),
+    val settings: List<ChatSetting> = emptyList()
 )
 
 @Serializable
@@ -57,6 +58,11 @@ sealed interface ChatChange {
     @Serializable
     @SerialName("commands")
     data class Commands(val commands: List<ChatCommand>) : ChatChange
+
+    /** The agent's own settings, whole. */
+    @Serializable
+    @SerialName("settings")
+    data class Settings(val settings: List<ChatSetting>) : ChatChange
 
     @Serializable
     @SerialName("facts")
@@ -332,7 +338,43 @@ enum class ChatControl {
 
     /** The limits of the agent's plan, its context and the cost of the conversation. */
     @SerialName("usage")
-    USAGE
+    USAGE,
+
+    /** The agent's own settings. */
+    @SerialName("settings")
+    SETTINGS
+}
+
+/** A setting of the agent, as its own settings view lists it. */
+@Serializable
+data class ChatSetting(
+    val key: String,
+    val label: String,
+    val description: String = "",
+    val kind: ChatSettingKind,
+    /** The value as words: `true` or `false` for a toggle, the digits of a number. */
+    val value: String,
+    /** The values that a choice takes. */
+    val options: List<String> = emptyList(),
+    /** Only the agent's own view or the policy of an organization changes the setting. */
+    val locked: Boolean = false,
+    /** Why the agent did not take the last change, in its words. */
+    val refusal: String? = null
+)
+
+@Serializable
+enum class ChatSettingKind {
+    @SerialName("toggle")
+    TOGGLE,
+
+    @SerialName("choice")
+    CHOICE,
+
+    @SerialName("text")
+    TEXT,
+
+    @SerialName("number")
+    NUMBER
 }
 
 @Serializable

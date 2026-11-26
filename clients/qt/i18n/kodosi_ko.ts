@@ -949,6 +949,25 @@
             <numerusform>명령 %n개가 백그라운드에서 실행 중</numerusform>
         </translation>
     </message>
+    <message>
+        <source>Settings</source>
+        <translation>설정</translation>
+    </message>
+</context>
+<context>
+    <name>ChatSettings</name>
+    <message>
+        <source>Find a setting</source>
+        <translation>설정 찾기</translation>
+    </message>
+    <message>
+        <source>No setting matches</source>
+        <translation>일치하는 설정이 없어요</translation>
+    </message>
+    <message>
+        <source>Locked</source>
+        <translation>잠김</translation>
+    </message>
 </context>
 <context>
     <name>ChatStep</name>

@@ -171,6 +171,9 @@ los que puedes hacer clic. Puedes responder o detener al agente directamente des
 escribes un texto propio mientras hace una pregunta, le indica al agente qué hacer en su lugar.
 Todo lo que haces en el chat ocurre también en el terminal subyacente.
 
+Con Claude Code, el engranaje bajo el campo de mensaje, o `/config`, abre los ajustes propios de
+Claude Code. Claude Code revisa y guarda cada cambio, y explica por qué cuando no acepta alguno.
+
 En Mac, iPhone, iPad y Android, haz clic en el micrófono junto al campo de mensaje, o tócalo, para
 hablar en lugar de escribir. Tus palabras aparecen como tu mensaje mientras hablas y se envían tras
 una pausa larga, para que puedas pararte a pensar; haz clic en **Enviar**, o tócalo, para enviarlas

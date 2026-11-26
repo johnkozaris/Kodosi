@@ -584,6 +584,9 @@
     <string name="chat_reads_before_next_step">%1$s 会在下一步之前读取此消息。</string>
     <string name="chat_waiting_for">正在等待 %1$s</string>
     <string name="chat_needs_terminal_view">此命令需要终端视图</string>
+    <string name="chat_find_setting">查找设置</string>
+    <string name="chat_no_setting_matches">没有匹配的设置</string>
+    <string name="chat_setting_locked">已锁定</string>
     <string name="chat_commands">命令</string>
     <string name="chat_tokens_of">%2$s 个 token 中的 %1$s</string>
     <string name="chat_resets_in">%1$s后重置</string>

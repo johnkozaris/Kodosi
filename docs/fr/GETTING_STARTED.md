@@ -173,6 +173,10 @@ des boutons cliquables. Vous pouvez répondre à l'agent ou l'arrêter directeme
 si vous saisissez un texte libre pendant qu'il pose une question, cela lui indique quoi faire à la
 place. Tout ce que vous faites dans le chat se répercute aussi dans le terminal sous-jacent.
 
+Avec Claude Code, la roue dentée sous le champ de message, ou `/config`, ouvre les réglages de
+Claude Code. Claude Code vérifie et enregistre chaque modification, et dit pourquoi quand il en
+refuse une.
+
 Sur Mac, iPhone, iPad et Android, cliquez sur le micro à côté du champ de message, ou touchez-le,
 pour parler au lieu de taper. Vos mots s'affichent comme votre message pendant que vous parlez et
 partent après une longue pause, pour vous laisser le temps de réfléchir ; cliquez sur **Envoyer**,

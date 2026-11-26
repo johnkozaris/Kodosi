@@ -614,6 +614,9 @@
     <string name="chat_reads_before_next_step">%1$s reads this before its next step.</string>
     <string name="chat_waiting_for">Waiting for %1$s</string>
     <string name="chat_needs_terminal_view">Command needs terminal view</string>
+    <string name="chat_find_setting">Find a setting</string>
+    <string name="chat_no_setting_matches">No setting matches</string>
+    <string name="chat_setting_locked">Locked</string>
     <string name="chat_commands">Commands</string>
     <string name="chat_tokens_of">%1$s of %2$s tokens</string>
     <string name="chat_resets_in">Resets in %1$s</string>

@@ -953,6 +953,25 @@
             <numerusform>%n commandes s’exécutent en arrière-plan</numerusform>
         </translation>
     </message>
+    <message>
+        <source>Settings</source>
+        <translation>Réglages</translation>
+    </message>
+</context>
+<context>
+    <name>ChatSettings</name>
+    <message>
+        <source>Find a setting</source>
+        <translation>Trouver un réglage</translation>
+    </message>
+    <message>
+        <source>No setting matches</source>
+        <translation>Aucun réglage ne correspond</translation>
+    </message>
+    <message>
+        <source>Locked</source>
+        <translation>Verrouillé</translation>
+    </message>
 </context>
 <context>
     <name>ChatStep</name>

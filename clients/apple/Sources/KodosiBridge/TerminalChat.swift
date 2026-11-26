@@ -49,6 +49,10 @@ public final class TerminalChat {
         chat?.commands ?? []
     }
 
+    public var settings: [ChatSetting] {
+        chat?.settings ?? []
+    }
+
     /// The control of the chat that a draft of only a command's name opens in place of sending it.
     public func control(of draft: String) -> ChatControl? {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -160,6 +164,22 @@ public final class TerminalChat {
         request(.stop)
     }
 
+    /// Asks the agent for its own settings, which arrive in `settings`.
+    public func askSettings() {
+        request(.settings)
+    }
+
+    /// Changes one of the agent's settings to `value`, in the words of `ChatSetting.value`. The
+    /// change shows at once; the host's next update keeps it or puts the setting back.
+    public func set(_ setting: ChatSetting, to value: String) {
+        if var chat, let index = chat.settings.firstIndex(where: { $0.key == setting.key }) {
+            chat.settings[index].value = value
+            chat.settings[index].refusal = nil
+            self.chat = chat
+        }
+        request(.set(key: setting.key, value: value))
+    }
+
     private func request(_ request: ChatRequest) {
         guard let link, let frame = try? JSONEncoder().encode(request.json) else { return }
         link.send(frame)
@@ -239,6 +259,8 @@ extension ChatSnapshot {
             self.tasks = tasks
         case let .commands(commands):
             self.commands = commands
+        case let .settings(settings):
+            self.settings = settings
         case let .facts(facts):
             self.facts = facts
         case let .state(state, now):

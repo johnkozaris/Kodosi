@@ -305,6 +305,7 @@ qt_add_qml_module(kodosi-ui
         qml/Chat/ChatAskCard.qml
         qml/Chat/ChatDock.qml
         qml/Chat/ChatFacts.qml
+        qml/Chat/ChatSettings.qml
         qml/Chat/ChatStep.qml
         qml/Chat/ChatThread.qml
         qml/Chat/ChatWork.qml

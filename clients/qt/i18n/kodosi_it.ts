@@ -953,6 +953,25 @@
             <numerusform>%n comandi sono in esecuzione in background</numerusform>
         </translation>
     </message>
+    <message>
+        <source>Settings</source>
+        <translation>Impostazioni</translation>
+    </message>
+</context>
+<context>
+    <name>ChatSettings</name>
+    <message>
+        <source>Find a setting</source>
+        <translation>Trova un&apos;impostazione</translation>
+    </message>
+    <message>
+        <source>No setting matches</source>
+        <translation>Nessuna impostazione corrisponde</translation>
+    </message>
+    <message>
+        <source>Locked</source>
+        <translation>Bloccato</translation>
+    </message>
 </context>
 <context>
     <name>ChatStep</name>
