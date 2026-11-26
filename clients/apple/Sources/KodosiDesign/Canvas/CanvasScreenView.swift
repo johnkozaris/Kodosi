@@ -48,6 +48,12 @@ private struct ScreenStage: View {
         let tries: Int
     }
 
+    /// Why the screen did not open or broke, which shows with a way to try again in place of any
+    /// picture that is not live.
+    private var failure: String? {
+        feed.picture == .live ? nil : feed.failure
+    }
+
     var body: some View {
         GeometryReader { area in
             let placement = feed.placement(in: area.size)
@@ -55,7 +61,7 @@ private struct ScreenStage: View {
             ZStack {
                 theme.colors.terminal
                 VideoView(feed: feed, placement: placement)
-                    .opacity(feed.picture != .waiting && records ? 1 : 0)
+                    .opacity(feed.picture != .waiting && failure == nil && records ? 1 : 0)
                 if feed.access?.input != false {
                     ScreenInputArea(feed: feed, typing: typing, inside: $inside)
                 }
@@ -95,7 +101,7 @@ private struct ScreenStage: View {
                 EmptyView()
             }
             .accessibilityIdentifier("canvas.screen.unrecorded")
-        } else if let failure = feed.failure, feed.picture == .waiting {
+        } else if let failure {
             TerminalStateCard(symbol: "display", title: String(localized: "The screen did not open", bundle: .module), message: failure,
                               working: false)
             {

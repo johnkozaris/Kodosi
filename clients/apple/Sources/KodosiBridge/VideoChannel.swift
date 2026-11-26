@@ -23,8 +23,7 @@ public struct VideoSample {
 public protocol VideoDisplay: Sendable {
     /// Returns `false` if the renderer failed and needs a fresh keyframe.
     func enqueue(_ sample: VideoSample) -> Bool
-    /// The watch ended: lets go of the decoder and its pictures. The next watch starts at a
-    /// keyframe.
+    /// The watch ended, so the decoder can go. The next watch starts at a keyframe.
     func stop()
 }
 
@@ -73,6 +72,7 @@ final class VideoChannel<Message: Decodable & Sendable>: Sendable {
             defer {
                 state.link = nil
                 state.teller = nil
+                state.shown = false
             }
             state.display?.stop()
             return (state.link, state.teller)

@@ -39,13 +39,10 @@ final class VideoPlayer: VideoDisplay, @unchecked Sendable {
         return true
     }
 
-    /// The layer goes on showing the picture that it drew last.
+    /// Keeps the picture on screen, which a resize draws again.
     func stop() {
         decoder.stop()
-        pictures.withLock { pictures in
-            pictures.newest = nil
-            pictures.shown = nil
-        }
+        pictures.withLock { $0.newest = nil }
     }
 
     /// Places each picture where its part of the source shows; `nil` fits each picture whole into

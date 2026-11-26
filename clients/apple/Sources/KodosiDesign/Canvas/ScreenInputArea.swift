@@ -43,6 +43,8 @@ struct ScreenInputArea {
         private var cursors: [UInt64: NSCursor] = [:]
         private var pointer: CGPoint?
         private var held = ViewerInput.MouseButton.none
+        /// The key up of each key that went down from here and has not come up yet, by its key code.
+        private var releases: [UInt16: ViewerInput] = [:]
         private var panning: CADisplayLink?
         private var panned: CFTimeInterval?
 
@@ -103,6 +105,24 @@ struct ScreenInputArea {
             if window == nil {
                 stopPanning()
             }
+            NotificationCenter.default.removeObserver(self, name: NSWindow.didResignKeyNotification, object: nil)
+            if let window {
+                // Kodosi going to the background, as with Command-Tab, also takes key from the window.
+                NotificationCenter.default.addObserver(self, selector: #selector(windowResignedKey), name: NSWindow.didResignKeyNotification,
+                                                       object: window)
+            }
+        }
+
+        override func resignFirstResponder() -> Bool {
+            let resigned = super.resignFirstResponder()
+            if resigned {
+                releaseKeys()
+            }
+            return resigned
+        }
+
+        @objc private func windowResignedKey(_: Notification) {
+            releaseKeys()
         }
 
         override func mouseEntered(with event: NSEvent) {
@@ -211,7 +231,7 @@ struct ScreenInputArea {
                 feed.send(.key(key, typed: nil, down: true, modifiers: held))
                 feed.send(.key(key, typed: nil, down: false, modifiers: held))
             } else if let side = Self.sides[event.keyCode] {
-                feed.send(.key(key, typed: nil, down: event.modifierFlags.rawValue & side != 0, modifiers: held))
+                send(key, code: event.keyCode, typed: nil, down: event.modifierFlags.rawValue & side != 0, modifiers: held)
             }
         }
 
@@ -230,7 +250,20 @@ struct ScreenInputArea {
             guard let key = ViewerKeys.key(macKeyCode: event.keyCode) else { return }
             let held = ViewerInput.Modifiers(event.modifierFlags)
             let typed = held.isDisjoint(with: [.control, .meta]) ? event.characters : event.charactersIgnoringModifiers
-            feed.send(.key(key, typed: typed?.isEmpty == false ? typed : nil, down: down, modifiers: held))
+            send(key, code: event.keyCode, typed: typed?.isEmpty == false ? typed : nil, down: down, modifiers: held)
+        }
+
+        private func send(_ key: ViewerKeys.Key, code: UInt16, typed: String?, down: Bool, modifiers: ViewerInput.Modifiers) {
+            feed.send(.key(key, typed: typed, down: down, modifiers: modifiers))
+            releases[code] = down ? .key(key, typed: typed, down: false, modifiers: []) : nil
+        }
+
+        /// Key ups go wherever the keyboard went, so the keys still down from here come up at once.
+        private func releaseKeys() {
+            for release in releases.values {
+                feed.send(release)
+            }
+            releases = [:]
         }
 
         private func mouse(_ type: ViewerInput.MouseEvent, _ event: NSEvent, button: ViewerInput.MouseButton) {

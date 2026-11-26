@@ -66,6 +66,26 @@ import Testing
 }
 
 @MainActor
+@Test func `a picture that a watch leaves behind is kept until the next watch shows a frame`() async throws {
+    let runtime = FeedRuntime()
+    runtime.screen.show(on: NSObject(), Shown())
+    var watching = Task { await runtime.screen.watch() }
+    defer { watching.cancel() }
+    var pipe = try await runtime.open()
+    try runtime.send(FeedRuntime.keyFrame, on: pipe)
+    await eventually { runtime.screen.picture == .live }
+
+    try await runtime.leave(watching)
+    #expect(runtime.screen.picture == .kept)
+
+    watching = Task { await runtime.screen.watch() }
+    pipe = try await runtime.open()
+    try runtime.send(FeedRuntime.keyFrame, on: pipe)
+    await eventually { runtime.screen.picture == .live }
+    #expect(runtime.screen.picture == .live)
+}
+
+@MainActor
 private func eventually(_ done: () -> Bool) async {
     let deadline = ContinuousClock.now + .seconds(2)
     while !done(), ContinuousClock.now < deadline {

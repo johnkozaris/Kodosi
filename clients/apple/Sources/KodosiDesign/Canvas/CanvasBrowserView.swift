@@ -22,6 +22,7 @@ public struct CanvasBrowserView: View {
     @State private var address = ""
     @State private var choice = 0
     @State private var picking = false
+    @State private var tries = 0
     @FocusState private var editing: Bool
 
     public init(browser: CanvasBrowser, feed: BrowserFeed, typing: Bool = false, ask: CanvasAsk? = nil) {
@@ -40,6 +41,18 @@ public struct CanvasBrowserView: View {
 
     private static let blankPage = "about:blank"
 
+    /// Why the browser did not open or broke, which shows with a way to try again in place of any
+    /// picture that is not live.
+    private var failure: String? {
+        guard browser.state == .awake, browser.problem == nil, feed.picture != .live else { return nil }
+        return feed.failure
+    }
+
+    private struct Watch: Equatable {
+        let watching: Bool
+        let tries: Int
+    }
+
     public var body: some View {
         VStack(spacing: 0) {
             if browser.state == .awake {
@@ -48,8 +61,17 @@ public struct CanvasBrowserView: View {
             bar.zIndex(1)
             ZStack {
                 theme.colors.terminal
-                BrowserPicture(browser: browser, feed: feed, blank: blank)
-                if blank, browser.state == .awake {
+                BrowserPicture(browser: browser, feed: feed, blank: blank || failure != nil)
+                if let failure {
+                    TerminalStateCard(symbol: "globe", title: String(localized: "This did not load", bundle: .module), message: failure,
+                                      working: false)
+                    {
+                        Button { tries += 1 } label: { Text("Try again", bundle: .module) }.buttonStyle(.kodosi(.secondary))
+                            .accessibilityIdentifier("canvas.browser.retry")
+                    }
+                    // Above the input area, which would take its taps.
+                    .zIndex(1)
+                } else if blank, browser.state == .awake {
                     Image(systemName: "globe").font(.system(size: 34, weight: .light))
                         .foregroundStyle(theme.colors.inkFaint.opacity(0.6))
                         .transition(.opacity)
@@ -60,7 +82,7 @@ public struct CanvasBrowserView: View {
                     BrowserInputArea(feed: feed, typing: typing, ask: ask)
                     BrowserPointersLayer(feed: feed)
                     AgentPointerLayer(browser: browser, feed: feed)
-                    BrowserReconnecting(kept: feed.picture == .kept)
+                    BrowserReconnecting(kept: feed.picture == .kept && failure == nil)
                     BrowserPartsLayer(feed: feed, ask: ask)
                 } else {
                     sleeping.transition(.opacity)
@@ -72,7 +94,7 @@ public struct CanvasBrowserView: View {
             .onChange(of: displayScale, initial: true) { _, scale in feed.viewScale = scale }
             // Stop watching when off-screen so the host does not encode video or hold this
             // device's viewport size while nobody is looking.
-            .task(id: browser.problem == nil && onScreen) {
+            .task(id: Watch(watching: browser.problem == nil && onScreen, tries: tries)) {
                 if browser.problem == nil, onScreen {
                     feed.copied = Pasteboard.copy
                     await feed.watch()

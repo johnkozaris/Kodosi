@@ -114,6 +114,12 @@
             }
         }
 
+        override func pressesCancelled(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+            if !handle(presses, down: false) {
+                super.pressesCancelled(presses, with: event)
+            }
+        }
+
         private func handle(_ presses: Set<UIPress>, down: Bool) -> Bool {
             var handled = false
             for press in presses {

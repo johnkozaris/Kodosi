@@ -73,6 +73,9 @@ public final class ScreenFeed {
             channel.stop()
             joined = false
             opened = false
+            if picture == .live {
+                picture = .kept
+            }
         }
         do {
             try await link.open()
