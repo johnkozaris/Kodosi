@@ -243,13 +243,16 @@ fun KodosiSendKey(enabled: Boolean, working: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-fun KodosiStopKey(onClick: () -> Unit) {
+fun KodosiStopKey(
+    onClick: () -> Unit,
+    description: String = stringResource(R.string.stop),
+    tint: Color = KodosiTheme.colors.ink
+) {
     val colors = KodosiTheme.colors
-    val label = stringResource(R.string.stop)
     ComposerKey(onClick, enabled = true, fill = colors.lifted, quiet = true, ring = false) {
         Box(
-            Modifier.size(9.dp).background(colors.ink, RoundedCornerShape(2.dp))
-                .semantics { contentDescription = label }
+            Modifier.size(9.dp).background(tint, RoundedCornerShape(2.dp))
+                .semantics { contentDescription = description }
         )
     }
 }

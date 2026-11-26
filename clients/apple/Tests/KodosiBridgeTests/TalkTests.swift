@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 @testable import KodosiBridge
 import Testing
@@ -87,8 +88,8 @@ private func at(_ seconds: Double) -> Date {
     turn.sound(-20, at: at(3.4))
     _ = turn.hear(said("Fix the login test and keep the old error", final: false, from: 0, to: 4), at: at(4.5), holding: false)
     _ = turn.hear(said("Fix the login test and keep the old error.", final: true, from: 0, to: 4), at: at(5), holding: false)
-    #expect(turn.tick(at: at(7.4), holding: false) == .wait)
-    #expect(turn.tick(at: at(7.6), holding: false) == .send("Fix the login test and keep the old error."))
+    #expect(turn.tick(at: at(10.4), holding: false) == .wait)
+    #expect(turn.tick(at: at(10.6), holding: false) == .send("Fix the login test and keep the old error."))
 }
 
 @Test func `while the agent asks a question only Send sends the words, and they wait a whole pause after it closes`() {
@@ -96,10 +97,10 @@ private func at(_ seconds: Double) -> Date {
     _ = turn.hear(said("Use the staging database", final: true, from: 0, to: 2), at: at(2), holding: false)
     #expect(turn.tick(at: at(10), holding: true) == .wait)
     #expect(turn.tick(at: at(11), holding: false) == .wait)
-    #expect(turn.tick(at: at(13.9), holding: false) == .wait)
-    #expect(turn.tick(at: at(14.1), holding: false) == .send("Use the staging database"))
+    #expect(turn.tick(at: at(16.9), holding: false) == .wait)
+    #expect(turn.tick(at: at(17.1), holding: false) == .send("Use the staging database"))
 
-    _ = turn.hear(said("No, use the local one", final: true, from: 15, to: 16), at: at(16), holding: false)
+    _ = turn.hear(said("No, use the local one", final: true, from: 18, to: 19), at: at(19), holding: false)
     _ = turn.tick(at: at(30), holding: true)
     #expect(turn.askToSend(at: at(30.1), holding: true) == .send("No, use the local one"))
 }
@@ -125,9 +126,27 @@ private func at(_ seconds: Double) -> Date {
 @Test func `a question that opens while the last words settle stops their send, and Send then answers it`() {
     var turn = TalkTurn(at: at(0))
     _ = turn.hear(said("Use the staging database", final: false, from: 0, to: 1), at: at(1), holding: false)
-    #expect(turn.tick(at: at(4), holding: false) == .wait)
-    #expect(turn.tick(at: at(4.5), holding: true) == .wait)
-    #expect(turn.hear(said("Use the staging database.", final: true, from: 0, to: 1.2), at: at(4.8), holding: true) == .wait)
-    #expect(turn.tick(at: at(7), holding: true) == .wait)
-    #expect(turn.askToSend(at: at(7.1), holding: true) == .send("Use the staging database."))
+    #expect(turn.tick(at: at(7), holding: false) == .wait)
+    #expect(turn.tick(at: at(7.5), holding: true) == .wait)
+    #expect(turn.hear(said("Use the staging database.", final: true, from: 0, to: 1.2), at: at(7.8), holding: true) == .wait)
+    #expect(turn.tick(at: at(10), holding: true) == .wait)
+    #expect(turn.askToSend(at: at(10.1), holding: true) == .send("Use the staging database."))
+}
+
+@Test func `a microphone with several inputs gives the recognizer the first one`() throws {
+    let inputs = try #require(AVAudioChannelLayout(layoutTag: kAudioChannelLayoutTag_DiscreteInOrder | 4))
+    let microphone = AVAudioFormat(standardFormatWithSampleRate: 48000, channelLayout: inputs)
+    let recognizer = try #require(AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16000, channels: 1, interleaved: false))
+    let converter = try #require(TalkConverter(from: microphone, to: recognizer))
+    let voice = try #require(AVAudioPCMBuffer(pcmFormat: microphone, frameCapacity: 4800))
+    voice.frameLength = 4800
+    let channels = try #require(voice.floatChannelData)
+    for channel in 0 ..< 4 {
+        for frame in 0 ..< 4800 {
+            channels[channel][frame] = channel == 0 ? 0.5 * sin(Float(frame) * 2 * .pi * 440 / 48000) : 0
+        }
+    }
+    let heard = try #require(converter.convert(voice))
+    let samples = try #require(heard.int16ChannelData)
+    #expect((0 ..< Int(heard.frameLength)).contains { abs(Int(samples[0][$0])) > 1000 })
 }

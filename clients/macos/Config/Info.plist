@@ -43,7 +43,7 @@
     <key>NSLocationUsageDescription</key>
     <string>A program in a Kodosi terminal wants to know where this Mac is.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>A program in a Kodosi terminal wants to use the microphone.</string>
+    <string>Kodosi listens when you talk in a chat, and turns your words into a message on this Mac. Programs in its terminals can use the microphone too.</string>
     <key>NSMotionUsageDescription</key>
     <string>A program in a Kodosi terminal wants to use motion data.</string>
     <key>NSPhotoLibraryUsageDescription</key>

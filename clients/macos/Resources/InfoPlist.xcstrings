@@ -488,55 +488,55 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ein Programm in einem Kodosi-Terminal möchte das Mikrofon verwenden."
+            "value" : "Kodosi hört zu, wenn du in einem Chat sprichst, und macht aus deinen Worten auf diesem Mac eine Nachricht. Auch Programme in seinen Terminals können das Mikrofon verwenden."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ένα πρόγραμμα σε ένα τερματικό του Kodosi θέλει να χρησιμοποιήσει το μικρόφωνο."
+            "value" : "Το Kodosi ακούει όταν μιλάτε σε μια συνομιλία και μετατρέπει τα λόγια σας σε μήνυμα σε αυτό το Mac. Και τα προγράμματα στα τερματικά του μπορούν να χρησιμοποιούν το μικρόφωνο."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A program in a Kodosi terminal wants to use the microphone."
+            "value" : "Kodosi listens when you talk in a chat, and turns your words into a message on this Mac. Programs in its terminals can use the microphone too."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Un programa de un terminal de Kodosi quiere usar el micrófono."
+            "value" : "Kodosi escucha cuando hablas en un chat y convierte tus palabras en un mensaje en este Mac. Los programas de sus terminales también pueden usar el micrófono."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Un programme d'un terminal Kodosi veut utiliser le micro."
+            "value" : "Kodosi écoute quand vous parlez dans une discussion et transforme vos mots en message sur ce Mac. Les programmes de ses terminaux peuvent aussi utiliser le micro."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Un programma in un terminale di Kodosi vuole usare il microfono."
+            "value" : "Kodosi ascolta quando parli in una chat e trasforma le tue parole in un messaggio su questo Mac. Anche i programmi nei suoi terminali possono usare il microfono."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi のターミナルのプログラムがマイクを使おうとしています。"
+            "value" : "チャットで話すと、Kodosi が聞き取り、この Mac 上であなたの言葉をメッセージにします。Kodosi のターミナルのプログラムもマイクを使えます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi 터미널의 프로그램이 마이크를 사용하려고 해요."
+            "value" : "채팅에서 말하면 Kodosi가 듣고 이 Mac에서 말을 메시지로 바꿔요. Kodosi 터미널의 프로그램도 마이크를 사용할 수 있어요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi 终端中的程序想要使用麦克风。"
+            "value" : "当你在聊天中说话时，Kodosi 会聆听，并在这台 Mac 上把你的话变成消息。Kodosi 终端中的程序也可以使用麦克风。"
           }
         }
       }

@@ -5,8 +5,8 @@ import SwiftUI
 private let composerKeySize: CGFloat = 30
 
 /// What sits below the conversation: the agent's task list, the subagents working for it, queued
-/// messages, the agent's question, the composer, and the session facts. On iOS a person can also
-/// talk in place of the composer; `names` are the words that talking should spell right.
+/// messages, the agent's question, the composer, and the session facts. A person can also talk in
+/// place of the composer; `names` are the words that talking should spell right.
 struct ChatDock<ModelKey: View>: View {
     @Environment(\.theme) private var theme
     @Bindable var chat: TerminalChat
@@ -25,17 +25,11 @@ struct ChatDock<ModelKey: View>: View {
     /// The field's height while it is empty, so with one line: the keys line up with the middle of the
     /// last line.
     @State private var oneLine: CGFloat = 0
-    #if os(iOS)
-        @State private var talk = ChatTalk()
-        @State private var canTalk = ChatTalk.available ?? false
-    #endif
-
-    private var typed: Bool {
-        !chat.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
+    @State private var talk = ChatTalk()
+    @State private var canTalk = ChatTalk.available ?? false
 
     private var stops: Bool {
-        chat.working && !typed
+        chat.working && !chat.typed
     }
 
     private var suggestions: [ChatCommand] {
@@ -92,11 +86,7 @@ struct ChatDock<ModelKey: View>: View {
                     ChatCommandList(commands: suggestions, picked: min(picked, suggestions.count - 1), choose: choose)
                         .transition(AnyTransition.rise)
                 }
-                #if os(iOS)
-                    ChatTalkArea(talk: talk, chat: chat, type: typeInstead) { composer }
-                #else
-                    composer
-                #endif
+                ChatTalkArea(talk: talk, chat: chat, stop: stopTalking, edit: edit, send: send) { composer }
                 ChatFactsRow(facts: chat.facts, modelKey: modelKey, modelOpen: $modelOpen, usageOpen: $usageOpen)
                     .padding(.horizontal, 6)
             }
@@ -110,23 +100,23 @@ struct ChatDock<ModelKey: View>: View {
         .animation(theme.motion.fade, value: chat.state)
         .animation(theme.motion.fade, value: chat.failure)
         .animation(theme.motion.snappy, value: stops)
-        .animation(theme.motion.snappy, value: typed)
+        .animation(theme.motion.snappy, value: chat.typed)
         .animation(theme.motion.hover, value: focused.wrappedValue)
         .animation(theme.motion.snappy, value: suggestions.isEmpty)
         .onChange(of: chat.draft) { _, _ in picked = 0 }
+        .talking(talk, in: chat) {
+            sends += 1
+            sent()
+        }
+        .task { canTalk = await ChatTalk.findAvailable() }
         #if os(iOS)
             .sensoryFeedback(.impact(weight: .light), trigger: sends)
             // Dismiss the keyboard when a new prompt arrives so it stays visible.
             .onChange(of: ask?.id) { _, id in
-                if id != nil, !typed {
+                if id != nil, !chat.typed {
                     focused.wrappedValue = false
                 }
             }
-            .talking(talk, in: chat) {
-                sends += 1
-                sent()
-            }
-            .task { canTalk = await ChatTalk.findAvailable() }
         #endif
     }
 
@@ -162,19 +152,17 @@ struct ChatDock<ModelKey: View>: View {
                 .onKeyPress(.escape) { .handled }
                 .accessibilityIdentifier("chat.input")
             HStack(spacing: 6) {
-                #if os(iOS)
-                    if !typed, canTalk {
-                        TalkKey(enabled: chat.canWrite, action: startTalking)
-                            .transition(AnyTransition.pop)
-                    }
-                #endif
+                if canTalk {
+                    TalkKey(enabled: chat.canWrite, action: startTalking)
+                        .transition(AnyTransition.pop)
+                }
                 if stops {
                     StopKey { chat.stop() }
                         .tip(Text("Stop", bundle: .module))
                         .accessibilityIdentifier("chat.stop")
                         .transition(AnyTransition.pop)
-                } else if showsSend {
-                    SendKey(enabled: typed && chat.canWrite, action: send)
+                } else {
+                    SendKey(enabled: chat.typed && chat.canWrite, action: send)
                         .tip(Text("Send", bundle: .module))
                         .accessibilityLabel(Text("Send", bundle: .module))
                         .accessibilityIdentifier("chat.send")
@@ -186,28 +174,26 @@ struct ChatDock<ModelKey: View>: View {
         .composerField(focused: focused.wrappedValue)
     }
 
-    /// On iOS the microphone takes the place of Send until there is something to send, where this
-    /// device turns speech into text.
-    private var showsSend: Bool {
-        #if os(iOS)
-            typed || !canTalk
-        #else
-            true
+    /// Talking continues the words that the person typed, which go out with the first message.
+    private func startTalking() {
+        focused.wrappedValue = false
+        talk.begin(in: chat, names: [agent.label] + names)
+    }
+
+    /// Ends talking; the words that did not go out wait in the composer. On the Mac, typing goes on
+    /// from them at once, as there is no keyboard to open.
+    private func stopTalking() {
+        talk.end()
+        #if os(macOS)
+            Task { focused.wrappedValue = true }
         #endif
     }
 
-    #if os(iOS)
-        private func startTalking() {
-            focused.wrappedValue = false
-            talk.begin(in: chat, names: [agent.label] + names)
-        }
-
-        /// Ends talking and opens the keyboard on the words that did not go out.
-        private func typeInstead() {
-            talk.end()
-            Task { focused.wrappedValue = true }
-        }
-    #endif
+    /// Ends talking and opens the words that did not go out for typing.
+    private func edit() {
+        talk.end()
+        Task { focused.wrappedValue = true }
+    }
 
     private func breakLine() {
         var draft = chat.draft
@@ -224,7 +210,7 @@ struct ChatDock<ModelKey: View>: View {
     }
 
     private func send() {
-        guard typed, chat.canWrite else { return }
+        guard chat.typed, chat.canWrite else { return }
         if let control = chat.control(of: chat.draft) {
             chat.draft = ""
             open(control)

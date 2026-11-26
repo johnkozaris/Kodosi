@@ -91,7 +91,12 @@ fun TerminalChatView(model: AppModel, session: RuntimeSession, modifier: Modifie
             }
         }
     }
-    val talk = rememberChatTalk(chat, session, view, submit) { words ->
+    // Talking goes on from the words that the person typed, which go out with its first message.
+    val talkSubmit: (String) -> Boolean = { message ->
+        val typed = draft.text.toString().trim()
+        submit(joinedWords(typed, message)).also { submitted -> if (submitted && typed.isNotEmpty()) draft.clearText() }
+    }
+    val talk = rememberChatTalk(chat, session, view, talkSubmit) { words ->
         draft.setTextAndPlaceCursorAtEnd(joinedWords(draft.text.toString().trimEnd(), words))
         // Talk mode also ends as the chat view leaves, when the draft no longer follows its field.
         chat.draft = draft.text.toString()

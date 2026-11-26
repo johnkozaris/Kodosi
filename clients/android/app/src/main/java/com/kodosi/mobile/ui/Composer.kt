@@ -82,35 +82,30 @@ fun MessageComposer(
         val fading = fade<Float>()
         val popping = snappy<Float>()
         val blank = draft.text.isBlank()
-        val talks = talk != null && blank
         Row {
             AnimatedVisibility(
-                talks,
+                talk != null,
                 enter = fadeIn(fading) + scaleIn(popping, initialScale = 0.9f) + expandHorizontally(fade()),
                 exit = fadeOut(fading) + scaleOut(popping, targetScale = 0.9f) + shrinkHorizontally(fade()),
                 label = "talk key"
             ) { KodosiQuietKey(AppSymbol.MIC, stringResource(R.string.talk), { talk?.invoke() }, enabled) }
             AnimatedContent(
-                when {
-                    stop != null && blank -> TrailingKey.STOP
-                    talks -> TrailingKey.NONE
-                    else -> TrailingKey.SEND
-                },
+                if (stop != null && blank) TrailingKey.STOP else TrailingKey.SEND,
                 transitionSpec = {
                     (fadeIn(fading) + scaleIn(popping, initialScale = 0.9f)) togetherWith
                         (fadeOut(fading) + scaleOut(popping, targetScale = 0.9f))
                 },
                 label = "composer key"
             ) { key ->
-                when {
-                    key == TrailingKey.NONE -> Unit
-                    key == TrailingKey.STOP && stop != null -> KodosiStopKey(stop)
-                    else -> KodosiSendKey(enabled && !busy && draft.text.isNotBlank(), busy, send)
+                if (key == TrailingKey.STOP && stop != null) {
+                    KodosiStopKey(stop)
+                } else {
+                    KodosiSendKey(enabled && !busy && draft.text.isNotBlank(), busy, send)
                 }
             }
         }
     }
 }
 
-/** The key after the talk key: the stop key while the agent works, the send key, or none. */
-private enum class TrailingKey { SEND, STOP, NONE }
+/** The key after the talk key: the stop key while the agent works and nothing is typed, else Send. */
+private enum class TrailingKey { SEND, STOP }

@@ -597,6 +597,7 @@
     </plurals>
     <string name="talk">말하기</string>
     <string name="talk_type_instead">키보드로 입력</string>
+    <string name="talk_stop">말하기 중지</string>
     <string name="talk_listening">듣는 중</string>
     <string name="talk_getting_ready">준비 중</string>
     <string name="talk_tap_send">보내기를 탭하여 답하기</string>

@@ -597,6 +597,7 @@
     </plurals>
     <string name="talk">说话</string>
     <string name="talk_type_instead">用键盘输入</string>
+    <string name="talk_stop">停止说话</string>
     <string name="talk_listening">聆听中</string>
     <string name="talk_getting_ready">正在准备</string>
     <string name="talk_tap_send">轻点“发送”来回答</string>

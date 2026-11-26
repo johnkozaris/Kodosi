@@ -168,7 +168,8 @@ struct SessionTileView: View {
                     .environment(\.terminalTileVisible, tileVisible && !chatting)
                 if chatting {
                     TerminalChatView(chat: deps.canvas.chat(session.id), agent: session.agent, me: deps.account.userId,
-                                     otherComputer: session.otherComputer)
+                                     otherComputer: session.otherComputer,
+                                     names: [session.name, session.projectName, session.folderName].compactMap(\.self))
                     {
                         deps.workbench.faces[session.id] = FacePick(.terminal, over: session.face)
                     } modelKey: { name, effort, open in

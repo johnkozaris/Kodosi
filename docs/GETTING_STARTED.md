@@ -155,9 +155,10 @@ activity, and any pending questions with clickable buttons. You can reply or sto
 from chat; if you type custom text while it's asking a question, it tells the agent what to do
 instead. Everything you do in chat happens in the underlying terminal as well.
 
-On iPhone, iPad and Android, tap the mic next to the message field to talk instead of typing. Your
-words appear as your message while you speak and send after a long pause, so you can stop to think;
-tap **Send** to send them sooner. Speech turns into text on your device, and no audio leaves it.
+On Mac, iPhone, iPad and Android, click or tap the mic next to the message field to talk instead of
+typing. Your words appear as your message while you speak and send after a long pause, so you can
+stop to think; click or tap **Send** to send them sooner. Speech turns into text on your device, and
+no audio leaves it.
 
 ## 4. See what an agent shows on the canvas
 

@@ -163,6 +163,15 @@ internal fun ChatDock(
         talk.end()
     }
     val startTalk = rememberTalkStart(talk)
+    val sendDraft = {
+        val control = view.control(draft.text.toString())
+        if (control != null && view.canWrite) {
+            draft.clearText()
+            open(control)
+        } else {
+            send()
+        }
+    }
     val ask = view.asks.firstOrNull()
     val fading = fade<Float>()
     val rising = snappy<IntOffset>()
@@ -234,7 +243,7 @@ internal fun ChatDock(
                     )
                 }
                 TalkNoteLine(talk)
-                TalkBubble(talk, type)
+                TalkBubble(talk, draft.text.toString(), type)
                 AnimatedContent(
                     talk.on,
                     transitionSpec = {
@@ -243,20 +252,19 @@ internal fun ChatDock(
                     label = "talk bar"
                 ) { talking ->
                     if (talking) {
-                        TalkBar(talk, view.working, view.question != null, view.canWrite, type, chat::stop)
+                        TalkBar(
+                            talk,
+                            asking = view.question != null,
+                            canWrite = view.canWrite,
+                            typed = draft.text.isNotBlank(),
+                            stop = talk::end,
+                            sendTyped = sendDraft
+                        )
                     } else {
                         MessageComposer(
                             draft,
                             busy = false,
-                            send = {
-                                val control = view.control(draft.text.toString())
-                                if (control != null && view.canWrite) {
-                                    draft.clearText()
-                                    open(control)
-                                } else {
-                                    send()
-                                }
-                            },
+                            send = sendDraft,
                             enabled = view.canWrite,
                             focusRequester = composer,
                             placeholder = if (view.question != null) {

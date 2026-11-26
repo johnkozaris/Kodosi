@@ -622,6 +622,7 @@
     </plurals>
     <string name="talk">Ομιλία</string>
     <string name="talk_type_instead">Πληκτρολόγηση</string>
+    <string name="talk_stop">Τέλος ομιλίας</string>
     <string name="talk_listening">Ακούει</string>
     <string name="talk_getting_ready">Προετοιμασία</string>
     <string name="talk_tap_send">Πατήστε Αποστολή για απάντηση</string>

@@ -647,6 +647,7 @@
     </plurals>
     <string name="talk">Parla</string>
     <string name="talk_type_instead">Scrivi</string>
+    <string name="talk_stop">Smetti di parlare</string>
     <string name="talk_listening">In ascolto</string>
     <string name="talk_getting_ready">Preparazione</string>
     <string name="talk_tap_send">Tocca Invia per rispondere</string>
