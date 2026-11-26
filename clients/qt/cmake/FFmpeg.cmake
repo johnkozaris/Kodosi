@@ -46,9 +46,13 @@ foreach(library avcodec avutil)
     if(WIN32)
         set(dll "${library}-${ffmpeg_${library}_major}.dll")
         set(import_library "${ffmpeg_root}/${library}.lib")
+        # llvm-lib takes the DLL's name only from the definitions' LIBRARY statement; without one,
+        # every import names an empty DLL and the program cannot start.
+        set(definitions "${ffmpeg_root}/${library}.def")
+        file(READ "${PROJECT_SOURCE_DIR}/cmake/ffmpeg/${library}.def" exports)
+        file(WRITE "${definitions}" "LIBRARY ${dll}\n${exports}")
         execute_process(
-            COMMAND "${CMAKE_AR}" "/def:${PROJECT_SOURCE_DIR}/cmake/ffmpeg/${library}.def" "/name:${dll}"
-                "/machine:${KODOSI_WINDOWS_ARCH}" "/out:${import_library}"
+            COMMAND "${CMAKE_AR}" "/def:${definitions}" "/machine:${KODOSI_WINDOWS_ARCH}" "/out:${import_library}"
             COMMAND_ERROR_IS_FATAL ANY
             OUTPUT_QUIET
         )
