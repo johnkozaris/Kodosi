@@ -84,11 +84,11 @@ public final class ScreenFeed {
     }
 
     public var showing: VideoShowing {
-        if !shared {
-            return .away(.sharingOff)
-        }
         if offline {
             return .away(.offline)
+        }
+        if !shared {
+            return .away(.sharingOff)
         }
         switch away {
         case .locked: return .away(.locked)

@@ -106,12 +106,14 @@ import Testing
     try runtime.store.observe([FeedRuntime.terminal(remote: true, offline: true, shared: true)])
     #expect(runtime.screen.showing == .away(.offline))
     try runtime.store.observe([FeedRuntime.terminal(remote: true, offline: true, shared: false)])
-    #expect(runtime.screen.showing == .away(.sharingOff))
+    #expect(runtime.screen.showing == .away(.offline))
 
     try runtime.store.observe([FeedRuntime.terminal(remote: true, offline: true, shared: true)])
     #expect(runtime.screen.showing == .away(.offline))
     try runtime.store.observe([FeedRuntime.terminal(remote: true, shared: true)])
     #expect(runtime.screen.showing == .away(.locked))
+    try runtime.store.observe([FeedRuntime.terminal(remote: true, shared: false)])
+    #expect(runtime.screen.showing == .away(.sharingOff))
 }
 
 @MainActor

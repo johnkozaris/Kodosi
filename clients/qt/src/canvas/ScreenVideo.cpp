@@ -206,10 +206,10 @@ bool ScreenVideo::takesInput() const
 
 QString ScreenVideo::away() const
 {
-    if (!m_shared)
-        return QStringLiteral("sharingOff");
     if (const auto offline = StreamVideo::away(); !offline.isEmpty())
         return offline;
+    if (!m_shared)
+        return QStringLiteral("sharingOff");
     if (!m_away.isEmpty())
         return m_away;
     if (m_access.contains(QStringLiteral("screen")) && !m_access.value(QStringLiteral("screen")).toBool())

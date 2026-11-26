@@ -74,8 +74,8 @@ class ScreenFeedTest {
             kept: Boolean = false
         ) = screenShows(shared, offline, away, recording, failed, live, kept)
 
-        assertEquals(ScreenShows.SHARING_OFF, shows(shared = false, offline = true, away = ScreenFeed.Away.LOCKED))
-        assertEquals(ScreenShows.OFFLINE, shows(offline = true, away = ScreenFeed.Away.LOCKED, failed = true))
+        assertEquals(ScreenShows.OFFLINE, shows(shared = false, offline = true, away = ScreenFeed.Away.LOCKED))
+        assertEquals(ScreenShows.SHARING_OFF, shows(shared = false, away = ScreenFeed.Away.LOCKED, failed = true))
         assertEquals(ScreenShows.LOCKED, shows(away = ScreenFeed.Away.LOCKED, recording = false, failed = true))
         assertEquals(ScreenShows.ANOTHER_ACCOUNT, shows(away = ScreenFeed.Away.ANOTHER_ACCOUNT, recording = false))
         assertEquals(ScreenShows.ASLEEP, shows(away = ScreenFeed.Away.ASLEEP, recording = false, live = true))

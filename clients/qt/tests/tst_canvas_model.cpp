@@ -323,10 +323,11 @@ private slots:
         video.setOffline(true);
         QCOMPARE(video.showing(), QStringLiteral("offline"));
         video.setShared(false);
+        QCOMPARE(video.showing(), QStringLiteral("offline"));
+        video.setOffline(false);
         QCOMPARE(video.showing(), QStringLiteral("sharingOff"));
 
         video.setShared(true);
-        video.setOffline(false);
         const auto again = commands.routes.last();
         commands.deliver(again, opened(again));
         commands.deliver(again, screenSays(again, 0, { { QStringLiteral("access"), unrecorded } }));

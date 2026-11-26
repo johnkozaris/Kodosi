@@ -39,8 +39,8 @@ import kotlinx.coroutines.delay
 // What the screen view shows, from the first that applies. Away states end by themselves, so they
 // offer nothing to do; only a failure that nothing mends by itself offers to try again.
 internal enum class ScreenShows {
-    SHARING_OFF,
     OFFLINE,
+    SHARING_OFF,
     LOCKED,
     ANOTHER_ACCOUNT,
     ASLEEP,
@@ -60,8 +60,8 @@ internal fun screenShows(
     live: Boolean,
     kept: Boolean
 ): ScreenShows = when {
-    !shared -> ScreenShows.SHARING_OFF
     offline -> ScreenShows.OFFLINE
+    !shared -> ScreenShows.SHARING_OFF
     away == ScreenFeed.Away.LOCKED -> ScreenShows.LOCKED
     away == ScreenFeed.Away.ANOTHER_ACCOUNT -> ScreenShows.ANOTHER_ACCOUNT
     away == ScreenFeed.Away.ASLEEP -> ScreenShows.ASLEEP
