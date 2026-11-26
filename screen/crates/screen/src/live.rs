@@ -9,7 +9,7 @@ use std::{
 use bytes::Bytes;
 use stream::{
     Ask, Codec, Decoder, Encoded, Flow, Format, Region, Size, Viewing,
-    viewer::{Frame, Viewer},
+    viewer::{Frame, Input, KeyAction, MouseAction, MouseButton, Viewer},
 };
 use tokio::{
     io::AsyncWriteExt as _,
@@ -100,6 +100,81 @@ struct Seat {
     look: Option<Region>,
     has_sources: bool,
     shapes: HashSet<u64>,
+    pressed: Pressed,
+}
+
+/// The button and keys that a viewer holds down on the computer, which the computer would go on
+/// holding if the viewer went away before letting go.
+#[derive(Default)]
+struct Pressed {
+    button: MouseButton,
+    clicks: u8,
+    at: (f64, f64),
+    /// `key`, `code` and `key_code` of each key down, in the order pressed.
+    keys: Vec<(String, String, u32)>,
+}
+
+impl Pressed {
+    fn note(&mut self, input: &Input) {
+        match input {
+            Input::Mouse {
+                action,
+                x,
+                y,
+                button,
+                clicks,
+                ..
+            } => {
+                self.at = (*x, *y);
+                match action {
+                    MouseAction::Press => (self.button, self.clicks) = (*button, *clicks),
+                    MouseAction::Release => self.button = MouseButton::None,
+                    MouseAction::Move | MouseAction::Wheel => {}
+                }
+            }
+            Input::Key {
+                action,
+                key,
+                code,
+                key_code,
+                ..
+            } => {
+                self.keys.retain(|(_, held, _)| held != code);
+                if *action == KeyAction::Down {
+                    self.keys.push((key.clone(), code.clone(), *key_code));
+                }
+            }
+            Input::Text { .. } => {}
+        }
+    }
+
+    /// The input that lets go of the button, then of the keys, the last pressed first.
+    fn released(self) -> impl Iterator<Item = Input> {
+        let (x, y) = self.at;
+        let button = (self.button != MouseButton::None).then_some(Input::Mouse {
+            action: MouseAction::Release,
+            x,
+            y,
+            button: self.button,
+            clicks: self.clicks,
+            delta_x: 0.0,
+            delta_y: 0.0,
+            modifiers: 0,
+        });
+        let keys = self
+            .keys
+            .into_iter()
+            .rev()
+            .map(|(key, code, key_code)| Input::Key {
+                action: KeyAction::Up,
+                key,
+                code,
+                text: None,
+                key_code,
+                modifiers: 0,
+            });
+        button.into_iter().chain(keys)
+    }
 }
 
 impl Seat {
@@ -209,6 +284,9 @@ impl Live {
                 break;
             }
         }
+        for seat in std::mem::take(&mut self.seats).into_values() {
+            self.let_go(seat.pressed);
+        }
         self.say(&ToHelper::Quit);
     }
 
@@ -221,7 +299,7 @@ impl Live {
                 outgoing,
                 mailbox,
             } => {
-                self.seats.insert(
+                let replaced = self.seats.insert(
                     viewer.id.clone(),
                     Seat {
                         viewer,
@@ -235,8 +313,12 @@ impl Live {
                         look: None,
                         has_sources: false,
                         shapes: HashSet::new(),
+                        pressed: Pressed::default(),
                     },
                 );
+                if let Some(replaced) = replaced {
+                    self.let_go(replaced.pressed);
+                }
             }
             Event::Message { viewer, message } => self.message(&viewer, message),
             Event::Leave { viewer, seat } => {
@@ -244,8 +326,9 @@ impl Live {
                     .seats
                     .get(&viewer)
                     .is_some_and(|left| left.number == seat)
+                    && let Some(left) = self.seats.remove(&viewer)
                 {
-                    self.seats.remove(&viewer);
+                    self.let_go(left.pressed);
                     self.flow.leave(&viewer);
                     self.changed_watchers();
                 }
@@ -303,7 +386,24 @@ impl Live {
                 }
             }
             ToScreen::Input { input } => {
-                self.take_control(viewer);
+                // Hovering, letting go and lifting a key follow what the viewer did before, so
+                // only acting takes the capture over, as in the shared browser.
+                let acts = !matches!(
+                    input,
+                    Input::Mouse {
+                        action: MouseAction::Move | MouseAction::Release,
+                        ..
+                    } | Input::Key {
+                        action: KeyAction::Up,
+                        ..
+                    }
+                );
+                if acts {
+                    self.take_control(viewer);
+                }
+                if let Some(seat) = self.seats.get_mut(viewer) {
+                    seat.pressed.note(&input);
+                }
                 self.say(&ToHelper::Input { input });
             }
             ToScreen::Show { source } => {
@@ -335,6 +435,12 @@ impl Live {
         }
         self.update_capture();
         self.dirty = true;
+    }
+
+    fn let_go(&self, pressed: Pressed) {
+        for input in pressed.released() {
+            self.say(&ToHelper::Input { input });
+        }
     }
 
     fn take_control(&mut self, viewer: &str) {
@@ -660,7 +766,7 @@ fn even(pixels: f64) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use stream::viewer::{Input, MouseAction, MouseButton};
+    use stream::viewer::{Input, KeyAction, MouseAction, MouseButton};
     use tokio::net::UnixStream;
 
     use super::*;
@@ -747,6 +853,16 @@ mod tests {
             .await;
         }
 
+        async fn leave(&self, viewer: &str) {
+            self.events
+                .send(Event::Leave {
+                    viewer: viewer.to_owned(),
+                    seat: 1,
+                })
+                .await
+                .unwrap();
+        }
+
         async fn say(&self, viewer: &str, message: ToScreen) {
             self.events
                 .send(Event::Message {
@@ -822,6 +938,106 @@ mod tests {
             })
             .await;
         assert_eq!(input, click);
+    }
+
+    #[tokio::test]
+    async fn a_view_that_only_hovers_leaves_the_capture_to_the_view_that_acts() {
+        let mut computer = Computer::start().await;
+        computer
+            .watch("phone", view(390, 844, 3.0), vec![HEVC], true)
+            .await;
+        computer.capture().await;
+        computer
+            .watch("laptop", view(1440, 900, 2.0), Vec::new(), false)
+            .await;
+        computer.capture().await;
+
+        let hover = Input::Mouse {
+            action: MouseAction::Move,
+            x: 10.0,
+            y: 20.0,
+            button: MouseButton::None,
+            clicks: 0,
+            delta_x: 0.0,
+            delta_y: 0.0,
+            modifiers: 0,
+        };
+        computer
+            .say("laptop", ToScreen::Input { input: hover })
+            .await;
+        computer
+            .say(
+                "phone",
+                ToScreen::Size {
+                    size: view(844, 390, 3.0),
+                },
+            )
+            .await;
+        assert_ne!(computer.capture().await, (2772, 1800, Codec::H264));
+    }
+
+    #[tokio::test]
+    async fn a_viewer_that_goes_while_holding_a_button_and_a_key_lets_go_of_both() {
+        let mut computer = Computer::start().await;
+        computer
+            .watch("laptop", view(1440, 900, 2.0), Vec::new(), true)
+            .await;
+        let command = Input::Key {
+            action: KeyAction::Down,
+            key: "Meta".to_owned(),
+            code: "MetaLeft".to_owned(),
+            text: None,
+            key_code: 91,
+            modifiers: 4,
+        };
+        let press = Input::Mouse {
+            action: MouseAction::Press,
+            x: 10.0,
+            y: 20.0,
+            button: MouseButton::Left,
+            clicks: 1,
+            delta_x: 0.0,
+            delta_y: 0.0,
+            modifiers: 4,
+        };
+        for input in [command, press] {
+            computer.say("laptop", ToScreen::Input { input }).await;
+        }
+        computer.leave("laptop").await;
+        let mut played = Vec::new();
+        while played.len() < 4 {
+            played.push(
+                computer
+                    .next(|said| match said {
+                        ToHelper::Input { input } => Some(input),
+                        _ => None,
+                    })
+                    .await,
+            );
+        }
+        assert_eq!(
+            played[2..],
+            [
+                Input::Mouse {
+                    action: MouseAction::Release,
+                    x: 10.0,
+                    y: 20.0,
+                    button: MouseButton::Left,
+                    clicks: 1,
+                    delta_x: 0.0,
+                    delta_y: 0.0,
+                    modifiers: 0,
+                },
+                Input::Key {
+                    action: KeyAction::Up,
+                    key: "Meta".to_owned(),
+                    code: "MetaLeft".to_owned(),
+                    text: None,
+                    key_code: 91,
+                    modifiers: 0,
+                },
+            ]
+        );
     }
 
     #[tokio::test]
