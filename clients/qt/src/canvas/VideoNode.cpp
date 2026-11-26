@@ -1,7 +1,6 @@
 #include "canvas/VideoNode.hpp"
 #include "canvas/VideoDecoder.hpp"
 
-#include <QLoggingCategory>
 #include <QSGMaterial>
 #include <QSGMaterialShader>
 #include <QSGTexture>
@@ -15,8 +14,6 @@ extern "C" {
 #include <cstring>
 #include <functional>
 #include <utility>
-
-Q_LOGGING_CATEGORY(kodosiVideo, "kodosi.video")
 
 namespace kodosi {
 namespace {
@@ -151,21 +148,21 @@ public:
         if (frame == m_shown)
             return;
         m_shown = frame;
-        if (take(rhi, updates))
-            return;
-        if (frame->onGpu()) {
-            qCWarning(kodosiVideo) << "Qt Quick cannot show the pictures of this GPU, so video decodes in software";
-            if (const auto& gpu = videoGpu().get())
-                gpu->failed = true;
+        if (!take(rhi, updates) && frame->onGpu()) {
+            if (const auto gpu = videoGpu(); gpu && !gpu->failed.exchange(true))
+                qCWarning(kodosiVideo) << "Qt Quick cannot show the pictures of this GPU, so video decodes in software";
         }
-        if (luma.rhiTexture() != nullptr)
-            return;
-        auto blank = std::make_unique<MemoryPlanes>();
-        if (!blank->black(rhi, updates))
-            return;
-        m_planes = std::move(blank);
-        m_planesOnGpu = false;
-        hold();
+        // Planes that could not take a picture may have let their textures go.
+        if (!m_planes || m_planes->luma() == nullptr) {
+            auto blank = std::make_unique<MemoryPlanes>();
+            if (blank->black(rhi, updates)) {
+                m_planes = std::move(blank);
+                m_planesOnGpu = false;
+            }
+        }
+        // Qt Quick samples these next, so they must not point at a texture deleted above.
+        luma.hold(m_planes ? m_planes->luma() : nullptr);
+        chroma.hold(m_planes ? m_planes->chroma() : nullptr);
     }
 
     std::shared_ptr<const VideoFrame> frame;
@@ -173,23 +170,19 @@ public:
     PlaneTexture chroma;
 
 private:
+    // Planes of the other kind replace the ones on screen only once they hold the picture, so the last
+    // picture stays when they cannot.
     bool take(QRhi& rhi, QRhiResourceUpdateBatch& updates)
     {
         const bool onGpu = frame->onGpu();
-        if (!m_planes || m_planesOnGpu != onGpu) {
-            m_planes = onGpu ? gpuPlanes(rhi) : std::make_unique<MemoryPlanes>();
-            m_planesOnGpu = onGpu;
-        }
-        if (!m_planes || !m_planes->take(rhi, updates, frame))
+        if (m_planes && m_planesOnGpu == onGpu)
+            return m_planes->take(rhi, updates, frame);
+        auto planes = onGpu ? gpuPlanes(rhi) : std::make_unique<MemoryPlanes>();
+        if (!planes || !planes->take(rhi, updates, frame))
             return false;
-        hold();
+        m_planes = std::move(planes);
+        m_planesOnGpu = onGpu;
         return true;
-    }
-
-    void hold()
-    {
-        luma.hold(m_planes->luma());
-        chroma.hold(m_planes->chroma());
     }
 
     std::shared_ptr<const VideoFrame> m_shown;

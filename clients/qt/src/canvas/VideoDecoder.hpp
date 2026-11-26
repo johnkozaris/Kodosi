@@ -1,12 +1,13 @@
 #pragma once
 
 #include <QByteArrayView>
+#include <QLoggingCategory>
 #include <QSize>
 #include <QtGlobal>
 
 #include <atomic>
+#include <chrono>
 #include <expected>
-#include <future>
 #include <memory>
 
 extern "C" {
@@ -15,6 +16,8 @@ struct AVCodecContext;
 struct AVFrame;
 struct AVPacket;
 }
+
+Q_DECLARE_LOGGING_CATEGORY(kodosiVideo)
 
 namespace kodosi {
 
@@ -52,12 +55,14 @@ struct VideoGpu {
     AVBufferRef* device = nullptr;
     bool h264 = false;
     bool hevc = false;
-    // Set once Qt Quick could not show one of its pictures, so every stream decodes in software.
+    // Set once it could not decode a keyframe or Qt Quick could not show one of its pictures, so every stream
+    // decodes in software.
     std::atomic<bool> failed { false };
 };
 
-// Looks for the GPU once, off the GUI thread, since opening a driver takes tens of milliseconds.
-const std::shared_future<std::shared_ptr<VideoGpu>>& videoGpu();
+// The GPU, waiting up to `wait` for the search for it, or nothing while the search goes on. The first call
+// starts the search on another thread, since opening a driver takes tens of milliseconds.
+std::shared_ptr<VideoGpu> videoGpu(std::chrono::milliseconds wait = {});
 
 // Decodes one stream's access units, on `gpu` when it decodes the codec and in software otherwise.
 class VideoDecoder {

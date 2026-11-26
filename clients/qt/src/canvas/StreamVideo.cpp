@@ -170,6 +170,12 @@ private:
                                           : std::expected<std::shared_ptr<VideoFrame>, int>(std::unexpect, 0);
         ack(commands, id);
         if (!decoded) {
+            // A keyframe needs no earlier frame, so a GPU that cannot decode one cannot decode the stream.
+            if (key && decoder != nullptr && decoder->onGpu()) {
+                if (const auto gpu = videoGpu(); gpu && !gpu->failed.exchange(true))
+                    qCWarning(kodosiVideo) << "This GPU cannot decode the stream, so video decodes in software";
+            }
+            m_decoder.reset();
             restart(commands);
             return;
         }
@@ -178,14 +184,13 @@ private:
             show({ std::move(*decoded), region });
     }
 
-    // A keyframe starts a decoder for its codec, on the GPU unless Qt Quick could not show the GPU's
-    // pictures.
+    // A keyframe starts a decoder for its codec, on the GPU once the search found one that has not failed.
     VideoDecoder* decoderFor(quint8 wire, bool key)
     {
         if (wire > static_cast<quint8>(VideoCodec::Hevc))
             return nullptr;
         const auto codec = static_cast<VideoCodec>(wire);
-        const auto& gpu = videoGpu().get();
+        const auto gpu = videoGpu();
         const bool current
             = m_decoder && m_decoder->codec() == codec && (!m_decoder->onGpu() || (gpu && gpu->decodes(codec)));
         if (!current && key)
@@ -404,8 +409,7 @@ void StreamVideo::watch()
 {
     m_sentSize = sizeMessage();
     m_watching = true;
-    const auto& found = videoGpu();
-    const auto gpu = found.wait_for(gpuWait) == std::future_status::ready ? found.get() : nullptr;
+    const auto gpu = videoGpu(gpuWait);
     const auto decoder = [&gpu](const QString& codec, VideoCodec decoded) {
         return QJsonObject { { QStringLiteral("codec"), codec },
             { QStringLiteral("hardware"), gpu && gpu->decodes(decoded) } };

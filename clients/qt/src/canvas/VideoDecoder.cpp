@@ -8,6 +8,9 @@ extern "C" {
 
 #include <climits>
 #include <cstring>
+#include <future>
+
+Q_LOGGING_CATEGORY(kodosiVideo, "kodosi.video")
 
 namespace kodosi {
 namespace {
@@ -50,10 +53,13 @@ VideoGpu::~VideoGpu()
     av_buffer_unref(&device);
 }
 
-const std::shared_future<std::shared_ptr<VideoGpu>>& videoGpu()
+std::shared_ptr<VideoGpu> videoGpu(std::chrono::milliseconds wait)
 {
-    static const auto found = std::async(std::launch::async, findVideoGpu).share();
-    return found;
+    // Never destroyed: at exit it would wait for a search stuck in a driver, or close a driver whose own
+    // statics are gone.
+    static const auto* const search
+        = new std::shared_future<std::shared_ptr<VideoGpu>>(std::async(std::launch::async, findVideoGpu).share());
+    return search->wait_for(wait) == std::future_status::ready ? search->get() : nullptr;
 }
 
 std::unique_ptr<VideoDecoder> VideoDecoder::open(VideoCodec codec, const std::shared_ptr<VideoGpu>& gpu)
