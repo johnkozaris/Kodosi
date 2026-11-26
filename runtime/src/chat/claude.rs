@@ -29,6 +29,12 @@ const MOST_ROWS: usize = 4096;
 /// text.
 const NO_CONTENT: &str = "(no content)";
 const MOST_SAID: usize = 400;
+/// A stop in Claude Code's terminal drops the prompts of plugins that wait in its queue, and it
+/// takes none until a person writes to it there.
+const STOPPED: [&str; 2] = [
+    "the prompt was removed from the queue before it ran",
+    "the session was stopped and nobody has sent input since",
+];
 
 #[derive(Default)]
 pub(super) struct Claude {
@@ -51,8 +57,8 @@ pub(super) struct Claude {
     /// whose rows Claude Code has not written yet.
     changes: VecDeque<String>,
     sent: u64,
-    /// Set when Claude Code drops a chat prompt (e.g., after a terminal interrupt); pauses queue
-    /// delivery until the user interacts again.
+    /// Set when Claude Code drops a chat prompt, as after a stop in its terminal; pauses queue
+    /// delivery until a turn starts or a person writes again.
     held: bool,
     linked: bool,
     session: String,
@@ -291,6 +297,7 @@ impl Claude {
             let name = words(command, "name")?;
             Some(ChatCommand {
                 opens: opens(&name),
+                terminal: shows_view(&name),
                 description: start_of(text(command, "description"), MOST_TARGET).to_owned(),
                 name,
             })
@@ -470,7 +477,7 @@ impl Claude {
     }
 
     /// A command that Claude Code shows in a view of its terminal ends when a person closes the
-    /// view there, so the message waits with that word.
+    /// view there, and its message stays in the queue until then.
     fn waits(&mut self, chat: &mut Chat, event: &Value) {
         let n = event.get("n").and_then(Value::as_u64);
         if self.turn.is_some() || self.compacting {
@@ -478,6 +485,7 @@ impl Claude {
         }
         if let Some(handed) = self.handed.iter().find(|handed| Some(handed.n) == n) {
             chat.in_terminal(&handed.queued);
+            chat.give(&handed.queued);
             if event.get("picker").and_then(Value::as_bool) == Some(true) {
                 self.picker = n;
             }
@@ -962,11 +970,11 @@ impl Claude {
 
     /// Handles completion of an injected prompt or slash command.
     ///
-    /// Dropped prompts stay queued with the refusal reason and set `held` (Claude Code rejects
-    /// injected input after a terminal stop until the user types there). Successful non-command
-    /// prompts remain in `handed` until their transcript row arrives, whereas slash commands such
-    /// as `/clear` may not emit a row in the current session, so they are shown as the person's
-    /// message and unqueued here.
+    /// Dropped prompts stay queued and set `held`. A prompt that a stop dropped waits as before;
+    /// any other drop is a refusal, shown with its reason. Successful non-command prompts remain
+    /// in `handed` until their transcript row arrives, whereas slash commands such as `/clear` may
+    /// not emit a row in the current session, so they are shown as the person's message and
+    /// unqueued here.
     fn did(&mut self, chat: &mut Chat, event: &Value, at: u64) {
         let (error, drop) = (text(event, "error"), text(event, "drop"));
         let n = event.get("n").and_then(Value::as_u64);
@@ -983,7 +991,9 @@ impl Claude {
             self.picker = None;
         }
         if !drop.is_empty() {
-            chat.refuse(&handed.queued, start_of(drop, MOST_TARGET).to_owned());
+            let refusal =
+                (!STOPPED.contains(&drop)).then(|| start_of(drop, MOST_TARGET).to_owned());
+            chat.refuse(&handed.queued, refusal);
             self.held = true;
             return;
         }
@@ -1356,6 +1366,34 @@ fn opens(name: &str) -> Option<ChatControl> {
         "usage" | "context" => Some(ChatControl::Usage),
         _ => None,
     }
+}
+
+/// The commands that, given without words, open a view of Claude Code's terminal for a person to
+/// use there. Claude Code does not tell its plugins which commands do.
+fn shows_view(name: &str) -> bool {
+    matches!(
+        name,
+        "add-dir"
+            | "config"
+            | "doctor"
+            | "export"
+            | "help"
+            | "hooks"
+            | "ide"
+            | "login"
+            | "logout"
+            | "mcp"
+            | "memory"
+            | "permissions"
+            | "plugin"
+            | "privacy-settings"
+            | "resume"
+            | "rewind"
+            | "skills"
+            | "status"
+            | "tasks"
+            | "theme"
+    )
 }
 
 /// The text between two marks that Claude Code puts around a part of a row.

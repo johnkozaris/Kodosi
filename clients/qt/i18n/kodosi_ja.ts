@@ -881,24 +881,16 @@
         <translation>削除</translation>
     </message>
     <message>
+        <source>Command needs terminal view</source>
+        <translation>ターミナル表示が必要なコマンド</translation>
+    </message>
+    <message>
         <source>%1 reads this before its next step.</source>
         <translation>%1 は次のステップの前にこれを読みます。</translation>
     </message>
     <message>
         <source>Waiting for %1</source>
         <translation>%1 を待っています</translation>
-    </message>
-    <message>
-        <source>The agent takes the next message in its terminal.</source>
-        <translation>エージェントは次のメッセージをターミナルで受け取ります。</translation>
-    </message>
-    <message>
-        <source>%1 shows this in its terminal.</source>
-        <translation>%1 はこれをターミナルに表示しています。</translation>
-    </message>
-    <message>
-        <source>Show the terminal</source>
-        <translation>ターミナルを表示</translation>
     </message>
     <message>
         <source>No agent runs in this terminal</source>

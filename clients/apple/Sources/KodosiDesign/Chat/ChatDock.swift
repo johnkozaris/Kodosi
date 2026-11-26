@@ -283,47 +283,56 @@ private struct ChatQueuedRow: View {
     let showTerminal: () -> Void
 
     var body: some View {
-        HStack(alignment: .center, spacing: 6) {
-            Spacer(minLength: 40)
-            if !queued.terminal, !queued.given {
-                IconButton(title: "Remove", bundle: .module, symbol: "xmark",
-                           identifier: "chat.queued.remove.\(AccessibilityIdentifier.token(queued.id))", size: 22)
-                {
-                    chat.unqueue(queued)
+        VStack(alignment: .trailing, spacing: 4) {
+            HStack(alignment: .center, spacing: 6) {
+                Spacer(minLength: 40)
+                if !queued.given {
+                    IconButton(title: "Remove", bundle: .module, symbol: "xmark",
+                               identifier: "chat.queued.remove.\(AccessibilityIdentifier.token(queued.id))", size: 22)
+                    {
+                        chat.unqueue(queued)
+                    }
                 }
-            }
-            VStack(alignment: .trailing, spacing: 3) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Image(systemName: queued.given ? "checkmark" : "clock")
-                        .font(mac: 9, ios: .caption2, weight: .semibold).foregroundStyle(theme.colors.inkFaint)
+                    Image(systemName: sign)
+                        .font(mac: 9, ios: .caption2, weight: .semibold)
+                        .foregroundStyle(queued.refused != nil && !queued.terminal ? theme.colors.caution : theme.colors.inkFaint)
                         .accessibilityLabel(status)
                     Text(queued.text).appTextStyle(.footnote).foregroundStyle(theme.colors.ink).lineLimit(2)
                 }
                 .projectBubble()
                 .help(status)
-                if let refused = queued.refused {
-                    Text("The agent takes the next message in its terminal.", bundle: .module)
-                        .appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.caution)
-                        .help(refused)
-                } else if queued.terminal {
-                    HStack(spacing: 8) {
-                        Text("\(agent.label) shows this in its terminal.", bundle: .module)
-                            .appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted)
-                        Button(action: showTerminal) {
-                            Text("Show the terminal", bundle: .module).appTextStyle(.caption).fontWeight(.semibold)
-                                .foregroundStyle(theme.colors.accentStrong)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("chat.queued.terminal")
-                    }
+            }
+            if queued.terminal {
+                Button(action: showTerminal) {
+                    Tag(text: String(localized: "Command needs terminal view", bundle: .module), symbol: "apple.terminal", tone: .accent)
+                        .touchTarget(Capsule())
                 }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("chat.queued.terminal")
             }
         }
         .accessibilityElement(children: .contain)
     }
 
+    private var sign: String {
+        if queued.terminal {
+            return "apple.terminal"
+        }
+        if queued.refused != nil {
+            return "exclamationmark.triangle"
+        }
+        return queued.given ? "checkmark" : "clock"
+    }
+
     private var status: Text {
-        queued.given
+        if queued.terminal {
+            return Text("Command needs terminal view", bundle: .module)
+        }
+        if let refused = queued.refused {
+            return Text(verbatim: refused)
+        }
+        return queued.given
             ? Text("\(agent.label) reads this before its next step.", bundle: .module)
             : Text("Waiting for \(agent.label)", bundle: .module)
     }

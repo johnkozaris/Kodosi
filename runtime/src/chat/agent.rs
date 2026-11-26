@@ -33,6 +33,12 @@ pub(super) trait Agent: Send {
     /// Clears any send hold so queued messages can be retried after a new user message.
     fn retry(&mut self);
 
+    /// Whether the agent runs this message from the chat, which it does not for a command that
+    /// only its terminal has.
+    fn takes(&self, _text: &str) -> bool {
+        true
+    }
+
     /// Returns true if the queued message has already been handed to the agent and cannot be
     /// recalled.
     fn has(&self, queued: &str) -> bool;

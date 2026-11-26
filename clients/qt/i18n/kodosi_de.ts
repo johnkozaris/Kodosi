@@ -884,24 +884,16 @@
         <translation>Entfernen</translation>
     </message>
     <message>
+        <source>Command needs terminal view</source>
+        <translation>Befehl braucht die Terminalansicht</translation>
+    </message>
+    <message>
         <source>%1 reads this before its next step.</source>
         <translation>%1 liest das vor seinem nächsten Schritt.</translation>
     </message>
     <message>
         <source>Waiting for %1</source>
         <translation>Wartet auf %1</translation>
-    </message>
-    <message>
-        <source>The agent takes the next message in its terminal.</source>
-        <translation>Der Agent nimmt die nächste Nachricht in seinem Terminal an.</translation>
-    </message>
-    <message>
-        <source>%1 shows this in its terminal.</source>
-        <translation>%1 zeigt das in seinem Terminal.</translation>
-    </message>
-    <message>
-        <source>Show the terminal</source>
-        <translation>Terminal zeigen</translation>
     </message>
     <message>
         <source>No agent runs in this terminal</source>

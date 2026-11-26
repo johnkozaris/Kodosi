@@ -881,24 +881,16 @@
         <translation>移除</translation>
     </message>
     <message>
+        <source>Command needs terminal view</source>
+        <translation>此命令需要终端视图</translation>
+    </message>
+    <message>
         <source>%1 reads this before its next step.</source>
         <translation>%1 会在下一步之前读取此消息。</translation>
     </message>
     <message>
         <source>Waiting for %1</source>
         <translation>正在等待 %1</translation>
-    </message>
-    <message>
-        <source>The agent takes the next message in its terminal.</source>
-        <translation>Agent 会在它的终端中接收下一条消息。</translation>
-    </message>
-    <message>
-        <source>%1 shows this in its terminal.</source>
-        <translation>%1 在它的终端中显示此内容。</translation>
-    </message>
-    <message>
-        <source>Show the terminal</source>
-        <translation>显示终端</translation>
     </message>
     <message>
         <source>No agent runs in this terminal</source>

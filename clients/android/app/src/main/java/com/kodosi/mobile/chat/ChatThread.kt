@@ -499,8 +499,8 @@ private fun Theirs(entry: ThreadEntry.Person, hold: () -> Unit) {
 
 /**
  * A message whose long press, once the message is finished, offers to copy it whole as it was
- * written or to select part of it. Its words are selectable only after Select text, so that a long
- * press on them opens this menu rather than starting a selection.
+ * written, to select part of it or to read it aloud. Its words are selectable only after Select
+ * text, so that a long press on them opens this menu rather than starting a selection.
  */
 @Composable
 private fun Bubble(
@@ -513,8 +513,10 @@ private fun Bubble(
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
     val holding by rememberUpdatedState(hold)
     val copyLabel = stringResource(R.string.copy)
+    val reads = MessageReader.reading == text
     var menu by remember { mutableStateOf(false) }
     var pressed by remember { mutableStateOf(IntOffset.Zero) }
     var selecting by remember { mutableStateOf(false) }
@@ -569,6 +571,12 @@ private fun Bubble(
                 KodosiMenuItem(text = { Text(stringResource(R.string.select_text)) }, onClick = {
                     menu = false
                     selecting = true
+                })
+                KodosiMenuItem(text = {
+                    Text(stringResource(if (reads) R.string.stop_reading else R.string.read_aloud))
+                }, onClick = {
+                    menu = false
+                    if (reads) MessageReader.stop() else scope.launch { MessageReader.read(context, text) }
                 })
             }
         }

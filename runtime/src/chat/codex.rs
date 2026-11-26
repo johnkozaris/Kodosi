@@ -210,7 +210,8 @@ impl Codex {
             {
                 self.history(chat, result);
             }
-            ("prompt" | "plan", None) => self.refused(chat, name, event),
+            ("prompt" | "plan" | "compact", None) => self.refused(chat, name, event),
+            ("compact", Some(_)) => self.compacts(chat, name, event),
             ("steer", Some(_)) => self.steered(chat, name),
             ("steer", None) => self.not_steered(name),
             ("background", Some(result)) => {
@@ -233,6 +234,21 @@ impl Codex {
         }
     }
 
+    /// Codex started to compact the thread for a command of the chat, which shows as its person's
+    /// message.
+    fn compacts(&mut self, chat: &mut Chat, n: &str, event: &Value) {
+        let n = n.parse::<u64>().ok();
+        if let Some(index) = self.handed.iter().position(|handed| Some(handed.n) == n)
+            && let Some(handed) = self.handed.remove(index)
+        {
+            if let Some(queued) = &handed.queued {
+                chat.unqueue(queued);
+            }
+            let at = event.get("t").and_then(Value::as_u64).unwrap_or_default();
+            chat.push(at, person(&handed.text, handed.by));
+        }
+    }
+
     fn refused(&mut self, chat: &mut Chat, n: &str, event: &Value) {
         let n = n.parse::<u64>().ok();
         let Some(index) = self.handed.iter().position(|handed| Some(handed.n) == n) else {
@@ -247,7 +263,7 @@ impl Codex {
         };
         let queued = handed.queued.or_else(|| chat.queue(handed.text, handed.by));
         if let Some(queued) = queued {
-            chat.refuse(&queued, start_of(reason, MOST_TARGET).to_owned());
+            chat.refuse(&queued, Some(start_of(reason, MOST_TARGET).to_owned()));
             self.held = true;
         }
     }
@@ -300,7 +316,8 @@ impl Codex {
         }
         let queued = chat
             .queued()
-            .first()
+            .iter()
+            .find(|queued| !queued.terminal)
             .filter(|queued| !queued.text.trim_start().starts_with(['/', '!']))?;
         self.sent += 1;
         self.handed.push_back(Handed {
@@ -604,6 +621,10 @@ impl Codex {
                 }
                 None
             }
+            ("contextCompaction", _) => {
+                self.compaction(chat, at, done);
+                None
+            }
             ("plan", None) => Some(chat.push(
                 at,
                 ChatBody::Tool {
@@ -669,6 +690,41 @@ impl Codex {
         }
     }
 
+    /// `/compact` runs Codex's own compaction of the thread, as in its terminal.
+    fn compact(
+        &mut self,
+        thread: &str,
+        queued: Option<String>,
+        text: String,
+        by: Option<ChatPerson>,
+    ) -> Value {
+        self.handed.push_back(Handed {
+            n: self.sent,
+            queued,
+            text,
+            by,
+            steering: false,
+        });
+        json!({
+            "do": "call",
+            "tag": format!("compact:{}", self.sent),
+            "m": "thread/compact/start",
+            "p": {"threadId": thread},
+        })
+    }
+
+    fn compaction(&mut self, chat: &mut Chat, at: u64, done: bool) {
+        self.now = (!done).then_some(ChatNow::Compacting);
+        if done {
+            chat.push(
+                at,
+                ChatBody::Note {
+                    note: ChatNote::Compacted,
+                },
+            );
+        }
+    }
+
     /// Synthesizes a plan-approval ask after a plan-mode turn, matching Codex's terminal prompt
     /// (the app-server does not emit a server request for this). Whichever side answers first
     /// wins: a terminal response starts a new turn, which dismisses this ask in `close_plan`.
@@ -678,7 +734,7 @@ impl Codex {
         };
         if text(turn, "status") != "completed"
             || chat.facts().mode != Some(ChatMode::Plan)
-            || !chat.queued().is_empty()
+            || chat.queued().iter().any(|queued| !queued.terminal)
             || self.said.is_some()
         {
             return;
@@ -1020,6 +1076,10 @@ impl Agent for Codex {
         self.held = false;
     }
 
+    fn takes(&self, text: &str) -> bool {
+        command_of(text).is_none_or(|name| matches!(name, "compact" | "plan"))
+    }
+
     fn has(&self, queued: &str) -> bool {
         self.handed
             .iter()
@@ -1142,7 +1202,7 @@ impl Agent for Codex {
             .take()
             .map(|(said, by)| (None, said, by))
             .or_else(|| {
-                let queued = chat.queued().first()?;
+                let queued = chat.queued().iter().find(|queued| !queued.terminal)?;
                 Some((
                     Some(queued.id.clone()),
                     queued.text.clone(),
@@ -1151,6 +1211,10 @@ impl Agent for Codex {
             });
         if let Some((queued, text, by)) = next {
             self.sent += 1;
+            if command_of(&text) == Some("compact") {
+                commands.push(self.compact(&thread, queued, text, by));
+                return commands;
+            }
             let plan = plan_command(&text).map(str::to_owned);
             let text = plan.clone().unwrap_or(text);
             let plan_mode = plan.as_ref().and_then(|_| self.plan_settings(chat));
@@ -1241,6 +1305,20 @@ impl Agent for Codex {
             "p": {"threadId": thread, "turnId": id},
         }))
     }
+}
+
+/// The command that a message names, as Codex's composer reads a word after a slash.
+fn command_of(text: &str) -> Option<&str> {
+    let name = text
+        .trim_start()
+        .strip_prefix('/')?
+        .split_whitespace()
+        .next()?;
+    name.bytes()
+        .all(|letter| {
+            letter.is_ascii_lowercase() || letter.is_ascii_digit() || matches!(letter, b'-' | b'_')
+        })
+        .then_some(name)
 }
 
 fn describe(chat: &mut Chat, thread: &Value) {

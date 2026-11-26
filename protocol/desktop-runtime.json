@@ -609,6 +609,9 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "terminal": {
+                        "type": "boolean"
                       }
                     },
                     "required": [
@@ -2902,6 +2905,9 @@
                                       "type": "null"
                                     }
                                   ]
+                                },
+                                "terminal": {
+                                  "type": "boolean"
                                 }
                               },
                               "required": [

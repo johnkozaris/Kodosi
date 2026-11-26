@@ -374,6 +374,8 @@
     <string name="leave_terminal">退出终端</string>
     <string name="paste">粘贴</string>
     <string name="select_text">选择文本</string>
+    <string name="read_aloud">朗读</string>
+    <string name="stop_reading">停止朗读</string>
     <string name="open_link">打开链接</string>
     <string name="open_app_link">在其他应用中打开？</string>
     <string name="link_on_computer">此链接位于 %1$s。请在该电脑上打开。</string>
@@ -484,7 +486,6 @@
     <string name="chat_hide_helpers">隐藏助手</string>
     <string name="chat_show_helper_said">显示助手说的话</string>
     <string name="chat_hide_helper_said">隐藏助手说的话</string>
-    <string name="chat_takes_next">Agent 会在它的终端中接收下一条消息。</string>
     <string name="chat_in_background">后台</string>
     <plurals name="chat_helpers">
         <item quantity="other">%d 个助手正在工作</item>
@@ -580,9 +581,9 @@
         <item quantity="other">%d 个已停止</item>
     </plurals>
     <string name="chat_recap">回顾</string>
-    <string name="chat_shows_in_terminal">%1$s 在它的终端中显示此内容。</string>
     <string name="chat_reads_before_next_step">%1$s 会在下一步之前读取此消息。</string>
-    <string name="chat_show_terminal">显示终端</string>
+    <string name="chat_waiting_for">正在等待 %1$s</string>
+    <string name="chat_needs_terminal_view">此命令需要终端视图</string>
     <string name="chat_commands">命令</string>
     <string name="chat_tokens_of">%2$s 个 token 中的 %1$s</string>
     <string name="chat_resets_in">%1$s后重置</string>

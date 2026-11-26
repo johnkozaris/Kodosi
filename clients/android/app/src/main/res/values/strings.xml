@@ -387,6 +387,8 @@
     <string name="leave_terminal">Leave terminal</string>
     <string name="paste">Paste</string>
     <string name="select_text">Select text</string>
+    <string name="read_aloud">Read aloud</string>
+    <string name="stop_reading">Stop reading</string>
     <string name="open_link">Open link</string>
     <string name="open_app_link">Open in another app?</string>
     <string name="link_on_computer">This link is on %1$s. Open it on that computer.</string>
@@ -498,7 +500,6 @@
     <string name="chat_hide_helpers">Hide the helpers</string>
     <string name="chat_show_helper_said">Show what the helper said</string>
     <string name="chat_hide_helper_said">Hide what the helper said</string>
-    <string name="chat_takes_next">The agent takes the next message in its terminal.</string>
     <string name="chat_in_background">in the background</string>
     <plurals name="chat_helpers">
         <item quantity="one">%d helper works</item>
@@ -610,9 +611,9 @@
         <item quantity="other">%d stopped</item>
     </plurals>
     <string name="chat_recap">Recap</string>
-    <string name="chat_shows_in_terminal">%1$s shows this in its terminal.</string>
     <string name="chat_reads_before_next_step">%1$s reads this before its next step.</string>
-    <string name="chat_show_terminal">Show the terminal</string>
+    <string name="chat_waiting_for">Waiting for %1$s</string>
+    <string name="chat_needs_terminal_view">Command needs terminal view</string>
     <string name="chat_commands">Commands</string>
     <string name="chat_tokens_of">%1$s of %2$s tokens</string>
     <string name="chat_resets_in">Resets in %1$s</string>

@@ -374,6 +374,8 @@
     <string name="leave_terminal">ターミナルから退出</string>
     <string name="paste">貼り付け</string>
     <string name="select_text">テキストを選択</string>
+    <string name="read_aloud">読み上げ</string>
+    <string name="stop_reading">読み上げを停止</string>
     <string name="open_link">リンクを開く</string>
     <string name="open_app_link">別のアプリで開きますか？</string>
     <string name="link_on_computer">このリンクは%1$s上にあります。そのコンピューターで開いてください。</string>
@@ -484,7 +486,6 @@
     <string name="chat_hide_helpers">サブエージェントを非表示</string>
     <string name="chat_show_helper_said">サブエージェントの発言を表示</string>
     <string name="chat_hide_helper_said">サブエージェントの発言を非表示</string>
-    <string name="chat_takes_next">エージェントは次のメッセージをターミナルで受け取ります。</string>
     <string name="chat_in_background">バックグラウンド</string>
     <plurals name="chat_helpers">
         <item quantity="other">%d 個のサブエージェントが作業中</item>
@@ -580,9 +581,9 @@
         <item quantity="other">%d 件停止</item>
     </plurals>
     <string name="chat_recap">振り返り</string>
-    <string name="chat_shows_in_terminal">%1$s はこれをターミナルに表示しています。</string>
     <string name="chat_reads_before_next_step">%1$s は次のステップの前にこれを読みます。</string>
-    <string name="chat_show_terminal">ターミナルを表示</string>
+    <string name="chat_waiting_for">%1$s を待っています</string>
+    <string name="chat_needs_terminal_view">ターミナル表示が必要なコマンド</string>
     <string name="chat_commands">コマンド</string>
     <string name="chat_tokens_of">%2$s トークン中 %1$s</string>
     <string name="chat_resets_in">%1$s後にリセット</string>

@@ -41,8 +41,8 @@ the header, opening on whichever view the agent uses. Dragging scrolls the termi
 scroll-wheel events when a program enables mouse reporting). Text selection, copy/paste (including
 images), shared link rules, header renaming, live agent setting changes (with a notice when
 queued for the next turn), and Android's predictive back gesture are all supported. In the chat
-view, a long press on a message or a finished agent answer offers to copy it as written or to
-select part of it.
+view, a long press on a message or a finished agent answer offers to copy it as written, to
+select part of it, or to read it aloud in the voice of its language.
 
 In the chat view, the mic key lets you talk instead of typing. Your words appear as your next
 message while you speak, and the message sends after a long pause, so you can stop to think; Send

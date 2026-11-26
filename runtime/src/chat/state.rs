@@ -262,8 +262,8 @@ impl Chat {
         Some(queued)
     }
 
-    pub(super) fn refuse(&mut self, id: &str, reason: String) {
-        self.change_queued(id, |queued| queued.refused = Some(reason));
+    pub(super) fn refuse(&mut self, id: &str, reason: Option<String>) {
+        self.change_queued(id, |queued| queued.refused = reason);
     }
 
     pub(super) fn in_terminal(&mut self, id: &str) {

@@ -906,7 +906,8 @@ void TerminalChat::shape()
     for (const auto& value : m_chat->commands) {
         const auto command = value.toObject();
         commands.append(QVariantMap { { QStringLiteral("name"), text(command, "name") },
-            { QStringLiteral("description"), text(command, "description") }, { QStringLiteral("opens"), text(command, "opens") } });
+            { QStringLiteral("description"), text(command, "description") }, { QStringLiteral("opens"), text(command, "opens") },
+            { QStringLiteral("terminal"), command.value(QStringLiteral("terminal")).toBool() } });
     }
     if (commands != m_commands) {
         m_commands = commands;

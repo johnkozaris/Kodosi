@@ -301,11 +301,14 @@ data class ChatQueued(
     val text: String,
     val by: ChatPerson? = null,
     val refused: String? = null,
-    /** The agent shows this command in its terminal, where a person finishes it. */
+    /**
+     * The command needs the agent's terminal: the agent shows it there, where a person finishes it,
+     * or only the terminal has it.
+     */
     val terminal: Boolean = false,
     /**
-     * The agent has this message for the turn that runs and reads it before its next step, so it
-     * can no longer be removed.
+     * The agent has this message, so it can no longer be removed: the turn that runs reads it
+     * before its next step, or the agent's terminal shows the command.
      */
     val given: Boolean = false
 )
@@ -316,7 +319,9 @@ data class ChatCommand(
     val name: String,
     val description: String = "",
     /** The control of the chat that does what the command does, in place of the agent's own view in its terminal. */
-    val opens: ChatControl? = null
+    val opens: ChatControl? = null,
+    /** The command shows its own view in the agent's terminal, where a person uses it. */
+    val terminal: Boolean = false
 )
 
 @Serializable

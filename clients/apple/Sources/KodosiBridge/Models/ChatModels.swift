@@ -315,10 +315,11 @@ public struct ChatQueued: Decodable, Equatable, Identifiable, Sendable {
     /// Provider's rejection reason if the agent declined the message. The entry stays queued until
     /// removed or superseded by another chat or terminal message.
     public let refused: String?
-    /// The agent shows this command in its terminal, where a person finishes it.
+    /// The command needs the agent's terminal: the agent shows it there, where a person finishes
+    /// it, or only the terminal has it.
     public let terminal: Bool
-    /// The agent has this message for the turn that runs and reads it before its next step, so it
-    /// can no longer be removed.
+    /// The agent has this message, so it can no longer be removed: the turn that runs reads it
+    /// before its next step, or the agent's terminal shows the command.
     public let given: Bool
 
     private enum Key: String, CodingKey {
@@ -342,13 +343,15 @@ public struct ChatCommand: Decodable, Equatable, Identifiable, Sendable {
     /// The control of the chat that does what the command does, in place of the agent's own view
     /// in its terminal.
     public let opens: ChatControl?
+    /// The command shows its own view in the agent's terminal, where a person uses it.
+    public let terminal: Bool
 
     public var id: String {
         name
     }
 
     private enum Key: String, CodingKey {
-        case name, description, opens
+        case name, description, opens, terminal
     }
 
     public init(from decoder: any Decoder) throws {
@@ -356,6 +359,7 @@ public struct ChatCommand: Decodable, Equatable, Identifiable, Sendable {
         name = try fields.decode(String.self, forKey: .name)
         description = try fields.decodeIfPresent(String.self, forKey: .description) ?? ""
         opens = try fields.decodeIfPresent(ChatControl.self, forKey: .opens)
+        terminal = try fields.decodeIfPresent(Bool.self, forKey: .terminal) ?? false
     }
 }
 

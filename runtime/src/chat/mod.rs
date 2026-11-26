@@ -465,11 +465,12 @@ pub struct ChatQueued {
     /// another message, unqueues it, or types in the terminal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub refused: Option<String>,
-    /// The agent shows this command in its terminal, where a person finishes it.
+    /// The command needs the agent's terminal: the agent shows it there, where a person finishes
+    /// it, or only the terminal has it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub terminal: bool,
-    /// The agent has this message for the turn that runs and reads it before its next step, so
-    /// it can no longer be removed.
+    /// The agent has this message, so it can no longer be removed: the turn that runs reads it
+    /// before its next step, or the agent's terminal shows the command.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub given: bool,
 }
@@ -485,6 +486,9 @@ pub struct ChatCommand {
     /// in its terminal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opens: Option<ChatControl>,
+    /// The command shows its own view in the agent's terminal, where a person uses it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub terminal: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
