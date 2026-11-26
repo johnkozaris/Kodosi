@@ -1820,6 +1820,7 @@ impl Runtime {
                     terminal.canvas.restore(
                         saved.canvas.iter().map(PathBuf::from).collect(),
                         saved.browser.clone(),
+                        saved.screen,
                         saved.id,
                     );
                 }

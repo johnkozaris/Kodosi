@@ -45,6 +45,9 @@ pub(super) struct Saved {
     pub canvas: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub browser: Option<String>,
+    /// The computer's screen was on the canvas.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub screen: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quiet_settings: Option<PathBuf>,
 }

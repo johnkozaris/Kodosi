@@ -2284,6 +2284,7 @@ impl Runtime {
                         .filter_map(|path| path.into_string().ok())
                         .collect(),
                     browser: local.terminal.canvas.address(),
+                    screen: local.terminal.canvas.state().borrow().screen,
                     quiet_settings,
                 }
             })

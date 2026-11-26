@@ -3076,6 +3076,7 @@ async fn saved_terminals_wait_for_an_app_and_stay_saved_until_they_start() {
         worktree: None,
         canvas: Vec::new(),
         browser: None,
+        screen: false,
         quiet_settings: None,
     };
     let (first, second) = (saved("first"), saved("second"));
@@ -3106,6 +3107,7 @@ async fn a_saved_screen_keeps_its_newest_lines_until_its_terminal_comes_back() {
         worktree: None,
         canvas: Vec::new(),
         browser: None,
+        screen: false,
         quiet_settings: None,
     };
     let mut restore = restore::Restore::load(root.path());

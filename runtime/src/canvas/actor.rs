@@ -91,6 +91,7 @@ enum Job {
     Restore {
         paths: Vec<PathBuf>,
         address: Option<String>,
+        screen: bool,
         from: Uuid,
     },
     End {
@@ -336,10 +337,17 @@ impl CanvasHandle {
         self.page.borrow().clone()
     }
 
-    pub(crate) fn restore(&self, paths: Vec<PathBuf>, address: Option<String>, from: Uuid) {
+    pub(crate) fn restore(
+        &self,
+        paths: Vec<PathBuf>,
+        address: Option<String>,
+        screen: bool,
+        from: Uuid,
+    ) {
         drop(self.jobs.try_send(Job::Restore {
             paths,
             address,
+            screen,
             from,
         }));
     }
@@ -538,9 +546,12 @@ impl Actor {
             Job::Restore {
                 paths,
                 address,
+                screen,
                 from,
             } => {
                 self.files.restore(paths, &self.stamp);
+                // The screen comes back only while the person at the computer still shares it.
+                self.screen_shown |= screen && self.screen.check().is_ok();
                 let earlier = browser::own_profile(&self.data_root, from);
                 let profile = browser::own_profile(&self.data_root, self.id);
                 drop(
