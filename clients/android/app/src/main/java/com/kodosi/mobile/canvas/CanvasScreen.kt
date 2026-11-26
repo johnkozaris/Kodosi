@@ -376,6 +376,8 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
                         model,
                         sessionId,
                         canvas.browser,
+                        session.hostName ?: stringResource(R.string.remote_computer),
+                        session.hostOffline,
                         ask = if (session.canControl && session.agent.isAgent) {
                             { words -> askAbout(null) { words } }
                         } else {
@@ -386,7 +388,9 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
                     part == "screen" && canvas?.screen != null -> ScreenView(
                         model,
                         sessionId,
-                        session.hostName ?: stringResource(R.string.remote_computer)
+                        session.hostName ?: stringResource(R.string.remote_computer),
+                        canvas.screen.shared,
+                        session.hostOffline
                     )
 
                     else -> EmptyState(stringResource(R.string.canvas_empty), symbol = AppSymbol.CANVAS) {

@@ -2,7 +2,9 @@ package com.kodosi.mobile.canvas
 
 import android.graphics.BitmapFactory
 import android.graphics.PointF
+import android.graphics.SurfaceTexture
 import android.util.Base64
+import android.view.Surface
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import com.kodosi.mobile.runtime.decimal
@@ -53,7 +55,8 @@ data class Placement(val sourceWidth: Float, val sourceHeight: Float, val look: 
 
 // The screen of a terminal's computer on its canvas: the video of the display or window that it
 // shows, its pointer, and the zoom of this view. Input and pointer positions are in the shown
-// source's points. The zoom changes on the main thread, and the rest on the pipes' thread.
+// source's points. The zoom and the texture change on the main thread, and the rest on the pipes'
+// thread.
 class ScreenFeed(pipes: VideoPipes, session: String, scope: CoroutineScope, decoders: List<JsonObject>) :
     VideoFeed(pipes, session, "screen", scope, decoders) {
     data class Source(val kind: String, val id: Long)
@@ -75,6 +78,9 @@ class ScreenFeed(pipes: VideoPipes, session: String, scope: CoroutineScope, deco
 
     data class Access(val screen: Boolean, val input: Boolean)
 
+    // Why the computer shows nothing for a while, which ends by itself.
+    enum class Away { LOCKED, ASLEEP, ANOTHER_ACCOUNT }
+
     private data class Size(val width: Float, val height: Float)
 
     val displays: StateFlow<List<Display>>
@@ -89,6 +95,12 @@ class ScreenFeed(pipes: VideoPipes, session: String, scope: CoroutineScope, deco
         field = MutableStateFlow(emptyMap<String, Shape>())
     val access: StateFlow<Access?>
         field = MutableStateFlow<Access?>(null)
+    val away: StateFlow<Away?>
+        field = MutableStateFlow<Away?>(null)
+
+    // Whether the capture follows this view; another device in control shows what this one shows.
+    val control: StateFlow<Boolean>
+        field = MutableStateFlow(true)
 
     // How much closer than the whole source the view shows, from 1.
     val zoom: StateFlow<Float>
@@ -111,9 +123,25 @@ class ScreenFeed(pipes: VideoPipes, session: String, scope: CoroutineScope, deco
     private var lookSent = 0L
     private var looking: Job? = null
 
+    // On the main thread.
+    private var texture: SurfaceTexture? = null
+    private var output: Surface? = null
+    private var viewed = false
+    private var dropped = false
+
     // Where the source shows in a view of the given size, or null before the screen said its size.
+    // While another device is in control, the view shows what that device shows.
     fun placement(viewWidth: Float, viewHeight: Float): Placement? {
         val size = size.value ?: return null
+        if (size.width <= 0 || size.height <= 0 || viewWidth <= 0 || viewHeight <= 0) return null
+        if (!control.value) {
+            return Placement(size.width, size.height, region.value ?: FrameRegion(0f, 0f, size.width, size.height))
+        }
+        return own(size, viewWidth, viewHeight)
+    }
+
+    // Where the source shows in a view of the given size with this view's own zoom.
+    private fun own(size: Size, viewWidth: Float, viewHeight: Float): Placement? {
         if (size.width <= 0 || size.height <= 0 || viewWidth <= 0 || viewHeight <= 0) return null
         val zoom = zoom.value
         if (zoom <= 1f) return Placement(size.width, size.height, FrameRegion(0f, 0f, size.width, size.height))
@@ -164,7 +192,9 @@ class ScreenFeed(pipes: VideoPipes, session: String, scope: CoroutineScope, deco
     // Keeps the middle where the source is, so that a pan back starts at once.
     private fun looked(viewWidth: Float, viewHeight: Float) {
         view = Size(viewWidth, viewHeight)
-        placement(viewWidth, viewHeight)?.look?.let { center = PointF(it.x + it.width / 2, it.y + it.height / 2) }
+        size.value?.let { own(it, viewWidth, viewHeight)?.look }?.let {
+            center = PointF(it.x + it.width / 2, it.y + it.height / 2)
+        }
         placing.value++
         execute { sendLook() }
     }
@@ -188,7 +218,7 @@ class ScreenFeed(pipes: VideoPipes, session: String, scope: CoroutineScope, deco
     private fun sendLook() {
         val source = source.value ?: return
         if (!watching) return
-        val look = if (zoom.value > 1f) placement(view.width, view.height)?.look else null
+        val look = if (zoom.value > 1f) size.value?.let { own(it, view.width, view.height)?.look } else null
         if (look == sentLook) return
         looking?.cancel()
         val wait = lookSent + LOOK_MS - System.currentTimeMillis()
@@ -237,8 +267,61 @@ class ScreenFeed(pipes: VideoPipes, session: String, scope: CoroutineScope, deco
             Pointer(at.decimal("x")?.toFloat() ?: 0f, at.decimal("y")?.toFloat() ?: 0f, shape)
         }
         (message["access"] as? JsonObject)?.let { access.value = Access(it.flag("screen"), it.flag("input")) }
+        away.value = when (message.string("away")) {
+            "locked" -> Away.LOCKED
+            "asleep" -> Away.ASLEEP
+            "anotherAccount" -> Away.ANOTHER_ACCOUNT
+            else -> null
+        }
+        if (away.value != null || access.value?.screen == false) stale()
+        control.value = message.flag("control")
         val arrived = message.objects("shapes").mapNotNull(::shape)
         if (arrived.isNotEmpty()) shapes.value = shapes.value + arrived
+    }
+
+    // Hands the text that this device pastes to the computer's clipboard, before the keys of the paste.
+    fun clipboard(text: String) = execute {
+        if (takesInput) post(fields("type" to "clipboard", "text" to text))
+    }
+
+    // A view of the feed made this texture, which the feed keeps from now on: the screen's pictures land
+    // in it, and its last picture is the still that the next view shows at once.
+    internal fun textureMade(made: SurfaceTexture, width: Int, height: Int, density: Float) {
+        if (!viewed) release()
+        output?.release()
+        texture = made
+        viewed = true
+        output = Surface(made).also { surface(it, width, height, density) }
+    }
+
+    // The texture with the last picture, for a view that comes back, unless another view shows it.
+    internal fun keptTexture(): SurfaceTexture? = texture?.takeUnless { viewed }?.also { viewed = true }
+
+    internal fun textureLeft(left: SurfaceTexture) {
+        if (left !== texture) {
+            left.release()
+            return
+        }
+        viewed = false
+        if (dropped) release()
+    }
+
+    override fun freeStill() {
+        if (!viewed) release()
+    }
+
+    override fun close() {
+        dropped = true
+        super.close()
+    }
+
+    private fun release() {
+        val kept = texture ?: return
+        texture = null
+        detach()
+        output?.release()
+        output = null
+        kept.release()
     }
 
     private fun shape(shape: JsonObject): Pair<String, Shape>? {

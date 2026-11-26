@@ -6,6 +6,7 @@ import com.kodosi.mobile.runtime.TestWords
 import com.kodosi.mobile.runtime.answer
 import com.kodosi.mobile.runtime.event
 import com.kodosi.mobile.runtime.string
+import com.kodosi.mobile.terminals.RuntimeSession
 import java.util.Base64
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -88,6 +89,38 @@ class CanvasStoreTest {
         assertEquals(CommandSink.Delivery.CALLER, sent.sink.receive(late))
         sent.reply("document.open")
         registering.await()
+    }
+
+    @Test
+    fun anAsleepBrowserIsWokenOnceEachTimeItFallsAsleep() = runTest {
+        store.observe(listOf(terminal(browser = "asleep")))
+        val waking = async(start = CoroutineStart.UNDISPATCHED) { store.wakeOnce("terminal") }
+        store.wakeOnce("terminal")
+        sent.reply("canvas.request", """"answer":{"answer":"done"}""")
+        waking.await()
+        assertEquals(1, wakes())
+
+        store.observe(listOf(terminal(browser = "awake")))
+        store.observe(listOf(terminal(browser = "asleep")))
+        val again = async(start = CoroutineStart.UNDISPATCHED) { store.wakeOnce("terminal") }
+        sent.reply("canvas.request", """"answer":{"answer":"done"}""")
+        again.await()
+        assertEquals(2, wakes())
+    }
+
+    private fun terminal(browser: String) = RuntimeSession(
+        id = "terminal",
+        incarnationId = "019363fc-6fca-7000-8000-000000000002",
+        name = "Review",
+        kind = RuntimeSession.Kind.REMOTE,
+        status = RuntimeSession.Status.RUNNING,
+        connectionState = RuntimeSession.Connection.CONNECTED,
+        isWorking = false,
+        canvas = Canvas(browser = CanvasBrowser(browser, changed = 0))
+    )
+
+    private fun wakes() = sent.commands.count {
+        it.string("type") == "canvas.request" && it["request"]!!.jsonObject.string("type") == "act"
     }
 
     private fun part(revision: Long, offset: Int, bytes: String, key: String = "file") {

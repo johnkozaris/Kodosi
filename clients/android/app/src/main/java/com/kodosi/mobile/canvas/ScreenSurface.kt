@@ -1,27 +1,38 @@
 package com.kodosi.mobile.canvas
 
 import android.annotation.SuppressLint
+import android.content.ClipboardManager
 import android.content.Context
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.Matrix
+import android.graphics.Paint
 import android.graphics.PointF
 import android.graphics.SurfaceTexture
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
-import android.view.Surface
 import android.view.TextureView
 import androidx.compose.ui.unit.IntSize
 
+// A picture that is not the computer's own any more: darker and with less colour.
+internal val RESTING = ColorMatrix().apply {
+    setSaturation(0.55f)
+    postConcat(ColorMatrix().apply { setScale(0.5f, 0.5f, 0.5f, 1f) })
+}
+
 @SuppressLint("ViewConstructor")
 // A TextureView takes a transform and keeps to the view's bounds, so a zoomed view moves and scales
-// the newest picture at once, before the screen sends the part that the view shows.
+// the newest picture at once, before the screen sends the part that the view shows. Its texture
+// belongs to the feed and outlives the view, so a view that comes back shows the last picture at once.
 internal class ScreenSurface(context: Context, private val feed: ScreenFeed) :
     StreamInput(context, feed),
     TextureView.SurfaceTextureListener {
     private val video = TextureView(context).also {
         addView(it, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         it.surfaceTextureListener = this
+        feed.keptTexture()?.let(it::setSurfaceTexture)
     }
-    private var surface: Surface? = null
+    private var resting = false
     private var moving: PointF? = null
     private val pinch = ScaleGestureDetector(
         context,
@@ -75,8 +86,22 @@ internal class ScreenSurface(context: Context, private val feed: ScreenFeed) :
         )
     }
 
+    // Dims the picture while it is not the computer's own.
+    fun rest(on: Boolean) {
+        if (resting == on) return
+        resting = on
+        video.setLayerPaint(if (on) Paint().apply { colorFilter = ColorMatrixColorFilter(RESTING) } else null)
+    }
+
     override fun fit(): Float? =
         feed.placement(width.toFloat(), height.toFloat())?.fit(width.toFloat(), height.toFloat())
+
+    override fun paste(): Boolean {
+        val clip = context.getSystemService(ClipboardManager::class.java).primaryClip
+        val text = clip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()
+        if (!text.isNullOrEmpty() && text.encodeToByteArray().size <= MOST_PASTED) feed.clipboard(text)
+        return true
+    }
 
     override fun streamPoint(x: Float, y: Float, clamped: Boolean): PointF? =
         feed.placement(width.toFloat(), height.toFloat())?.sourcePoint(x, y, width.toFloat(), height.toFloat(), clamped)
@@ -111,20 +136,20 @@ internal class ScreenSurface(context: Context, private val feed: ScreenFeed) :
         super.onSizeChanged(w, h, oldw, oldh)
     }
 
-    override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
-        val created = Surface(texture)
-        surface = created
-        feed.surface(created, this.width, this.height, resources.displayMetrics.density)
-    }
+    override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) =
+        feed.textureMade(texture, this.width, this.height, resources.displayMetrics.density)
 
     override fun onSurfaceTextureSizeChanged(texture: SurfaceTexture, width: Int, height: Int) = Unit
 
+    // The feed keeps the texture and releases it once it has no use for it.
     override fun onSurfaceTextureDestroyed(texture: SurfaceTexture): Boolean {
-        feed.detach()
-        surface?.release()
-        surface = null
-        return true
+        feed.textureLeft(texture)
+        return false
     }
 
     override fun onSurfaceTextureUpdated(texture: SurfaceTexture) = Unit
+
+    private companion object {
+        const val MOST_PASTED = 1024 * 1024
+    }
 }

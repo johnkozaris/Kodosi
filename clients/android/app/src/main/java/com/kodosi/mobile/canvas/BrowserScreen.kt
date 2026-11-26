@@ -1,10 +1,12 @@
 package com.kodosi.mobile.canvas
 
 import android.annotation.SuppressLint
-import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.PointF
+import android.os.Handler
+import android.os.Looper
+import android.view.PixelCopy
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -40,7 +42,6 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,7 +55,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -65,12 +70,12 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.PopupProperties
+import androidx.core.graphics.createBitmap
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kodosi.mobile.AppModel
@@ -84,7 +89,6 @@ import com.kodosi.mobile.ui.ActionIcon
 import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
 import com.kodosi.mobile.ui.DarkColors
-import com.kodosi.mobile.ui.EmptyState
 import com.kodosi.mobile.ui.KodosiDialog
 import com.kodosi.mobile.ui.KodosiField
 import com.kodosi.mobile.ui.KodosiMenu
@@ -98,24 +102,33 @@ import com.kodosi.mobile.ui.ReconnectingNotice
 import com.kodosi.mobile.ui.fade
 import com.kodosi.mobile.ui.well
 import java.text.NumberFormat
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 
-private enum class BrowserCover { ASLEEP, UNDECODABLE, LOADING }
-
+// The shared browser of the terminal's canvas, which rests on its last picture while its own
+// pictures come back, and wakes by itself when someone opens it asleep.
 @Composable
-fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask: ((String?) -> Unit)? = null) {
+fun BrowserScreen(
+    model: AppModel,
+    session: String,
+    browser: CanvasBrowser,
+    computer: String,
+    offline: Boolean,
+    ask: ((String?) -> Unit)? = null
+) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
     val history by model.preferences.browserHistory.collectAsStateWithLifecycle()
-    val feed = remember(session) { BrowserFeed(model.video, session, scope, VideoCodec.decodable) }
+    val feed = remember(session) { model.video.browser(session) }
     val window by feed.window.collectAsStateWithLifecycle()
     val icons by feed.icons.collectAsStateWithLifecycle()
     val picture by feed.picture.collectAsStateWithLifecycle()
+    val live by feed.live.collectAsStateWithLifecycle()
+    val still by feed.still.collectAsStateWithLifecycle()
     val pictureSize by feed.pictureSize.collectAsStateWithLifecycle()
-    val reconnecting by feed.reconnecting.collectAsStateWithLifecycle()
     val failure by feed.failure.collectAsStateWithLifecycle()
     val undecodable by feed.undecodable.collectAsStateWithLifecycle()
     val address = remember { BrowserAddress(browser.tabs.firstOrNull { it.active }?.url.orEmpty()) }
@@ -166,15 +179,35 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask:
         }
     }
     LaunchedEffect(dialog) { dialogText.setTextAndPlaceCursorAtEnd(dialog?.string("text").orEmpty()) }
-    LaunchedEffect(feed) {
-        feed.copies.collect {
-            context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("", it))
-        }
-    }
-    DisposableEffect(feed) { onDispose { feed.close() } }
+    CopiesToClipboard(feed)
     LifecycleResumeEffect(feed) {
         feed.show(true)
-        onPauseOrDispose { feed.show(false) }
+        onPauseOrDispose {
+            view?.keepStill()
+            feed.show(false)
+        }
+    }
+    val waking = browser.state == "asleep" && browser.problem == null && !offline
+    LaunchedEffect(waking) {
+        if (!waking) return@LaunchedEffect
+        try {
+            model.canvas.wakeOnce(session)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            // The browser says why it did not wake through its problem.
+        }
+    }
+    val shows = browserShows(
+        offline,
+        failed = failure != null || undecodable || browser.problem != null,
+        getting = browser.getting != null,
+        live = live && picture,
+        kept = picture || still != null
+    )
+    val retry = {
+        feed.retry()
+        if (browser.state == "asleep") scope.launch { model.runAction { model.canvas.wake(session) } }
     }
     val colors = KodosiTheme.colors
     val suggestions = history.filter {
@@ -349,37 +382,43 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask:
             )
             BrowserPointers(window, browser, feed)
             KodosiTheme(dark = true) {
-                val fading = fade<Float>()
-                val cover = when {
-                    browser.state == "asleep" -> BrowserCover.ASLEEP
-                    undecodable -> BrowserCover.UNDECODABLE
-                    !picture -> BrowserCover.LOADING
-                    else -> null
+                val lastPicture = still
+                if (shows == BrowserShows.RESTING) {
+                    if (!picture && lastPicture != null) {
+                        Image(
+                            lastPicture.asImageBitmap(),
+                            null,
+                            Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit,
+                            colorFilter = remember { ColorFilter.colorMatrix(ColorMatrix(RESTING.array)) }
+                        )
+                    } else {
+                        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)))
+                    }
                 }
+                val fading = fade<Float>()
                 AnimatedContent(
-                    cover,
+                    shows,
                     Modifier.fillMaxSize(),
                     transitionSpec = { (fadeIn(fading) togetherWith fadeOut(fading)).using(null) },
-                    label = "browser cover"
+                    contentKey = {
+                        it.takeUnless { shown -> shown == BrowserShows.LIVE || shown == BrowserShows.RESTING }
+                    },
+                    label = "browser state"
                 ) { shown ->
                     when (shown) {
-                        BrowserCover.ASLEEP -> EmptyState(
-                            stringResource(R.string.browser_sleeping),
-                            browser.problem,
-                            AppSymbol.BROWSER
-                        ) {
-                            KodosiTextButton(onClick = {
-                                model.video.choose(session)
-                                scope.launch { model.runAction { model.canvas.wake(session) } }
-                            }) { Text(stringResource(R.string.wake_browser)) }
-                        }
-
-                        BrowserCover.UNDECODABLE -> EmptyState(
-                            stringResource(R.string.browser_undecodable),
-                            symbol = AppSymbol.BROWSER
+                        BrowserShows.OFFLINE -> VideoNote(
+                            AppSymbol.OFFLINE,
+                            stringResource(R.string.computer_offline, computer)
                         )
 
-                        BrowserCover.LOADING -> Column(
+                        BrowserShows.CANT -> VideoNote(
+                            AppSymbol.WARNING,
+                            stringResource(R.string.browser_cant_show),
+                            retry
+                        )
+
+                        BrowserShows.GETTING -> Column(
                             Modifier.fillMaxSize().padding(24.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
                             horizontalAlignment = Alignment.CenterHorizontally
@@ -392,26 +431,17 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask:
                                 }
                                 Text(percent, style = KodosiType.footnote, color = KodosiTheme.colors.inkMuted)
                             }
-                            failure?.let {
-                                Text(
-                                    it,
-                                    Modifier.widthIn(max = 320.dp),
-                                    style = KodosiType.footnote,
-                                    color = KodosiTheme.colors.inkMuted,
-                                    textAlign = TextAlign.Center
-                                )
-                                KodosiTextButton(onClick = feed::retry) { Text(stringResource(R.string.try_again)) }
-                            }
                         }
 
-                        null -> Unit
+                        BrowserShows.OPENING -> FirstWait()
+
+                        BrowserShows.LIVE, BrowserShows.RESTING -> Unit
                     }
                 }
                 ReconnectingNotice(
-                    cover == null && reconnecting,
+                    shows == BrowserShows.RESTING,
                     Modifier.align(Alignment.TopCenter).padding(top = 10.dp),
-                    reason = failure,
-                    retry = feed::retry
+                    patience = RECONNECTING_PATIENCE
                 )
             }
         }
@@ -578,8 +608,26 @@ internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
         super.onSizeChanged(w, h, oldw, oldh)
     }
 
+    // The browser's surface goes with its view, so the feed keeps a copy of the last picture as the
+    // still for the next view, at half size since it shows dimmed and only until the browser's own
+    // pictures come.
+    fun keepStill() {
+        val surface = video.holder.surface
+        if (!surface.isValid || !feed.picture.value || video.width < 2 || video.height < 2) return
+        val still = createBitmap(video.width / 2, video.height / 2)
+        PixelCopy.request(
+            video,
+            still,
+            { copied -> if (copied == PixelCopy.SUCCESS) feed.keep(still) },
+            Handler(Looper.getMainLooper())
+        )
+    }
+
     override fun surfaceCreated(holder: SurfaceHolder) =
         feed.surface(holder.surface, width, height, resources.displayMetrics.density)
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) = Unit
-    override fun surfaceDestroyed(holder: SurfaceHolder) = feed.detach()
+    override fun surfaceDestroyed(holder: SurfaceHolder) {
+        keepStill()
+        feed.detach()
+    }
 }

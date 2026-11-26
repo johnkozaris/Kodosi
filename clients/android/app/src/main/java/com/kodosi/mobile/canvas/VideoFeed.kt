@@ -20,7 +20,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
@@ -38,7 +40,12 @@ abstract class VideoFeed(
     scope: CoroutineScope,
     private val decoders: List<JsonObject>
 ) : AutoCloseable {
+    // The surface shows a picture, which stays on it while the stream stops.
     val picture: StateFlow<Boolean>
+        field = MutableStateFlow(false)
+
+    // Pictures come again since the stream last stopped, so the picture is the stream's own.
+    val live: StateFlow<Boolean>
         field = MutableStateFlow(false)
     val pictureSize: StateFlow<IntSize?>
         field = MutableStateFlow<IntSize?>(null)
@@ -46,18 +53,26 @@ abstract class VideoFeed(
     // The part of the source that the newest frame shows, or null for all of it.
     val region: StateFlow<FrameRegion?>
         field = MutableStateFlow<FrameRegion?>(null)
-    val reconnecting: StateFlow<Boolean>
-        field = MutableStateFlow(false)
+
+    // Why the stream stopped against the runtime's expectation; a loss that the runtime mends by
+    // itself has no reason.
     val failure: StateFlow<String?>
         field = MutableStateFlow<String?>(null)
     val undecodable: StateFlow<Boolean>
         field = MutableStateFlow(false)
     val touches: StateFlow<Long>
         field = MutableStateFlow(0L)
+
+    // Text copied on the other side, for this device's clipboard.
+    val copies: SharedFlow<String>
+        field = MutableSharedFlow<String>(extraBufferCapacity = 8)
     protected val work = CoroutineScope(scope.coroutineContext + pipes.dispatcher)
     private val link = pipes.link(session, key)
     private var joining: Job? = null
     private var active = false
+    private var shared = true
+    private var closed = false
+    private val streaming get() = active && shared && !closed
     private var open = false
     protected var watching = false
         private set
@@ -87,11 +102,11 @@ abstract class VideoFeed(
     // Runs on the pipes' thread, after what is already queued there.
     protected fun execute(job: () -> Unit) = pipes.execute(job)
 
-    // The surface keeps its last picture while a decoder starts again, so only a new surface clears
-    // the picture.
+    // A new surface has no picture yet.
     fun surface(surface: Surface, width: Int, height: Int, density: Float) = pipes.execute {
         this.surface = surface
         picture.value = false
+        live.value = false
         undecodable.value = false
         resetDecoder()
         settle(width, height, density)
@@ -106,24 +121,25 @@ abstract class VideoFeed(
             surface = null
             resetDecoder()
             picture.value = false
+            live.value = false
             undecodable.value = false
             detached.countDown()
         }
         detached.await(DETACH_MS, TimeUnit.MILLISECONDS)
     }
 
-    // A feed out of sight keeps no decoder, even on a surface that stays, and the last decoder lets go
-    // of the surface before the next one connects to it.
+    // A feed that does not stream keeps no decoder, even on a surface that stays, and the last decoder
+    // lets go of the surface before the next one connects to it.
     private fun resetDecoder() {
         decoder?.close()
         decoder = null
         val surface = surface
-        if (active && surface != null) {
+        if (streaming && surface != null) {
             undecodable.value = false
             decoder = VideoDecoder(
                 surface,
                 sized = { shown -> pictureSize.value = shown },
-                rendered = { shown -> pipes.execute { if (decoder === shown) picture.value = true } },
+                rendered = { shown -> pipes.execute { if (decoder === shown) rendered() } },
                 refused = { refused -> pipes.execute { if (decoder === refused) refuse() } },
                 lost = { failed -> pipes.execute { if (decoder === failed) restart() } },
                 heat = { pipes.heat }
@@ -132,12 +148,27 @@ abstract class VideoFeed(
         shows()
     }
 
+    private fun rendered() {
+        picture.value = true
+        live.value = true
+    }
+
     private fun refuse() {
         decoder?.close()
         decoder = null
         shows()
+        live.value = false
         undecodable.value = true
     }
+
+    // The stream shows nothing for a while, so its picture is no longer its own.
+    protected fun stale() {
+        live.value = false
+    }
+
+    // Lets go of the still that the feed keeps for its next view, on the main thread, unless a view
+    // shows it.
+    internal open fun freeStill() = Unit
 
     fun resize(width: Int, height: Int, density: Float) = pipes.execute { settle(width, height, density) }
 
@@ -173,25 +204,39 @@ abstract class VideoFeed(
     fun show(on: Boolean) = pipes.execute {
         if (active == on) return@execute
         active = on
+        stream()
+    }
+
+    // Whether the person at the computer shares what the feed shows; the feed keeps no pipe open while
+    // they do not.
+    fun share(on: Boolean) = pipes.execute {
+        if (shared == on) return@execute
+        shared = on
+        stream()
+    }
+
+    private fun stream() {
         resetDecoder()
-        if (on) {
+        if (streaming) {
             join()
         } else {
             open = false
             watching = false
             joining?.cancel()
             link.detach()
-            reconnecting.value = false
+            live.value = false
         }
     }
 
     // Opens a new pipe at once rather than after the runtime's next try, which waits longer after each
-    // failure. The stream stays reconnecting until its pictures come back.
+    // failure.
     fun retry() = pipes.execute {
         failure.value = null
+        live.value = false
         open = false
         watching = false
         link.detach()
+        if (decoder == null) resetDecoder()
         join()
     }
 
@@ -226,7 +271,7 @@ abstract class VideoFeed(
 
     private fun join() {
         joining?.cancel()
-        if (!active) return
+        if (!streaming) return
         joining = work.launch {
             try {
                 link.open()
@@ -239,7 +284,7 @@ abstract class VideoFeed(
     }
 
     private fun heard(news: DocumentLink.News) {
-        if (!active) return
+        if (!streaming) return
         when (news) {
             DocumentLink.News.Open -> {
                 failure.value = null
@@ -254,12 +299,13 @@ abstract class VideoFeed(
                 open = false
                 watching = false
                 failure.value = news.reason
-                reconnecting.value = true
+                live.value = false
             }
 
             DocumentLink.News.Closed -> {
                 open = false
                 watching = false
+                live.value = false
             }
         }
     }
@@ -283,11 +329,13 @@ abstract class VideoFeed(
     protected open fun watched() = Unit
 
     private fun receive(bytes: ByteArray) {
-        if (!active || bytes.isEmpty()) return
+        if (!streaming || bytes.isEmpty()) return
         if (bytes[0] == 0.toByte()) {
-            runCatching {
+            val message = runCatching {
                 RuntimeJson.parseToJsonElement(bytes.copyOfRange(1, bytes.size).decodeToString()) as? JsonObject
-            }.getOrNull()?.let(::take)
+            }.getOrNull() ?: return
+            message.string("copied")?.let(copies::tryEmit)
+            take(message)
             return
         }
         if (bytes[0] != 1.toByte() || bytes.size <= HEADER) return
@@ -314,7 +362,7 @@ abstract class VideoFeed(
         }
         region.value = shows
         behind = false
-        reconnecting.value = false
+        live.value = true
     }
 
     // Drop frames until the next keyframe; request one per break (the host rate-limits keyframes to
@@ -329,9 +377,11 @@ abstract class VideoFeed(
     }
 
     override fun close() = pipes.execute {
+        closed = true
         active = false
         open = false
         watching = false
+        live.value = false
         pipes.unfollow(this)
         joining?.cancel()
         link.close()

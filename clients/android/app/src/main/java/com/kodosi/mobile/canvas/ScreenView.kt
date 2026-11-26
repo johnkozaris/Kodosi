@@ -25,7 +25,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,45 +48,58 @@ import com.kodosi.mobile.ui.ActionIcon
 import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
 import com.kodosi.mobile.ui.DarkColors
-import com.kodosi.mobile.ui.EmptyState
-import com.kodosi.mobile.ui.KodosiDialog
 import com.kodosi.mobile.ui.KodosiMenu
 import com.kodosi.mobile.ui.KodosiMenuItem
-import com.kodosi.mobile.ui.KodosiTextButton
 import com.kodosi.mobile.ui.KodosiTheme
 import com.kodosi.mobile.ui.KodosiType
-import com.kodosi.mobile.ui.ProgressCaption
 import com.kodosi.mobile.ui.ReconnectingNotice
 import com.kodosi.mobile.ui.fade
 import com.kodosi.mobile.ui.well
 import kotlin.math.roundToInt
 
-private enum class ScreenCover { UNRECORDED, UNDECODABLE, FAILED, WAITING }
-
-// The screen of the terminal's computer, which its owner watches and controls from this device.
+// The screen of the terminal's computer, which its owner watches and controls from this device. It
+// says only what someone has to act on or wait for, and rests on the last picture while the
+// computer's own pictures come back.
 @Composable
-fun ScreenView(model: AppModel, session: String, computer: String) {
-    val scope = rememberCoroutineScope()
-    val feed = remember(session) { ScreenFeed(model.video, session, scope, VideoCodec.decodable) }
+fun ScreenView(model: AppModel, session: String, computer: String, shared: Boolean, offline: Boolean) {
+    val feed = remember(session) { model.video.screen(session) }
     val picture by feed.picture.collectAsStateWithLifecycle()
+    val live by feed.live.collectAsStateWithLifecycle()
     val pictureSize by feed.pictureSize.collectAsStateWithLifecycle()
     val region by feed.region.collectAsStateWithLifecycle()
-    val reconnecting by feed.reconnecting.collectAsStateWithLifecycle()
     val failure by feed.failure.collectAsStateWithLifecycle()
     val undecodable by feed.undecodable.collectAsStateWithLifecycle()
     val access by feed.access.collectAsStateWithLifecycle()
+    val away by feed.away.collectAsStateWithLifecycle()
+    val control by feed.control.collectAsStateWithLifecycle()
     val zoom by feed.zoom.collectAsStateWithLifecycle()
     val placing by feed.placing.collectAsStateWithLifecycle()
     var view by remember { mutableStateOf<ScreenSurface?>(null) }
     var area by remember { mutableStateOf(IntSize.Zero) }
     var explaining by remember { mutableStateOf(false) }
-    DisposableEffect(feed) { onDispose { feed.close() } }
+    // Before the feed shows, so that it opens no pipe to a screen that its computer does not share.
+    DisposableEffect(feed, shared) {
+        feed.share(shared)
+        onDispose {}
+    }
     LifecycleResumeEffect(feed) {
         feed.show(true)
         onPauseOrDispose { feed.show(false) }
     }
+    CopiesToClipboard(feed)
+    val shows = screenShows(
+        shared,
+        offline,
+        away,
+        recording = access?.screen != false,
+        failed = failure != null || undecodable,
+        live = live && picture,
+        kept = picture
+    )
     val controls = access?.input != false
-    val placement = remember(zoom, placing, area) { feed.placement(area.width.toFloat(), area.height.toFloat()) }
+    val placement = remember(zoom, placing, area, region, control) {
+        feed.placement(area.width.toFloat(), area.height.toFloat())
+    }
     Column(Modifier.fillMaxSize()) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
@@ -97,14 +109,24 @@ fun ScreenView(model: AppModel, session: String, computer: String) {
             ScreenSources(feed, Modifier.weight(1f, fill = false))
             if (zoom > 1f) ActionIcon(AppSymbol.SHRINK, R.string.screen_whole, feed::showWhole)
             if (!controls) {
-                Text(
-                    stringResource(R.string.screen_view_only),
-                    Modifier.clip(CircleShape).background(KodosiTheme.colors.caution.copy(alpha = 0.12f))
-                        .clickable(role = Role.Button) { explaining = true }
-                        .heightIn(min = 36.dp).padding(horizontal = 10.dp, vertical = 9.dp),
-                    style = KodosiType.footnote,
-                    color = KodosiTheme.colors.caution
-                )
+                Box {
+                    Text(
+                        stringResource(R.string.screen_view_only),
+                        Modifier.clip(CircleShape).background(KodosiTheme.colors.caution.copy(alpha = 0.12f))
+                            .clickable(role = Role.Button) { explaining = true }
+                            .heightIn(min = 36.dp).padding(horizontal = 10.dp, vertical = 9.dp),
+                        style = KodosiType.footnote,
+                        color = KodosiTheme.colors.caution
+                    )
+                    KodosiMenu(explaining, onDismissRequest = { explaining = false }) {
+                        Text(
+                            stringResource(R.string.screen_allow_control, computer),
+                            Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                            style = KodosiType.footnote,
+                            color = KodosiTheme.colors.ink
+                        )
+                    }
+                }
             }
             Box(Modifier.weight(1f))
             ActionIcon(AppSymbol.KEYBOARD, R.string.keyboard, { view?.keyboard() }, enabled = picture && controls)
@@ -112,70 +134,64 @@ fun ScreenView(model: AppModel, session: String, computer: String) {
         Box(Modifier.weight(1f).fillMaxWidth().background(DarkColors.terminal).onSizeChanged { area = it }) {
             AndroidView(
                 factory = { ScreenSurface(it, feed).also { created -> view = created } },
-                update = { it.place(placement, region, pictureSize) },
+                update = {
+                    it.place(placement, region, pictureSize)
+                    it.rest(shows == ScreenShows.RESTING)
+                },
                 modifier = Modifier.fillMaxSize()
             )
-            if (placement != null) ScreenPointer(feed, placement, area)
+            if (placement != null && (shows == ScreenShows.LIVE || shows == ScreenShows.RESTING)) {
+                ScreenPointer(feed, placement, area)
+            }
             KodosiTheme(dark = true) {
                 val fading = fade<Float>()
-                val cover = when {
-                    access?.screen == false -> ScreenCover.UNRECORDED
-                    undecodable -> ScreenCover.UNDECODABLE
-                    failure != null && !picture -> ScreenCover.FAILED
-                    !picture -> ScreenCover.WAITING
-                    else -> null
-                }
                 AnimatedContent(
-                    cover,
+                    shows,
                     Modifier.fillMaxSize(),
                     transitionSpec = { (fadeIn(fading) togetherWith fadeOut(fading)).using(null) },
-                    label = "screen cover"
+                    contentKey = {
+                        it.takeUnless { shown -> shown == ScreenShows.LIVE || shown == ScreenShows.RESTING }
+                    },
+                    label = "screen state"
                 ) { shown ->
-                    when (shown) {
-                        ScreenCover.UNRECORDED -> EmptyState(
-                            stringResource(R.string.screen_unrecorded, computer),
-                            stringResource(R.string.screen_unrecorded_detail, computer),
-                            AppSymbol.DISPLAY
-                        )
-
-                        ScreenCover.UNDECODABLE -> EmptyState(
-                            stringResource(R.string.screen_undecodable),
-                            symbol = AppSymbol.DISPLAY
-                        )
-
-                        ScreenCover.FAILED -> EmptyState(
-                            stringResource(R.string.screen_failed),
-                            failure,
-                            AppSymbol.DISPLAY
-                        ) {
-                            KodosiTextButton(onClick = feed::retry) { Text(stringResource(R.string.try_again)) }
-                        }
-
-                        ScreenCover.WAITING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            ProgressCaption(stringResource(R.string.screen_waiting))
-                        }
-
-                        null -> Unit
-                    }
+                    ScreenState(shown, computer, feed::retry)
                 }
                 ReconnectingNotice(
-                    cover == null && reconnecting,
+                    shows == ScreenShows.RESTING,
                     Modifier.align(Alignment.TopCenter).padding(top = 10.dp),
-                    reason = failure,
-                    retry = feed::retry
+                    patience = RECONNECTING_PATIENCE
                 )
             }
         }
     }
-    if (explaining) {
-        KodosiDialog(
-            onDismissRequest = { explaining = false },
-            title = { Text(stringResource(R.string.screen_view_only)) },
-            text = { Text(stringResource(R.string.screen_view_only_explained, computer)) },
-            confirmButton = {
-                KodosiTextButton(onClick = { explaining = false }) { Text(stringResource(R.string.close)) }
-            }
+}
+
+@Composable
+private fun ScreenState(shows: ScreenShows, computer: String, retry: () -> Unit) {
+    when (shows) {
+        ScreenShows.SHARING_OFF -> VideoNote(AppSymbol.UNSHARED, stringResource(R.string.screen_sharing_off, computer))
+
+        ScreenShows.OFFLINE -> VideoNote(AppSymbol.OFFLINE, stringResource(R.string.computer_offline, computer))
+
+        ScreenShows.LOCKED -> VideoNote(AppSymbol.LOCK, stringResource(R.string.screen_locked, computer))
+
+        ScreenShows.ANOTHER_ACCOUNT -> VideoNote(
+            AppSymbol.FRIENDS,
+            stringResource(R.string.screen_another_account, computer)
         )
+
+        ScreenShows.ASLEEP -> VideoNote(AppSymbol.MOON, stringResource(R.string.screen_asleep, computer))
+
+        ScreenShows.UNRECORDED -> VideoNote(
+            AppSymbol.RECORDING,
+            stringResource(R.string.screen_allow_recording, computer)
+        )
+
+        ScreenShows.CANT -> VideoNote(AppSymbol.WARNING, stringResource(R.string.screen_cant_show), retry)
+
+        ScreenShows.OPENING -> FirstWait()
+
+        ScreenShows.LIVE, ScreenShows.RESTING -> Unit
     }
 }
 

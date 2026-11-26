@@ -24,7 +24,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -32,7 +31,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.progressSemantics
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -46,6 +44,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.MotionDurationScale
@@ -80,6 +79,7 @@ import androidx.compose.ui.unit.dp
 import com.kodosi.mobile.R
 import com.kodosi.mobile.terminals.AgentKind
 import com.kodosi.mobile.terminals.StatusForm
+import kotlin.time.Duration
 import kotlinx.coroutines.delay
 
 @Composable
@@ -233,43 +233,48 @@ fun ProgressCaption(text: String, modifier: Modifier = Modifier) {
     }
 }
 
-// A reason from the other side, such as sharing turned off, comes with a way to try again at once.
+// With patience, a quiet dot comes first and the word only once the wait goes on, and both go the
+// moment the wait ends.
 @Composable
-fun ReconnectingNotice(
-    shown: Boolean,
-    modifier: Modifier = Modifier,
-    reason: String? = null,
-    retry: (() -> Unit)? = null
-) {
+fun ReconnectingNotice(shown: Boolean, modifier: Modifier = Modifier, patience: Duration = Duration.ZERO) {
     val colors = KodosiTheme.colors
     val presence by animateFloatAsState(if (shown) 1f else 0f, snappy(), label = "reconnecting")
-    if (presence <= 0f) return
-    val action = retry.takeIf { reason != null }
+    var waited by remember { mutableStateOf(false) }
+    LaunchedEffect(shown) {
+        waited = false
+        if (shown) {
+            delay(patience)
+            waited = true
+        }
+    }
+    if (presence <= 0f || (!shown && patience > Duration.ZERO)) return
+    val worded = waited || patience <= Duration.ZERO
+    val shape = RoundedCornerShape(percent = 50)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier
-            .padding(horizontal = 16.dp)
-            .widthIn(max = 480.dp)
             .graphicsLayer {
                 alpha = presence.coerceIn(0f, 1f)
                 translationY = (presence - 1f) * 8.dp.toPx()
             }
-            .raised(
-                colors,
-                if (reason == null) RoundedCornerShape(percent = 50) else RoundedCornerShape(Radius.lg),
-                fill = colors.lifted,
-                elevation = Elevation.FLOATING
+            .then(
+                if (worded) {
+                    Modifier.raised(
+                        colors,
+                        shape,
+                        fill = colors.lifted,
+                        elevation = Elevation.FLOATING
+                    )
+                } else {
+                    Modifier
+                }
             )
-            .padding(start = 12.dp, top = 8.dp, end = if (action == null) 14.dp else 6.dp, bottom = 8.dp)
+            .padding(start = 12.dp, top = 8.dp, end = if (worded) 14.dp else 12.dp, bottom = 8.dp)
             .semantics { liveRegion = LiveRegionMode.Polite }
     ) {
         BreathingDot(colors.glowOrange)
-        Column(Modifier.weight(1f, fill = false)) {
-            Text(stringResource(R.string.reconnecting), style = KodosiType.footnote, color = colors.ink)
-            if (reason != null) Text(reason, style = KodosiType.footnote, color = colors.inkMuted)
-        }
-        if (action != null) KodosiTextButton(onClick = action) { Text(stringResource(R.string.try_again)) }
+        if (worded) Text(stringResource(R.string.reconnecting), style = KodosiType.footnote, color = colors.ink)
     }
 }
 

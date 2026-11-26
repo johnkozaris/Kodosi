@@ -1,5 +1,6 @@
 package com.kodosi.mobile.canvas
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
 import androidx.compose.ui.graphics.ImageBitmap
@@ -8,9 +9,7 @@ import com.kodosi.mobile.runtime.fields
 import com.kodosi.mobile.runtime.objects
 import com.kodosi.mobile.runtime.string
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -23,13 +22,23 @@ class BrowserFeed(pipes: VideoPipes, session: String, scope: CoroutineScope, dec
         field = MutableStateFlow(fields())
     val icons: StateFlow<Map<String, ImageBitmap>>
         field = MutableStateFlow(emptyMap<String, ImageBitmap>())
-    val copies: SharedFlow<String>
-        field = MutableSharedFlow<String>(extraBufferCapacity = 8)
+
+    // The last picture that a view of the browser showed, which the next view shows until the browser's
+    // own pictures come. The browser's surface does not outlive its view, so the view copies it.
+    val still: StateFlow<Bitmap?>
+        field = MutableStateFlow<Bitmap?>(null)
+
+    internal fun keep(picture: Bitmap) {
+        still.value = picture
+    }
+
+    override fun freeStill() {
+        still.value = null
+    }
 
     override fun take(message: JsonObject) {
         window.value = message
         keepIcons(message)
-        message.string("copied")?.let(copies::tryEmit)
     }
 
     private fun keepIcons(state: JsonObject) {

@@ -133,7 +133,12 @@ enum class AppSymbol {
     ARROW_RIGHT,
     PENCIL,
     SPARKLE,
-    CLOCK
+    CLOCK,
+    UNSHARED,
+    OFFLINE,
+    MOON,
+    RECORDING,
+    WARNING
 }
 
 @Composable
@@ -178,6 +183,17 @@ private class SymbolPainter(private val symbol: AppSymbol) : androidx.compose.ui
             CornerRadius(radius * scale),
             style = stroke
         )
+        fun arc(x: Float, y: Float, radius: Float, start: Float, sweep: Float) = drawArc(
+            Color.Black,
+            start,
+            sweep,
+            false,
+            Offset((x - radius) * scale, (y - radius) * scale),
+            Size(2 * radius * scale, 2 * radius * scale),
+            style = stroke
+        )
+        fun dot(x: Float, y: Float, radius: Float) =
+            drawCircle(Color.Black, radius * scale, Offset(x * scale, y * scale))
         fun circle(x: Float, y: Float, radius: Float) = drawCircle(
             Color.Black,
             radius * scale,
@@ -536,6 +552,51 @@ private class SymbolPainter(private val symbol: AppSymbol) : androidx.compose.ui
             AppSymbol.CLOCK -> {
                 circle(12f, 12f, 9f)
                 path(12f, 7f, 12f, 12f, 15.5f, 14f)
+            }
+
+            AppSymbol.UNSHARED -> {
+                arc(12f, 17.33f, 11.33f, 208.07f, 123.86f)
+                arc(12f, 6.67f, 11.33f, 28.07f, 123.86f)
+                circle(12f, 12f, 3f)
+                path(3f, 3f, 21f, 21f)
+            }
+
+            AppSymbol.OFFLINE -> {
+                arc(12f, 19.5f, 12.5f, -135f, 90f)
+                arc(12f, 19.5f, 8f, -135f, 90f)
+                arc(12f, 19.5f, 3.5f, -135f, 90f)
+                path(3f, 3f, 21f, 21f)
+            }
+
+            AppSymbol.MOON -> {
+                val moon = Path().apply {
+                    moveTo(10.53f * scale, 3.63f * scale)
+                    arcTo(
+                        androidx.compose.ui.geometry.Rect(3.5f * scale, 3.5f * scale, 20.5f * scale, 20.5f * scale),
+                        260f,
+                        -250f,
+                        false
+                    )
+                    arcTo(
+                        androidx.compose.ui.geometry.Rect(9f * scale, 1f * scale, 23f * scale, 15f * scale),
+                        51.4f,
+                        167.2f,
+                        false
+                    )
+                    close()
+                }
+                drawPath(moon, Color.Black, style = stroke)
+            }
+
+            AppSymbol.RECORDING -> {
+                circle(12f, 12f, 9f)
+                dot(12f, 12f, 4f)
+            }
+
+            AppSymbol.WARNING -> {
+                path(12f, 3f, 22f, 20f, 2f, 20f, 12f, 3f)
+                path(12f, 9f, 12f, 13.5f)
+                dot(12f, 16.8f, 1f)
             }
         }
     }

@@ -15,10 +15,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -27,7 +25,7 @@ class BrowserFeedTest {
     private val pipes = VideoPipes(sent.sink, Runnable::run)
 
     @Test
-    fun aFeedWatchesOnEachOpenOfItsPipeAndShowsALossUntilAFrameComes() = runTest {
+    fun aFeedWatchesOnEachOpenOfItsPipeAndKeepsWhyItLostThePipeUntilItOpensAgain() = runTest {
         pipes.choose("terminal")
         val feed = feed()
         feed.show(true)
@@ -40,15 +38,11 @@ class BrowserFeedTest {
         assertEquals(true, watched()?.get("opened")?.jsonPrimitive?.boolean)
         assertEquals(JsonArray(decoders), watched()?.get("decoders"))
         news("document.lost", pipe, """"message":"Studio is offline."""")
-        assertTrue(feed.reconnecting.value)
         assertEquals("Studio is offline.", feed.failure.value)
         news("document.opened", pipe)
         assertEquals(false, watched()?.get("opened")?.jsonPrimitive?.boolean)
         assertNull(feed.failure.value)
-        assertTrue(feed.reconnecting.value)
         assertEquals(1, sent.types.count { it == "document.open" })
-        feed.show(false)
-        assertFalse(feed.reconnecting.value)
     }
 
     @Test
@@ -82,7 +76,7 @@ class BrowserFeedTest {
     }
 
     @Test
-    fun tryingAgainAfterALossOpensANewPipeAtOnceAndStaysReconnecting() = runTest {
+    fun tryingAgainAfterALossOpensANewPipeAtOnceAndForgetsWhyItWasLost() = runTest {
         val feed = feed()
         feed.show(true)
         val lost = sent.last("document.open").string("pipe")
@@ -95,7 +89,6 @@ class BrowserFeedTest {
         assertEquals(lost, sent.last("document.close").string("pipe"))
         assertNotEquals(lost, sent.last("document.open").string("pipe"))
         assertNull(feed.failure.value)
-        assertTrue(feed.reconnecting.value)
     }
 
     private val decoders = listOf(fields("codec" to "h264", "hardware" to true))

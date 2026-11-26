@@ -5,6 +5,7 @@ import com.kodosi.mobile.runtime.CommandSink
 import com.kodosi.mobile.runtime.RuntimeEvent
 import com.kodosi.mobile.runtime.RuntimeEventFaults
 import com.kodosi.mobile.runtime.RuntimeEventInbox
+import com.kodosi.mobile.terminals.RuntimeSession
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import kotlin.time.Duration.Companion.seconds
@@ -13,6 +14,7 @@ import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -30,9 +32,13 @@ class VideoPipes(
 ) : Executor by thread {
     val dispatcher: CoroutineDispatcher = thread.asCoroutineDispatcher()
 
-    private val work = CoroutineScope(dispatcher)
+    private val work = CoroutineScope(SupervisorJob() + dispatcher)
     private val links = mutableListOf<DocumentLink>()
     private val feeds = mutableListOf<VideoFeed>()
+
+    // Each terminal's screen and browser feed lasts while the terminal's canvas holds it, so that its
+    // still, zoom and sources wait for the next view. On the main thread.
+    private val kept = mutableMapOf<Pair<String, String>, VideoFeed>()
     private val showing = mutableSetOf<VideoFeed>()
     private val chosen = mutableSetOf<String>()
     private lateinit var lastWake: TimeMark
@@ -147,9 +153,38 @@ class VideoPipes(
         feeds -= feed
     }
 
-    fun reset() = execute {
-        links.toList().forEach(DocumentLink::close)
-        chosen.clear()
+    fun screen(session: String): ScreenFeed =
+        kept.getOrPut(session to SCREEN) { ScreenFeed(this, session, work, VideoCodec.decodable) } as ScreenFeed
+
+    fun browser(session: String): BrowserFeed =
+        kept.getOrPut(session to BROWSER) { BrowserFeed(this, session, work, VideoCodec.decodable) } as BrowserFeed
+
+    // Drops the feeds whose terminal is gone or whose canvas no longer holds them.
+    fun keep(sessions: List<RuntimeSession>) {
+        val held = sessions.flatMap { session ->
+            listOfNotNull(
+                (session.id to SCREEN).takeIf { session.canvas?.screen != null },
+                (session.id to BROWSER).takeIf { session.canvas?.browser != null }
+            )
+        }.toSet()
+        kept.entries.removeAll { (part, feed) -> (part !in held).also { gone -> if (gone) drop(feed) } }
+    }
+
+    // Lets go of the stills that no view shows, when the system runs short of memory.
+    fun trim() = kept.values.forEach(VideoFeed::freeStill)
+
+    private fun drop(feed: VideoFeed) {
+        feed.close()
+        feed.freeStill()
+    }
+
+    fun reset() {
+        kept.values.forEach(::drop)
+        kept.clear()
+        execute {
+            links.toList().forEach(DocumentLink::close)
+            chosen.clear()
+        }
     }
 
     private fun claim() {
@@ -158,6 +193,8 @@ class VideoPipes(
 
     private companion object {
         val QUIET = 5.seconds
+        const val SCREEN = "screen"
+        const val BROWSER = "browser"
     }
 }
 

@@ -55,7 +55,16 @@ provides tabs, history, an address bar, named remote cursors, keyboard input, an
 
 On a terminal of one of your Macs, the canvas can show that Mac's screen, with a picker for its
 displays and windows. One finger taps, drags, and scrolls as in the shared browser, and two fingers
-zoom and move the view.
+zoom and move the view. The zoom stays with each terminal, and turning the phone keeps the picture
+playing. When another device controls the screen, the phone shows what that device shows until you
+act on it. Text copied on the Mac lands on the phone's clipboard, and a paste on the phone gives the
+Mac the phone's clipboard first.
+
+The screen and the shared browser handle what recovers by itself: while their picture comes back,
+they rest on the last one, dimmed, and say "Reconnecting" only if it takes a while. Opening an
+asleep browser wakes it. They use one line only when someone must act or wait (the Mac is locked,
+asleep, offline, on another account, not sharing, or not allowed to record), and offer Try again
+only after an unexpected failure.
 
 While the phone runs hot, the shared browser and the screen show a softer picture, and a sharp one
 again once it cools down.

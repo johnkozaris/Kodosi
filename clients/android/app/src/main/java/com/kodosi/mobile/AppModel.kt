@@ -347,6 +347,7 @@ class AppModel(
             "sessions", "session" -> {
                 terminals.receive(event)
                 canvas.observe(terminals.state.value.sessions)
+                video.keep(terminals.state.value.sessions)
                 notifications.observe(
                     terminals.state.value.sessions,
                     account.state.value.userId.takeIf { account.state.value.isReady }

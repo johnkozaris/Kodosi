@@ -111,6 +111,10 @@ internal abstract class StreamInput(context: Context, private val feed: VideoFee
     // Whether a touch pan scrolls the stream.
     protected open fun scrolls(event: MotionEvent) = true
 
+    // Hands this device's clipboard to the stream before the keys of a paste, and says whether the stream
+    // takes it.
+    protected open fun paste(): Boolean = false
+
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         feed.resize(w, h, resources.displayMetrics.density)
     }
@@ -308,6 +312,13 @@ internal abstract class StreamInput(context: Context, private val feed: VideoFee
                 repeat(afterLength.coerceAtMost(1024)) { key("Delete", "Delete", 46) }
                 return true
             }
+
+            // A paste from the keyboard's menu, which has no keys of its own.
+            override fun performContextMenuAction(id: Int): Boolean {
+                if (id != android.R.id.paste && id != android.R.id.pasteAsPlainText) return false
+                if (paste()) key("v", "KeyV", 86, CONTROL)
+                return true
+            }
             override fun sendKeyEvent(event: KeyEvent): Boolean = this@StreamInput.dispatchKeyEvent(event)
         }
     }
@@ -348,9 +359,14 @@ internal abstract class StreamInput(context: Context, private val feed: VideoFee
             else -> null
         }
         val modifiers =
-            (if (event.isAltPressed) 1 else 0) or (if (event.isCtrlPressed) 2 else 0) or
+            (if (event.isAltPressed) 1 else 0) or (if (event.isCtrlPressed) CONTROL else 0) or
                 (if (event.isMetaPressed) 4 else 0) or
                 (if (event.isShiftPressed) 8 else 0)
+        if (keyCode == KeyEvent.KEYCODE_PASTE) {
+            if (!paste()) return super.onKeyDown(keyCode, event)
+            key("v", "KeyV", 86, CONTROL)
+            return true
+        }
         if (named != null) {
             key(named.first, named.second, named.third, modifiers)
             return true
@@ -371,8 +387,13 @@ internal abstract class StreamInput(context: Context, private val feed: VideoFee
         ) {
             feed.input(fields("kind" to "text", "text" to text))
         } else {
+            if (modifiers == CONTROL && text == "v") paste()
             key(text, "Key${text.uppercase()}", text.uppercase().first().code, modifiers)
         }
         return true
+    }
+
+    private companion object {
+        const val CONTROL = 2
     }
 }
