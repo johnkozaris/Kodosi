@@ -15,9 +15,9 @@ extension View {
     }
 
     /// Lets a person copy the whole message: on a Mac with a key that shows while the pointer is on
-    /// it, on an iPhone or iPad from the menu of a long press, which also selects a part of it. A
-    /// message still being written has no copy yet. An answer has the key at its bottom, where a
-    /// reader of a long one ends up.
+    /// it, on an iPhone or iPad from the menu of a long press, which also selects a part of it or
+    /// reads it aloud. A message still being written has no copy yet. An answer has the key at its
+    /// bottom, where a reader of a long one ends up.
     func copiesMessage(
         _ text: String?, at edge: VerticalEdge = .top,
         preview: some Shape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous),
@@ -74,6 +74,15 @@ private struct MessageCopy: ViewModifier {
                         }
                         Button { selecting = true } label: {
                             Label { Text("Select text", bundle: .module) } icon: { Image(systemName: "selection.pin.in.out") }
+                        }
+                        if MessageReader.shared.reading == text {
+                            Button { MessageReader.shared.stop() } label: {
+                                Label { Text("Stop reading", bundle: .module) } icon: { Image(systemName: "stop.circle") }
+                            }
+                        } else {
+                            Button { MessageReader.shared.read(text) } label: {
+                                Label { Text("Read aloud", bundle: .module) } icon: { Image(systemName: "speaker.wave.2") }
+                            }
                         }
                     }
                 }
@@ -263,6 +272,26 @@ enum ProseBlock: Equatable {
         }
         flush()
         return blocks
+    }
+
+    /// The words of a message as a voice reads them, without the signs of its Markdown.
+    @MainActor static func spoken(_ text: String) -> String {
+        func plain(_ words: some StringProtocol) -> String {
+            String(ProjectMessageText.formatted(String(words)).characters)
+        }
+        return blocks(of: text).map { block in
+            switch block {
+            case let .lines(lines):
+                lines.split(separator: "\n", omittingEmptySubsequences: false).map { line in
+                    let words = line.drop { $0 == " " }
+                    return plain(words.hasPrefix("• ") ? words.dropFirst(2) : words)
+                }.joined(separator: "\n")
+            case let .heading(heading): plain(heading)
+            case let .code(code): code
+            case let .table(table):
+                ([table.header] + table.rows).filter { !$0.isEmpty }.map { $0.map(plain).joined(separator: ", ") }.joined(separator: "\n")
+            }
+        }.joined(separator: "\n\n")
     }
 
     private static func heading(_ line: Substring) -> String? {

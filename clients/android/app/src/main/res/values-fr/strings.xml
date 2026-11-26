@@ -384,6 +384,8 @@
     <string name="leave_terminal">Quitter le terminal</string>
     <string name="paste">Coller</string>
     <string name="select_text">Sélectionner du texte</string>
+    <string name="read_aloud">Lire à voix haute</string>
+    <string name="stop_reading">Arrêter la lecture</string>
     <string name="open_link">Ouvrir le lien</string>
     <string name="open_app_link">Ouvrir dans une autre application ?</string>
     <string name="link_on_computer">Ce lien se trouve sur %1$s. Ouvrez-le sur cet ordinateur.</string>
@@ -498,7 +500,6 @@
     <string name="chat_hide_helpers">Masquer les assistants</string>
     <string name="chat_show_helper_said">Afficher ce que l’assistant a dit</string>
     <string name="chat_hide_helper_said">Masquer ce que l’assistant a dit</string>
-    <string name="chat_takes_next">L’agent prend le prochain message dans son terminal.</string>
     <string name="chat_in_background">en arrière-plan</string>
     <plurals name="chat_helpers">
         <item quantity="one">%d assistant travaille</item>
@@ -626,9 +627,9 @@
         <item quantity="other">%d arrêtés</item>
     </plurals>
     <string name="chat_recap">Récapitulatif</string>
-    <string name="chat_shows_in_terminal">%1$s l’affiche dans son terminal.</string>
     <string name="chat_reads_before_next_step">%1$s le lit avant sa prochaine étape.</string>
-    <string name="chat_show_terminal">Afficher le terminal</string>
+    <string name="chat_waiting_for">En attente de %1$s</string>
+    <string name="chat_needs_terminal_view">La commande demande la vue terminal</string>
     <string name="chat_commands">Commandes</string>
     <string name="chat_tokens_of">%1$s sur %2$s jetons</string>
     <string name="chat_resets_in">Se réinitialise dans %1$s</string>

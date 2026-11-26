@@ -374,6 +374,8 @@
     <string name="leave_terminal">터미널 나가기</string>
     <string name="paste">붙여넣기</string>
     <string name="select_text">텍스트 선택</string>
+    <string name="read_aloud">소리 내어 읽기</string>
+    <string name="stop_reading">읽기 중지</string>
     <string name="open_link">링크 열기</string>
     <string name="open_app_link">다른 앱에서 열까요?</string>
     <string name="link_on_computer">이 링크는 %1$s에 있습니다. 해당 컴퓨터에서 여세요.</string>
@@ -484,7 +486,6 @@
     <string name="chat_hide_helpers">서브에이전트 숨기기</string>
     <string name="chat_show_helper_said">서브에이전트가 한 말 보기</string>
     <string name="chat_hide_helper_said">서브에이전트가 한 말 숨기기</string>
-    <string name="chat_takes_next">에이전트는 다음 메시지를 터미널에서 받아요.</string>
     <string name="chat_in_background">백그라운드</string>
     <plurals name="chat_helpers">
         <item quantity="other">서브에이전트 %d개 작업 중</item>
@@ -580,9 +581,9 @@
         <item quantity="other">%d개 중지됨</item>
     </plurals>
     <string name="chat_recap">요약</string>
-    <string name="chat_shows_in_terminal">%1$s의 터미널에 표시돼요.</string>
     <string name="chat_reads_before_next_step">%1$s이(가) 다음 단계 전에 이 메시지를 읽어요.</string>
-    <string name="chat_show_terminal">터미널 보기</string>
+    <string name="chat_waiting_for">%1$s을(를) 기다리는 중</string>
+    <string name="chat_needs_terminal_view">터미널 보기가 필요한 명령</string>
     <string name="chat_commands">명령</string>
     <string name="chat_tokens_of">%2$s 토큰 중 %1$s</string>
     <string name="chat_resets_in">%1$s 후 초기화</string>

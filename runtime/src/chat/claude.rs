@@ -297,6 +297,7 @@ impl Claude {
             let name = words(command, "name")?;
             Some(ChatCommand {
                 opens: opens(&name),
+                terminal: shows_view(&name),
                 description: start_of(text(command, "description"), MOST_TARGET).to_owned(),
                 name,
             })
@@ -476,7 +477,7 @@ impl Claude {
     }
 
     /// A command that Claude Code shows in a view of its terminal ends when a person closes the
-    /// view there, so the message waits with that word.
+    /// view there, and its message stays in the queue until then.
     fn waits(&mut self, chat: &mut Chat, event: &Value) {
         let n = event.get("n").and_then(Value::as_u64);
         if self.turn.is_some() || self.compacting {
@@ -484,6 +485,7 @@ impl Claude {
         }
         if let Some(handed) = self.handed.iter().find(|handed| Some(handed.n) == n) {
             chat.in_terminal(&handed.queued);
+            chat.give(&handed.queued);
             if event.get("picker").and_then(Value::as_bool) == Some(true) {
                 self.picker = n;
             }
@@ -1364,6 +1366,34 @@ fn opens(name: &str) -> Option<ChatControl> {
         "usage" | "context" => Some(ChatControl::Usage),
         _ => None,
     }
+}
+
+/// The commands that, given without words, open a view of Claude Code's terminal for a person to
+/// use there. Claude Code does not tell its plugins which commands do.
+fn shows_view(name: &str) -> bool {
+    matches!(
+        name,
+        "add-dir"
+            | "config"
+            | "doctor"
+            | "export"
+            | "help"
+            | "hooks"
+            | "ide"
+            | "login"
+            | "logout"
+            | "mcp"
+            | "memory"
+            | "permissions"
+            | "plugin"
+            | "privacy-settings"
+            | "resume"
+            | "rewind"
+            | "skills"
+            | "status"
+            | "tasks"
+            | "theme"
+    )
 }
 
 /// The text between two marks that Claude Code puts around a part of a row.

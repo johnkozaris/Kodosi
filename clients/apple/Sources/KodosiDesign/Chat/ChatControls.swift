@@ -53,8 +53,13 @@ struct ChatCommandList: View {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(verbatim: "/\(command.name)").appTextStyle(.mono).foregroundStyle(theme.colors.ink)
                     .lineLimit(1).fixedSize()
-                Text(verbatim: command.description).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
-                    .lineLimit(1).truncationMode(.tail)
+                if command.terminal {
+                    Tag(text: String(localized: "Command needs terminal view", bundle: .module), symbol: "apple.terminal", tone: .accent)
+                        .accessibilityHint(Text(verbatim: command.description))
+                } else {
+                    Text(verbatim: command.description).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                        .lineLimit(1).truncationMode(.tail)
+                }
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 10)

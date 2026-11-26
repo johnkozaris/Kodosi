@@ -18,7 +18,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -322,64 +321,68 @@ private val CardKeeps = 140.dp
 @Composable
 private fun Queued(chat: TerminalChat, queued: ChatQueued, agent: AgentKind, showTerminal: () -> Unit) {
     val colors = KodosiTheme.colors
-    Row(
-        Modifier.fillMaxWidth().padding(start = 48.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
-        horizontalArrangement = Arrangement.End,
-        verticalAlignment = Alignment.CenterVertically
+    Column(
+        Modifier.fillMaxWidth().padding(start = 48.dp, end = 14.dp),
+        horizontalAlignment = Alignment.End
     ) {
-        Column(Modifier.weight(1f, fill = false), horizontalAlignment = Alignment.End) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                AppIcon(
-                    if (queued.given) AppSymbol.CHECK else AppSymbol.CLOCK,
-                    Modifier.size(12.dp),
-                    description = stringResource(R.string.chat_reads_before_next_step, agentLabel(agent))
-                        .takeIf { queued.given },
-                    tint = colors.inkFaint
-                )
+        Row(Modifier.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (!queued.given) {
+                ActionIcon(AppSymbol.CLOSE, R.string.remove, { chat.unqueue(queued) }, face = 24.dp)
+            }
+            Row(
+                Modifier.weight(1f, fill = false).background(
+                    colors.accentSoft,
+                    RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomStart = 14.dp, bottomEnd = 4.dp)
+                ).padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                QueuedSign(queued, agent)
                 Spacer(Modifier.width(6.dp))
                 Text(
                     queued.text,
                     style = KodosiType.footnote,
                     color = colors.ink,
                     maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false).background(
-                        colors.accentSoft,
-                        RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomStart = 14.dp, bottomEnd = 4.dp)
-                    ).padding(horizontal = 12.dp, vertical = 8.dp)
+                    overflow = TextOverflow.Ellipsis
                 )
             }
-            if (queued.refused != null) {
-                Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    StatusSign(StatusForm.FAILED, 10.dp)
-                    Spacer(Modifier.width(5.dp))
-                    Text(stringResource(R.string.chat_takes_next), style = KodosiType.caption, color = colors.inkMuted)
-                }
-            } else if (queued.terminal) {
-                FlowRow(
-                    Modifier.padding(top = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                    itemVerticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        stringResource(R.string.chat_shows_in_terminal, agentLabel(agent)),
-                        style = KodosiType.caption,
-                        color = colors.inkMuted
-                    )
-                    Text(
-                        stringResource(R.string.chat_show_terminal),
-                        style = KodosiType.caption,
-                        fontWeight = FontWeight.SemiBold,
-                        color = colors.accentStrong,
-                        modifier = Modifier.heightIn(min = 32.dp).clickable(role = Role.Button, onClick = showTerminal)
-                            .wrapContentHeight()
-                    )
-                }
-            }
         }
-        if (!queued.terminal && !queued.given) {
-            ActionIcon(AppSymbol.CLOSE, R.string.remove, { chat.unqueue(queued) }, face = 24.dp)
+        if (queued.terminal) {
+            NeedsTerminalView(
+                Modifier.heightIn(min = 32.dp).clickable(role = Role.Button, onClick = showTerminal).wrapContentHeight()
+            )
         }
+    }
+}
+
+@Composable
+private fun QueuedSign(queued: ChatQueued, agent: AgentKind) {
+    val colors = KodosiTheme.colors
+    val refusal = queued.refused
+    when {
+        queued.terminal -> AppIcon(
+            AppSymbol.TERMINAL,
+            Modifier.size(12.dp),
+            description = stringResource(R.string.chat_needs_terminal_view),
+            tint = colors.inkFaint
+        )
+
+        refusal != null -> StatusSign(
+            StatusForm.FAILED,
+            9.dp,
+            Modifier.clearAndSetSemantics { contentDescription = refusal }
+        )
+
+        else -> AppIcon(
+            if (queued.given) AppSymbol.CHECK else AppSymbol.CLOCK,
+            Modifier.size(12.dp),
+            description = if (queued.given) {
+                stringResource(R.string.chat_reads_before_next_step, agentLabel(agent))
+            } else {
+                stringResource(R.string.chat_waiting_for, agentLabel(agent))
+            },
+            tint = colors.inkFaint
+        )
     }
 }
 

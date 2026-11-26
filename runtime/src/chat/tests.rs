@@ -561,6 +561,23 @@ fn a_command_of_the_chat_runs_as_in_the_terminal_and_a_session_without_checks_ca
 }
 
 #[test]
+fn a_command_that_claude_code_shows_in_its_terminal_stays_until_it_ends_there() {
+    let mut play = Play::of(record!("text"), &[]);
+    play.chat.queue("/config".to_owned(), Some(sam()));
+    assert_eq!(play.agent.commands(&play.chat).len(), 1);
+
+    play.take(&json!({"k": "waits", "n": 1}));
+    let queued = &play.view.queued[0];
+    assert!(
+        queued.terminal && queued.given,
+        "the command is the terminal's"
+    );
+    play.take(&json!({"k": "did", "n": 1}));
+    assert_eq!(play.view.queued, [] as [ChatQueued; 0]);
+    assert_eq!(play.people().last(), Some(&"/config"));
+}
+
+#[test]
 fn a_message_that_a_stop_in_the_terminal_dropped_waits_for_the_next_turn_of_claude_code() {
     let mut play = Play::of(record!("text"), &[]);
     play.chat

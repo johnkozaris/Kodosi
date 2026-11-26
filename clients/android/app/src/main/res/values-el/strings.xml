@@ -379,6 +379,8 @@
     <string name="leave_terminal">Αποχώρηση από το τερματικό</string>
     <string name="paste">Επικόλληση</string>
     <string name="select_text">Επιλογή κειμένου</string>
+    <string name="read_aloud">Ανάγνωση φωναχτά</string>
+    <string name="stop_reading">Διακοπή ανάγνωσης</string>
     <string name="open_link">Άνοιγμα συνδέσμου</string>
     <string name="open_app_link">Άνοιγμα σε άλλη εφαρμογή;</string>
     <string name="link_on_computer">Αυτός ο σύνδεσμος βρίσκεται στο %1$s. Ανοίξτε τον σε εκείνον τον υπολογιστή.</string>
@@ -491,7 +493,6 @@
     <string name="chat_hide_helpers">Απόκρυψη βοηθών</string>
     <string name="chat_show_helper_said">Εμφάνιση όσων είπε ο βοηθός</string>
     <string name="chat_hide_helper_said">Απόκρυψη όσων είπε ο βοηθός</string>
-    <string name="chat_takes_next">Ο agent δέχεται το επόμενο μήνυμα στο τερματικό του.</string>
     <string name="chat_in_background">στο παρασκήνιο</string>
     <plurals name="chat_helpers">
         <item quantity="one">%d βοηθός δουλεύει</item>
@@ -603,9 +604,9 @@
         <item quantity="other">%d σταμάτησαν</item>
     </plurals>
     <string name="chat_recap">Ανακεφαλαίωση</string>
-    <string name="chat_shows_in_terminal">Το %1$s το δείχνει στο τερματικό του.</string>
     <string name="chat_reads_before_next_step">Το %1$s το διαβάζει πριν από το επόμενο βήμα του.</string>
-    <string name="chat_show_terminal">Εμφάνιση τερματικού</string>
+    <string name="chat_waiting_for">Περιμένει το %1$s</string>
+    <string name="chat_needs_terminal_view">Η εντολή χρειάζεται την προβολή τερματικού</string>
     <string name="chat_commands">Εντολές</string>
     <string name="chat_tokens_of">%1$s από %2$s tokens</string>
     <string name="chat_resets_in">Ανανεώνεται σε %1$s</string>

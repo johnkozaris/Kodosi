@@ -864,24 +864,16 @@
         <translation>Rimuovi</translation>
     </message>
     <message>
+        <source>Command needs terminal view</source>
+        <translation>Il comando richiede la vista terminale</translation>
+    </message>
+    <message>
         <source>%1 reads this before its next step.</source>
         <translation>%1 lo legge prima del suo prossimo passo.</translation>
     </message>
     <message>
         <source>Waiting for %1</source>
         <translation>In attesa di %1</translation>
-    </message>
-    <message>
-        <source>The agent takes the next message in its terminal.</source>
-        <translation>L’agente prende il prossimo messaggio nel suo terminale.</translation>
-    </message>
-    <message>
-        <source>%1 shows this in its terminal.</source>
-        <translation>%1 lo mostra nel suo terminale.</translation>
-    </message>
-    <message>
-        <source>Show the terminal</source>
-        <translation>Mostra il terminale</translation>
     </message>
     <message>
         <source>No agent runs in this terminal</source>

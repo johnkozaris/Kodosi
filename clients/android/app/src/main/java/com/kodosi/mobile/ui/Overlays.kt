@@ -114,12 +114,12 @@ fun KodosiMenu(
     DropdownMenu(
         expanded,
         onDismissRequest,
-        modifier = modifier.raised(colors, shape, elevation = Elevation.FLOATING),
+        modifier = modifier.raised(colors, shape, fill = colors.lifted, elevation = Elevation.FLOATING),
         properties = properties,
         shape = shape,
-        containerColor = colors.raised,
+        containerColor = colors.lifted,
         tonalElevation = 0.dp,
-        shadowElevation = 0.dp,
+        shadowElevation = 8.dp,
         content = content
     )
 }

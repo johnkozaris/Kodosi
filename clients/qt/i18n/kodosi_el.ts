@@ -864,24 +864,16 @@
         <translation>Αφαίρεση</translation>
     </message>
     <message>
+        <source>Command needs terminal view</source>
+        <translation>Η εντολή χρειάζεται την προβολή τερματικού</translation>
+    </message>
+    <message>
         <source>%1 reads this before its next step.</source>
         <translation>Το %1 το διαβάζει πριν από το επόμενο βήμα του.</translation>
     </message>
     <message>
         <source>Waiting for %1</source>
         <translation>Περιμένει το %1</translation>
-    </message>
-    <message>
-        <source>The agent takes the next message in its terminal.</source>
-        <translation>Ο agent δέχεται το επόμενο μήνυμα στο τερματικό του.</translation>
-    </message>
-    <message>
-        <source>%1 shows this in its terminal.</source>
-        <translation>Το %1 το δείχνει στο τερματικό του.</translation>
-    </message>
-    <message>
-        <source>Show the terminal</source>
-        <translation>Εμφάνιση τερματικού</translation>
     </message>
     <message>
         <source>No agent runs in this terminal</source>
