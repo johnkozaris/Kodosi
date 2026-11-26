@@ -4,13 +4,16 @@ import SwiftUI
     import UIKit
 #endif
 
-/// The composer, or while a person talks, their words and the talk bar in its place, with what
-/// went wrong the last time talking tried to start. Like queued messages, words that the agent
-/// did not get yet stay down here; the conversation shows what it got.
+/// The composer, or while a person talks, their message so far and the talk bar in its place, with
+/// what went wrong the last time talking tried to start. Like queued messages, words that the
+/// agent did not get yet stay down here; the conversation shows what it got. `stop` ends talking,
+/// `edit` ends it to change the words, and `send` sends words that the person typed before talking.
 struct ChatTalkArea<Composer: View>: View {
     let talk: ChatTalk
     let chat: TerminalChat
-    let type: () -> Void
+    let stop: () -> Void
+    let edit: () -> Void
+    let send: () -> Void
     @ContentBuilder let composer: Composer
 
     var body: some View {
@@ -21,13 +24,20 @@ struct ChatTalkArea<Composer: View>: View {
         if talk.phase == .off {
             composer.transition(.opacity)
         } else {
-            if !talk.turn.words.isEmpty {
-                ChatTalkBubble(words: talk.turn.words, edit: type)
+            if !talk.turn.words.isEmpty || chat.typed {
+                ChatTalkBubble(typed: chat.draft, words: talk.turn.words, edit: edit)
                     .transition(AnyTransition.rise)
             }
-            ChatTalkBar(talk: talk, chat: chat, type: type)
+            ChatTalkBar(talk: talk, chat: chat, stop: stop, send: send)
                 .transition(.opacity)
         }
+    }
+}
+
+extension TerminalChat {
+    /// The person typed words that are not sent yet.
+    var typed: Bool {
+        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }
 
@@ -90,62 +100,69 @@ struct TalkKey: View {
     }
 }
 
-/// Takes the place of the composer while a person talks: the way back to typing, the bars that
-/// show that the microphone hears them, and Send, whose ring fills during the pause that sends.
+/// Takes the place of the composer while a person talks: bars that rise with the voice and say
+/// that the microphone listens, then the stop key in the place of the mic, and Send in its own
+/// place, whose ring fills during the pause that sends.
 private struct ChatTalkBar: View {
     @Environment(\.theme) private var theme
     let talk: ChatTalk
     let chat: TerminalChat
-    let type: () -> Void
+    let stop: () -> Void
+    let send: () -> Void
 
     var body: some View {
         let heard = !talk.turn.words.isEmpty
-        HStack(spacing: 8) {
-            IconButton(title: "Type instead", bundle: .module, symbol: "keyboard", identifier: "chat.talk.type", size: 30,
-                       action: type)
-            Spacer(minLength: 0)
+        let sendable = (heard || chat.typed) && chat.canWrite
+        HStack(spacing: 6) {
             HStack(spacing: 8) {
                 TalkLevel(level: talk.level, live: talk.phase == .listening)
-                if heard, talk.holds {
-                    answerHint
-                        .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
-                        .transition(.opacity)
-                }
+                status(answers: sendable && talk.holds)
+                    .appTextStyle(.body).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
+                    .contentTransition(.opacity)
             }
-            Spacer(minLength: 0)
-            if !heard, chat.working {
-                StopKey { chat.stop() }
-                    .accessibilityIdentifier("chat.stop")
-                    .transition(AnyTransition.pop)
-            } else {
-                TalkSendKey(enabled: heard && chat.canWrite, waiting: talk.turn.sendAsked != nil,
-                            quietSince: talk.holds ? nil : talk.turn.quietSince, action: talk.send)
-                    .transition(AnyTransition.pop)
-            }
+            .padding(.leading, 10).padding(.vertical, 7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.updatesFrequently)
+            StopKey(tint: theme.colors.accent, label: Text("Stop talking", bundle: .module), action: stop)
+                .tip(Text("Stop talking", bundle: .module))
+                .accessibilityIdentifier("chat.talk.stop")
+            TalkSendKey(enabled: sendable, waiting: talk.turn.sendAsked != nil,
+                        quietSince: talk.holds ? nil : talk.turn.quietSince, action: heard ? talk.send : send)
         }
-        .padding(.vertical, 1)
         .composerField(focused: true)
-        .animation(theme.motion.snappy, value: heard)
         .animation(theme.motion.fade, value: talk.holds)
+        .animation(theme.motion.fade, value: talk.phase)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("chat.talk.bar")
     }
 
-    private var answerHint: Text {
-        #if os(iOS)
-            Text("Tap Send to answer", bundle: .module)
-        #else
-            Text("Click Send to answer", bundle: .module)
-        #endif
+    private func status(answers: Bool) -> Text {
+        if answers {
+            #if os(iOS)
+                Text("Tap Send to answer", bundle: .module)
+            #else
+                Text("Click Send to answer", bundle: .module)
+            #endif
+        } else if talk.phase == .listening {
+            Text("Listening", bundle: .module)
+        } else {
+            Text("Getting ready", bundle: .module)
+        }
     }
 }
 
-/// The words of the message so far, where the person's next message will be: settled words
-/// in ink, words that the recognizer may still change faint.
+/// The message so far, where the person's next message will be: the words that they typed before
+/// talking and the settled spoken words in ink, words that the recognizer may still change faint.
 private struct ChatTalkBubble: View {
     @Environment(\.theme) private var theme
+    let typed: String
     let words: TalkWords
     let edit: () -> Void
+
+    private var message: String {
+        TalkWords.joined(typed.trimmingCharacters(in: .whitespacesAndNewlines), words.text)
+    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -161,16 +178,18 @@ private struct ChatTalkBubble: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Your message, not sent yet", bundle: .module))
-        .accessibilityValue(Text(verbatim: words.text))
+        .accessibilityValue(Text(verbatim: message))
         .accessibilityAddTraits(.isButton)
         .accessibilityAction(.default, edit)
         .accessibilityIdentifier("chat.talk.words")
     }
 
     private var spoken: some View {
-        var text = AttributedString(words.settled)
+        let message = message
+        let unsettled = words.text.count - words.settled.count
+        var text = AttributedString(String(message.dropLast(unsettled)))
         text.foregroundColor = theme.colors.ink
-        var tail = AttributedString(String(words.text.dropFirst(words.settled.count)))
+        var tail = AttributedString(String(message.suffix(unsettled)))
         tail.foregroundColor = theme.colors.inkFaint
         text.append(tail)
         return Text(text).appTextStyle(.body).lineSpacing(2)
@@ -178,6 +197,7 @@ private struct ChatTalkBubble: View {
 }
 
 /// Bars that rise with how loud the microphone hears the person, flat and faint until it listens.
+/// The status beside them says it in words.
 private struct TalkLevel: View {
     @Environment(\.theme) private var theme
     let level: Double
@@ -194,9 +214,7 @@ private struct TalkLevel: View {
         .frame(width: 22, height: 18)
         .animation(theme.motion.snappy, value: level)
         .animation(theme.motion.fade, value: live)
-        .accessibilityElement()
-        .accessibilityLabel(live ? Text("Listening", bundle: .module) : Text("Getting ready", bundle: .module))
-        .accessibilityIdentifier("chat.talk.level")
+        .accessibilityHidden(true)
     }
 }
 

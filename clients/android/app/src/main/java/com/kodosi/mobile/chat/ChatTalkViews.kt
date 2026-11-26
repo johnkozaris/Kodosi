@@ -4,16 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.SystemClock
 import android.provider.Settings
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.expandHorizontally
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -60,14 +51,12 @@ import com.kodosi.mobile.R
 import com.kodosi.mobile.ui.ActionIcon
 import com.kodosi.mobile.ui.AppSymbol
 import com.kodosi.mobile.ui.Elevation
-import com.kodosi.mobile.ui.KodosiQuietKey
 import com.kodosi.mobile.ui.KodosiSendKey
 import com.kodosi.mobile.ui.KodosiStopKey
 import com.kodosi.mobile.ui.KodosiTextButton
 import com.kodosi.mobile.ui.KodosiTheme
 import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.Unfolding
-import com.kodosi.mobile.ui.fade
 import com.kodosi.mobile.ui.raised
 import com.kodosi.mobile.ui.reducedMotion
 import com.kodosi.mobile.ui.snappy
@@ -80,69 +69,54 @@ private const val RING_DELAY_MILLIS = 800L
 private const val RING_STEP_MILLIS = 33L
 
 /**
- * The talk bar in place of the composer: the key back to typing, the bars of the voice that talk
- * mode hears, then Send with its pause ring, or Stop while the agent works and nothing is heard.
+ * The talk bar in place of the composer: the bars of the voice that talk mode hears and what it
+ * does, then the stop key in the place of the talk key, and Send in its own place with its pause
+ * ring. Send sends the words heard, or else words that the person typed before talking.
  */
 @Composable
 internal fun TalkBar(
     talk: ChatTalk,
-    working: Boolean,
     asking: Boolean,
     canWrite: Boolean,
-    type: () -> Unit,
-    stop: () -> Unit
+    typed: Boolean,
+    stop: () -> Unit,
+    sendTyped: () -> Unit
 ) {
     val colors = KodosiTheme.colors
     val heard = !talk.words.isEmpty
-    val fading = fade<Float>()
-    val popping = snappy<Float>()
+    val sendable = (heard || typed) && canWrite
+    val waiting = talk.sendAsked != null
     Row(
         Modifier.fillMaxWidth().padding(10.dp)
             .raised(colors, RoundedCornerShape(20.dp), fill = colors.lifted, elevation = Elevation.LIFTED)
             .padding(5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        KodosiQuietKey(AppSymbol.KEYBOARD, stringResource(R.string.talk_type_instead), type)
         Row(
-            Modifier.weight(1f),
-            horizontalArrangement = Arrangement.Center,
+            Modifier.weight(1f).padding(start = 12.dp)
+                .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
             verticalAlignment = Alignment.CenterVertically
         ) {
             VoiceLevel(talk)
-            AnimatedVisibility(
-                asking && heard,
-                enter = fadeIn(fading) + expandHorizontally(fade()),
-                exit = fadeOut(fading) + shrinkHorizontally(fade()),
-                label = "answer hint"
-            ) {
-                Text(
-                    stringResource(R.string.talk_tap_send),
-                    style = KodosiType.footnote,
-                    color = colors.inkMuted,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(start = 8.dp).semantics { liveRegion = LiveRegionMode.Polite }
-                )
-            }
+            Text(
+                stringResource(
+                    when {
+                        asking && sendable -> R.string.talk_tap_send
+                        talk.listening -> R.string.talk_listening
+                        else -> R.string.talk_getting_ready
+                    }
+                ),
+                style = KodosiType.body,
+                color = colors.inkMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(start = 8.dp)
+            )
         }
-        AnimatedContent(
-            working && !heard,
-            transitionSpec = {
-                (fadeIn(fading) + scaleIn(popping, initialScale = 0.9f)) togetherWith
-                    (fadeOut(fading) + scaleOut(popping, targetScale = 0.9f))
-            },
-            label = "talk key"
-        ) { stops ->
-            if (stops) {
-                KodosiStopKey(stop)
-            } else {
-                val sendable = heard && canWrite
-                val waiting = talk.sendAsked != null
-                Box(contentAlignment = Alignment.Center) {
-                    KodosiSendKey(sendable, working = waiting, onClick = talk::send)
-                    PauseRing(talk.takeIf { sendable && !waiting && !asking })
-                }
-            }
+        KodosiStopKey(stop, stringResource(R.string.talk_stop), colors.accent)
+        Box(contentAlignment = Alignment.Center) {
+            KodosiSendKey(sendable, working = waiting, onClick = if (heard) talk::send else sendTyped)
+            PauseRing(talk.takeIf { heard && canWrite && !waiting && !asking })
         }
     }
 }
@@ -154,14 +128,8 @@ private val VoiceBars = floatArrayOf(0.55f, 0.85f, 1f, 0.75f, 0.5f)
 private fun VoiceLevel(talk: ChatTalk) {
     val colors = KodosiTheme.colors
     val live = talk.listening
-    val state = stringResource(if (live) R.string.talk_listening else R.string.talk_getting_ready)
     val level by animateFloatAsState(if (live) talk.level else 0f, snappy(), label = "voice level")
-    Canvas(
-        Modifier.size(width = 22.dp, height = 18.dp).semantics {
-            contentDescription = state
-            liveRegion = LiveRegionMode.Polite
-        }
-    ) {
+    Canvas(Modifier.size(width = 22.dp, height = 18.dp)) {
         val bar = 2.5.dp.toPx()
         val gap = (size.width - VoiceBars.size * bar) / (VoiceBars.size - 1)
         VoiceBars.forEachIndexed { index, reach ->
@@ -219,24 +187,29 @@ private fun PauseRing(talk: ChatTalk?) {
     }
 }
 
-/** The words heard so far as the person's own message, not sent yet; a tap opens them for typing. */
+/**
+ * The message so far as the person's own, not sent yet: the words that they typed before talking,
+ * then the words heard. A tap opens it for typing.
+ */
 @Composable
-internal fun TalkBubble(talk: ChatTalk, type: () -> Unit) {
-    val heard = talk.words.takeIf { talk.on && !it.isEmpty }
-    val leaving = remember { mutableStateOf(HeardWords()) }
-    SideEffect { if (heard != null) leaving.value = heard }
-    Unfolding(heard != null) { HeardBubble(heard ?: leaving.value, type) }
+internal fun TalkBubble(talk: ChatTalk, typed: String, type: () -> Unit) {
+    val before = typed.trim()
+    val shown = (before to talk.words).takeIf { talk.on && (before.isNotEmpty() || !talk.words.isEmpty) }
+    val leaving = remember { mutableStateOf("" to HeardWords()) }
+    SideEffect { if (shown != null) leaving.value = shown }
+    Unfolding(shown != null) { (shown ?: leaving.value).let { (before, words) -> HeardBubble(before, words, type) } }
 }
 
 @Composable
-private fun HeardBubble(words: HeardWords, type: () -> Unit) {
+private fun HeardBubble(typed: String, words: HeardWords, type: () -> Unit) {
     val colors = KodosiTheme.colors
     val label = stringResource(R.string.talk_unsent)
-    val message = words.message
+    val message = joinedWords(typed, words.message)
+    val settled = message.length - (words.message.length - words.settled.length)
     val text = buildAnnotatedString {
         append(message)
-        addStyle(SpanStyle(color = colors.ink), 0, words.settled.length)
-        addStyle(SpanStyle(color = colors.inkFaint), words.settled.length, message.length)
+        addStyle(SpanStyle(color = colors.ink), 0, settled)
+        addStyle(SpanStyle(color = colors.inkFaint), settled, message.length)
     }
     Row(
         Modifier.fillMaxWidth().padding(start = 48.dp, end = 10.dp, top = 2.dp, bottom = 2.dp),

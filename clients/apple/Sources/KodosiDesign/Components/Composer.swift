@@ -58,23 +58,28 @@ public struct SendKey: View {
 public struct StopKey: View {
     @Environment(\.theme) private var theme
     let size: CGFloat
+    /// The square's color; ink unless the key stops something that is on, such as talking.
+    let tint: Color?
+    let label: Text?
     let action: () -> Void
 
-    public init(size: CGFloat = 30, action: @escaping () -> Void) {
+    public init(size: CGFloat = 30, tint: Color? = nil, label: Text? = nil, action: @escaping () -> Void) {
         self.size = size
+        self.tint = tint
+        self.label = label
         self.action = action
     }
 
     public var body: some View {
         Button(action: action) {
-            RoundedRectangle(cornerRadius: size * 0.075, style: .continuous).fill(theme.colors.ink)
+            RoundedRectangle(cornerRadius: size * 0.075, style: .continuous).fill(tint ?? theme.colors.ink)
                 .frame(width: (size * 0.3).rounded(), height: (size * 0.3).rounded())
                 .frame(width: size, height: size)
                 .background { BezelBackground(shape: Circle(), fill: theme.buttonFace(), bezel: .quiet) }
                 .touchTarget()
         }
         .buttonStyle(PressScaleStyle())
-        .accessibilityLabel(Text("Stop", bundle: .module))
+        .accessibilityLabel(label ?? Text("Stop", bundle: .module))
     }
 }
 

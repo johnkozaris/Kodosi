@@ -622,6 +622,7 @@
     </plurals>
     <string name="talk">Sprechen</string>
     <string name="talk_type_instead">Stattdessen tippen</string>
+    <string name="talk_stop">Sprechen beenden</string>
     <string name="talk_listening">Hört zu</string>
     <string name="talk_getting_ready">Wird vorbereitet</string>
     <string name="talk_tap_send">Zum Antworten auf Senden tippen</string>

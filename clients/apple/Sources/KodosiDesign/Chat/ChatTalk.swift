@@ -158,15 +158,15 @@ final class ChatTalk {
         }
     }
 
-    /// Sends the message the way the composer does, or keeps it there when the chat can no
-    /// longer take it.
+    /// Sends the message the way the composer does, after the words that the person typed before
+    /// talking, or keeps it there when the chat can no longer take it.
     private func deliver(_ message: String) {
         guard let chat, chat.canWrite else {
             keep(message)
             end()
             return
         }
-        chat.draft = message
+        chat.draft = TalkWords.joined(chat.draft.trimmingCharacters(in: .whitespacesAndNewlines), message)
         chat.submit()
         sent += 1
     }

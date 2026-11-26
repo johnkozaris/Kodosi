@@ -629,6 +629,7 @@
     </plurals>
     <string name="talk">Talk</string>
     <string name="talk_type_instead">Type instead</string>
+    <string name="talk_stop">Stop talking</string>
     <string name="talk_listening">Listening</string>
     <string name="talk_getting_ready">Getting ready</string>
     <string name="talk_tap_send">Tap Send to answer</string>
