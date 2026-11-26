@@ -251,8 +251,9 @@ host refuses anyone else's pipe to it, also in a terminal shared with friends.
 [stream/](../stream/) is a standalone library for live video with no Kodosi imports: the protocol
 between a stream and its viewers, the flow control that decides which viewer takes which frame, and
 the encoders, chosen at run time from what the computer has (VideoToolbox with Metal conversion on
-macOS, OpenH264 elsewhere). The browser engine and Kodosi Screen encode with it, and the host runs
-its flow control.
+macOS, VA-API on Linux graphics that encode H.264, OpenH264 elsewhere). The browser engine and
+Kodosi Screen encode with it, and the host runs its flow control. libva is loaded at run time, so a
+Linux computer without it encodes in software, and a stream whose GPU fails continues in OpenH264.
 
 Each viewer declares the codecs it decodes and which of them in hardware. A stream uses HEVC only
 while its source encodes it and every viewer decodes it in hardware, since decoding HEVC in
@@ -261,15 +262,17 @@ The Linux and Windows apps decode with the FFmpeg that Qt Multimedia ships, on t
 VA-API or D3D11VA, and draw the GPU's pictures without passing them through the processor.
 When the viewers change, the encoder restarts in the new codec with a keyframe, and every frame
 names its codec. Pictures are BT.709 limited range, tagged in the stream and converted the same
-way by every client. A frame that shows only a part of its source names that part, so a viewer
-places each frame right while the part changes.
+way by every client. The VA-API encoder writes its own parameter sets and slice headers, so Intel
+and AMD drivers tag the colours alike and tell decoders to show each frame as it arrives. A frame
+that shows only a part of its source names that part, so a viewer places each frame right while
+the part changes.
 
-Encoders sharpen a still picture on their own, with passes that encode it again. On the Mac the
-encoder sets each frame's quantizer instead of leaving it to the hardware's rate control, and lets
-frames run only a few frame times ahead of the bitrate that the link carries. A new screen then
-shows coarse at once rather than sharp a second later, passes sharpen it while the link has room,
-and a frame made during the passes never waits long behind them. OpenH264 keeps its own rate
-control and spends its spare bits on the same passes.
+Encoders sharpen a still picture on their own, with passes that encode it again. On the Mac and
+with VA-API the encoder sets each frame's quantizer instead of leaving it to the hardware's rate
+control, and lets frames run only a few frame times ahead of the bitrate that the link carries. A
+new screen then shows coarse at once rather than sharp a second later, passes sharpen it while the
+link has room, and a frame made during the passes never waits long behind them. OpenH264 keeps its
+own rate control and spends its spare bits on the same passes.
 
 Slow viewers skip frames and recover on the next keyframe. When every viewer supports them, the
 encoder also marks long-term references, and a viewer that missed frames recovers from an anchor:

@@ -11,6 +11,8 @@ use std::time::{Duration, Instant};
 
 use crate::FRAME_RATE;
 
+/// A picture that stays this long gets passes that sharpen it; motion changes it sooner.
+pub(crate) const SETTLED: Duration = Duration::from_millis(50);
 /// The quantizer at which text is sharp; finer ones spend bits that nobody sees.
 pub(crate) const SHARP: u8 = 22;
 /// The coarsest quantizer that H.264 and HEVC allow.

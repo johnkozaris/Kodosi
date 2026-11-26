@@ -1,3 +1,5 @@
+use crate::nal::escape;
+
 /// Sets `gaps_in_frame_num_value_allowed_flag` in an H.264 SPS NAL unit. Viewers resuming at
 /// an LTR anchor see gaps in `frame_num`, which decoders may otherwise treat as lost frames.
 pub(super) fn allowing_gaps(nal: &[u8]) -> Option<Vec<u8>> {
@@ -87,20 +89,6 @@ fn unescape(payload: &[u8]) -> Vec<u8> {
         rbsp.push(byte);
     }
     rbsp
-}
-
-fn escape(header: u8, rbsp: &[u8]) -> Vec<u8> {
-    let mut nal = vec![header];
-    let mut zeros = 0;
-    for &byte in rbsp {
-        if zeros >= 2 && byte <= 3 {
-            nal.push(3);
-            zeros = 0;
-        }
-        zeros = if byte == 0 { zeros + 1 } else { 0 };
-        nal.push(byte);
-    }
-    nal
 }
 
 #[cfg(test)]

@@ -12,7 +12,7 @@ use std::{
     ptr::NonNull,
     sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock, PoisonError},
     thread::JoinHandle,
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use objc2_core_foundation::CFRetained;
@@ -26,16 +26,13 @@ use self::{
 };
 use crate::{
     Output, Picture, RETRY, Settings,
-    rate::{self, Choice, Rate, SHARP},
+    rate::{self, Choice, Rate, SETTLED, SHARP},
 };
 
 /// Pictures in the encoder at once; more only add latency.
 const MOST_WAITING: usize = 2;
 /// A marker's low bit holds `RECOVERY`; the bits above number the picture.
 const NUMBER_SHIFT: u32 = 1;
-/// A picture that stays for this many frame times gets passes that sharpen it; motion changes
-/// it sooner.
-const SETTLED: Duration = Duration::from_millis(50);
 
 /// An NV12 picture and the part of the source that it shows.
 #[derive(Clone)]

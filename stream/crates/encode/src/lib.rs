@@ -1,17 +1,23 @@
 //! Video encoders, chosen at run time from what the computer has: `VideoToolbox` on the Mac,
-//! `OpenH264` elsewhere. Each encoder sharpens a still picture on its own with passes that
-//! encode it again.
+//! VA-API on Linux graphics that encode H.264, `OpenH264` elsewhere. Each encoder sharpens a
+//! still picture on its own with passes that encode it again.
 
 use std::{sync::Arc, time::Duration};
 
 pub use stream::{Codec, Encoded, Format, FrameKind, Region};
 
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+mod nal;
 #[cfg(not(target_os = "macos"))]
 mod openh264;
-#[cfg(target_os = "macos")]
+#[cfg(not(target_os = "macos"))]
+mod pixels;
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 mod rate;
 #[cfg(not(target_os = "macos"))]
 mod refine;
+#[cfg(target_os = "linux")]
+mod vaapi;
 #[cfg(target_os = "macos")]
 mod videotoolbox;
 
@@ -55,8 +61,11 @@ pub struct Encoder(Backend);
 enum Backend {
     #[cfg(target_os = "macos")]
     VideoToolbox(videotoolbox::Encoder),
+    /// VA-API or `OpenH264`, both of which encode only H.264 and repair only with keyframes.
+    /// `OpenH264`'s long-term references need camera mode, which halves the quality of scrolled
+    /// text.
     #[cfg(not(target_os = "macos"))]
-    OpenH264(openh264::Encoder),
+    Pixels(pixels::Encoder),
 }
 
 impl Encoder {
@@ -74,7 +83,13 @@ impl Encoder {
             settings, output,
         )));
         #[cfg(not(target_os = "macos"))]
-        return Self(Backend::OpenH264(openh264::Encoder::new(settings, output)));
+        return Self(Backend::Pixels(pixels::Encoder::start(move |shared| {
+            #[cfg(target_os = "linux")]
+            if vaapi::work(settings.bitrate, output.as_ref(), shared) {
+                return;
+            }
+            openh264::work(settings.bitrate, output.as_ref(), shared);
+        })));
     }
 
     /// An encoder that makes each picture a sharp keyframe, for stills that stand alone.
@@ -92,7 +107,7 @@ impl Encoder {
             #[cfg(target_os = "macos")]
             Backend::VideoToolbox(encoder) => encoder.encode(picture, region, changed),
             #[cfg(not(target_os = "macos"))]
-            Backend::OpenH264(encoder) => encoder.encode(picture, region, changed),
+            Backend::Pixels(encoder) => encoder.encode(picture, region, changed),
         }
     }
 
@@ -101,7 +116,7 @@ impl Encoder {
             #[cfg(target_os = "macos")]
             Backend::VideoToolbox(encoder) => encoder.want_key(),
             #[cfg(not(target_os = "macos"))]
-            Backend::OpenH264(encoder) => encoder.want_key(),
+            Backend::Pixels(encoder) => encoder.want_key(),
         }
     }
 
@@ -112,7 +127,7 @@ impl Encoder {
             #[cfg(target_os = "macos")]
             Backend::VideoToolbox(encoder) => encoder.recover(),
             #[cfg(not(target_os = "macos"))]
-            Backend::OpenH264(encoder) => encoder.want_key(),
+            Backend::Pixels(encoder) => encoder.want_key(),
         }
     }
 
@@ -122,7 +137,7 @@ impl Encoder {
             #[cfg(target_os = "macos")]
             Backend::VideoToolbox(encoder) => encoder.held(marks),
             #[cfg(not(target_os = "macos"))]
-            Backend::OpenH264(_) => {
+            Backend::Pixels(_) => {
                 let _ = marks;
             }
         }
@@ -133,7 +148,7 @@ impl Encoder {
             #[cfg(target_os = "macos")]
             Backend::VideoToolbox(encoder) => encoder.set_bitrate(bitrate),
             #[cfg(not(target_os = "macos"))]
-            Backend::OpenH264(encoder) => encoder.set_bitrate(bitrate),
+            Backend::Pixels(encoder) => encoder.set_bitrate(bitrate),
         }
     }
 
@@ -143,7 +158,10 @@ impl Encoder {
             #[cfg(target_os = "macos")]
             Backend::VideoToolbox(encoder) => encoder.set_format(format),
             #[cfg(not(target_os = "macos"))]
-            Backend::OpenH264(encoder) => encoder.set_format(format),
+            Backend::Pixels(encoder) => {
+                let _ = format;
+                encoder.want_key();
+            }
         }
     }
 }

@@ -1,13 +1,7 @@
-//! `OpenH264` in software, on a worker thread so encoding never blocks the source. The worker
-//! sharpens a picture that stays with passes that encode it again.
+//! `OpenH264` in software, for computers whose GPU does not encode. Its worker sharpens a
+//! picture that stays with passes that encode it again.
 
-use std::{
-    mem::MaybeUninit,
-    os::raw::c_int,
-    sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError},
-    thread::JoinHandle,
-    time::Instant,
-};
+use std::{mem::MaybeUninit, os::raw::c_int, time::Instant};
 
 use bytes::Bytes;
 use openh264::{
@@ -23,10 +17,11 @@ use openh264_sys2::{
     ENCODER_OPTION_SVC_ENCODE_PARAM_EXT, LAYER_NUM, SBitrateInfo, SEncParamExt, SPATIAL_LAYER_0,
     SPATIAL_LAYER_ALL, cmResultSuccess,
 };
-use stream::{Codec, Encoded, Format, FrameKind, Region};
+use stream::{Codec, Encoded, FrameKind, Region};
 
 use crate::{
-    FRAME_RATE, Output, Picture, RETRY, Settings,
+    FRAME_RATE, Output, RETRY,
+    pixels::{self, Pixels, Shared},
     refine::{Cleanup, Convergence, PASS_EVERY, STILL, frame_budget},
 };
 
@@ -34,109 +29,6 @@ use crate::{
 const BT709: u8 = 1;
 const UNSPECIFIED_FORMAT: u8 = 5;
 const HALF: i32 = 1 << 15;
-
-struct Pixels {
-    bgra: Vec<u8>,
-    width: usize,
-    height: usize,
-    region: Option<Region>,
-}
-
-#[derive(Default)]
-struct Slot {
-    picture: Option<Pixels>,
-    /// The share of the source that changed since the worker last took a picture.
-    changed: f64,
-    spare: Vec<u8>,
-    key: bool,
-    bitrate: Option<u32>,
-    stop: bool,
-}
-
-type Shared = Arc<(Mutex<Slot>, Condvar)>;
-
-/// New pictures replace a picture still waiting for the worker; two buffers are reused between
-/// the threads.
-pub(crate) struct Encoder {
-    shared: Shared,
-    worker: Option<JoinHandle<()>>,
-}
-
-impl Encoder {
-    pub(crate) fn new(settings: Settings, output: Arc<dyn Output>) -> Self {
-        let shared: Shared = Arc::default();
-        let working = Arc::clone(&shared);
-        let worker = std::thread::Builder::new()
-            .name("kodosi-encoder".to_owned())
-            .spawn(move || work(settings.bitrate, output.as_ref(), &working))
-            .ok();
-        Self { shared, worker }
-    }
-
-    fn change<R>(&self, change: impl FnOnce(&mut Slot) -> R) -> R {
-        let (slot, ready) = &*self.shared;
-        let result = change(&mut slot.lock().unwrap_or_else(PoisonError::into_inner));
-        ready.notify_one();
-        result
-    }
-
-    pub(crate) fn want_key(&self) {
-        self.change(|slot| slot.key = true);
-    }
-
-    pub(crate) fn set_bitrate(&self, bitrate: u32) {
-        self.change(|slot| slot.bitrate = Some(bitrate));
-    }
-
-    /// `OpenH264` encodes only H.264, and repairs only with keyframes: its long-term references
-    /// need camera mode, which halves the quality of scrolled text.
-    pub(crate) fn set_format(&self, _format: Format) {
-        self.want_key();
-    }
-
-    /// Copies outside the lock so the worker is not blocked while the rows are cloned.
-    pub(crate) fn encode(&self, picture: Picture<'_>, region: Option<Region>, changed: f64) {
-        let Picture::Pixels {
-            bgra,
-            width,
-            height,
-        } = picture;
-        let (even_width, even_height) = (width & !1, height & !1);
-        if even_width < 2 || even_height < 2 || bgra.len() < width * height * 4 {
-            return;
-        }
-        let (slot, _) = &*self.shared;
-        let mut kept = {
-            let mut slot = slot.lock().unwrap_or_else(PoisonError::into_inner);
-            match slot.picture.take() {
-                Some(waiting) => waiting.bgra,
-                None => std::mem::take(&mut slot.spare),
-            }
-        };
-        kept.clear();
-        for row in bgra.chunks_exact(width * 4).take(even_height) {
-            kept.extend_from_slice(&row[..even_width * 4]);
-        }
-        self.change(|slot| {
-            slot.picture = Some(Pixels {
-                bgra: kept,
-                width: even_width,
-                height: even_height,
-                region,
-            });
-            slot.changed = (slot.changed + changed).min(1.0);
-        });
-    }
-}
-
-impl Drop for Encoder {
-    fn drop(&mut self) {
-        self.change(|slot| slot.stop = true);
-        if let Some(worker) = self.worker.take() {
-            drop(worker.join());
-        }
-    }
-}
 
 /// Planes of a BT.709 limited-range I420 picture.
 struct Planes {
@@ -279,11 +171,7 @@ fn set_option(encoder: &mut H264, option: ENCODER_OPTION, layer: LAYER_NUM, bitr
     unsafe { encoder.raw_api().set_option(option, (&raw mut info).cast()) == cmResultSuccess }
 }
 
-fn lock(shared: &Shared) -> MutexGuard<'_, Slot> {
-    shared.0.lock().unwrap_or_else(PoisonError::into_inner)
-}
-
-fn work(bitrate: u32, output: &dyn Output, shared: &Shared) {
+pub(crate) fn work(bitrate: u32, output: &dyn Output, shared: &Shared) {
     let mut worker = Worker {
         output,
         shared,
@@ -334,7 +222,7 @@ impl Worker<'_> {
     /// Waits for a picture, a keyframe asked for while the picture is still, a retry or a pass.
     fn next(&mut self) -> Option<Work> {
         let shared = self.shared;
-        let mut slot = lock(shared);
+        let mut slot = pixels::lock(shared);
         loop {
             if slot.stop {
                 return None;
@@ -342,18 +230,11 @@ impl Worker<'_> {
             if slot.picture.is_some() || (slot.key && self.running.is_some()) {
                 break;
             }
-            let now = Instant::now();
-            match self.again.into_iter().chain(self.pass_at).min() {
-                Some(at) if at <= now => break,
-                Some(at) => {
-                    slot = shared
-                        .1
-                        .wait_timeout(slot, at - now)
-                        .unwrap_or_else(PoisonError::into_inner)
-                        .0;
-                }
-                None => slot = shared.1.wait(slot).unwrap_or_else(PoisonError::into_inner),
+            let wake = self.again.into_iter().chain(self.pass_at).min();
+            if wake.is_some_and(|at| at <= Instant::now()) {
+                break;
             }
+            slot = pixels::wait(shared, slot, wake);
         }
         let now = Instant::now();
         let picture = slot.picture.take();
@@ -426,7 +307,7 @@ impl Worker<'_> {
         }
         self.running.as_mut()?.planes.read(&picture.bgra);
         self.region = picture.region;
-        lock(self.shared).spare = picture.bgra;
+        pixels::lock(self.shared).spare = picture.bgra;
         self.sharpening = Convergence::default();
         self.pass_at = self.cleanup.drawn(changed).then(|| Instant::now() + STILL);
         self.missing = true;
@@ -439,7 +320,7 @@ impl Worker<'_> {
             return;
         };
         if !set_bitrate(&mut running.encoder, previous, bitrate) {
-            lock(self.shared).bitrate.get_or_insert(bitrate);
+            pixels::lock(self.shared).bitrate.get_or_insert(bitrate);
             self.bitrate = previous;
         }
     }
