@@ -1,6 +1,9 @@
 import KodosiBridge
 import SwiftUI
 
+/// The size of the keys after the composer's text.
+private let composerKeySize: CGFloat = 30
+
 /// What sits below the conversation: the agent's task list, the subagents working for it, queued
 /// messages, the agent's question, the composer, and the session facts. On iOS a person can also
 /// talk in place of the composer; `names` are the words that talking should spell right.
@@ -19,8 +22,12 @@ struct ChatDock<ModelKey: View>: View {
     @State private var picked = 0
     @State private var modelOpen = false
     @State private var usageOpen = false
+    /// The field's height while it is empty, so with one line: the keys line up with the middle of the
+    /// last line.
+    @State private var oneLine: CGFloat = 0
     #if os(iOS)
         @State private var talk = ChatTalk()
+        @State private var canTalk = ChatTalk.available ?? false
     #endif
 
     private var typed: Bool {
@@ -119,6 +126,7 @@ struct ChatDock<ModelKey: View>: View {
                 sends += 1
                 sent()
             }
+            .task { canTalk = await ChatTalk.findAvailable() }
         #endif
     }
 
@@ -132,6 +140,11 @@ struct ChatDock<ModelKey: View>: View {
                 .foregroundStyle(theme.colors.ink)
                 .focused(focused)
                 .padding(.leading, 10).padding(.vertical, 7)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+                    if chat.draft.isEmpty {
+                        oneLine = height
+                    }
+                }
                 .disabled(!chat.canWrite)
                 .onKeyPress(.return, phases: .down) { press in
                     if press.modifiers.isDisjoint(with: [.shift, .option]) {
@@ -148,32 +161,36 @@ struct ChatDock<ModelKey: View>: View {
                 .onKeyPress(.downArrow) { move(1) }
                 .onKeyPress(.escape) { .handled }
                 .accessibilityIdentifier("chat.input")
-            #if os(iOS)
-                if !typed {
-                    TalkKey(enabled: chat.canWrite, action: startTalking)
+            HStack(spacing: 6) {
+                #if os(iOS)
+                    if !typed, canTalk {
+                        TalkKey(enabled: chat.canWrite, action: startTalking)
+                            .transition(AnyTransition.pop)
+                    }
+                #endif
+                if stops {
+                    StopKey { chat.stop() }
+                        .tip(Text("Stop", bundle: .module))
+                        .accessibilityIdentifier("chat.stop")
+                        .transition(AnyTransition.pop)
+                } else if showsSend {
+                    SendKey(enabled: typed && chat.canWrite, action: send)
+                        .tip(Text("Send", bundle: .module))
+                        .accessibilityLabel(Text("Send", bundle: .module))
+                        .accessibilityIdentifier("chat.send")
                         .transition(AnyTransition.pop)
                 }
-            #endif
-            if stops {
-                StopKey { chat.stop() }
-                    .tip(Text("Stop", bundle: .module))
-                    .accessibilityIdentifier("chat.stop")
-                    .transition(AnyTransition.pop)
-            } else if showsSend {
-                SendKey(enabled: typed && chat.canWrite, action: send)
-                    .tip(Text("Send", bundle: .module))
-                    .accessibilityLabel(Text("Send", bundle: .module))
-                    .accessibilityIdentifier("chat.send")
-                    .transition(AnyTransition.pop)
             }
+            .padding(.bottom, max(0, (oneLine - composerKeySize) / 2))
         }
         .composerField(focused: focused.wrappedValue)
     }
 
-    /// On iOS the microphone takes the place of Send until there is something to send.
+    /// On iOS the microphone takes the place of Send until there is something to send, where this
+    /// device turns speech into text.
     private var showsSend: Bool {
         #if os(iOS)
-            typed
+            typed || !canTalk
         #else
             true
         #endif
@@ -309,91 +326,6 @@ private struct ChatQueuedRow: View {
         queued.given
             ? Text("\(agent.label) reads this before its next step.", bundle: .module)
             : Text("Waiting for \(agent.label)", bundle: .module)
-    }
-}
-
-private struct ChatTasks: View {
-    @Environment(\.theme) private var theme
-    let tasks: [ChatTask]
-    @State private var open = false
-
-    var body: some View {
-        let done = tasks.count { $0.state == .done }
-        let current = tasks.first { $0.state == .working } ?? tasks.first { $0.state == .pending }
-        VStack(alignment: .leading, spacing: 4) {
-            Button { open.toggle() } label: {
-                HStack(spacing: 7) {
-                    Image(systemName: "checklist").font(mac: 10, ios: .caption, weight: .semibold).foregroundStyle(theme.colors.inkMuted)
-                        .accessibilityHidden(true)
-                    Text(verbatim: "\(done)/\(tasks.count)").font(mac: 11, ios: .caption, design: .monospaced).monospacedDigit()
-                        .foregroundStyle(theme.colors.inkMuted)
-                    ZStack(alignment: .leading) {
-                        if !open, let current {
-                            Text(verbatim: current.text).appTextStyle(.footnote).foregroundStyle(theme.colors.ink)
-                                .lineLimit(1).truncationMode(.tail)
-                                .id(current.text)
-                                .transition(AnyTransition.roll)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .clipped()
-                    Image(systemName: "chevron.up").font(mac: 8, ios: .caption2, weight: .bold)
-                        .rotationEffect(.degrees(open ? 180 : 0)).foregroundStyle(theme.colors.inkFaint)
-                        .accessibilityHidden(true)
-                }
-                .controlHeight(22).touchTarget(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help(open ? Text("Hide the tasks", bundle: .module) : Text("Show the tasks", bundle: .module))
-            .accessibilityLabel(Text("Tasks: \(done) of \(tasks.count) done", bundle: .module))
-            .accessibilityHint(open ? Text("Hide the tasks", bundle: .module) : Text("Show the tasks", bundle: .module))
-            .accessibilityIdentifier("chat.tasks")
-            if open {
-                VStack(alignment: .leading, spacing: 3) {
-                    ForEach(tasks.indices, id: \.self) { index in
-                        ChatTaskLine(task: tasks[index])
-                    }
-                }
-                .padding(.leading, 2).padding(.bottom, 4)
-                .transition(AnyTransition.unfold)
-            }
-        }
-        .padding(.horizontal, 10).padding(.vertical, 2)
-        .background { BezelBackground(shape: RoundedRectangle(cornerRadius: 13, style: .continuous), fill: theme.colors.raised, bezel: .quiet) }
-        .animation(theme.motion.snappy, value: open)
-        .animation(theme.motion.snappy, value: current?.text)
-        .animation(theme.motion.snappy, value: done)
-    }
-}
-
-private struct ChatTaskLine: View {
-    @Environment(\.theme) private var theme
-    let task: ChatTask
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 7) {
-            Group {
-                switch task.state {
-                case .done:
-                    Image(systemName: "checkmark").foregroundStyle(theme.colors.ready)
-                        .accessibilityLabel(Text("Done", bundle: .module))
-                case .working:
-                    Image(systemName: "circle.fill").foregroundStyle(theme.colors.ink)
-                        .accessibilityHidden(true)
-                case .pending:
-                    Image(systemName: "circle").foregroundStyle(theme.colors.inkFaint)
-                        .accessibilityHidden(true)
-                }
-            }
-            .font(mac: 8, ios: .caption2, weight: .bold)
-            .frame(width: 12)
-            .contentTransition(.symbolEffect(.replace))
-            Text(verbatim: task.text).appTextStyle(.footnote)
-                .foregroundStyle(task.state == .working ? theme.colors.ink : theme.colors.inkMuted)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .animation(theme.motion.snappy, value: task.state)
-        .accessibilityElement(children: .combine)
     }
 }
 

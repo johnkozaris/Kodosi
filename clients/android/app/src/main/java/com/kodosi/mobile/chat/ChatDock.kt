@@ -270,7 +270,7 @@ internal fun ChatDock(
                                 focus.clearFocus()
                                 keyboard?.hide()
                                 startTalk()
-                            }
+                            }.takeIf { talk.recognizes }
                         )
                         if (typing) {
                             LaunchedEffect(Unit) {

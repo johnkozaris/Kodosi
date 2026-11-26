@@ -86,7 +86,8 @@ internal class ChatTalk(
 
     var hints: List<String> = emptyList()
 
-    val recognizes: Boolean get() = SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
+    /** This device turns speech into text itself; without that, the chat shows no talk key. */
+    val recognizes: Boolean = SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
 
     val permitted: Boolean
         get() = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
@@ -502,7 +503,6 @@ internal fun rememberTalkStart(talk: ChatTalk): () -> Unit {
     }
     return {
         when {
-            !talk.recognizes -> talk.note = TalkNote.UNAVAILABLE
             talk.permitted -> talk.start()
             else -> microphone.launch(Manifest.permission.RECORD_AUDIO)
         }
