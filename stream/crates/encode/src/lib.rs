@@ -75,6 +75,7 @@ enum Backend {
 }
 
 /// The largest picture, long side by short side, that graphics encode in real time.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 const LARGEST_ON_GRAPHICS: (u32, u32) = (4096, 2304);
 /// The largest picture that the processor encodes in real time without taking over the computer.
 #[cfg(not(target_os = "macos"))]
