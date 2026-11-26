@@ -485,7 +485,7 @@ private final class Microphone: @unchecked Sendable {
     private let format: AVAudioFormat
     private let feed: AsyncStream<AnalyzerInput>.Continuation
     private let loudness: @Sendable (Double) -> Void
-    private var converter: AVAudioConverter?
+    private var converter: TalkConverter?
 
     init(format: AVAudioFormat, feed: AsyncStream<AnalyzerInput>.Continuation, loudness: @escaping @Sendable (Double) -> Void) {
         self.format = format
@@ -497,10 +497,7 @@ private final class Microphone: @unchecked Sendable {
         let node = engine.inputNode
         let hardware = node.outputFormat(forBus: 0)
         guard hardware.sampleRate > 0, hardware.channelCount > 0 else { throw TalkListener.Failure.noMicrophone }
-        converter = AVAudioConverter(from: hardware, to: format)
-        // Without priming, the converted audio keeps the timing of the microphone, which the
-        // recognizer's times for the words depend on.
-        converter?.primeMethod = .none
+        converter = TalkConverter(from: hardware, to: format)
         node.installTap(onBus: 0, bufferSize: 4096, format: hardware) { [weak self] buffer, _ in
             self?.take(buffer)
         }
@@ -522,27 +519,8 @@ private final class Microphone: @unchecked Sendable {
 
     private func take(_ buffer: AVAudioPCMBuffer) {
         loudness(Self.loudness(of: buffer))
-        guard let converter, let converted = convert(buffer, with: converter) else { return }
+        guard let converted = converter?.convert(buffer) else { return }
         feed.yield(AnalyzerInput(buffer: converted))
-    }
-
-    private func convert(_ buffer: AVAudioPCMBuffer, with converter: AVAudioConverter) -> AVAudioPCMBuffer? {
-        let frames = (Double(buffer.frameLength) * format.sampleRate / buffer.format.sampleRate).rounded(.up)
-        guard let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frames) + 1) else { return nil }
-        var supplied = false
-        var error: NSError?
-        let status = converter.convert(to: output, error: &error) { _, state in
-            // The converter asks for input until it has enough; this tap buffer is all there is now.
-            if supplied {
-                state.pointee = .noDataNow
-                return nil
-            }
-            supplied = true
-            state.pointee = .haveData
-            return buffer
-        }
-        guard status != .error, output.frameLength > 0 else { return nil }
-        return output
     }
 
     /// Loudness in decibels below full scale.

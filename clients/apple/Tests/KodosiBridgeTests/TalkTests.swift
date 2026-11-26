@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 @testable import KodosiBridge
 import Testing
@@ -130,4 +131,22 @@ private func at(_ seconds: Double) -> Date {
     #expect(turn.hear(said("Use the staging database.", final: true, from: 0, to: 1.2), at: at(7.8), holding: true) == .wait)
     #expect(turn.tick(at: at(10), holding: true) == .wait)
     #expect(turn.askToSend(at: at(10.1), holding: true) == .send("Use the staging database."))
+}
+
+@Test func `a microphone with several inputs gives the recognizer the first one`() throws {
+    let inputs = try #require(AVAudioChannelLayout(layoutTag: kAudioChannelLayoutTag_DiscreteInOrder | 4))
+    let microphone = AVAudioFormat(standardFormatWithSampleRate: 48000, channelLayout: inputs)
+    let recognizer = try #require(AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16000, channels: 1, interleaved: false))
+    let converter = try #require(TalkConverter(from: microphone, to: recognizer))
+    let voice = try #require(AVAudioPCMBuffer(pcmFormat: microphone, frameCapacity: 4800))
+    voice.frameLength = 4800
+    let channels = try #require(voice.floatChannelData)
+    for channel in 0 ..< 4 {
+        for frame in 0 ..< 4800 {
+            channels[channel][frame] = channel == 0 ? 0.5 * sin(Float(frame) * 2 * .pi * 440 / 48000) : 0
+        }
+    }
+    let heard = try #require(converter.convert(voice))
+    let samples = try #require(heard.int16ChannelData)
+    #expect((0 ..< Int(heard.frameLength)).contains { abs(Int(samples[0][$0])) > 1000 })
 }
