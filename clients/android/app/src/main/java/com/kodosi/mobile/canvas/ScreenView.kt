@@ -148,10 +148,7 @@ fun ScreenView(model: AppModel, session: String, computer: String) {
                             failure,
                             AppSymbol.DISPLAY
                         ) {
-                            KodosiTextButton(onClick = {
-                                feed.show(false)
-                                feed.show(true)
-                            }) { Text(stringResource(R.string.try_again)) }
+                            KodosiTextButton(onClick = feed::retry) { Text(stringResource(R.string.try_again)) }
                         }
 
                         ScreenCover.WAITING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -163,7 +160,9 @@ fun ScreenView(model: AppModel, session: String, computer: String) {
                 }
                 ReconnectingNotice(
                     cover == null && reconnecting,
-                    Modifier.align(Alignment.TopCenter).padding(top = 10.dp)
+                    Modifier.align(Alignment.TopCenter).padding(top = 10.dp),
+                    reason = failure,
+                    retry = feed::retry
                 )
             }
         }

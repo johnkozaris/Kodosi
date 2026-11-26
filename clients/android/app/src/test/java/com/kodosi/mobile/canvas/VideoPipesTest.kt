@@ -15,6 +15,7 @@ import com.kodosi.mobile.runtime.RuntimeJson
 import com.kodosi.mobile.runtime.SentCommands
 import com.kodosi.mobile.runtime.TestWords
 import com.kodosi.mobile.runtime.answer
+import com.kodosi.mobile.runtime.fields
 import com.kodosi.mobile.runtime.number
 import com.kodosi.mobile.runtime.string
 import java.util.Base64
@@ -91,7 +92,7 @@ class VideoPipesTest {
     }
 
     @Test
-    fun wifiStaysAwakeWhilePicturesArriveAndSleepsOnceTheyStopOrTheFeedHides() = runTest {
+    fun wifiWakesForPicturesAndInputAndSleepsAfterAQuietSpellOrOnceTheFeedHides() = runTest {
         val application = RuntimeEnvironment.getApplication()
         val wifi = shadowOf(application.getSystemService(WifiManager::class.java))
         val sent = SentCommands()
@@ -115,6 +116,10 @@ class VideoPipesTest {
             assertEquals(1, wifi.activeLockCount)
             advanceUntilIdle()
             assertEquals(0, wifi.activeLockCount)
+            feed.input(fields("kind" to "text", "text" to "a"))
+            assertEquals(1, wifi.activeLockCount)
+            advanceUntilIdle()
+            assertEquals(0, wifi.activeLockCount)
 
             picture(pipes, pipe, 20)
             assertEquals(1, wifi.activeLockCount)
@@ -133,7 +138,7 @@ class VideoPipesTest {
     }
 
     @Test
-    fun aHotPhoneAsksForPicturesOfHalfItsDensityUntilItCools() = runTest {
+    fun aHotPhoneAsksForPicturesOfHalfItsDensityUntilItHasClearlyCooled() = runTest {
         val power = RuntimeEnvironment.getApplication().getSystemService(PowerManager::class.java)
         val sent = SentCommands()
         val pipes = VideoPipes(sent.sink, UnconfinedTestDispatcher(testScheduler).asExecutor(), power = power)
@@ -146,6 +151,9 @@ class VideoPipesTest {
         advanceTimeBy(1.seconds)
         assertEquals(1.5f, scale(sent))
         shadowOf(power).setCurrentThermalStatus(PowerManager.THERMAL_STATUS_MODERATE)
+        advanceTimeBy(1.seconds)
+        assertEquals(1.5f, scale(sent))
+        shadowOf(power).setCurrentThermalStatus(PowerManager.THERMAL_STATUS_LIGHT)
         advanceTimeBy(1.seconds)
         assertEquals(3f, scale(sent))
     }

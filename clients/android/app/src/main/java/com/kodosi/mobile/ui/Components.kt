@@ -24,6 +24,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -31,6 +32,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.progressSemantics
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -231,25 +233,43 @@ fun ProgressCaption(text: String, modifier: Modifier = Modifier) {
     }
 }
 
+// A reason from the other side, such as sharing turned off, comes with a way to try again at once.
 @Composable
-fun ReconnectingNotice(shown: Boolean, modifier: Modifier = Modifier) {
+fun ReconnectingNotice(
+    shown: Boolean,
+    modifier: Modifier = Modifier,
+    reason: String? = null,
+    retry: (() -> Unit)? = null
+) {
     val colors = KodosiTheme.colors
     val presence by animateFloatAsState(if (shown) 1f else 0f, snappy(), label = "reconnecting")
     if (presence <= 0f) return
+    val action = retry.takeIf { reason != null }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier
+            .padding(horizontal = 16.dp)
+            .widthIn(max = 480.dp)
             .graphicsLayer {
                 alpha = presence.coerceIn(0f, 1f)
                 translationY = (presence - 1f) * 8.dp.toPx()
             }
-            .raised(colors, RoundedCornerShape(percent = 50), fill = colors.lifted, elevation = Elevation.FLOATING)
-            .padding(start = 12.dp, top = 8.dp, end = 14.dp, bottom = 8.dp)
+            .raised(
+                colors,
+                if (reason == null) RoundedCornerShape(percent = 50) else RoundedCornerShape(Radius.lg),
+                fill = colors.lifted,
+                elevation = Elevation.FLOATING
+            )
+            .padding(start = 12.dp, top = 8.dp, end = if (action == null) 14.dp else 6.dp, bottom = 8.dp)
             .semantics { liveRegion = LiveRegionMode.Polite }
     ) {
         BreathingDot(colors.glowOrange)
-        Text(stringResource(R.string.reconnecting), style = KodosiType.footnote, color = colors.ink)
+        Column(Modifier.weight(1f, fill = false)) {
+            Text(stringResource(R.string.reconnecting), style = KodosiType.footnote, color = colors.ink)
+            if (reason != null) Text(reason, style = KodosiType.footnote, color = colors.inkMuted)
+        }
+        if (action != null) KodosiTextButton(onClick = action) { Text(stringResource(R.string.try_again)) }
     }
 }
 

@@ -16,6 +16,7 @@ import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -78,6 +79,23 @@ class BrowserFeedTest {
         feed.show(false)
         feed.show(true)
         assertEquals(false, look())
+    }
+
+    @Test
+    fun tryingAgainAfterALossOpensANewPipeAtOnceAndStaysReconnecting() = runTest {
+        val feed = feed()
+        feed.show(true)
+        val lost = sent.last("document.open").string("pipe")
+        sent.reply("document.open")
+        news("document.opened", lost)
+        news("document.lost", lost, """"message":"Studio is offline."""")
+
+        feed.retry()
+
+        assertEquals(lost, sent.last("document.close").string("pipe"))
+        assertNotEquals(lost, sent.last("document.open").string("pipe"))
+        assertNull(feed.failure.value)
+        assertTrue(feed.reconnecting.value)
     }
 
     private val decoders = listOf(fields("codec" to "h264", "hardware" to true))

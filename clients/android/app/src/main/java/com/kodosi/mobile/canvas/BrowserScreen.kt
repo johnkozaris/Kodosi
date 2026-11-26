@@ -400,6 +400,7 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask:
                                     color = KodosiTheme.colors.inkMuted,
                                     textAlign = TextAlign.Center
                                 )
+                                KodosiTextButton(onClick = feed::retry) { Text(stringResource(R.string.try_again)) }
                             }
                         }
 
@@ -408,7 +409,9 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask:
                 }
                 ReconnectingNotice(
                     cover == null && reconnecting,
-                    Modifier.align(Alignment.TopCenter).padding(top = 10.dp)
+                    Modifier.align(Alignment.TopCenter).padding(top = 10.dp),
+                    reason = failure,
+                    retry = feed::retry
                 )
             }
         }

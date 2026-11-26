@@ -35,8 +35,9 @@ class VideoPipes(
     private val feeds = mutableListOf<VideoFeed>()
     private val showing = mutableSetOf<VideoFeed>()
     private val chosen = mutableSetOf<String>()
-    private lateinit var lastPicture: TimeMark
+    private lateinit var lastWake: TimeMark
     private var awake: Job? = null
+    private var hot = false
 
     // Android's thermal status, which rises from THERMAL_STATUS_NONE as the phone heats. Decoders read
     // it on their own threads.
@@ -62,16 +63,17 @@ class VideoPipes(
         if (showing.isEmpty()) rest()
     }
 
-    // Called on this executor's thread for each video frame that reaches a feed. Wi-Fi stays out of its
-    // power saving only while pictures arrive, so that a still page, an asleep browser or a pipe that
-    // reconnects lets it save power.
-    internal fun received(feed: VideoFeed) {
+    // Called on this executor's thread for each video frame that reaches a feed and each input sent
+    // through it. Wi-Fi stays out of its power saving only while pictures arrive or the person acts, so
+    // that a still page, an asleep browser or a pipe that reconnects lets it save power, while the
+    // answer to a first tap after a quiet spell is not held back.
+    internal fun wake(feed: VideoFeed) {
         if (feed !in showing) return
-        lastPicture = time.markNow()
+        lastWake = time.markNow()
         if (awake != null) return
         wifi?.keep(true)
         awake = work.launch {
-            while (lastPicture.elapsedNow() < QUIET) delay(QUIET - lastPicture.elapsedNow())
+            while (lastWake.elapsedNow() < QUIET) delay(QUIET - lastWake.elapsedNow())
             awake = null
             wifi?.keep(false)
         }
@@ -87,12 +89,15 @@ class VideoPipes(
     // A hot phone asks the host for pictures of half its density.
     internal fun scale(density: Float) = if (hot) (density / 2).coerceAtLeast(1f) else density
 
-    private val hot get() = heat >= PowerManager.THERMAL_STATUS_SEVERE
-
+    // A phone turns hot at severe but cools only below moderate: one that hovers around severe would
+    // otherwise resize every stream, and pay for a keyframe, at each change.
     private fun heated(status: Int) {
-        val wasHot = hot
         heat = status
-        if (hot != wasHot) feeds.forEach(VideoFeed::rescale)
+        val hotNow = status >= PowerManager.THERMAL_STATUS_SEVERE ||
+            (hot && status >= PowerManager.THERMAL_STATUS_MODERATE)
+        if (hotNow == hot) return
+        hot = hotNow
+        feeds.forEach(VideoFeed::rescale)
     }
 
     // Methods on the returned link must only be called on this executor's thread.

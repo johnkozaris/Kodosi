@@ -185,6 +185,16 @@ abstract class VideoFeed(
         }
     }
 
+    // Opens a new pipe at once rather than after the runtime's next try, which waits longer after each
+    // failure. The stream stays reconnecting until its pictures come back.
+    fun retry() = pipes.execute {
+        failure.value = null
+        open = false
+        watching = false
+        link.detach()
+        join()
+    }
+
     internal fun chosen() {
         if (watching) watch()
     }
@@ -194,6 +204,7 @@ abstract class VideoFeed(
 
     fun input(value: JsonObject) = pipes.execute {
         if (!takesInput) return@execute
+        pipes.wake(this)
         touches.value++
         post(fields("type" to "input", "input" to value))
         if (value.string("kind") == "mouse") {
@@ -280,7 +291,7 @@ abstract class VideoFeed(
             return
         }
         if (bytes[0] != 1.toByte() || bytes.size <= HEADER) return
-        pipes.received(this)
+        pipes.wake(this)
         val id = ByteBuffer.wrap(bytes, 1, 4).order(ByteOrder.BIG_ENDIAN).int.toLong() and 0xffffffffL
         val flags = bytes[5].toInt()
         val key = flags and KEY != 0
