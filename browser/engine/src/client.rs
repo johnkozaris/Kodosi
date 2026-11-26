@@ -389,17 +389,20 @@ wrap_request_handler! {
     }
 
     impl RequestHandler {
+        // CEF loads and saves the cookies of each request that has a handler by itself, past
+        // Chromium's cookie settings, so only a request that the filters block gets one.
         fn resource_request_handler(
             &self,
-            _browser: Option<&mut Browser>,
+            browser: Option<&mut Browser>,
             _frame: Option<&mut Frame>,
-            _request: Option<&mut Request>,
+            request: Option<&mut Request>,
             _is_navigation: c_int,
             _is_download: c_int,
             _request_initiator: Option<&CefString>,
             _disable_default_handling: Option<&mut c_int>,
         ) -> Option<ResourceRequestHandler> {
-            self.blocker.clone()
+            let blocker = self.blocker.as_ref()?;
+            filters::blocks_request(browser, request).then(|| blocker.clone())
         }
 
         fn on_render_process_terminated(
