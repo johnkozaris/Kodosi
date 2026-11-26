@@ -3773,6 +3773,13 @@
             <numerusform>%n τερματικά σε αυτόν τον υπολογιστή σταματούν. Ξεκινούν ξανά όταν ανοίξει το Kodosi.</numerusform>
         </translation>
     </message>
+    <message numerus="yes">
+        <source>%n running programs stop.</source>
+        <translation>
+            <numerusform>%n πρόγραμμα που εκτελείται σταματά.</numerusform>
+            <numerusform>%n προγράμματα που εκτελούνται σταματούν.</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>ReconnectingNotice</name>
@@ -4822,6 +4829,18 @@
     <message>
         <source>Paste</source>
         <translation>Επικόλληση</translation>
+    </message>
+    <message>
+        <source>Lines added: %1. Lines removed: %2.</source>
+        <translation>Γραμμές που προστέθηκαν: %1. Γραμμές που αφαιρέθηκαν: %2.</translation>
+    </message>
+    <message>
+        <source>Show the changes</source>
+        <translation>Εμφάνιση των αλλαγών</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Συνέχεια</translation>
     </message>
 </context>
 <context>

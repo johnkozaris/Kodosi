@@ -11,7 +11,7 @@ KDialog {
 
     function request(restarting: bool): void {
         restart = restarting;
-        terminals = Models.Sessions.sessions.filter(session => session.kind === "local").length;
+        terminals = restarting ? Models.ApplicationLifecycle.restartStops : Models.Sessions.sessions.filter(session => session.kind === "local").length;
         if (terminals === 0 || Models.ApplicationLifecycle.hostForeground)
             finish();
         else
@@ -33,7 +33,7 @@ KDialog {
 
     PlainLabel {
         color: KodosiTheme.inkMuted
-        text: qsTr("%n terminals on this computer stop. They start again when Kodosi opens.", "", root.terminals)
+        text: root.restart ? qsTr("%n running programs stop.", "", root.terminals) : qsTr("%n terminals on this computer stop. They start again when Kodosi opens.", "", root.terminals)
         width: 340
         wrapMode: Text.WordWrap
     }

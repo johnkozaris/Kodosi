@@ -31,6 +31,7 @@
 #include "terminal/TerminalView.hpp"
 #include <kodosi_runtime.h>
 #include <QApplication>
+#include <QDateTime>
 #include <QProcess>
 #include <QQmlApplicationEngine>
 #include <QRegularExpression>
@@ -154,6 +155,14 @@ int main(int argc, char* argv[])
         isolated->setFallbacksEnabled(false);
         return isolated;
     };
+    // Kodosi opened again by itself after a quiet update, so it stays out of the way. The time is
+    // saved rather than passed on, because Windows opens an updated package again by itself.
+    const auto quietly = [&settings] {
+        const auto store = settings();
+        const auto restarted = store->value(QStringLiteral("app/reopensQuietly")).toLongLong();
+        store->remove(QStringLiteral("app/reopensQuietly"));
+        return restarted > 0 && qAbs(QDateTime::currentSecsSinceEpoch() - restarted) < 120;
+    }();
     kodosi::AppLanguage::install(
         app, kodosi::AppLanguage::resolved(settings()->value(QStringLiteral("app/language")).toString()));
     kodosi_set_language(kodosi::AppLanguage::current().toUtf8().constData());
@@ -218,6 +227,8 @@ int main(int argc, char* argv[])
         workspace.apply(event, accountEpoch);
         terminalNotifications.apply(event);
         const auto type = event.value(QStringLiteral("type")).toString();
+        if (type == QStringLiteral("system.restart"))
+            lifecycle.applyRestart(event.value(QStringLiteral("quiet")).toBool(), event.value(QStringLiteral("stops")).toInt());
         if (type == QStringLiteral("canvas.result") || type == QStringLiteral("canvas.error"))
             canvas.apply(event);
         if (type.startsWith(QStringLiteral("document.")))
@@ -286,6 +297,8 @@ int main(int argc, char* argv[])
 #endif
     files.setTransientParent(window);
     desktop.attachWindow(window, windowSize);
+    if (quietly)
+        window->showMinimized();
     const auto open = [&](const kodosi::AppActivation& activation) {
         const auto destination = activation.route ? activation.route->destination : std::nullopt;
         if (destination && destination->notification) {
@@ -325,12 +338,15 @@ int main(int argc, char* argv[])
     QObject::connect(&update, &kodosi::PackageUpdate::staged, &lifecycle,
         &kodosi::ApplicationLifecycleModel::setUpdateInstalled);
 #endif
-    open(launch);
+    if (!quietly)
+        open(launch);
     activations.setHandler(open);
     QObject::connect(&app, &QCoreApplication::aboutToQuit, &lifecycle, [&] { lifecycle.stop(); });
     const auto code = app.exec();
     if (lifecycle.restartRequested()) {
         claim.release();
+        if (lifecycle.restartsQuietly())
+            settings()->setValue(QStringLiteral("app/reopensQuietly"), QDateTime::currentSecsSinceEpoch());
 #ifdef Q_OS_WIN
         if (kodosi::PackageUpdate::openAgainAfterExit())
             return code;

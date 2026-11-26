@@ -94,6 +94,9 @@ branch. Kodosi apre il terminale in un nuovo worktree Git e lo rimuove automatic
 chiusura del terminale se non ci sono state modifiche. Puoi configurare dove salvare i worktree in
 **Impostazioni › Terminale**.
 
+L'intestazione del terminale mostra quante righe il branch ha aggiunto e rimosso. Fai clic sui
+numeri per vedere le modifiche nel canvas.
+
 Ogni terminale è chiaro o scuro come Kodosi sul suo computer host, su tutti i dispositivi da cui
 lo visualizzi. I programmi nel terminale ricevono le notifiche del tema, quindi strumenti come
 Claude Code (con `/theme` impostato su Auto) si adattano automaticamente. Se preferisci terminali
@@ -116,6 +119,11 @@ e Copilot CLI riprendono automaticamente le loro conversazioni e, su macOS e Lin
 anche modello, livello di ragionamento, modalità veloce, autorizzazioni e verbosità scelti in
 precedenza. Se Kodosi non riesce a individuare quale conversazione fosse attiva, l'agente elenca le
 proprie conversazioni per farti scegliere quale riprendere.
+
+Kodosi installa gli aggiornamenti da solo quando nessuno lo usa, nessun agente è al lavoro e nessun
+altro programma è in esecuzione in un terminale. Se riavvii tu per un aggiornamento, gli agenti che
+erano a metà di un'attività proseguono dopo. Dopo qualsiasi altra interruzione, un agente del genere
+aspetta finché non premi **Continua** nel suo terminale.
 
 Su macOS, i programmi in esecuzione dentro Kodosi ereditano le autorizzazioni di sistema concesse a
 Kodosi, come in qualsiasi altra app di terminale. Se macOS impedisce a un programma di modificare

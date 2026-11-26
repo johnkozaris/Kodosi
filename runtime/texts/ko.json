@@ -330,6 +330,7 @@
 "This task is done. Open it again before you take it.": "이 작업은 완료됐어요. 담당하기 전에 다시 여세요.",
 "This task is unavailable.": "이 작업은 사용할 수 없어요.",
 "This terminal connection is no longer authorized.": "이 터미널 연결은 더 이상 허용되지 않아요.",
+"This terminal has no branch of its own.": "이 터미널에는 자체 브랜치가 없습니다.",
 "This terminal is no longer available.": "이 터미널은 더 이상 사용할 수 없어요.",
 "This terminal is not available.": "이 터미널을 사용할 수 없어요.",
 "This terminal is not shared with you.": "이 터미널은 나와 공유되지 않았어요.",

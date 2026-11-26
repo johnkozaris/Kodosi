@@ -631,4 +631,7 @@
     <string name="local_network_title">Direkt zu deinem Computer</string>
     <string name="local_network_reason">Im selben WLAN verbindet sich dein Telefon direkt mit deinem eigenen Computer, und das ist schneller. Android nennt diese Berechtigung „Geräte in der Nähe“.</string>
     <string name="local_network_continue">Weiter</string>
+    <string name="continue_task">Weiter</string>
+    <string name="show_changes">Änderungen zeigen</string>
+    <string name="branch_changes">Hinzugefügte Zeilen: %1$d. Entfernte Zeilen: %2$d.</string>
 </resources>

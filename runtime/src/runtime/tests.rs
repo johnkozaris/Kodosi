@@ -556,6 +556,8 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             mentions: messages::Mentions::default(),
             #[cfg(feature = "host")]
             agent_changes: changes::AgentChanges::default(),
+            #[cfg(feature = "host")]
+            restart: restart::Restart::default(),
             person: Some("Ana".to_owned()),
             #[cfg(feature = "host")]
             config,
@@ -2343,6 +2345,8 @@ async fn hosted(runtime: &mut Runtime, folder: &Path) -> (Uuid, TerminalSession)
             changed: crate::agents::AgentSettings::default(),
             account_folder: None,
             marked: watch::channel(None).0,
+            counted: None,
+            counting: false,
         },
     );
     runtime.publish_catalog();
@@ -3034,6 +3038,38 @@ async fn folders_from_another_computer_fill_only_its_terminals_and_an_open_view_
         json!([]),
         "a device gives no folders of the terminals of other computers"
     );
+}
+
+#[tokio::test]
+async fn an_open_view_keeps_continue_and_changes_when_the_list_refreshes() {
+    let (mut runtime, _root) = registry_fixture();
+    sign_in(&mut runtime, true);
+    let remote = my_terminal("laptop");
+    runtime.replace_remotes(vec![remote.clone()]);
+    let (connection, _requests, _updates) = crate::network::test_remote_connection(remote.clone());
+    runtime.connections.insert(
+        remote.id,
+        RemoteTerminal::spawn(connection, runtime.changes.clone()),
+    );
+    let changes = crate::worktree::WorktreeChanges {
+        added: 120,
+        removed: 34,
+    };
+    runtime.change(SessionChange::Metadata {
+        id: remote.id,
+        incarnation: remote.incarnation_id,
+        instance_id: runtime.connections[&remote.id].instance_id,
+        metadata: crate::terminal::TerminalMetadata {
+            stopped: true,
+            changes: Some(changes),
+            ..Default::default()
+        },
+    });
+    runtime.replace_remotes(vec![remote.clone()]);
+    runtime.jobs.shutdown().await;
+    let entry = &runtime.remotes[&remote.id];
+    assert!(entry.stopped);
+    assert_eq!(entry.changes, Some(changes));
 }
 
 fn know_friends(runtime: &mut Runtime, friends: &[(&str, &str, &str)]) {
@@ -5006,6 +5042,7 @@ async fn saved_terminals_wait_for_an_app_and_stay_saved_until_they_start() {
         canvas: Vec::new(),
         browser: None,
         quiet_settings: None,
+        busy: false,
     };
     let (first, second) = (saved("first"), saved("second"));
     for live in [first.clone(), second.clone()] {
@@ -5016,6 +5053,66 @@ async fn saved_terminals_wait_for_an_app_and_stay_saved_until_they_start() {
     let mut opened_by_an_app = restore::Restore::load(root.path());
     assert_eq!(opened_by_an_app.take(), vec![first, second]);
     assert_eq!(opened_by_an_app.take(), Vec::new());
+}
+
+#[cfg(feature = "host")]
+#[tokio::test]
+async fn an_agent_cut_off_by_an_update_goes_on_and_one_cut_off_otherwise_waits() {
+    let root = tempfile::tempdir().unwrap();
+    let saved = |busy: bool| restore::Saved {
+        id: Uuid::now_v7(),
+        name: "Fix login".to_owned(),
+        folder: None,
+        sharing: None,
+        owner: None,
+        line: Some("claude --resume 7f1c".to_owned()),
+        worktree: None,
+        canvas: Vec::new(),
+        browser: None,
+        quiet_settings: None,
+        busy,
+    };
+    restore::Restore::load(root.path()).stop_for_update();
+    let after_update = restore::Restore::load(root.path());
+    assert_eq!(
+        after_update.unfinished(&saved(true)),
+        Some(restore::Unfinished::Continue)
+    );
+    assert_eq!(after_update.unfinished(&saved(false)), None);
+    let after_quit = restore::Restore::load(root.path());
+    assert_eq!(
+        after_quit.unfinished(&saved(true)),
+        Some(restore::Unfinished::Offer)
+    );
+}
+
+#[cfg(all(unix, feature = "host"))]
+#[tokio::test]
+async fn an_agent_saved_while_it_works_comes_back_unfinished() {
+    use crate::terminal::{ProgramState, ProgramStatus};
+    let (mut runtime, storage) = registry_fixture();
+    let (id, terminal) = hosted(&mut runtime, storage.path()).await;
+    runtime.local.get_mut(&id).unwrap().entry.program = Some("claude".to_owned());
+    let mut busy = Vec::new();
+    for state in [ProgramState::Working, ProgramState::Idle] {
+        let status = ProgramStatus {
+            state,
+            kind: None,
+            progress: None,
+            title: None,
+            message: None,
+        };
+        runtime.change(SessionChange::Status {
+            id,
+            status: Some(status),
+        });
+        runtime.save_terminals(HashMap::new());
+        runtime.restore.saved().await;
+        let saved = restore::Restore::load(&runtime.config.data_root).take();
+        busy.push(saved.iter().any(|saved| saved.id == id && saved.busy));
+    }
+    assert_eq!(busy, [true, false]);
+    terminal.close().await.unwrap();
 }
 
 #[cfg(feature = "host")]
@@ -5037,6 +5134,7 @@ async fn a_saved_screen_keeps_its_newest_lines_until_its_terminal_comes_back() {
         canvas: Vec::new(),
         browser: None,
         quiet_settings: None,
+        busy: false,
     };
     let mut restore = restore::Restore::load(root.path());
     restore.save(vec![saved.clone()]);
@@ -5324,6 +5422,8 @@ async fn a_restored_terminal_rejoins_its_project_for_its_account_and_leaves_a_re
             changed: crate::agents::AgentSettings::default(),
             account_folder: None,
             marked: watch::channel(None).0,
+            counted: None,
+            counting: false,
         },
     );
     assert_eq!(
@@ -5551,6 +5651,8 @@ async fn a_working_agent_gets_the_project_message_that_names_its_terminal_unless
             changed: crate::agents::AgentSettings::default(),
             account_folder: None,
             marked: watch::channel(None).0,
+            counted: None,
+            counting: false,
         },
     );
     let snapshot = |messages: Value| json!({"projectId": project, "messages": messages});
@@ -5642,6 +5744,110 @@ async fn a_working_agent_gets_the_project_message_that_names_its_terminal_unless
             .unwrap()
             .contains("[Kodosi] Message from Ana in the project")
     );
+    terminal.close().await.unwrap();
+    drop(terminal);
+}
+
+#[cfg(all(unix, feature = "host"))]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_agent_back_from_an_update_hears_continue_once_it_rests() {
+    use crate::terminal::{ProgramState, ProgramStatus};
+    let (mut runtime, storage) = registry_fixture();
+    let id = Uuid::now_v7();
+    let (changes, mut heard) = mpsc::channel(64);
+    let terminal = TerminalSession::spawn(
+        id,
+        Uuid::now_v7(),
+        PathBuf::from(SHELL),
+        vec![
+            "-c".to_owned(),
+            "sleep 0.3; printf '\\033]7501;state=idle:app=claude-code\\007'; exec /bin/cat"
+                .to_owned(),
+        ],
+        storage.path().to_owned(),
+        None,
+        None,
+        Vec::new(),
+        Default::default(),
+        stand_in_canvas(),
+        crate::chat::TerminalChat::alone(),
+        runtime.look.watch(),
+        std::env::temp_dir().join(Uuid::now_v7().to_string()),
+        changes,
+    )
+    .await
+    .unwrap();
+    let mut entry: SessionEntry = serde_json::from_value(json!({
+        "id": id, "incarnationId": terminal.incarnation_id, "kind": "local", "name": "Fix login",
+        "isOwner": true, "status": "running", "connectionState": "local", "prompt": false,
+        "repository": false, "working": false, "sharedWith": [], "attention": false,
+        "connectedUsers": [], "hidden": false, "look": "dark",
+    }))
+    .unwrap();
+    entry.program = Some("claude".to_owned());
+    entry.program_status = Some(ProgramStatus {
+        state: ProgramState::Working,
+        kind: None,
+        progress: None,
+        title: None,
+        message: None,
+    });
+    runtime.local.insert(
+        id,
+        Local {
+            terminal: terminal.clone(),
+            entry,
+            creation: Command::ListSessions {
+                request_id: Uuid::now_v7().to_string(),
+            },
+            published: true,
+            project_sequence: 0,
+            worktree: None,
+            wanted: None,
+            conversation: restore::Conversation::default(),
+            changed: crate::agents::AgentSettings::default(),
+            account_folder: None,
+            marked: watch::channel(None).0,
+            counted: None,
+            counting: false,
+        },
+    );
+    runtime.restart.continue_when_ready(id, Instant::now());
+    runtime.continue_restored();
+    assert!(
+        runtime.jobs.is_empty(),
+        "an agent that works while it starts gets nothing yet"
+    );
+
+    timeout(Duration::from_secs(10), async {
+        while runtime.jobs.is_empty() {
+            runtime.change(heard.recv().await.unwrap());
+        }
+    })
+    .await
+    .unwrap();
+    {
+        let typed = timeout(Duration::from_secs(10), runtime.jobs.join_next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        runtime.complete(typed);
+    }
+    timeout(Duration::from_secs(10), async {
+        while !terminal
+            .read(false)
+            .await
+            .unwrap()
+            .contains(commands::GO_ON)
+        {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .unwrap();
+    runtime.continue_restored();
+    assert!(runtime.jobs.is_empty(), "the agent hears it once");
     terminal.close().await.unwrap();
     drop(terminal);
 }
@@ -6000,6 +6206,8 @@ async fn a_change_of_the_agent_waits_for_its_next_prompt_and_types_its_own_comma
             changed: crate::agents::AgentSettings::default(),
             account_folder: None,
             marked: watch::channel(None).0,
+            counted: None,
+            counting: false,
         },
     );
     let conversation = &mut runtime.local.get_mut(&id).unwrap().conversation;

@@ -376,6 +376,16 @@ bool SessionActionsModel::rename(const QString& id, const QString& name)
         { { QStringLiteral("name"), name.trimmed() } });
 }
 
+bool SessionActionsModel::continueTask(const QString& id)
+{
+    return command(QStringLiteral("session.continue"), id);
+}
+
+bool SessionActionsModel::showChanges(const QString& id)
+{
+    return command(QStringLiteral("session.changes"), id);
+}
+
 bool SessionActionsModel::startAgent(const QString& id, const QString& agent)
 {
     return command(QStringLiteral("session.run"), id,

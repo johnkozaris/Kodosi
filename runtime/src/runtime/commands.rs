@@ -32,6 +32,9 @@ use crate::{
 #[cfg(feature = "host")]
 use std::sync::Arc;
 
+/// What an agent hears when someone lets it go on with the task that a restart cut off.
+pub(super) const GO_ON: &str = "Continue";
+
 fn run_on_host() -> crate::text::Text {
     text!("Start a program on the computer that hosts this terminal.")
 }
@@ -273,6 +276,8 @@ impl Runtime {
             Command::CloseSession { .. } | Command::InterruptSession { .. } => {
                 self.end_session(command)?;
             }
+            Command::ContinueSession { .. } => self.continue_session(command)?,
+            Command::ShowChanges { .. } => self.show_changes(command)?,
             #[cfg(feature = "host")]
             Command::RunInSession { .. } => self.run_in_session(command)?,
             #[cfg(not(feature = "host"))]
@@ -852,6 +857,16 @@ impl Runtime {
             expected_runtime_incarnation_id: incarnation,
             ..
         }
+        | Command::ContinueSession {
+            session_id: id,
+            expected_runtime_incarnation_id: incarnation,
+            ..
+        }
+        | Command::ShowChanges {
+            session_id: id,
+            expected_runtime_incarnation_id: incarnation,
+            ..
+        }
         | Command::RunInSession {
             session_id: id,
             expected_runtime_incarnation_id: incarnation,
@@ -1020,6 +1035,63 @@ impl Runtime {
             Completion::Terminal {
                 command,
                 result: response.await,
+            }
+        });
+        Ok(())
+    }
+
+    fn continue_session(&mut self, command: &Command) -> Result<()> {
+        let id = self.command_session(command)?;
+        self.reachable(id)?;
+        if !self.hosts(&id)
+            && self
+                .connections
+                .get(&id)
+                .is_none_or(RemoteTerminal::is_closed)
+        {
+            return self.open_remote(id, command.clone());
+        }
+        self.job_capacity()?;
+        let typed = self.target(id)?.type_line(GO_ON.to_owned(), true);
+        let command = command.clone();
+        self.spawn(async move {
+            Completion::Terminal {
+                command,
+                result: typed.await,
+            }
+        });
+        Ok(())
+    }
+
+    fn show_changes(&mut self, command: &Command) -> Result<()> {
+        let id = self.command_session(command)?;
+        self.reachable(id)?;
+        self.job_capacity()?;
+        #[cfg(feature = "host")]
+        if self.hosts(&id) {
+            let shown = self.changes_shown(id)?;
+            let command = command.clone();
+            self.spawn(async move {
+                Completion::Terminal {
+                    command,
+                    result: shown.await,
+                }
+            });
+            return Ok(());
+        }
+        if self
+            .connections
+            .get(&id)
+            .is_none_or(RemoteTerminal::is_closed)
+        {
+            return self.open_remote(id, command.clone());
+        }
+        let asked = self.target(id)?.ask_changes();
+        let command = command.clone();
+        self.spawn(async move {
+            Completion::Terminal {
+                command,
+                result: asked.await,
             }
         });
         Ok(())
@@ -1618,6 +1690,20 @@ impl Runtime {
                 result,
             } => self.told(id, mentions, result, current),
             #[cfg(feature = "host")]
+            Completion::WentOn { id, result } => {
+                if current {
+                    self.went_on(id, result);
+                }
+            }
+            #[cfg(feature = "host")]
+            Completion::Counted { id, changes } => self.counted(id, changes),
+            #[cfg(feature = "host")]
+            Completion::ChangesShown { result } => {
+                if let Err(error) = result {
+                    tracing::debug!(%error, "the diff of a terminal was not shown");
+                }
+            }
+            #[cfg(feature = "host")]
             Completion::AgentTyped { id, line, result } => {
                 self.agent_typed(id, line, result, current);
             }
@@ -1839,6 +1925,9 @@ impl Runtime {
         if let Some(saved) = &restored {
             self.restore.forget_screen(saved.id);
         }
+        let unfinished = restored
+            .as_ref()
+            .and_then(|saved| self.restore.unfinished(saved));
         let result = if current || restored.is_some() {
             result
         } else {
@@ -1912,6 +2001,8 @@ impl Runtime {
                     project_name: None,
                     shared_with: vec![],
                     restored_from: restored.as_ref().map(|saved| saved.id.to_string()),
+                    stopped: false,
+                    changes: None,
                 };
                 let created = json!({"type":"session.result", "requestId":request_id, "sessionId":id, "operation":"session.create"});
                 if let Some(folder) = &entry.working_dir {
@@ -1946,8 +2037,19 @@ impl Runtime {
                         changed: crate::agents::AgentSettings::default(),
                         account_folder: None,
                         marked: tokio::sync::watch::channel(None).0,
+                        counted: None,
+                        counting: false,
                     },
                 );
+                match unfinished {
+                    Some(super::restore::Unfinished::Continue) => {
+                        self.restart
+                            .continue_when_ready(id, tokio::time::Instant::now());
+                    }
+                    Some(super::restore::Unfinished::Offer) => self.offer_continue(id),
+                    None => {}
+                }
+                self.count_branch(id);
                 self.apply_wanted();
                 self.publish_catalog();
                 self.emit(created);

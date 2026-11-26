@@ -32,7 +32,8 @@ cursor when it sits higher up).
 
 You can type directly into the terminal (with an accessory row for extra keys) or use the composer
 to send a paste plus Return on tap. While an agent is waiting, quick-answer buttons `1`, `2`, and
-`3` respond without bringing up the soft keyboard. Hardware keyboards type directly into the
+`3` respond without bringing up the soft keyboard, and an agent that a restart stopped in the middle
+of a task goes on with one tap. Hardware keyboards type directly into the
 terminal, and landscape mode hides the header while typing.
 
 Terminals with chat-capable agents support toggling between the terminal screen and chat view in

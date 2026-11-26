@@ -150,8 +150,8 @@ async fn serve_connection(
             read_json::<_, ClientRequest>(&mut FrameReader::new(&mut stream)),
         )
         .await;
-        if let Ok(Ok(ClientRequest::Stop { force })) = request {
-            stop(&mut stream, &runtime, host, force).await?;
+        if let Ok(Ok(ClientRequest::Stop { force, update })) = request {
+            stop(&mut stream, &runtime, host, force, update).await?;
         }
         return Ok(());
     }
@@ -203,13 +203,20 @@ async fn stop<W: AsyncWrite + Unpin + Send>(
     runtime: &RuntimeHandle,
     host: HostDescription,
     force: bool,
+    update: bool,
 ) -> Result<bool> {
     let open = local_sessions(&runtime.snapshot().await?);
     match stop_permission(host.kind, force, open) {
         Ok(()) => {
             write_json(writer, &json!({"kind":"stopping"})).await?;
             let stopping = runtime.clone();
-            tokio::spawn(async move { stopping.shutdown().await });
+            tokio::spawn(async move {
+                if update {
+                    stopping.shutdown_for_update().await;
+                } else {
+                    stopping.shutdown().await;
+                }
+            });
             Ok(true)
         }
         Err(message) => {
@@ -260,8 +267,8 @@ async fn serve_commands(
                             write_json(&mut writer,&json!({"kind":"rejected","requestId":request_id,"operation":operation,"message":error.text()})).await?;
                         }
                     }
-                    ClientRequest::Stop{force}=>{
-                        if stop(&mut writer,&runtime,host,force).await? {
+                    ClientRequest::Stop{force,update}=>{
+                        if stop(&mut writer,&runtime,host,force,update).await? {
                             return Ok(());
                         }
                     }

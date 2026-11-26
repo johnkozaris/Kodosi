@@ -255,6 +255,13 @@ pub struct TerminalMetadata {
     #[serde(default, skip_serializing_if = "no_helpers")]
     pub helpers: u8,
     pub look: TerminalLook,
+    /// The agent stopped in the middle of a task when its computer's Kodosi stopped, and goes on
+    /// when someone asks.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub stopped: bool,
+    /// What the terminal's branch folder changed since its branch started.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub changes: Option<crate::worktree::WorktreeChanges>,
 }
 
 impl TerminalMetadata {

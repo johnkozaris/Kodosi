@@ -330,6 +330,7 @@
 "This task is done. Open it again before you take it.": "このタスクは完了しています。担当する前に再オープンしてください。",
 "This task is unavailable.": "このタスクは利用できません。",
 "This terminal connection is no longer authorized.": "このターミナル接続はもう許可されていません。",
+"This terminal has no branch of its own.": "このターミナルには専用のブランチがありません。",
 "This terminal is no longer available.": "このターミナルは使用できなくなりました。",
 "This terminal is not available.": "このターミナルは利用できません。",
 "This terminal is not shared with you.": "このターミナルはあなたと共有されていません。",

@@ -656,4 +656,7 @@
     <string name="local_network_title">Joindre directement votre ordinateur</string>
     <string name="local_network_reason">Sur le même Wi-Fi, votre téléphone se connecte directement à votre ordinateur, ce qui est plus rapide. Android appelle cette autorisation « Appareils à proximité ».</string>
     <string name="local_network_continue">Continuer</string>
+    <string name="continue_task">Continuer</string>
+    <string name="show_changes">Afficher les modifications</string>
+    <string name="branch_changes">Lignes ajoutées : %1$d. Lignes supprimées : %2$d.</string>
 </resources>

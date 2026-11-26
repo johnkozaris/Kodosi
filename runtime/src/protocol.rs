@@ -349,6 +349,26 @@ pub enum Command {
         #[serde(rename = "expectedRuntimeIncarnationId")]
         expected_runtime_incarnation_id: String,
     },
+    /// Lets the terminal's agent go on with the task that a stop of its computer's Kodosi cut off.
+    #[serde(rename = "session.continue")]
+    ContinueSession {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "expectedRuntimeIncarnationId")]
+        expected_runtime_incarnation_id: String,
+    },
+    /// Shows what the terminal's branch folder changed on the terminal's canvas.
+    #[serde(rename = "session.changes")]
+    ShowChanges {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "expectedRuntimeIncarnationId")]
+        expected_runtime_incarnation_id: String,
+    },
     #[serde(rename = "session.run")]
     RunInSession {
         #[serde(rename = "requestId")]
@@ -1117,6 +1137,13 @@ pub struct SessionEntry {
     pub shared_with: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub restored_from: Option<String>,
+    /// The agent stopped in the middle of a task when its computer's Kodosi stopped, so the apps
+    /// offer to let it go on.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub stopped: bool,
+    /// What the terminal's branch folder changed since its branch started.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub changes: Option<crate::worktree::WorktreeChanges>,
 }
 
 /// In the order from the least to the most present.
@@ -1199,6 +1226,10 @@ pub enum EventBody {
     },
     #[serde(rename = "system.updateRequired")]
     SystemUpdateRequired {},
+    /// Whether restarting this computer's Kodosi now loses nothing while nobody uses its terminals,
+    /// and how many terminals would lose a program that does not come back.
+    #[serde(rename = "system.restart")]
+    SystemRestart { quiet: bool, stops: u32 },
     /// Whether the account reaches the server. A short drop, such as when the computer wakes,
     /// keeps it online.
     #[serde(rename = "connection.state")]
@@ -2187,6 +2218,7 @@ impl EventBody {
         match self {
             Self::SystemReady { .. } => "system.ready",
             Self::SystemUpdateRequired {} => "system.updateRequired",
+            Self::SystemRestart { .. } => "system.restart",
             Self::Connection { .. } => "connection.state",
             Self::ConnectionResult { .. } => "connection.result",
             Self::ConnectionError { .. } => "connection.error",
@@ -2348,6 +2380,8 @@ impl Command {
             Self::RenameSession { .. } => "session.rename",
             Self::CloseSession { .. } => "session.close",
             Self::InterruptSession { .. } => "session.interrupt",
+            Self::ContinueSession { .. } => "session.continue",
+            Self::ShowChanges { .. } => "session.changes",
             Self::RunInSession { .. } => "session.run",
             Self::Input { .. } => "session.input",
             Self::Picture { .. } => "session.picture",
@@ -2509,6 +2543,8 @@ impl Command {
             | Self::RenameSession { request_id, .. }
             | Self::CloseSession { request_id, .. }
             | Self::InterruptSession { request_id, .. }
+            | Self::ContinueSession { request_id, .. }
+            | Self::ShowChanges { request_id, .. }
             | Self::RunInSession { request_id, .. }
             | Self::Input { request_id, .. }
             | Self::Picture { request_id, .. }
@@ -2591,6 +2627,8 @@ impl Command {
             Self::RenameSession { session_id, .. }
             | Self::CloseSession { session_id, .. }
             | Self::InterruptSession { session_id, .. }
+            | Self::ContinueSession { session_id, .. }
+            | Self::ShowChanges { session_id, .. }
             | Self::RunInSession { session_id, .. }
             | Self::Input { session_id, .. }
             | Self::Picture { session_id, .. }
@@ -2615,6 +2653,10 @@ impl Command {
             _ => None,
         }
     }
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one check for every command that names a terminal"
+    )]
     fn validate_resource_ids(&self) -> Result<()> {
         match self {
             Self::RenameSession {
@@ -2626,6 +2668,14 @@ impl Command {
                 ..
             }
             | Self::InterruptSession {
+                expected_runtime_incarnation_id,
+                ..
+            }
+            | Self::ContinueSession {
+                expected_runtime_incarnation_id,
+                ..
+            }
+            | Self::ShowChanges {
                 expected_runtime_incarnation_id,
                 ..
             }

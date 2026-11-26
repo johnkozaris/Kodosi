@@ -12,18 +12,18 @@ const MARKDOWN: Options = Options::ENABLE_TABLES
 
 pub(super) fn page(name: &str, source: &[u8]) -> Vec<u8> {
     let text = String::from_utf8_lossy(source);
-    let markdown = std::path::Path::new(name)
+    let extension = std::path::Path::new(name)
         .extension()
         .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| {
-            matches!(extension.to_ascii_lowercase().as_str(), "md" | "markdown")
-        });
-    let body = if markdown {
-        let mut body = String::with_capacity(text.len() * 2);
-        html::push_html(&mut body, Parser::new_ext(&text, MARKDOWN));
-        body
-    } else {
-        format!("<pre><code>{}</code></pre>", escape(&text))
+        .map(str::to_ascii_lowercase);
+    let body = match extension.as_deref() {
+        Some("md" | "markdown") => {
+            let mut body = String::with_capacity(text.len() * 2);
+            html::push_html(&mut body, Parser::new_ext(&text, MARKDOWN));
+            body
+        }
+        Some("diff" | "patch") => diff(&text),
+        _ => format!("<pre><code>{}</code></pre>", escape(&text)),
     };
     format!(
         "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>{}</title>{}</head><body><main>{body}</main></body></html>",
@@ -31,6 +31,41 @@ pub(super) fn page(name: &str, source: &[u8]) -> Vec<u8> {
         style()
     )
     .into_bytes()
+}
+
+/// Marks added and removed lines with the page's own colors.
+fn diff(text: &str) -> String {
+    let mut body = String::with_capacity(text.len() * 2);
+    body.push_str("<pre><code>");
+    for line in text.lines() {
+        let class = if line.starts_with("diff --git ") {
+            Some("eyebrow")
+        } else if ["--- ", "+++ ", "index ", "new file", "deleted file", "@@"]
+            .iter()
+            .any(|start| line.starts_with(start))
+        {
+            Some("note")
+        } else if line.starts_with('+') {
+            Some("good")
+        } else if line.starts_with('-') {
+            Some("bad")
+        } else {
+            None
+        };
+        match class {
+            Some(class) => {
+                body.push_str("<span class=\"");
+                body.push_str(class);
+                body.push_str("\">");
+                body.push_str(&escape(line));
+                body.push_str("</span>");
+            }
+            None => body.push_str(&escape(line)),
+        }
+        body.push('\n');
+    }
+    body.push_str("</code></pre>");
+    body
 }
 
 fn style() -> &'static str {

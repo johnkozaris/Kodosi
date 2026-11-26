@@ -84,6 +84,9 @@ click the branch button, and enter a branch name. Kodosi opens the terminal in a
 and removes it automatically when the terminal closes if nothing changed. You can configure where
 worktrees are stored in **Settings › Terminal**.
 
+The terminal's header shows how many lines the branch added and removed. Click the numbers to see
+the changes on the canvas.
+
 Each terminal is light or dark like Kodosi on its host computer, on every device viewing it.
 Programs inside the terminal receive theme notifications, so tools like Claude Code (with `/theme`
 set to Auto) adapt automatically. If you prefer dark terminals while Kodosi itself is in light
@@ -104,6 +107,11 @@ folders, projects, and stage positions with their prior screen and scrollback ab
 conversations, and on macOS and Linux they also keep your chosen model, effort, fast mode,
 permissions, and verbosity. If Kodosi can't identify which conversation an agent was running, the
 agent lists its conversations so you can pick one.
+
+Kodosi installs updates by itself while nobody uses it, no agent is busy, and no other program runs
+in a terminal. When you restart for an update yourself, agents that were in the middle of a task
+carry on afterwards. After any other stop, such an agent waits until you press **Continue** on its
+terminal.
 
 On macOS, programs inside Kodosi inherit the macOS permissions granted to Kodosi, just like in any
 other terminal app. If macOS blocks a program from modifying another app, enable Kodosi under

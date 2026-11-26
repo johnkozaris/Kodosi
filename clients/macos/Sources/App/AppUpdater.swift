@@ -9,6 +9,13 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
     private(set) var waiting = false
     private(set) var critical = false
     private(set) var restarting = false
+    /// Kodosi restarts by itself to install the waiting update while nobody uses it.
+    private(set) var restartingQuietly = false
+    /// A restart now loses nothing, and nobody uses Kodosi.
+    var quiet = false {
+        didSet { restartIfQuiet() }
+    }
+
     var automatic = false {
         didSet {
             if configured {
@@ -61,6 +68,13 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
 
     func restartCancelled() {
         restarting = false
+        restartingQuietly = false
+    }
+
+    private func restartIfQuiet() {
+        guard quiet, waiting, !restarting, install != nil else { return }
+        restartingQuietly = true
+        restart()
     }
 
     func updater(_: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem,
@@ -69,6 +83,7 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
         install = immediateInstallationBlock
         critical = item.isCriticalUpdate
         waiting = true
+        restartIfQuiet()
         return true
     }
 

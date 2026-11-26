@@ -242,19 +242,23 @@ pub unsafe extern "C" fn kodosi_last_start_failure(out: *mut KodosiStartFailure)
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn kodosi_host_stop(force: i32) -> i32 {
-    caught(|| stop_host(force != 0))
+pub extern "C" fn kodosi_host_stop(force: i32, update: i32) -> i32 {
+    caught(|| stop_host(force != 0, update != 0))
 }
 
 #[cfg(feature = "host")]
-fn stop_host(force: bool) -> i32 {
+fn stop_host(force: bool, update: bool) -> i32 {
     let Ok(config) = app::config() else {
         return KODOSI_HOST_STOP_FAILED;
     };
     let Ok(executor) = Executor::new() else {
         return KODOSI_HOST_STOP_FAILED;
     };
-    match executor.block_on(local_host::stop_other_host(&config.data_root, force)) {
+    match executor.block_on(local_host::stop_other_host(
+        &config.data_root,
+        force,
+        update,
+    )) {
         Ok(()) => KODOSI_HOST_STOP_ACCEPTED,
         Err(Error::HostBusy(_)) => KODOSI_HOST_STOP_REFUSED,
         Err(Error::Io(error))
@@ -270,7 +274,7 @@ fn stop_host(force: bool) -> i32 {
 }
 
 #[cfg(not(feature = "host"))]
-const fn stop_host(_force: bool) -> i32 {
+const fn stop_host(_force: bool, _update: bool) -> i32 {
     KODOSI_HOST_STOP_UNREACHABLE
 }
 

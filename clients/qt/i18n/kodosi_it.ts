@@ -3773,6 +3773,13 @@
             <numerusform>%n terminali su questo computer si fermano. Ripartono quando si apre Kodosi.</numerusform>
         </translation>
     </message>
+    <message numerus="yes">
+        <source>%n running programs stop.</source>
+        <translation>
+            <numerusform>%n programma in esecuzione si ferma.</numerusform>
+            <numerusform>%n programmi in esecuzione si fermano.</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>ReconnectingNotice</name>
@@ -4822,6 +4829,18 @@
     <message>
         <source>Paste</source>
         <translation>Incolla</translation>
+    </message>
+    <message>
+        <source>Lines added: %1. Lines removed: %2.</source>
+        <translation>Righe aggiunte: %1. Righe rimosse: %2.</translation>
+    </message>
+    <message>
+        <source>Show the changes</source>
+        <translation>Mostra le modifiche</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Continua</translation>
     </message>
 </context>
 <context>

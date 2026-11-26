@@ -34,7 +34,7 @@ void ApplicationLifecycleModelTest::anOutdatedHostRestartsOnlyWhenItRunsInTheBac
                 completion(kodosi::RuntimeBridge::Result {});
             }
         },
-        [] {},
+        [](bool) {},
         [&](std::function<void(kodosi::HostStop)> completion) { stopping = std::move(completion); });
 
     model.beginInitialStart();
@@ -80,7 +80,7 @@ void ApplicationLifecycleModelTest::anOutdatedHostThatComesBackIsRestartedOnlyOn
             completion(std::unexpected(
                 kodosi::RuntimeFailure { .ffiResult = -1, .message = QStringLiteral("old"), .outdatedHost = outdated }));
         },
-        [] {},
+        [](bool) {},
         [&](std::function<void(kodosi::HostStop)> completion) {
             ++stops;
             completion(kodosi::HostStop::Stopped);
@@ -97,7 +97,7 @@ void ApplicationLifecycleModelTest::anOutdatedHostThatComesBackIsRestartedOnlyOn
 void ApplicationLifecycleModelTest::aLaunchOfANewerVersionOffersTheRestart()
 {
     kodosi::RuntimeBridge runtime;
-    kodosi::ApplicationLifecycleModel model(runtime, [](kodosi::ApplicationLifecycleModel::Completion) {}, [] {});
+    kodosi::ApplicationLifecycleModel model(runtime, [](kodosi::ApplicationLifecycleModel::Completion) {}, [](bool) {});
     QSignalSpy offered(&model, &kodosi::ApplicationLifecycleModel::restartOffered);
 
     model.offerRestart(QStringLiteral("0.2.1"), QStringLiteral("0.2.2"));

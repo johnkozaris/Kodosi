@@ -2070,7 +2070,7 @@ fn print_status(context: &Context, json_output: bool, text: fn(&Context) -> Stri
 }
 
 async fn stop_host(config: &Config, force: bool, json_output: bool) -> Result<()> {
-    local_host::stop_other_host(&config.data_root, force).await?;
+    local_host::stop_other_host(&config.data_root, force, false).await?;
     output(
         &json!({"stopped":true}),
         json_output,

@@ -3742,6 +3742,12 @@
             <numerusform>이 컴퓨터의 터미널 %n개가 멈춰요. Kodosi를 열면 다시 시작돼요.</numerusform>
         </translation>
     </message>
+    <message numerus="yes">
+        <source>%n running programs stop.</source>
+        <translation>
+            <numerusform>실행 중인 프로그램 %n개가 중지됩니다.</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>ReconnectingNotice</name>
@@ -4790,6 +4796,18 @@
     <message>
         <source>Paste</source>
         <translation>붙여넣기</translation>
+    </message>
+    <message>
+        <source>Lines added: %1. Lines removed: %2.</source>
+        <translation>추가된 줄: %1. 삭제된 줄: %2.</translation>
+    </message>
+    <message>
+        <source>Show the changes</source>
+        <translation>변경 사항 보기</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>계속</translation>
     </message>
 </context>
 <context>

@@ -41,6 +41,13 @@ them on request with their previous screen contents and the command needed to re
 conversation. Restored terminals get a new ID that references the replaced terminal ID so remote
 views follow automatically.
 
+Each snapshot also notes whether the terminal's agent was in the middle of a task. A host that
+stops to install an update leaves a note of that, and when the next host starts soon after, those
+agents continue on their own once they report that they are ready. After any other stop, the
+terminal offers to continue its agent until someone does, types, or the agent works again. The host
+tells the desktop apps whether a restart now would lose nothing while nobody uses its terminals,
+and the apps install a waiting update then.
+
 ## Terminals
 
 ### Streaming and connections
@@ -196,6 +203,10 @@ terminal's encrypted channel, syncing an initial snapshot followed by incrementa
 The host manages each terminal's canvas: files shown by the agent plus its shared browser. The
 canvas manifest syncs with terminal state to local clients and over the encrypted terminal channel
 to remote devices. Reading and adding files travel over the same encrypted channel.
+
+A terminal on a Git branch of its own counts the lines its branch changed since the branch started,
+including new files that Git does not track yet, and shows the diff on its canvas when someone asks
+from any device.
 
 ### Live documents
 

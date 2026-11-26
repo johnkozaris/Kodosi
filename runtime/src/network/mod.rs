@@ -403,6 +403,8 @@ pub enum TerminalControl {
         change: Box<crate::agents::AgentSettings>,
     },
     Seen,
+    /// Shows what the terminal's branch folder changed on its canvas.
+    Changes,
 }
 
 #[derive(Debug)]

@@ -18,7 +18,7 @@ int32_t kodosi_last_start_failure(kodosi_start_failure_t* out)
     *out = *runtime_fixture::startFailure;
     return 1;
 }
-int32_t kodosi_host_stop(int32_t)
+int32_t kodosi_host_stop(int32_t, int32_t)
 {
     ++runtime_fixture::hostStops;
     return KODOSI_HOST_STOP_ACCEPTED;

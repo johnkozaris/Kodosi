@@ -638,4 +638,7 @@
     <string name="local_network_title">Reach your computer directly</string>
     <string name="local_network_reason">On the same Wi-Fi, your phone connects straight to your own computer, which is faster. Android calls this permission “nearby devices”.</string>
     <string name="local_network_continue">Continue</string>
+    <string name="continue_task">Continue</string>
+    <string name="show_changes">Show the changes</string>
+    <string name="branch_changes">Lines added: %1$d. Lines removed: %2$d.</string>
 </resources>

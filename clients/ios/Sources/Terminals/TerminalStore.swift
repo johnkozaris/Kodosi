@@ -209,6 +209,16 @@ final class TerminalStore {
         act("session.interrupt", on: session)
     }
 
+    /// Lets the terminal's agent go on with the task that a restart cut off.
+    func continueTask(_ session: RuntimeSession) {
+        act("session.continue", on: session)
+    }
+
+    /// Shows what the terminal's branch folder changed on its canvas.
+    func showChanges(_ session: RuntimeSession) {
+        act("session.changes", on: session)
+    }
+
     func changeAgent(_ change: AgentSettings, in session: RuntimeSession) {
         act("session.agent", on: session, fields: ["change": change.json])
     }

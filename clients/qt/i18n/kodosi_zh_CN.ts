@@ -3742,6 +3742,12 @@
             <numerusform>这台电脑上的 %n 个终端会停止，Kodosi 打开时会重新启动。</numerusform>
         </translation>
     </message>
+    <message numerus="yes">
+        <source>%n running programs stop.</source>
+        <translation>
+            <numerusform>%n 个正在运行的程序将停止。</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>ReconnectingNotice</name>
@@ -4790,6 +4796,18 @@
     <message>
         <source>Paste</source>
         <translation>粘贴</translation>
+    </message>
+    <message>
+        <source>Lines added: %1. Lines removed: %2.</source>
+        <translation>新增行：%1。删除行：%2。</translation>
+    </message>
+    <message>
+        <source>Show the changes</source>
+        <translation>显示更改</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>继续</translation>
     </message>
 </context>
 <context>

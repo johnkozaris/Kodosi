@@ -101,8 +101,15 @@ pub struct TerminalWelcome {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 enum ClientRequest {
-    Command { command: Value },
-    Stop { force: bool },
+    Command {
+        command: Value,
+    },
+    Stop {
+        force: bool,
+        /// The host stops to install an update and comes right back.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        update: bool,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

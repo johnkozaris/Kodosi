@@ -37,6 +37,10 @@ data class ProgramStatus(val state: State, val kind: Kind? = null) {
     }
 }
 
+/** The lines that a terminal's branch folder added and removed since its branch started. */
+@Serializable
+data class BranchChanges(val added: Int, val removed: Int)
+
 @Serializable
 data class RuntimeSession(
     val id: String,
@@ -77,7 +81,11 @@ data class RuntimeSession(
     /** How many helpers of the terminal's agent are working now. */
     val helpers: Int = 0,
     // Terminal color theme chosen by the host computer for all viewers.
-    val look: TerminalLook = TerminalLook.DARK
+    val look: TerminalLook = TerminalLook.DARK,
+    /** The agent stopped in the middle of a task when its computer's Kodosi stopped. */
+    val stopped: Boolean = false,
+    /** What the terminal's branch folder changed since its branch started. */
+    val changes: BranchChanges? = null
 ) {
     fun shownFace(pick: FacePick?): TerminalFace = pick?.face ?: face ?: TerminalFace.TERMINAL
 
@@ -127,6 +135,9 @@ data class RuntimeSession(
 
     val isConnected: Boolean get() = connectionState == Connection.LOCAL || connectionState == Connection.CONNECTED
     val canControl: Boolean get() = isConnected && status == Status.RUNNING
+
+    /** The agent stopped in the middle of a task, and anyone here may let it go on. */
+    val offersContinue: Boolean get() = stopped && canControl && !isWorking
     val waitsForConnection: Boolean
         get() = kind == Kind.REMOTE && isConnected && (status == Status.RECONNECTING || stalled)
     val canOpen: Boolean get() = status != Status.CLOSING && connectionState != Connection.BLOCKED

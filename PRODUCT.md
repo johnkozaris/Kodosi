@@ -127,7 +127,9 @@ lose all your devices.
 Reconnecting restores current state without disrupting other viewers and without replaying input
 whose delivery is uncertain. A stale connection can never control a replacement terminal, and
 dropping offline doesn't alter sharing permissions. After you quit and reopen the app, your
-terminals come back with their previous screen contents.
+terminals come back with their previous screen contents. An agent that a restart stopped in the
+middle of a task goes on by itself after an update, and otherwise waits until someone continues it,
+so nobody comes back to agents that started working on their own.
 
 ### Calm error handling
 Kodosi recovers automatically wherever possible. When something does need user action, it reports
@@ -153,5 +155,6 @@ Simplified Chinese. The `kodosi` CLI, logs, and internal error details stay in E
   projects, and bundle the `kodosi` CLI.
 - The iOS (iPhone and iPad) and Android apps don't host terminals; they watch, answer, and control
   terminals running on your computers.
-- Desktop apps download updates in the background and never restart automatically, since
-  restarting would stop the host's running terminals.
+- Desktop apps download updates in the background and restart to install them only while nobody
+  uses Kodosi, no agent is busy, and no terminal runs another program, so an update never ends
+  someone's work.

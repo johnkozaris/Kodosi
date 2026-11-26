@@ -33,6 +33,11 @@ fn the_server_hears_the_agent_and_its_state_but_not_its_text() {
         face: None,
         helpers: 0,
         look: crate::terminal::TerminalLook::Light,
+        stopped: true,
+        changes: Some(crate::worktree::WorktreeChanges {
+            added: 120,
+            removed: 34,
+        }),
     });
     let bytes = serde_json::to_vec(&status).unwrap();
     assert_eq!(
