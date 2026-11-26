@@ -12,4 +12,7 @@ navigation:
   the app's appearance.
 - The accessory key row never scrolls; its keys divide the available width evenly.
 - Haptics fire when one of your terminals starts waiting or finishes, and when you send a message.
+- Talking in a chat replaces the composer with a talk bar: a key back to the keyboard, bars that
+  rise with your voice, and Send, whose ring fills during the pause that sends. Words that did not
+  go out yet wait above it as your message.
 - Desktop-only controls are omitted rather than shown disabled.

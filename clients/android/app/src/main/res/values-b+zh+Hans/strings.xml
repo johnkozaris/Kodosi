@@ -593,6 +593,15 @@
     <plurals name="chat_tasks_done">
         <item quantity="other">任务：已完成 %1$d/%2$d</item>
     </plurals>
+    <string name="talk">说话</string>
+    <string name="talk_type_instead">用键盘输入</string>
+    <string name="talk_listening">聆听中</string>
+    <string name="talk_getting_ready">正在准备</string>
+    <string name="talk_tap_send">轻点“发送”来回答</string>
+    <string name="talk_unsent">你的消息，尚未发送</string>
+    <string name="talk_allow_microphone">请在“设置”中允许 Kodosi 使用麦克风。</string>
+    <string name="talk_unavailable">这台设备无法将你的语音转成文字。</string>
+    <string name="talk_failed">Kodosi 无法开始聆听。</string>
     <string name="local_network_title">直接连接你的电脑</string>
     <string name="local_network_reason">在同一 Wi-Fi 下，手机会直接连接你自己的电脑，速度更快。Android 将此权限称为“附近的设备”。</string>
     <string name="local_network_continue">继续</string>

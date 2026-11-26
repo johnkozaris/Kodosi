@@ -30,4 +30,7 @@ and ergonomics:
   button inside the field.
 - Sign-in, file picking/saving, notification preferences, and biometric prompts delegate to native
   Android system UI. Error states show their explanation and recovery action inline.
+- Talking in a chat replaces the composer with a talk bar: a key back to the keyboard, bars that
+  rise with your voice, and Send, whose ring fills during the pause that sends. Words that did not
+  go out yet wait above it as your message.
 - Desktop-only controls are omitted.

@@ -593,6 +593,15 @@
     <plurals name="chat_tasks_done">
         <item quantity="other">작업: %2$d개 중 %1$d개 완료</item>
     </plurals>
+    <string name="talk">말하기</string>
+    <string name="talk_type_instead">키보드로 입력</string>
+    <string name="talk_listening">듣는 중</string>
+    <string name="talk_getting_ready">준비 중</string>
+    <string name="talk_tap_send">보내기를 탭하여 답하기</string>
+    <string name="talk_unsent">아직 보내지 않은 메시지</string>
+    <string name="talk_allow_microphone">설정에서 Kodosi의 마이크 사용을 허용하세요.</string>
+    <string name="talk_unavailable">이 기기에서는 음성을 텍스트로 바꿀 수 없습니다.</string>
+    <string name="talk_failed">Kodosi가 듣기를 시작하지 못했습니다.</string>
     <string name="local_network_title">컴퓨터에 바로 연결</string>
     <string name="local_network_reason">같은 Wi-Fi에서는 휴대폰이 내 컴퓨터에 바로 연결되어 더 빨라요. Android에서는 이 권한을 “근처 기기”라고 불러요.</string>
     <string name="local_network_continue">계속</string>

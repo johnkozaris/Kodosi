@@ -255,6 +255,19 @@ fun KodosiStopKey(onClick: () -> Unit) {
 }
 
 @Composable
+fun KodosiQuietKey(symbol: AppSymbol, description: String, onClick: () -> Unit, enabled: Boolean = true) {
+    val colors = KodosiTheme.colors
+    ComposerKey(onClick, enabled = enabled, fill = colors.lifted, quiet = true, ring = false) {
+        AppIcon(
+            symbol,
+            Modifier.size(14.dp),
+            description = description,
+            tint = if (enabled) colors.ink else colors.inkFaint
+        )
+    }
+}
+
+@Composable
 private fun ComposerKey(
     onClick: () -> Unit,
     enabled: Boolean,

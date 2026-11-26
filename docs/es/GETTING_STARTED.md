@@ -162,6 +162,11 @@ los que puedes hacer clic. Puedes responder o detener al agente directamente des
 escribes un texto propio mientras hace una pregunta, le indica al agente qué hacer en su lugar.
 Todo lo que haces en el chat ocurre también en el terminal subyacente.
 
+En iPhone, iPad y Android, toca el micrófono junto al campo de mensaje para hablar en lugar de
+escribir. Tus palabras aparecen como tu mensaje mientras hablas y se envían tras una pausa larga,
+para que puedas pararte a pensar; toca **Enviar** para enviarlas antes. La voz se convierte en texto
+en tu dispositivo y el audio no sale de él.
+
 ## 4. Mira lo que muestra un agente en el lienzo
 
 Los agentes pueden mostrar páginas HTML, Markdown, imágenes, PDF, documentos de Office, hojas de

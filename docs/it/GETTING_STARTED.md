@@ -161,6 +161,11 @@ Puoi rispondere o fermare l'agente direttamente dalla chat; se scrivi un testo p
 l'agente sta ponendo una domanda, gli indichi cosa fare in alternativa. Tutto ciò che fai in chat
 avviene anche nel terminale sottostante.
 
+Su iPhone, iPad e Android, tocca il microfono accanto al campo del messaggio per parlare invece di
+scrivere. Le tue parole compaiono come tuo messaggio mentre parli e vengono inviate dopo una lunga
+pausa, così puoi fermarti a pensare; tocca **Invia** per inviarle prima. La voce diventa testo sul
+tuo dispositivo e nessun audio lo lascia.
+
 ## 4. Guarda cosa mostra l'agente sul canvas
 
 Gli agenti possono mostrare pagine HTML, Markdown, immagini, PDF, documenti Office, fogli di

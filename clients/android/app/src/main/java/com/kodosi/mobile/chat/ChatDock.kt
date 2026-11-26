@@ -47,6 +47,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -106,7 +107,7 @@ internal class KnownModels(val label: (String) -> String, val levels: (String?) 
 
 /**
  * Everything below the conversation: the agent's task list, the helpers working for it, queued
- * messages, the agent's open question, the composer and the session facts.
+ * messages, the agent's open question, the composer or the talk bar, and the session facts.
  */
 @Composable
 internal fun ChatDock(
@@ -114,6 +115,7 @@ internal fun ChatDock(
     view: ChatView,
     agent: AgentKind,
     draft: TextFieldState,
+    talk: ChatTalk,
     models: KnownModels,
     send: () -> Unit,
     showTerminal: () -> Unit,
@@ -151,6 +153,13 @@ internal fun ChatDock(
     val suggestions = ChatCommandMatch.commands(view.commands, draft.text.toString())
     val shownSuggestions = remember { mutableStateOf(suggestions) }
     SideEffect { if (suggestions.isNotEmpty()) shownSuggestions.value = suggestions }
+    val composer = remember { FocusRequester() }
+    var typing by remember { mutableStateOf(false) }
+    val type = {
+        typing = true
+        talk.end()
+    }
+    val startTalk = rememberTalkStart(talk)
     val ask = view.asks.firstOrNull()
     val fading = fade<Float>()
     val rising = snappy<IntOffset>()
@@ -213,26 +222,53 @@ internal fun ChatDock(
                         Modifier.padding(start = 10.dp, end = 10.dp, top = 4.dp)
                     )
                 }
-                MessageComposer(
-                    draft,
-                    busy = false,
-                    send = {
-                        val control = view.control(draft.text.toString())
-                        if (control != null && view.canWrite) {
-                            draft.clearText()
-                            open(control)
-                        } else {
-                            send()
-                        }
+                TalkNoteLine(talk)
+                TalkBubble(talk, type)
+                AnimatedContent(
+                    talk.on,
+                    transitionSpec = {
+                        fadeIn(fading) togetherWith fadeOut(fading) using SizeTransform(clip = false) { _, _ -> sizing }
                     },
-                    enabled = view.canWrite,
-                    placeholder = if (view.question != null) {
-                        stringResource(R.string.chat_say_instead)
+                    label = "talk bar"
+                ) { talking ->
+                    if (talking) {
+                        TalkBar(talk, view.working, view.question != null, view.canWrite, type, chat::stop)
                     } else {
-                        stringResource(R.string.chat_message_agent, agentLabel(agent))
-                    },
-                    stop = if (view.working) chat::stop else null
-                )
+                        MessageComposer(
+                            draft,
+                            busy = false,
+                            send = {
+                                val control = view.control(draft.text.toString())
+                                if (control != null && view.canWrite) {
+                                    draft.clearText()
+                                    open(control)
+                                } else {
+                                    send()
+                                }
+                            },
+                            enabled = view.canWrite,
+                            focusRequester = composer,
+                            placeholder = if (view.question != null) {
+                                stringResource(R.string.chat_say_instead)
+                            } else {
+                                stringResource(R.string.chat_message_agent, agentLabel(agent))
+                            },
+                            stop = if (view.working) chat::stop else null,
+                            talk = {
+                                focus.clearFocus()
+                                keyboard?.hide()
+                                startTalk()
+                            }
+                        )
+                        if (typing) {
+                            LaunchedEffect(Unit) {
+                                composer.requestFocus()
+                                keyboard?.show()
+                                typing = false
+                            }
+                        }
+                    }
+                }
                 FactsRow(
                     view.facts,
                     models,

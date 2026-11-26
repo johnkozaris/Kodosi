@@ -164,6 +164,11 @@ Antwort-Buttons. Du kannst direkt im Chat antworten oder den Agent stoppen; gibs
 Rückfrage eigenen Text ein, erfährt der Agent, was er stattdessen tun soll. Alles, was du im Chat
 machst, passiert zugleich im zugrunde liegenden Terminal.
 
+Auf iPhone, iPad und Android tippst du auf das Mikrofon neben dem Nachrichtenfeld, um zu sprechen
+statt zu tippen. Deine Worte erscheinen beim Sprechen als deine Nachricht und werden nach einer
+längeren Pause gesendet, damit du in Ruhe nachdenken kannst; tippe auf **Senden**, um sie früher zu
+senden. Die Sprache wird auf deinem Gerät in Text umgewandelt, und kein Ton verlässt es.
+
 ## 4. Sehen, was ein Agent auf dem Canvas zeigt
 
 Agents können HTML-Seiten, Markdown, Bilder, PDFs, Office-Dokumente, Tabellen, Präsentationen oder
