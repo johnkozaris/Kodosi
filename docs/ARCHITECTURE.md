@@ -232,7 +232,9 @@ Agents edit live documents through the same server via `kodosi doc`. The Tauri a
 window (Chromium via prebuilt CEF) per terminal, with no visible native window on the host
 machine. The host downloads and updates the browser binary from a signed update feed. Host and
 browser communicate over a versioned local protocol, and a host only connects to an engine
-matching its exact protocol version.
+matching its exact protocol version. The host starts each engine with the person's privacy choices
+as Chromium features, which Chromium reads only at start, so a change of choice starts the running
+engines again and their windows open again at their last page.
 
 Devices only subscribe to browser frames while the canvas browser is actually on screen. On macOS
 viewing a local terminal, the browser renders directly into a Core Animation layer composited into

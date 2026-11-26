@@ -635,6 +635,17 @@ pub enum Command {
         #[serde(rename = "requestId")]
         request_id: String,
     },
+    /// Chooses what the browser of this computer shares beyond the pages that people open. Its
+    /// engines start again with the choice, so their open pages load again.
+    #[serde(rename = "browser.set")]
+    BrowserSet {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "formPredictions")]
+        form_predictions: bool,
+        #[serde(rename = "crossSiteCookies")]
+        cross_site_cookies: bool,
+    },
     /// The runtime keeps the pipe for the client until it closes it, and opens it again after
     /// each loss.
     #[serde(rename = "document.open")]
@@ -1549,6 +1560,10 @@ pub enum EventBody {
         engine: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         getting: Option<u8>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        form_predictions: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cross_site_cookies: Option<bool>,
     },
     #[serde(rename = "browser.error")]
     BrowserError {
@@ -2412,6 +2427,7 @@ impl Command {
             Self::BrowserForget { .. } => "browser.forget",
             Self::BrowserClear { .. } => "browser.clear",
             Self::BrowserGet { .. } => "browser.get",
+            Self::BrowserSet { .. } => "browser.set",
             Self::DocumentOpen { .. } => "document.open",
             Self::DocumentSend { .. } => "document.send",
             Self::DocumentClose { .. } => "document.close",
@@ -2575,6 +2591,7 @@ impl Command {
             | Self::BrowserForget { request_id }
             | Self::BrowserClear { request_id }
             | Self::BrowserGet { request_id }
+            | Self::BrowserSet { request_id, .. }
             | Self::DocumentOpen { request_id, .. }
             | Self::DocumentSend { request_id, .. }
             | Self::DocumentClose { request_id, .. }

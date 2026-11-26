@@ -31,7 +31,7 @@ mod window;
 #[cfg(feature = "host")]
 pub use driver::Driver;
 #[cfg(feature = "host")]
-pub use host::{Browsers, Error, Place, Settings};
+pub use host::{Browsers, Error, Place, Privacy, Settings};
 #[cfg(feature = "host")]
 pub use page::HostPage;
 #[cfg(feature = "host")]
@@ -48,6 +48,7 @@ mod host {
         sync::{Arc, PoisonError, RwLock},
     };
 
+    use serde::{Deserialize, Serialize};
     use tokio::sync::Mutex;
 
     use crate::{
@@ -77,6 +78,18 @@ mod host {
         /// Store cookie/password encryption keys in the OS keychain. Set to `false` for ephemeral
         /// or test profiles to use a mock key and avoid touching the user's keychain.
         pub system_keychain: bool,
+        pub privacy: Privacy,
+    }
+
+    /// What Kodosi Browser shares beyond the pages that a person opens, each off until a person
+    /// turns it on.
+    #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Privacy {
+        /// Chromium sends a signature of each form to Google, which answers what its fields hold.
+        pub form_predictions: bool,
+        /// A site inside another site's page gets its own cookies, so it knows the person there.
+        pub cross_site_cookies: bool,
     }
 
     /// Target browser window to open; each `profile` runs in its own engine process.
@@ -92,6 +105,7 @@ mod host {
         program: RwLock<PathBuf>,
         profiles: PathBuf,
         system_keychain: bool,
+        privacy: RwLock<Privacy>,
         engines: Mutex<HashMap<String, Arc<Engine>>>,
         windows: Mutex<HashMap<(String, String), Window>>,
     }
@@ -102,6 +116,7 @@ mod host {
                 program: RwLock::new(settings.engine),
                 profiles: settings.profiles,
                 system_keychain: settings.system_keychain,
+                privacy: RwLock::new(settings.privacy),
                 engines: Mutex::default(),
                 windows: Mutex::default(),
             }
@@ -130,8 +145,15 @@ mod host {
                 .read()
                 .unwrap_or_else(PoisonError::into_inner)
                 .clone();
-            let engine =
-                Engine::start(&program, &self.profiles, profile, self.system_keychain).await?;
+            let privacy = *self.privacy.read().unwrap_or_else(PoisonError::into_inner);
+            let engine = Engine::start(
+                &program,
+                &self.profiles,
+                profile,
+                self.system_keychain,
+                privacy,
+            )
+            .await?;
             engines.insert(profile.to_owned(), Arc::clone(&engine));
             drop(engines);
             Ok(engine)
@@ -140,6 +162,30 @@ mod host {
         /// Sets the engine binary path for future launches; running engine processes are unchanged.
         pub fn use_engine(&self, program: PathBuf) {
             *self.program.write().unwrap_or_else(PoisonError::into_inner) = program;
+        }
+
+        /// Chromium reads its features only when it starts, so a change stops every engine and
+        /// closes its windows, which then say that they closed for a restart. Opening a window
+        /// waits until the old engine has let go of its profile.
+        pub async fn use_privacy(&self, privacy: Privacy) {
+            let earlier = std::mem::replace(
+                &mut *self.privacy.write().unwrap_or_else(PoisonError::into_inner),
+                privacy,
+            );
+            if earlier == privacy {
+                return;
+            }
+            let mut windows = self.windows.lock().await;
+            let mut engines = self.engines.lock().await;
+            for window in windows.values() {
+                window.restart().await;
+            }
+            windows.clear();
+            drop(windows);
+            for engine in engines.values() {
+                engine.stop().await;
+            }
+            engines.clear();
         }
 
         /// Opens an offscreen host page, injecting `script` to run before page scripts.

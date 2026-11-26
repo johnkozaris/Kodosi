@@ -438,6 +438,26 @@
         <translation>다운로드</translation>
     </message>
     <message>
+        <source>Kodosi Browser starts again when you change one of these, and its open pages load again.</source>
+        <translation>이 중 하나를 바꾸면 Kodosi Browser가 다시 시작되고 열린 페이지를 다시 불러와요.</translation>
+    </message>
+    <message>
+        <source>Form predictions from Google</source>
+        <translation>Google 양식 예측</translation>
+    </message>
+    <message>
+        <source>Sends Google a code of each form to learn what its fields are for</source>
+        <translation>각 양식의 코드를 Google에 보내 입력란의 용도를 알아내요</translation>
+    </message>
+    <message>
+        <source>Cross-site cookies</source>
+        <translation>교차 사이트 쿠키</translation>
+    </message>
+    <message>
+        <source>Sites shown inside a page, such as YouTube or Google, know you there</source>
+        <translation>페이지 안에 표시되는 YouTube나 Google 같은 사이트가 그곳에서 사용자를 알아봐요</translation>
+    </message>
+    <message>
         <source>Sites then know you in your private terminals on this computer. Passkeys and sign-ins bound to a device stay in their own browser.</source>
         <translation>그러면 이 컴퓨터의 비공개 터미널에서도 사이트에 로그인된 상태가 돼요. 패스키와 기기에 묶인 로그인은 원래 브라우저에 남아요.</translation>
     </message>

@@ -189,13 +189,15 @@ impl Runtime {
             | Command::BrowserCopy { .. }
             | Command::BrowserForget { .. }
             | Command::BrowserClear { .. }
-            | Command::BrowserGet { .. } => self.use_browser_settings(command)?,
+            | Command::BrowserGet { .. }
+            | Command::BrowserSet { .. } => self.use_browser_settings(command)?,
             #[cfg(not(feature = "host"))]
             Command::BrowserStatus { .. }
             | Command::BrowserCopy { .. }
             | Command::BrowserForget { .. }
             | Command::BrowserClear { .. }
-            | Command::BrowserGet { .. } => {
+            | Command::BrowserGet { .. }
+            | Command::BrowserSet { .. } => {
                 return Err(Error::Refused(text!(
                     "The browsers of a computer are in the app on that computer."
                 )));
@@ -628,6 +630,17 @@ impl Runtime {
                     .map(|sites| json!({ "sites": sites })),
                 Command::BrowserClear { .. } => browsers.clear().await.map(|()| json!({})),
                 Command::BrowserGet { .. } => browsers.get().await.map(|()| json!({})),
+                Command::BrowserSet {
+                    form_predictions,
+                    cross_site_cookies,
+                    ..
+                } => browsers
+                    .use_privacy(shared_browser::Privacy {
+                        form_predictions: *form_predictions,
+                        cross_site_cookies: *cross_site_cookies,
+                    })
+                    .await
+                    .map(|()| json!({})),
                 _ => {
                     let status = browsers.status().await;
                     let sources: Vec<Value> = status
@@ -646,6 +659,8 @@ impl Runtime {
                         "sites": status.sites,
                         "engine": status.engine,
                         "getting": status.getting,
+                        "formPredictions": status.privacy.form_predictions,
+                        "crossSiteCookies": status.privacy.cross_site_cookies,
                     }))
                 }
             };

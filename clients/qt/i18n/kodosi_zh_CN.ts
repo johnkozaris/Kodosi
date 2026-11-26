@@ -438,6 +438,26 @@
         <translation>下载</translation>
     </message>
     <message>
+        <source>Kodosi Browser starts again when you change one of these, and its open pages load again.</source>
+        <translation>更改其中任一项时，Kodosi Browser 会重新启动，已打开的页面会重新加载。</translation>
+    </message>
+    <message>
+        <source>Form predictions from Google</source>
+        <translation>Google 表单预测</translation>
+    </message>
+    <message>
+        <source>Sends Google a code of each form to learn what its fields are for</source>
+        <translation>向 Google 发送每个表单的代码，以了解其各字段的用途</translation>
+    </message>
+    <message>
+        <source>Cross-site cookies</source>
+        <translation>跨站 Cookie</translation>
+    </message>
+    <message>
+        <source>Sites shown inside a page, such as YouTube or Google, know you there</source>
+        <translation>页面中显示的网站（如 YouTube 或 Google）会在那里认出你</translation>
+    </message>
+    <message>
         <source>Sites then know you in your private terminals on this computer. Passkeys and sign-ins bound to a device stay in their own browser.</source>
         <translation>这样，网站会在你这台电脑上的私有终端中认出你。通行密钥和绑定设备的登录信息会留在原浏览器中。</translation>
     </message>

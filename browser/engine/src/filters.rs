@@ -78,6 +78,18 @@ fn blocks(page: &str, url: &str, resource: ResourceType, method: &str) -> bool {
         .is_ok_and(|asked| filters.check_network_request(&asked).should_block())
 }
 
+pub(crate) fn blocks_request(browser: Option<&mut Browser>, request: Option<&mut Request>) -> bool {
+    let (Some(browser), Some(request)) = (browser, request) else {
+        return false;
+    };
+    let page = browser
+        .main_frame()
+        .map_or_default(|frame| CefString::from(&frame.url()).to_string());
+    let url = CefString::from(&request.url()).to_string();
+    let method = CefString::from(&request.method()).to_string();
+    blocks(&page, &url, request.resource_type(), &method)
+}
+
 pub(crate) fn blocker() -> ResourceRequestHandler {
     BlockerBuilder::new()
 }
@@ -88,24 +100,12 @@ wrap_resource_request_handler! {
     impl ResourceRequestHandler {
         fn on_before_resource_load(
             &self,
-            browser: Option<&mut Browser>,
+            _browser: Option<&mut Browser>,
             _frame: Option<&mut Frame>,
-            request: Option<&mut Request>,
+            _request: Option<&mut Request>,
             _callback: Option<&mut Callback>,
         ) -> ReturnValue {
-            let (Some(browser), Some(request)) = (browser, request) else {
-                return ReturnValue::CONTINUE;
-            };
-            let page = browser
-                .main_frame()
-                .map_or_default(|frame| CefString::from(&frame.url()).to_string());
-            let url = CefString::from(&request.url()).to_string();
-            let method = CefString::from(&request.method()).to_string();
-            if blocks(&page, &url, request.resource_type(), &method) {
-                ReturnValue::CANCEL
-            } else {
-                ReturnValue::CONTINUE
-            }
+            ReturnValue::CANCEL
         }
     }
 }

@@ -10,7 +10,8 @@ use tokio::sync::{mpsc, oneshot, watch};
 use uuid::Uuid;
 
 use super::{
-    BROWSER_PIPE, Canvas, CanvasAnswer, CanvasBrowser, CanvasOpen, CanvasRequest, PipeEnds,
+    BROWSER_PIPE, BrowserAct, Canvas, CanvasAnswer, CanvasBrowser, CanvasOpen, CanvasRequest,
+    PipeEnds,
     attach::{Part, Uploads},
     browser::{self, Browser, Places, Terminal},
     engine::BrowserHost,
@@ -78,6 +79,9 @@ enum Job {
         path: PathBuf,
     },
     LastTabClosed {
+        browser: Weak<Browser>,
+    },
+    Restarted {
         browser: Weak<Browser>,
     },
     Edited {
@@ -497,6 +501,7 @@ impl Actor {
                 self.publish();
             }
             Job::LastTabClosed { browser } => self.last_tab_closed(&browser),
+            Job::Restarted { browser } => self.restarted(&browser),
             Job::Edited { path } => {
                 let key = key_of(&kodosi_os::fs::canonicalize(&path).unwrap_or(path));
                 if self.files.contains(&key) {
@@ -739,6 +744,16 @@ impl Actor {
         }
     }
 
+    /// Opens the last page again in the browser that started again with other settings.
+    fn restarted(&self, restarted: &Weak<Browser>) {
+        if let Some(browser) = self
+            .existing()
+            .filter(|open| Weak::as_ptr(restarted) == Arc::as_ptr(open))
+        {
+            tokio::spawn(async move { drop(browser.act(BrowserAct::Wake).await) });
+        }
+    }
+
     fn existing(&self) -> Option<Arc<Browser>> {
         self.browser
             .as_ref()
@@ -776,6 +791,14 @@ impl Actor {
                     Box::new(move |browser| {
                         if let Some(jobs) = jobs.upgrade() {
                             drop(jobs.try_send(Job::LastTabClosed { browser }));
+                        }
+                    })
+                },
+                restarted: {
+                    let jobs = self.own_jobs.clone();
+                    Box::new(move |browser| {
+                        if let Some(jobs) = jobs.upgrade() {
+                            drop(jobs.try_send(Job::Restarted { browser }));
                         }
                     })
                 },

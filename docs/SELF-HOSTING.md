@@ -56,7 +56,8 @@ Clients and the `kodosi` CLI default to `https://api.kodosi.com` and
 
 Two external endpoints remain independent of your backend:
 
-- App updates and Kodosi Browser downloads come from `updates.kodosi.com`.
+- App updates and Kodosi Browser come from Kodosi's update feeds on `updates.kodosi.com`, which
+  point to Kodosi's releases on GitHub.
 - When two devices belonging to the same user attempt a
   [direct connection](SECURITY.md#direct-connections), they query a Cloudflare STUN server to
   discover their public IP.

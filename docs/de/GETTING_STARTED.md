@@ -238,6 +238,12 @@ und **Browser**, jeweils mit einem kupferfarbenen Punkt bei neuen Inhalten:
   Websitedaten in privaten Terminals. Wenn macOS den Zugriff auf die Daten eines Browsers
   einschränkt (etwa bei Safari), klicke neben dem Browser auf **Erlauben…**, um
   Festplattenvollzugriff zu gewähren.
+- Ebenfalls unter **Einstellungen › Browser**: Mit **Formularvorhersagen von Google** kann der
+  Kodosi Browser Google fragen, wofür die Felder eines Formulars da sind, und mit
+  **Websiteübergreifende Cookies** kann dich eine Website, die in der Seite einer anderen Website
+  erscheint, etwa ein YouTube-Video, dort erkennen. Beide bleiben ausgeschaltet, bis du sie
+  einschaltest. Wenn du eine davon änderst, startet der Kodosi Browser neu, und seine offenen Seiten
+  laden neu.
 - Alle Personen mit Zugriff auf ein Terminal sehen dessen Canvas und teilen sich den Browser. Beim
   Schließen des Terminals werden das Canvas geleert und die Browser-Anmeldungen geteilter Terminals
   verworfen.

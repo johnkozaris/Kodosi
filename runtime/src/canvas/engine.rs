@@ -11,7 +11,7 @@ use aws_lc_rs::{
 };
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
-use shared_browser::{Browsers, Settings};
+use shared_browser::{Browsers, Privacy, Settings};
 use tokio::{io::AsyncWriteExt as _, sync::OnceCell};
 
 use super::browser::KEPT_PROFILE;
@@ -38,6 +38,7 @@ fn not_for_this_computer() -> Text {
 
 const CURRENT: &str = "current.json";
 const READING: &str = "sign-in-copy";
+const SETTINGS: &str = "settings.json";
 
 #[derive(Debug, Deserialize)]
 struct Feed {
@@ -65,6 +66,7 @@ pub(crate) struct BrowserStatus {
     pub(crate) sites: usize,
     pub(crate) engine: Option<String>,
     pub(crate) getting: Option<u8>,
+    pub(crate) privacy: Privacy,
 }
 
 #[derive(Clone)]
@@ -77,17 +79,27 @@ pub(crate) struct BrowserHost {
     /// Serializes engine downloads and cleanup so concurrent starts do not clobber each other.
     installing: Arc<tokio::sync::Mutex<()>>,
     getting: Arc<Mutex<Option<u8>>>,
+    privacy: Arc<Mutex<Privacy>>,
+    /// Keeps the saved choice and the running engines in the order that people choose.
+    choosing: Arc<tokio::sync::Mutex<()>>,
 }
 
 impl BrowserHost {
     pub(crate) fn new(data_root: &Path, isolated: bool) -> Self {
+        let folder = data_root.join("browser");
+        let privacy = std::fs::read(folder.join(SETTINGS))
+            .ok()
+            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+            .unwrap_or_default();
         Self {
-            folder: data_root.join("browser"),
+            folder,
             isolated,
             browsers: Arc::default(),
             updating: Arc::default(),
             installing: Arc::default(),
             getting: Arc::default(),
+            privacy: Arc::new(Mutex::new(privacy)),
+            choosing: Arc::default(),
         }
     }
 
@@ -103,9 +115,12 @@ impl BrowserHost {
                     engine,
                     profiles: self.profiles(),
                     system_keychain: !self.isolated,
+                    privacy: self.privacy(),
                 }))
             })
             .await?;
+        // A choice made while the browsers were being set up must still reach them.
+        browsers.use_privacy(self.privacy()).await;
         if on_disk().is_none() {
             self.updating.call_once(|| self.keep_current());
         }
@@ -222,7 +237,37 @@ impl BrowserHost {
             sites: shared_browser::copied_sites(&self.profiles(), KEPT_PROFILE),
             engine,
             getting: self.getting(),
+            privacy: self.privacy(),
         }
+    }
+
+    fn privacy(&self) -> Privacy {
+        *self
+            .privacy
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    /// Saves the choice before the browsers start again with it, so that a choice that turns
+    /// sharing off holds after a restart of Kodosi too.
+    pub(crate) async fn use_privacy(&self, privacy: Privacy) -> Result<(), Text> {
+        let _one = self.choosing.lock().await;
+        let file = self.folder.join(SETTINGS);
+        let bytes =
+            serde_json::to_vec(&privacy).map_err(|problem| Text::plain(problem.to_string()))?;
+        tokio::task::spawn_blocking(move || kodosi_os::fs::write_private(&file, &bytes))
+            .await
+            .map_err(std::io::Error::other)
+            .flatten()
+            .map_err(|problem| Text::plain(problem.to_string()))?;
+        *self
+            .privacy
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = privacy;
+        if let Some(browsers) = self.browsers.get() {
+            browsers.use_privacy(privacy).await;
+        }
+        Ok(())
     }
 
     /// Read cookies from the source browser before initializing Kodosi Browser so permission

@@ -6,6 +6,12 @@ import SwiftUI
 struct BrowserSettingsView: View {
     private static let clearKey = "clear"
     private static let engineKey = "engine"
+    private static let privacyKey = "privacy"
+
+    private struct Privacy: Equatable {
+        var formPredictions: Bool
+        var crossSiteCookies: Bool
+    }
 
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
@@ -14,6 +20,7 @@ struct BrowserSettingsView: View {
     @State private var done: [String: String] = [:]
     @State private var problem: String?
     @State private var clearing = false
+    @State private var chosen: Privacy?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
@@ -31,6 +38,14 @@ struct BrowserSettingsView: View {
                         }
                     }
                 }
+            }
+            ListGroup(footer: "Kodosi Browser starts again when you change one of these, and its open pages load again.") {
+                privacyChoice("Form predictions from Google", "Sends Google a code of each form to learn what its fields are for",
+                              symbol: "list.bullet.rectangle", tint: TileTint.green, isOn: privacy(\.formPredictions))
+                    .accessibilityIdentifier("settings.browser.formPredictions")
+                privacyChoice("Cross-site cookies", "Sites shown inside a page, such as YouTube or Google, know you there",
+                              symbol: "eye", tint: TileTint.purple, isOn: privacy(\.crossSiteCookies))
+                    .accessibilityIdentifier("settings.browser.crossSiteCookies")
             }
             ListGroup(footer: "Sites then know you in your private terminals on this Mac. Passkeys and sign-ins bound to a device stay in their own browser.") {
                 if let status, status.sources.isEmpty {
@@ -118,6 +133,40 @@ struct BrowserSettingsView: View {
         return String(localized: "For \(sites) sites")
     }
 
+    private var privacyChoices: Privacy? {
+        chosen ?? status.map { Privacy(formPredictions: $0.formPredictions, crossSiteCookies: $0.crossSiteCookies) }
+    }
+
+    private func privacy(_ choice: WritableKeyPath<Privacy, Bool>) -> Binding<Bool> {
+        Binding {
+            privacyChoices?[keyPath: choice] ?? false
+        } set: { on in
+            guard var changed = privacyChoices else { return }
+            changed[keyPath: choice] = on
+            chosen = changed
+            run(Self.privacyKey) {
+                try await deps.canvas.setBrowserPrivacy(formPredictions: changed.formPredictions,
+                                                        crossSiteCookies: changed.crossSiteCookies)
+            }
+        }
+    }
+
+    private func privacyChoice(_ title: LocalizedStringKey, _ subtitle: LocalizedStringKey, symbol: String, tint: Color,
+                               isOn: Binding<Bool>) -> some View
+    {
+        Toggle(isOn: isOn) {
+            HStack(spacing: 12) {
+                IconTile(symbol: symbol, tint: tint, size: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                    Text(subtitle).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                }
+            }
+        }
+        .padding(.horizontal, 14).frame(minHeight: 52)
+        .disabled(privacyChoices == nil || working != nil)
+    }
+
     private func step(_ title: String, key: String, identifier: String, disabled: Bool = false,
                       _ action: @escaping @MainActor () async throws -> Void) -> some View
     {
@@ -146,6 +195,7 @@ struct BrowserSettingsView: View {
     private func load() async {
         do {
             status = try await deps.canvas.browserStatus()
+            chosen = nil
         } catch {
             problem = error.localizedDescription
         }

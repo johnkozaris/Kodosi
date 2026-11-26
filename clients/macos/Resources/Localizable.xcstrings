@@ -8501,6 +8501,58 @@
         }
       }
     },
+    "Cross-site cookies" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Websiteübergreifende Cookies"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cookies μεταξύ ιστοτόπων"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cookies entre sitios"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cookies intersites"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cookie tra siti"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "クロスサイト Cookie"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "교차 사이트 쿠키"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跨站 Cookie"
+          }
+        }
+      }
+    },
     "Cursor" : {
       "localizations" : {
         "de" : {
@@ -11491,6 +11543,58 @@
         }
       }
     },
+    "Form predictions from Google" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Formularvorhersagen von Google"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Προβλέψεις φορμών από την Google"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Predicciones de formularios de Google"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prédictions de formulaires par Google"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Previsioni dei moduli da Google"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google によるフォーム予測"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google 양식 예측"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google 表单预测"
+          }
+        }
+      }
+    },
     "Friends" : {
       "localizations" : {
         "de" : {
@@ -13931,6 +14035,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kodosi Browser"
+          }
+        }
+      }
+    },
+    "Kodosi Browser starts again when you change one of these, and its open pages load again." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi Browser startet neu, wenn du eine dieser Einstellungen änderst, und seine offenen Seiten laden neu."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το Kodosi Browser ξεκινά ξανά όταν αλλάζετε μία από αυτές τις ρυθμίσεις, και οι ανοιχτές σελίδες του φορτώνουν ξανά."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi Browser se reinicia cuando cambias una de estas opciones, y sus páginas abiertas se vuelven a cargar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi Browser redémarre quand vous modifiez l'un de ces réglages, et ses pages ouvertes se rechargent."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi Browser si riavvia quando cambi una di queste impostazioni, e le sue pagine aperte si ricaricano."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "どちらかを変更すると Kodosi Browser が再起動し、開いているページが再読み込みされます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 중 하나를 바꾸면 Kodosi Browser가 다시 시작되고 열린 페이지를 다시 불러와요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改其中任一项时，Kodosi Browser 会重新启动，已打开的页面会重新加载。"
           }
         }
       }
@@ -24231,6 +24387,58 @@
         }
       }
     },
+    "Sends Google a code of each form to learn what its fields are for" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sendet Google einen Code jedes Formulars, um zu erfahren, wofür seine Felder da sind"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Στέλνει στην Google έναν κωδικό κάθε φόρμας, για να μάθει σε τι χρησιμεύουν τα πεδία της"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envía a Google un código de cada formulario para saber para qué sirven sus campos"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoie à Google un code de chaque formulaire pour savoir à quoi servent ses champs"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invia a Google un codice di ogni modulo per sapere a cosa servono i suoi campi"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "各フォームのコードを Google に送り、各欄の用途を調べます"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "각 양식의 코드를 Google에 보내 입력란의 용도를 알아내요"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "向 Google 发送每个表单的代码，以了解其各字段的用途"
+          }
+        }
+      }
+    },
     "Set up Dosi" : {
       "localizations" : {
         "de" : {
@@ -26749,6 +26957,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这台 Mac 上你的私有终端中的网站将不再记得你。已打开的页面会重新加载。"
+          }
+        }
+      }
+    },
+    "Sites shown inside a page, such as YouTube or Google, know you there" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Websites, die in einer Seite erscheinen, etwa YouTube oder Google, erkennen dich dort"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Οι ιστότοποι που εμφανίζονται μέσα σε μια σελίδα, όπως το YouTube ή η Google, σας αναγνωρίζουν εκεί"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los sitios que aparecen dentro de una página, como YouTube o Google, te reconocen allí"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les sites affichés dans une page, comme YouTube ou Google, vous y reconnaissent"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I siti mostrati dentro una pagina, come YouTube o Google, ti riconoscono lì"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ページ内に表示される YouTube や Google などのサイトが、そこであなたを識別します"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페이지 안에 표시되는 YouTube나 Google 같은 사이트가 그곳에서 사용자를 알아봐요"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "页面中显示的网站（如 YouTube 或 Google）会在那里认出你"
           }
         }
       }

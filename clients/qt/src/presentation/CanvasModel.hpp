@@ -32,6 +32,8 @@ class CanvasModel final : public QObject {
     Q_PROPERTY(QString browserWork READ browserWork NOTIFY browserChanged FINAL)
     Q_PROPERTY(QVariantMap browserDone READ browserDone NOTIFY browserChanged FINAL)
     Q_PROPERTY(QString browserProblem READ browserProblem NOTIFY browserChanged FINAL)
+    Q_PROPERTY(bool browserFormPredictions READ browserFormPredictions NOTIFY browserChanged FINAL)
+    Q_PROPERTY(bool browserCrossSiteCookies READ browserCrossSiteCookies NOTIFY browserChanged FINAL)
 
 public:
     struct BrowserKey {
@@ -50,7 +52,8 @@ public:
 
     [[nodiscard]] int revision() const { return m_revision; }
     // Browser settings state: browserGetting is download progress (0 to 100, or -1 when idle);
-    // browserWork holds the active operation key (a source name, "engine", "forget", or "clear").
+    // browserWork holds the active operation key (a source name, "engine", "forget", "clear", or
+    // "privacy").
     [[nodiscard]] bool browserKnown() const { return m_browserKnown; }
     [[nodiscard]] QStringList browserSources() const { return m_browserSources; }
     [[nodiscard]] int browserSites() const { return m_browserSites; }
@@ -59,12 +62,15 @@ public:
     [[nodiscard]] QString browserWork() const { return m_browserWork; }
     [[nodiscard]] QVariantMap browserDone() const { return m_browserDone; }
     [[nodiscard]] QString browserProblem() const { return m_browserProblem; }
+    [[nodiscard]] bool browserFormPredictions() const { return m_browserFormPredictions; }
+    [[nodiscard]] bool browserCrossSiteCookies() const { return m_browserCrossSiteCookies; }
     Q_INVOKABLE void openBrowserSettings();
     Q_INVOKABLE void refreshBrowser();
     Q_INVOKABLE void getBrowser();
     Q_INVOKABLE void copySignIns(const QString& source);
     Q_INVOKABLE void forgetSignIns();
     Q_INVOKABLE void removeBrowsingData();
+    Q_INVOKABLE void setBrowserPrivacy(bool formPredictions, bool crossSiteCookies);
     void applyBrowser(const QJsonObject& event);
     Q_INVOKABLE [[nodiscard]] QString current(const QString& sessionId) const;
     Q_INVOKABLE void pick(const QString& sessionId, const QString& key);
@@ -202,6 +208,8 @@ private:
     int m_browserSites = 0;
     QString m_browserEngine;
     int m_browserGetting = -1;
+    bool m_browserFormPredictions = false;
+    bool m_browserCrossSiteCookies = false;
     // Previous browser engine version saved during an update check to detect "Up to date".
     std::optional<QString> m_browserChecked;
     QString m_browserStatusRequest;

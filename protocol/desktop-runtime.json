@@ -7911,6 +7911,56 @@
               }
             ]
           },
+          "crossSiteCookies": {
+            "type": "boolean"
+          },
+          "formPredictions": {
+            "type": "boolean"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "browser.set"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "formPredictions",
+          "crossSiteCookies"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "key": {
             "type": "string"
           },
@@ -15130,10 +15180,30 @@
               }
             ]
           },
+          "crossSiteCookies": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "engine": {
             "anyOf": [
               {
                 "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "formPredictions": {
+            "anyOf": [
+              {
+                "type": "boolean"
               },
               {
                 "type": "null"
