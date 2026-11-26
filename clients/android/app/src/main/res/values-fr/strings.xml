@@ -212,6 +212,9 @@
     <string name="not_a_new_device_code">Ce n\'est pas le code d\'un nouvel appareil.</string>
     <string name="code_scanner_unavailable">Le scanner de codes n\'est pas disponible.</string>
     <string name="remove_device_message">Il se déconnecte. Approuvez-le à nouveau pour l\'utiliser. Kodosi n\'annule pas les commandes déjà exécutées.</string>
+    <string name="sleep_computer">Mettre en veille</string>
+    <string name="sleep_computer_title">Mettre %1$s en veille ?</string>
+    <string name="sleep_computer_message">Ses terminaux sont en pause jusqu\'à son réveil.</string>
     <string name="create_recovery_key">Créer une clé de récupération</string>
     <string name="recovery_message">Approuve un nouvel appareil quand vous n\'en avez pas d\'autre</string>
     <string name="keep_recovery_key">Conservez cette clé en lieu sûr. Elle n\'est affichée qu\'une seule fois.</string>

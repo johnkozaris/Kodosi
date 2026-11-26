@@ -37,7 +37,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 112;
+pub const VERSION: u32 = 113;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 /// How long a command that lets someone new in waits for the owner's answer in the app.
@@ -801,6 +801,20 @@ pub enum Command {
         #[serde(default)]
         path: Option<String>,
     },
+    /// Puts the computer that takes the command to sleep.
+    #[serde(rename = "power.sleep")]
+    Sleep {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    /// When the computer that takes the command stays awake.
+    #[serde(rename = "power.keepAwake")]
+    KeepAwake {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "keepAwake")]
+        keep_awake: KeepAwake,
+    },
     #[serde(rename = "repositories.list")]
     ListRepositories {
         #[serde(rename = "requestId")]
@@ -1532,6 +1546,23 @@ pub enum EventBody {
         operation: String,
         message: Text,
     },
+    #[serde(rename = "power.state")]
+    PowerState {
+        /// When this computer stays awake. A device that hosts no terminals has no such setting.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        keep_awake: Option<KeepAwake>,
+    },
+    #[serde(rename = "power.result")]
+    PowerResult {
+        request_id: String,
+        operation: String,
+    },
+    #[serde(rename = "power.error")]
+    PowerError {
+        request_id: String,
+        operation: String,
+        message: Text,
+    },
     #[serde(rename = "repositories.result")]
     RepositoriesResult {
         request_id: String,
@@ -1756,6 +1787,20 @@ impl SessionFolder {
     }
 }
 
+/// When a computer holds off the sleep that its system starts by itself when nobody uses it. A
+/// person can put it to sleep in each case.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum KeepAwake {
+    /// While an agent or one of its helpers works on it, and for a short time after. An agent
+    /// that waits for its person does not count.
+    #[default]
+    Agents,
+    /// The whole time that Kodosi runs on it.
+    Always,
+    Never,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum GitHubState {
@@ -1930,6 +1975,8 @@ impl EventBody {
             | Self::BrowserError { request_id, .. }
             | Self::DocumentResult { request_id, .. }
             | Self::DocumentError { request_id, .. }
+            | Self::PowerResult { request_id, .. }
+            | Self::PowerError { request_id, .. }
             | Self::RepositoriesResult { request_id, .. }
             | Self::RepositoriesError { request_id, .. } => Some(request_id),
             _ => None,
@@ -1989,6 +2036,9 @@ impl EventBody {
             Self::ProviderError { .. } => "provider.error",
             Self::FoldersResult { .. } => "folders.result",
             Self::FoldersError { .. } => "folders.error",
+            Self::PowerState { .. } => "power.state",
+            Self::PowerResult { .. } => "power.result",
+            Self::PowerError { .. } => "power.error",
             Self::RepositoriesResult { .. } => "repositories.result",
             Self::RepositoriesError { .. } => "repositories.error",
             Self::ProjectShow { .. } => "project.show",
@@ -2156,6 +2206,8 @@ impl Command {
             Self::AddAgentAccount { .. } => "provider.addAccount",
             Self::ChooseAgent { .. } => "provider.choose",
             Self::ListFolders { .. } => "folders.list",
+            Self::Sleep { .. } => "power.sleep",
+            Self::KeepAwake { .. } => "power.keepAwake",
             Self::ListRepositories { .. } => "repositories.list",
             Self::DosiSend { .. } => "dosi.send",
             Self::DosiStop { .. } => "dosi.stop",
@@ -2202,6 +2254,8 @@ impl Command {
                 | Self::ListSessionFolders { .. }
                 | Self::CreateSession { resume: None, .. }
                 | Self::ShareSession { .. }
+                | Self::Sleep { .. }
+                | Self::KeepAwake { .. }
         )
     }
 
@@ -2305,6 +2359,8 @@ impl Command {
             | Self::AddAgentAccount { request_id, .. }
             | Self::ChooseAgent { request_id, .. }
             | Self::ListFolders { request_id, .. }
+            | Self::Sleep { request_id }
+            | Self::KeepAwake { request_id, .. }
             | Self::ListRepositories { request_id, .. }
             | Self::DosiSend { request_id, .. }
             | Self::DosiStop { request_id }
@@ -3243,6 +3299,8 @@ pub(crate) mod tests {
             json!({"type":"provider.readConversation","requestId":ID,"provider":"copilot","workingDirectory":DIRECTORY,"nativeConversationId":ID,"beforeByte":123,"limit":2,"maxBytes":4096}),
             json!({"type":"provider.inspect","requestId":ID,"provider":"claude"}),
             json!({"type":"folders.list","requestId":ID,"path":DIRECTORY}),
+            json!({"type":"power.sleep","requestId":ID}),
+            json!({"type":"power.keepAwake","requestId":ID,"keepAwake":"always"}),
             resize(),
             json!({"type":"project.show","requestId":ID,"projectId":ID}),
             json!({"type":"dosi.send","requestId":ID,"text":"What needs me?\nAnd why?","context":{"terminal":ID,"project":null}}),

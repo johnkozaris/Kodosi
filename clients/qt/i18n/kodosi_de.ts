@@ -1384,6 +1384,10 @@
         <translation>Dieser Computer</translation>
     </message>
     <message>
+        <source>Sleep…</source>
+        <translation>Ruhezustand…</translation>
+    </message>
+    <message>
         <source>Remove…</source>
         <translation>Entfernen…</translation>
     </message>
@@ -1534,6 +1538,18 @@
     <message>
         <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your projects again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and projects.</source>
         <translation>Deine anderen Geräte verlieren den Zugriff, bis du sie von diesem Computer aus erneut freigibst. Freunde müssen dir erneut vertrauen, und du erstellst deine Projekte neu. Wenn dein Konto Geräte hat, wartet dieser Computer einen Tag. Wenn du ein anderes Gerät oder einen Wiederherstellungsschlüssel hast, brich ab und verwende es: Dann behältst du deine Freunde und Projekte.</translation>
+    </message>
+    <message>
+        <source>Put %1 to sleep?</source>
+        <translation>%1 in den Ruhezustand versetzen?</translation>
+    </message>
+    <message>
+        <source>Sleep</source>
+        <translation>Ruhezustand</translation>
+    </message>
+    <message>
+        <source>Its terminals pause until it wakes.</source>
+        <translation>Seine Terminals pausieren, bis er wieder aufwacht.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2482,6 +2498,34 @@
     <message>
         <source>Your terminals keep running. Open Kodosi again to see them.</source>
         <translation>Deine Terminals laufen weiter. Öffne Kodosi erneut, um sie zu sehen.</translation>
+    </message>
+    <message>
+        <source>Stay awake</source>
+        <translation>Wach bleiben</translation>
+    </message>
+    <message>
+        <source>This computer does not go to sleep by itself while Kodosi runs.</source>
+        <translation>Dieser Computer geht nicht von selbst in den Ruhezustand, solange Kodosi läuft.</translation>
+    </message>
+    <message>
+        <source>This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.</source>
+        <translation>Dieser Computer kann in den Ruhezustand gehen, während ein Agent arbeitet. Der Agent pausiert dann, bis der Computer aufwacht.</translation>
+    </message>
+    <message>
+        <source>This computer does not go to sleep by itself while an agent works, or for a few minutes after. An agent that waits for you does not keep it awake.</source>
+        <translation>Dieser Computer geht nicht von selbst in den Ruhezustand, während ein Agent arbeitet, und auch einige Minuten danach nicht. Ein Agent, der auf dich wartet, hält ihn nicht wach.</translation>
+    </message>
+    <message>
+        <source>While agents work</source>
+        <translation>Während Agenten arbeiten</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>Immer</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>Nie</translation>
     </message>
     <message>
         <source>Notifications</source>

@@ -58,6 +58,7 @@ struct DevicesSection: View {
 struct DeviceRow: View {
     @Environment(AppModel.self) private var model
     @State private var confirmingRemoval = false
+    @State private var confirmingSleep = false
     let device: MyDeviceEntry
 
     private var account: AccountStore {
@@ -70,6 +71,10 @@ struct DeviceRow: View {
 
     private var removable: Bool {
         account.canRemove(device)
+    }
+
+    private var sleeps: Bool {
+        account.computers.contains(device)
     }
 
     private var addedAt: Date {
@@ -90,6 +95,19 @@ struct DeviceRow: View {
         ListRow(device.title, subtitle: subtitle, symbol: device.recoveryKey ? "key.fill" : DeviceGlyph.symbol(for: device.label),
                 tint: isThisDevice ? TileTint.orange : TileTint.graphite)
         {
+            if sleeps {
+                Menu {
+                    Button { confirmingSleep = true } label: {
+                        Label("Sleep…", systemImage: "powersleep")
+                    }
+                } label: {
+                    IconButtonFace(symbol: "ellipsis", size: 32)
+                }
+                .menuStyle(.button)
+                .buttonStyle(PressScaleStyle(scale: 0.9))
+                .accessibilityLabel(Text("More for \(device.title)"))
+                .accessibilityIdentifier("settings.devices.more.\(device.deviceId)")
+            }
             if removable {
                 Button("Remove…") { confirmingRemoval = true }
                     .buttonStyle(.kodosi(.ghost, size: .small))
@@ -98,11 +116,22 @@ struct DeviceRow: View {
             }
         }
         .contextMenu {
+            if sleeps {
+                Button { confirmingSleep = true } label: {
+                    Label("Sleep…", systemImage: "powersleep")
+                }
+            }
             if removable {
                 Button(role: .destructive) { confirmingRemoval = true } label: {
                     Label("Remove…", systemImage: "minus.circle")
                 }
             }
+        }
+        .confirmationDialog(Text("Put \(device.title) to sleep?"), isPresented: $confirmingSleep, titleVisibility: .visible) {
+            Button("Sleep") { model.power.sleep(device) }
+                .accessibilityIdentifier("settings.devices.confirmSleep")
+        } message: {
+            Text("Its terminals pause until it wakes.")
         }
         .confirmationDialog(Text("Remove \(device.title)?"), isPresented: $confirmingRemoval, titleVisibility: .visible) {
             Button("Remove", role: .destructive) { account.revokeDevice(device) }

@@ -200,6 +200,29 @@ ColumnLayout {
             }
         }
         ListRow {
+            iconName: "sun"
+            tint: "#d98a5f"
+            title: qsTr("Stay awake")
+            wholeSubtitle: true
+            subtitle: Models.Devices.keepAwake === "always"
+                ? qsTr("This computer does not go to sleep by itself while Kodosi runs.")
+                : Models.Devices.keepAwake === "never"
+                ? qsTr("This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.")
+                : qsTr("This computer does not go to sleep by itself while an agent works, or for a few minutes after. An agent that waits for you does not keep it awake.")
+
+            SegmentedPill {
+                compact: true
+                identifier: "settings.keepAwake"
+                options: [
+                    { value: "agents", label: qsTr("While agents work") },
+                    { value: "always", label: qsTr("Always") },
+                    { value: "never", label: qsTr("Never") }
+                ]
+                currentValue: Models.Devices.keepAwake
+                onActivated: value => Models.Devices.setKeepAwake(value)
+            }
+        }
+        ListRow {
             iconName: "bell"
             tint: "#cf6a62"
             title: qsTr("Notifications")

@@ -212,6 +212,9 @@
     <string name="not_a_new_device_code">これは新しいデバイスのコードではありません。</string>
     <string name="code_scanner_unavailable">コードスキャナーを使えません。</string>
     <string name="remove_device_message">接続が切れます。使うには再度承認してください。すでに実行されたコマンドを Kodosi が元に戻すことはありません。</string>
+    <string name="sleep_computer">スリープ</string>
+    <string name="sleep_computer_title">%1$s をスリープさせますか？</string>
+    <string name="sleep_computer_message">スリープが解除されるまで、そのターミナルは一時停止します。</string>
     <string name="create_recovery_key">リカバリーキーを作成</string>
     <string name="recovery_message">ほかのデバイスがないときに新しいデバイスを承認します</string>
     <string name="keep_recovery_key">このキーは安全な場所に保管してください。表示されるのは一度だけです。</string>

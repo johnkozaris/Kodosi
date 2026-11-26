@@ -63,7 +63,7 @@ enum Action {
     Friends(FriendAction),
     #[command(
         subcommand,
-        about = "Approve and remove your devices, and make a recovery key."
+        about = "Approve and remove your devices, make a recovery key, and put your computers to sleep."
     )]
     Devices(DeviceAction),
     #[command(subcommand, about = "Sign in or out, or delete your account.")]
@@ -436,6 +436,22 @@ enum DeviceAction {
         /// The device: its name, its ID or the end of its ID that `kodosi devices list` shows.
         device: String,
     },
+    /// Put one of your computers to sleep. Its terminals pause until it wakes.
+    Sleep {
+        /// The computer: its name, its ID or the end of its ID that `kodosi devices list` shows.
+        computer: String,
+    },
+    /// Choose when a computer stays awake: `agents` while an agent works on it and for a few
+    /// minutes after, which is the setting at the start, `always` while Kodosi runs, or `never`.
+    /// An agent that waits for you does not keep it awake. Without a choice, show what this
+    /// computer does.
+    KeepAwake {
+        #[arg(value_parser = ["agents", "always", "never"])]
+        when: Option<String>,
+        /// Another computer of yours, by the name that `kodosi devices list` shows.
+        #[arg(long, requires = "when")]
+        computer: Option<String>,
+    },
     /// Start fresh on this device. Every other device loses access until you approve it again.
     /// When your account has devices, this device waits a day; then run it again. With one of
     /// those devices, approve this device instead: `kodosi devices link`.
@@ -740,6 +756,14 @@ async fn dispatch(args: Arguments) -> Result<u8> {
             projects::run(arguments, &mut client, &mut context, json_output).await
         }
         Action::Status => print_status(&context, json_output, render::status),
+        Action::Devices(DeviceAction::KeepAwake { when: None, .. }) => {
+            let state = context
+                .latest
+                .get("power.state")
+                .cloned()
+                .unwrap_or_default();
+            output(&state, json_output, &render::keeps_awake(&state))
+        }
         Action::Terminal(TerminalAction::List) => {
             print_status(&context, json_output, render::terminals)
         }
@@ -1433,6 +1457,17 @@ async fn device_command(
         DeviceAction::Revoke { device } => {
             let id = device_id(client, context, &device, "device").await?;
             json!({"type":"devices.revoke","deviceId":id})
+        }
+        DeviceAction::Sleep { computer } => {
+            let computer = computer_id(client, context, &computer).await?;
+            json!({"type":"power.sleep","computer":computer})
+        }
+        DeviceAction::KeepAwake { when, computer } => {
+            let computer = match computer {
+                Some(reference) => computer_id(client, context, &reference).await?,
+                None => None,
+            };
+            json!({"type":"power.keepAwake","keepAwake":when.as_deref().unwrap_or("agents"),"computer":computer})
         }
         DeviceAction::Reset => json!({"type":"devices.reset"}),
         DeviceAction::ResetStop => {

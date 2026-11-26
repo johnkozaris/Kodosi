@@ -274,6 +274,18 @@ browser viaggia in modalità peer-to-peer per ridurre la latenza. Sulla rete loc
 Android chiedono una sola volta l'autorizzazione alla rete locale; se viene rifiutata, il traffico
 passa attraverso il server relay.
 
+### Sospensione e computer attivo
+
+Un computer non va in sospensione da solo mentre un agente lavora in uno dei suoi terminali, e può
+tornare in sospensione qualche minuto dopo che i suoi agenti si sono fermati. Un agente che aspetta
+la tua risposta non lo tiene attivo. Per cambiarlo, scegli un'opzione per **Resta attivo** in
+**Impostazioni › Generale** su quel computer: **Mentre gli agenti lavorano**, **Sempre** o **Mai**.
+Puoi sempre sospendere un computer tu.
+
+Per sospendere un altro dei tuoi computer, apri **Impostazioni** e fai clic su **Sospendi…** accanto
+a esso, in **I tuoi dispositivi** (su un telefono, tocca prima **⋯**). I suoi terminali restano in
+pausa finché non si riattiva.
+
 ### Chiavi di recupero
 
 Crea una chiave di recupero in **Impostazioni** e conservala in un luogo sicuro. Se dovessi perdere
@@ -354,6 +366,7 @@ compare subito nell'app.
 | `kodosi browser open <address>` | Apre un URL nel browser condiviso di questo terminale (funzionano anche tutti gli altri comandi di agent-browser). |
 | `kodosi skill` | Stampa la skill dell'agente per collaborare in Kodosi; `kodosi skill canvas` stampa la skill per il canvas. |
 | `kodosi dosi skill` | Stampa la skill che permette a un altro agente di agire come Dosi. |
+| `kodosi devices sleep <computer>` | Sospende un altro dei tuoi computer. I suoi terminali restano in pausa finché non si riattiva. `kodosi devices keep-awake` con `agents`, `always` o `never` sceglie quando questo computer resta attivo. |
 | `kodosi host` | Esegue l'host in modo indipendente, così i terminali restano attivi anche dopo aver chiuso l'app. Usa `kodosi host stop` per arrestare un host in background. |
 
 `message`, `input` e `keys` rifiutano di essere eseguiti mentre stai digitando attivamente in quel

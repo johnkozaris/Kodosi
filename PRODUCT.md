@@ -48,6 +48,11 @@ decision is needed.
 The iOS and Android apps let you watch, answer, and control terminals running on your computers,
 as well as participate in projects while away from your desk.
 
+### Sleep
+A computer doesn't go to sleep by itself while an agent works on it, but an agent that waits for
+you doesn't keep it awake. You can set a computer to stay awake always, or never, and put any of
+your computers to sleep from another of your devices.
+
 ## Design decisions
 
 ### The terminal stays a terminal

@@ -219,6 +219,7 @@ ColumnLayout {
                 required property var modelData
                 readonly property bool self: modelData.deviceId === Models.Devices.selfDeviceId
                 readonly property bool recoveryKey: modelData.recoveryKey === true
+                readonly property bool online: Models.Devices.computers.some(computer => computer.deviceId === modelData.deviceId)
 
                 iconName: recoveryKey ? "lock" : "laptop"
                 tint: self ? KodosiTheme.accent : "#4f9bb0"
@@ -226,6 +227,20 @@ ColumnLayout {
                 subtitle: recoveryKey ? qsTr("Approves a new device when you have no other device") : ""
 
                 Tag { visible: deviceRow.self; text: qsTr("This computer"); tone: Tag.Accent }
+                KButton {
+                    Accessible.id: objectName
+                    compact: true
+                    objectName: "panel.settingsView.sleep" + "." + deviceRow.modelData.deviceId
+                    text: qsTr("Sleep…")
+                    visible: Models.Devices.localDeviceEnrolled && deviceRow.online
+                    variant: KButton.Ghost
+
+                    onClicked: {
+                        sleep.deviceId = deviceRow.modelData.deviceId;
+                        sleep.label = deviceRow.title;
+                        sleep.open();
+                    }
+                }
                 KButton {
                     Accessible.id: objectName
                     compact: true
@@ -555,6 +570,25 @@ ColumnLayout {
             color: KodosiTheme.inkMuted
             text: qsTr("Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your projects again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and projects.")
             width: 380
+            wrapMode: Text.WordWrap
+        }
+    }
+    KDialog {
+        id: sleep
+
+        property string deviceId: ""
+        property string label: ""
+
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        title: qsTr("Put %1 to sleep?").arg(label)
+        onOpened: standardButton(Dialog.Ok).text = qsTr("Sleep")
+
+        onAccepted: Models.Devices.sleep(deviceId)
+
+        PlainLabel {
+            width: 340
+            color: KodosiTheme.inkMuted
+            text: qsTr("Its terminals pause until it wakes.")
             wrapMode: Text.WordWrap
         }
     }

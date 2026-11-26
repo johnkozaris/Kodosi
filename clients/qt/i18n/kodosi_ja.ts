@@ -1365,6 +1365,10 @@
         <translation>このコンピュータ</translation>
     </message>
     <message>
+        <source>Sleep…</source>
+        <translation>スリープ…</translation>
+    </message>
+    <message>
         <source>Remove…</source>
         <translation>削除…</translation>
     </message>
@@ -1515,6 +1519,18 @@
     <message>
         <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your projects again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and projects.</source>
         <translation>ほかのデバイスは、このコンピュータから再び承認するまでアクセスできなくなります。フレンドには再び信頼してもらう必要があり、プロジェクトも作り直しになります。アカウントにデバイスがある場合、このコンピュータは1日待ちます。ほかのデバイスやリカバリーキーがある場合は、キャンセルしてそれを使ってください。フレンドとプロジェクトをそのまま残せます。</translation>
+    </message>
+    <message>
+        <source>Put %1 to sleep?</source>
+        <translation>%1 をスリープさせますか？</translation>
+    </message>
+    <message>
+        <source>Sleep</source>
+        <translation>スリープ</translation>
+    </message>
+    <message>
+        <source>Its terminals pause until it wakes.</source>
+        <translation>スリープが解除されるまで、そのターミナルは一時停止します。</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2461,6 +2477,34 @@
     <message>
         <source>Your terminals keep running. Open Kodosi again to see them.</source>
         <translation>ターミナルは実行を続けます。もう一度 Kodosi を開くと表示されます。</translation>
+    </message>
+    <message>
+        <source>Stay awake</source>
+        <translation>スリープ防止</translation>
+    </message>
+    <message>
+        <source>This computer does not go to sleep by itself while Kodosi runs.</source>
+        <translation>Kodosi の実行中は、このコンピュータが自動でスリープすることはありません。</translation>
+    </message>
+    <message>
+        <source>This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.</source>
+        <translation>エージェントの作業中でも、このコンピュータはスリープすることがあります。その場合、スリープが解除されるまでエージェントは一時停止します。</translation>
+    </message>
+    <message>
+        <source>This computer does not go to sleep by itself while an agent works, or for a few minutes after. An agent that waits for you does not keep it awake.</source>
+        <translation>エージェントの作業中とその後の数分間は、このコンピュータが自動でスリープすることはありません。返答を待っているエージェントは、スリープを防ぎません。</translation>
+    </message>
+    <message>
+        <source>While agents work</source>
+        <translation>エージェントの作業中</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>常に</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>なし</translation>
     </message>
     <message>
         <source>Notifications</source>

@@ -30,6 +30,12 @@ after going to the background, the runtime closes all sockets and timers so the 
 background connections and relies on push notifications instead; returning to the foreground
 re-establishes connections.
 
+While an agent works in one of its terminals, the host asks the operating system to hold off the
+sleep that starts by itself when nobody uses the computer, and it keeps the request for a short
+time after the last agent stops. An agent that waits for its person doesn't count. Each computer
+has a setting that keeps the request always, or never. The request never stops a sleep that a
+person starts.
+
 The host persists terminal snapshots as they change. After Quit, the next host instance restores
 them on request with their previous screen contents and the command needed to resume each agent's
 conversation. Restored terminals get a new ID that references the replaced terminal ID so remote
@@ -100,8 +106,9 @@ device they're actively using:
 
 A device can open an end-to-end encrypted channel to the host of another computer belonging to the
 same user. It works like a view's channel but reaches the host itself, which serves launcher
-queries on it (listing available agents and folders, and starting new terminals). The host treats
-it like another client and accepts calls only from the user's own approved devices.
+queries on it (listing available agents and folders, and starting new terminals) and power calls
+(putting that computer to sleep, and its stay-awake setting). The host treats it like another
+client and accepts calls only from the user's own approved devices.
 
 ## Backend and projects
 

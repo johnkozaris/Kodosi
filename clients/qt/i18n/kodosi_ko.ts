@@ -1365,6 +1365,10 @@
         <translation>이 컴퓨터</translation>
     </message>
     <message>
+        <source>Sleep…</source>
+        <translation>잠자기…</translation>
+    </message>
+    <message>
         <source>Remove…</source>
         <translation>제거…</translation>
     </message>
@@ -1515,6 +1519,18 @@
     <message>
         <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your projects again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and projects.</source>
         <translation>다른 기기는 이 컴퓨터에서 다시 승인할 때까지 접근할 수 없어요. 친구가 나를 다시 신뢰해야 하고, 프로젝트도 다시 만들어야 해요. 계정에 기기가 있으면 이 컴퓨터는 하루를 기다려야 해요. 다른 기기나 복구 키가 있다면 취소하고 그것을 사용하세요. 친구와 프로젝트를 그대로 유지할 수 있어요.</translation>
+    </message>
+    <message>
+        <source>Put %1 to sleep?</source>
+        <translation>%1을(를) 잠자기로 전환할까요?</translation>
+    </message>
+    <message>
+        <source>Sleep</source>
+        <translation>잠자기</translation>
+    </message>
+    <message>
+        <source>Its terminals pause until it wakes.</source>
+        <translation>깨어날 때까지 그 컴퓨터의 터미널이 일시 정지돼요.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2461,6 +2477,34 @@
     <message>
         <source>Your terminals keep running. Open Kodosi again to see them.</source>
         <translation>터미널은 계속 실행돼요. Kodosi를 다시 열면 볼 수 있어요.</translation>
+    </message>
+    <message>
+        <source>Stay awake</source>
+        <translation>깨어 있기</translation>
+    </message>
+    <message>
+        <source>This computer does not go to sleep by itself while Kodosi runs.</source>
+        <translation>Kodosi가 실행되는 동안에는 이 컴퓨터가 스스로 잠자기로 전환되지 않아요.</translation>
+    </message>
+    <message>
+        <source>This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.</source>
+        <translation>에이전트가 작업하는 동안에도 이 컴퓨터가 잠자기로 전환될 수 있어요. 그러면 컴퓨터가 깨어날 때까지 에이전트가 일시 정지돼요.</translation>
+    </message>
+    <message>
+        <source>This computer does not go to sleep by itself while an agent works, or for a few minutes after. An agent that waits for you does not keep it awake.</source>
+        <translation>에이전트가 작업하는 동안과 그 후 몇 분 동안에는 이 컴퓨터가 스스로 잠자기로 전환되지 않아요. 응답을 기다리는 에이전트는 컴퓨터를 깨어 있게 하지 않아요.</translation>
+    </message>
+    <message>
+        <source>While agents work</source>
+        <translation>에이전트 작업 중</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>항상</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>안 함</translation>
     </message>
     <message>
         <source>Notifications</source>

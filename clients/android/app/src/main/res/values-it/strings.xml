@@ -212,6 +212,9 @@
     <string name="not_a_new_device_code">Questo non è il codice di un nuovo dispositivo.</string>
     <string name="code_scanner_unavailable">Lo scanner di codici non è disponibile.</string>
     <string name="remove_device_message">Si disconnette. Approvalo di nuovo per usarlo. Kodosi non annulla i comandi già eseguiti.</string>
+    <string name="sleep_computer">Sospendi</string>
+    <string name="sleep_computer_title">Sospendere %1$s?</string>
+    <string name="sleep_computer_message">I suoi terminali restano in pausa finché non si riattiva.</string>
     <string name="create_recovery_key">Crea una chiave di recupero</string>
     <string name="recovery_message">Approva un nuovo dispositivo quando non ne hai altri</string>
     <string name="keep_recovery_key">Conserva questa chiave in un posto sicuro. Viene mostrata una sola volta.</string>

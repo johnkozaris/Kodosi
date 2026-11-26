@@ -276,6 +276,18 @@ del navegador viaja de punto a punto para reducir la latencia. En una red local,
 Android piden una vez permiso de acceso a la red local; si lo rechazas, el tráfico pasa por el
 servidor de retransmisión.
 
+### Suspender y mantener despierto
+
+Un ordenador no se suspende por sí solo mientras un agente trabaja en uno de sus terminales, y puede
+volver a suspenderse unos minutos después de que sus agentes terminen. Un agente que espera tu
+respuesta no lo mantiene despierto. Para cambiarlo, elige una opción en **Mantener despierto**, en
+**Ajustes › General** de ese ordenador: **Mientras trabajan los agentes**, **Siempre** o **Nunca**.
+Siempre puedes suspender un ordenador tú mismo.
+
+Para suspender otro de tus ordenadores, abre **Ajustes** y haz clic en **Suspender…** junto a él, en
+**Tus dispositivos** (en un teléfono, toca antes **⋯**). Sus terminales se pausan hasta que se
+reactive.
+
 ### Claves de recuperación
 
 Crea una clave de recuperación en **Ajustes** y guárdala en un lugar seguro. Si alguna vez pierdes
@@ -355,6 +367,7 @@ aparecen en la app al instante.
 | `kodosi browser open <address>` | Abre una URL en el navegador compartido de este terminal (el resto de los comandos de agent-browser también funcionan). |
 | `kodosi skill` | Imprime la skill de agente para colaborar en Kodosi; `kodosi skill canvas` imprime la skill del lienzo. |
 | `kodosi dosi skill` | Imprime la skill que permite a otro agente actuar como Dosi. |
+| `kodosi devices sleep <computer>` | Suspende otro de tus ordenadores. Sus terminales se pausan hasta que se reactive. `kodosi devices keep-awake` con `agents`, `always` o `never` elige cuándo este ordenador se mantiene despierto. |
 | `kodosi host` | Ejecuta el host de forma independiente para que los terminales sigan funcionando tras cerrar la app. Usa `kodosi host stop` para detener un host en segundo plano. |
 
 `message`, `input` y `keys` no se ejecutan mientras estés escribiendo activamente en ese terminal.
