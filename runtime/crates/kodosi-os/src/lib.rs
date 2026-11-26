@@ -3,6 +3,7 @@
 pub mod console;
 pub mod fs;
 pub mod ipc;
+pub mod network;
 #[cfg(any(target_os = "macos", target_os = "linux", windows))]
 pub mod power;
 pub mod process;

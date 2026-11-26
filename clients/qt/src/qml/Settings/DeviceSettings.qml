@@ -220,40 +220,169 @@ ColumnLayout {
                 readonly property bool self: modelData.deviceId === Models.Devices.selfDeviceId
                 readonly property bool recoveryKey: modelData.recoveryKey === true
                 readonly property bool online: Models.Devices.computers.some(computer => computer.deviceId === modelData.deviceId)
+                readonly property var power: Models.Devices.power[modelData.deviceId] || ({})
+                readonly property string awake: power.keepAwake === "always" ? qsTr("Always awake")
+                    : power.keepAwake === "never" ? qsTr("Can sleep while agents work") : ""
 
                 iconName: recoveryKey ? "lock" : "laptop"
                 tint: self ? KodosiTheme.accent : "#4f9bb0"
                 title: recoveryKey ? qsTr("Recovery key") : deviceRow.modelData.label
-                subtitle: recoveryKey ? qsTr("Approves a new device when you have no other device") : ""
+                subtitle: recoveryKey ? qsTr("Approves a new device when you have no other device")
+                    : [awake, power.problem || power.note || ""].filter(part => part.length > 0).join(" · ")
+                wholeSubtitle: true
 
                 Tag { visible: deviceRow.self; text: qsTr("This computer"); tone: Tag.Accent }
-                KButton {
-                    Accessible.id: objectName
-                    compact: true
-                    objectName: "panel.settingsView.sleep" + "." + deviceRow.modelData.deviceId
-                    text: qsTr("Sleep…")
-                    visible: Models.Devices.localDeviceEnrolled && deviceRow.online
-                    variant: KButton.Ghost
-
-                    onClicked: {
-                        sleep.deviceId = deviceRow.modelData.deviceId;
-                        sleep.label = deviceRow.title;
-                        sleep.open();
-                    }
+                PlainLabel {
+                    color: KodosiTheme.inkMuted
+                    font.pixelSize: KodosiTheme.fontFootnote
+                    objectName: "panel.settingsView.busy" + "." + deviceRow.modelData.deviceId
+                    text: deviceRow.power.busy === "testing" ? qsTr("Testing…") : qsTr("Waking…")
+                    visible: !!deviceRow.power.busy
                 }
                 KButton {
                     Accessible.id: objectName
                     compact: true
-                    objectName: "panel.settingsView.remove" + "." + deviceRow.modelData.deviceId
-                    text: qsTr("Remove…")
-                    visible: Models.Devices.localDeviceEnrolled && !deviceRow.self
+                    objectName: "panel.settingsView.wake" + "." + deviceRow.modelData.deviceId
+                    text: qsTr("Wake")
+                    visible: Models.Devices.localDeviceEnrolled && deviceRow.power.canWake === true
                     variant: KButton.Ghost
 
-                    onClicked: {
-                        revoke.deviceId = deviceRow.modelData.deviceId;
-                        revoke.label = deviceRow.title;
-                        revoke.removesRecoveryKey = deviceRow.recoveryKey;
-                        revoke.open();
+                    onClicked: Models.Devices.wake(deviceRow.modelData.deviceId)
+                }
+                KIconButton {
+                    id: more
+
+                    readonly property string awake: deviceRow.self ? Models.Devices.keepAwake
+                        : deviceRow.online && !deviceRow.power.busy ? deviceRow.power.keepAwake || "" : ""
+                    readonly property bool sleeps: !deviceRow.self && deviceRow.online && !!deviceRow.power.deviceId
+                        && !deviceRow.power.busy
+                    readonly property bool removes: !deviceRow.self
+
+                    function choose(choice: string): void {
+                        if (choice === awake)
+                            return;
+                        if (deviceRow.self)
+                            Models.Devices.setKeepAwake(choice);
+                        else
+                            Models.Devices.setKeepAwake(choice, deviceRow.modelData.deviceId);
+                    }
+
+                    glyph: "more"
+                    open: actions.visible
+                    visible: Models.Devices.localDeviceEnrolled && (awake.length > 0 || sleeps || removes)
+                    Accessible.name: qsTr("Options for %1").arg(deviceRow.title)
+                    objectName: "panel.settingsView.more" + "." + deviceRow.modelData.deviceId
+                    Accessible.id: objectName
+                    onClicked: actions.visible ? actions.close() : actions.open()
+
+                    KMenu {
+                        id: actions
+
+                        x: more.width - width
+                        y: more.height + 4
+                        minimumWidth: 224
+                        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
+                        transformOrigin: Popup.TopRight
+
+                        PlainLabel {
+                            visible: more.awake.length > 0
+                            height: visible ? implicitHeight : 0
+                            leftPadding: 10
+                            topPadding: 4
+                            bottomPadding: 2
+                            text: qsTr("Stay awake")
+                            color: KodosiTheme.inkFaint
+                            font.pixelSize: KodosiTheme.fontCaption
+                            font.weight: Font.Medium
+                        }
+                        KMenuItem {
+                            Accessible.id: objectName
+                            objectName: more.objectName + ".agents"
+                            text: qsTr("While agents work")
+                            iconName: "sparkle"
+                            checkable: true
+                            checked: more.awake === "agents"
+                            visible: more.awake.length > 0
+                            onTriggered: {
+                                checked = Qt.binding(() => more.awake === "agents");
+                                more.choose("agents");
+                            }
+                        }
+                        KMenuItem {
+                            Accessible.id: objectName
+                            objectName: more.objectName + ".always"
+                            text: qsTr("Always")
+                            iconName: "sun"
+                            checkable: true
+                            checked: more.awake === "always"
+                            visible: more.awake.length > 0
+                            onTriggered: {
+                                checked = Qt.binding(() => more.awake === "always");
+                                more.choose("always");
+                            }
+                        }
+                        KMenuItem {
+                            Accessible.id: objectName
+                            objectName: more.objectName + ".never"
+                            text: qsTr("Never")
+                            iconName: "moon"
+                            checkable: true
+                            checked: more.awake === "never"
+                            visible: more.awake.length > 0
+                            onTriggered: {
+                                checked = Qt.binding(() => more.awake === "never");
+                                more.choose("never");
+                            }
+                        }
+                        MenuSeparator {
+                            visible: more.awake.length > 0 && more.sleeps
+                            height: visible ? implicitHeight : 0
+                            contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline }
+                        }
+                        KMenuItem {
+                            Accessible.id: objectName
+                            objectName: "panel.settingsView.testWake" + "." + deviceRow.modelData.deviceId
+                            text: qsTr("Test wake…")
+                            iconName: "refresh"
+                            visible: more.sleeps && deviceRow.power.canTest === true
+                            onTriggered: {
+                                testWake.deviceId = deviceRow.modelData.deviceId;
+                                testWake.label = deviceRow.title;
+                                testWake.open();
+                            }
+                        }
+                        KMenuItem {
+                            Accessible.id: objectName
+                            objectName: "panel.settingsView.sleep" + "." + deviceRow.modelData.deviceId
+                            text: qsTr("Sleep…")
+                            iconName: "power"
+                            visible: more.sleeps
+                            onTriggered: {
+                                sleep.deviceId = deviceRow.modelData.deviceId;
+                                sleep.label = deviceRow.title;
+                                sleep.warning = deviceRow.power.sleepWarning || "";
+                                sleep.open();
+                            }
+                        }
+                        MenuSeparator {
+                            visible: more.removes && (more.awake.length > 0 || more.sleeps)
+                            height: visible ? implicitHeight : 0
+                            contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline }
+                        }
+                        KMenuItem {
+                            Accessible.id: objectName
+                            objectName: "panel.settingsView.remove" + "." + deviceRow.modelData.deviceId
+                            text: qsTr("Remove…")
+                            iconName: "close"
+                            destructive: true
+                            visible: more.removes
+                            onTriggered: {
+                                revoke.deviceId = deviceRow.modelData.deviceId;
+                                revoke.label = deviceRow.title;
+                                revoke.removesRecoveryKey = deviceRow.recoveryKey;
+                                revoke.open();
+                            }
+                        }
                     }
                 }
             }
@@ -578,6 +707,7 @@ ColumnLayout {
 
         property string deviceId: ""
         property string label: ""
+        property string warning: ""
 
         standardButtons: Dialog.Ok | Dialog.Cancel
         title: qsTr("Put %1 to sleep?").arg(label)
@@ -588,7 +718,26 @@ ColumnLayout {
         PlainLabel {
             width: 340
             color: KodosiTheme.inkMuted
-            text: qsTr("Its terminals pause until it wakes.")
+            text: [qsTr("Its terminals pause until it wakes."), sleep.warning].filter(part => part.length > 0).join("\n\n")
+            wrapMode: Text.WordWrap
+        }
+    }
+    KDialog {
+        id: testWake
+
+        property string deviceId: ""
+        property string label: ""
+
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        title: qsTr("Test the wake of %1?").arg(label)
+        onOpened: standardButton(Dialog.Ok).text = qsTr("Test")
+
+        onAccepted: Models.Devices.testWake(deviceId)
+
+        PlainLabel {
+            width: 340
+            color: KodosiTheme.inkMuted
+            text: qsTr("Kodosi puts it to sleep and wakes it again. Its terminals pause for about a minute. If it does not wake, wake it by hand.")
             wrapMode: Text.WordWrap
         }
     }

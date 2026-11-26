@@ -14,9 +14,9 @@ use windows_sys::Win32::{
     },
     System::{
         Power::{
-            GetPwrCapabilities, IsPwrSuspendAllowed, PowerClearRequest, PowerCreateRequest,
-            PowerRequestSystemRequired, PowerSetRequest, SYSTEM_POWER_CAPABILITIES,
-            SetSuspendState,
+            GetPwrCapabilities, GetSystemPowerStatus, IsPwrSuspendAllowed, PowerClearRequest,
+            PowerCreateRequest, PowerRequestSystemRequired, PowerSetRequest,
+            SYSTEM_POWER_CAPABILITIES, SYSTEM_POWER_STATUS, SetSuspendState,
         },
         Threading::{
             GetCurrentProcess, OpenProcessToken, POWER_REQUEST_CONTEXT_SIMPLE_STRING,
@@ -69,10 +69,17 @@ impl Drop for Awake {
 }
 
 /// A computer with Modern Standby has no S3 sleep. It goes to standby when its screen turns off.
-fn sleeps_with_its_screen() -> bool {
+pub(super) fn sleeps_with_its_screen() -> bool {
     let mut capabilities = SYSTEM_POWER_CAPABILITIES::default();
     // SAFETY: `capabilities` is a valid place for the result.
     unsafe { GetPwrCapabilities(&raw mut capabilities) && capabilities.AoAc }
+}
+
+pub(super) fn on_battery() -> bool {
+    const AC_OFFLINE: u8 = 0;
+    let mut status = SYSTEM_POWER_STATUS::default();
+    // SAFETY: `status` is a valid place for the result.
+    unsafe { GetSystemPowerStatus(&raw mut status) != 0 && status.ACLineStatus == AC_OFFLINE }
 }
 
 pub(super) fn can_sleep() -> io::Result<()> {

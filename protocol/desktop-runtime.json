@@ -9343,6 +9343,367 @@
               }
             ]
           },
+          "deviceId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "power.wake"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "deviceId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deviceId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "power.test"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "deviceId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "power.describe"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "sleeper": {
+            "additionalProperties": false,
+            "properties": {
+              "fastStartup": {
+                "type": "boolean"
+              },
+              "keepAwake": {
+                "oneOf": [
+                  {
+                    "const": "agents"
+                  },
+                  {
+                    "const": "always"
+                  },
+                  {
+                    "const": "never"
+                  }
+                ]
+              },
+              "links": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "address": {
+                      "type": "string"
+                    },
+                    "hardware": {
+                      "type": "string"
+                    },
+                    "medium": {
+                      "oneOf": [
+                        {
+                          "const": "cable"
+                        },
+                        {
+                          "const": "radio"
+                        }
+                      ]
+                    },
+                    "prefix": {
+                      "format": "u8",
+                      "type": "integer"
+                    },
+                    "router": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "wakes": {
+                      "oneOf": [
+                        {
+                          "const": "on"
+                        },
+                        {
+                          "const": "off"
+                        },
+                        {
+                          "const": "unknown"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "hardware",
+                    "medium",
+                    "address",
+                    "prefix",
+                    "wakes"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "public": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "standby": {
+                "type": "boolean"
+              },
+              "system": {
+                "oneOf": [
+                  {
+                    "const": "mac"
+                  },
+                  {
+                    "const": "windows"
+                  },
+                  {
+                    "const": "linux"
+                  }
+                ]
+              },
+              "tested": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "hardware": {
+                        "type": "string"
+                      },
+                      "woke": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "hardware",
+                      "woke"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "system",
+              "links"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "power.signal"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "sleeper"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hardware": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "power.tested"
+          },
+          "woke": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "hardware",
+          "woke"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "projectId": {
             "anyOf": [
               {
@@ -16550,6 +16911,90 @@
               }
             ]
           },
+          "computers": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "busy": {
+                  "anyOf": [
+                    {
+                      "oneOf": [
+                        {
+                          "const": "waking"
+                        },
+                        {
+                          "const": "testing"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "canTest": {
+                  "type": "boolean"
+                },
+                "canWake": {
+                  "type": "boolean"
+                },
+                "deviceId": {
+                  "type": "string"
+                },
+                "keepAwake": {
+                  "oneOf": [
+                    {
+                      "const": "agents"
+                    },
+                    {
+                      "const": "always"
+                    },
+                    {
+                      "const": "never"
+                    }
+                  ]
+                },
+                "note": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "problem": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "sleepWarning": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "deviceId",
+                "canWake",
+                "canTest",
+                "keepAwake"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
           "keepAwake": {
             "anyOf": [
               {
@@ -16577,7 +17022,8 @@
         "required": [
           "accountUserId",
           "accountEpoch",
-          "type"
+          "type",
+          "computers"
         ],
         "type": "object"
       },
@@ -16604,8 +17050,172 @@
           "requestId": {
             "type": "string"
           },
+          "signal": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "const": "sent"
+                  },
+                  {
+                    "const": "elsewhere"
+                  },
+                  {
+                    "const": "refused"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "type": {
             "const": "power.result"
+          },
+          "wake": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "fastStartup": {
+                    "type": "boolean"
+                  },
+                  "keepAwake": {
+                    "oneOf": [
+                      {
+                        "const": "agents"
+                      },
+                      {
+                        "const": "always"
+                      },
+                      {
+                        "const": "never"
+                      }
+                    ]
+                  },
+                  "links": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "address": {
+                          "type": "string"
+                        },
+                        "hardware": {
+                          "type": "string"
+                        },
+                        "medium": {
+                          "oneOf": [
+                            {
+                              "const": "cable"
+                            },
+                            {
+                              "const": "radio"
+                            }
+                          ]
+                        },
+                        "prefix": {
+                          "format": "u8",
+                          "type": "integer"
+                        },
+                        "router": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "wakes": {
+                          "oneOf": [
+                            {
+                              "const": "on"
+                            },
+                            {
+                              "const": "off"
+                            },
+                            {
+                              "const": "unknown"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "hardware",
+                        "medium",
+                        "address",
+                        "prefix",
+                        "wakes"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "public": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "standby": {
+                    "type": "boolean"
+                  },
+                  "system": {
+                    "oneOf": [
+                      {
+                        "const": "mac"
+                      },
+                      {
+                        "const": "windows"
+                      },
+                      {
+                        "const": "linux"
+                      }
+                    ]
+                  },
+                  "tested": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "hardware": {
+                            "type": "string"
+                          },
+                          "woke": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "hardware",
+                          "woke"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "system",
+                  "links",
+                  "fastStartup",
+                  "standby",
+                  "keepAwake"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -18571,7 +19181,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 113,
+  "protocolVersion": 114,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

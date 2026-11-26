@@ -63,7 +63,7 @@ enum Action {
     Friends(FriendAction),
     #[command(
         subcommand,
-        about = "Approve and remove your devices, make a recovery key, and put your computers to sleep."
+        about = "Approve and remove your devices, make a recovery key, and put your computers to sleep or wake them."
     )]
     Devices(DeviceAction),
     #[command(subcommand, about = "Sign in or out, or delete your account.")]
@@ -436,15 +436,28 @@ enum DeviceAction {
         /// The device: its name, its ID or the end of its ID that `kodosi devices list` shows.
         device: String,
     },
-    /// Put one of your computers to sleep. Its terminals pause until it wakes.
+    /// Put one of your computers to sleep. Its terminals pause until it wakes. When Kodosi may not
+    /// wake it again, it says so.
     Sleep {
         /// The computer: its name, its ID or the end of its ID that `kodosi devices list` shows.
         computer: String,
     },
+    /// Wake one of your computers from sleep. This device sends the wake signal when it is on the
+    /// network of that computer, and so does each of your computers that is awake there.
+    Wake {
+        /// The computer: its name, its ID or the end of its ID that `kodosi devices list` shows.
+        computer: String,
+    },
+    /// Put one of your computers to sleep, wake it, and record on it whether it woke. If it does
+    /// not wake, someone must wake it by hand.
+    TestWake {
+        /// The computer: its name, its ID or the end of its ID that `kodosi devices list` shows.
+        computer: String,
+    },
     /// Choose when a computer stays awake: `agents` while an agent works on it and for a few
-    /// minutes after, which is the setting at the start, `always` while Kodosi runs, or `never`.
-    /// An agent that waits for you does not keep it awake. Without a choice, show what this
-    /// computer does.
+    /// minutes after, which is the setting at the start, `always` while it is plugged in and on
+    /// its battery as `agents`, or `never`. An agent that waits for you does not keep it awake.
+    /// Without a choice, show what this computer does.
     KeepAwake {
         #[arg(value_parser = ["agents", "always", "never"])]
         when: Option<String>,
@@ -828,6 +841,9 @@ async fn dispatch(args: Arguments) -> Result<u8> {
         Action::Devices(DeviceAction::Link { code }) => {
             link_device(&mut client, &mut context, code, json_output).await
         }
+        Action::Devices(action @ (DeviceAction::Wake { .. } | DeviceAction::TestWake { .. })) => {
+            wake_computer(&mut client, &mut context, action, json_output).await
+        }
         Action::Devices(DeviceAction::Add) => {
             add_device(&mut client, &mut context, json_output).await
         }
@@ -1002,6 +1018,16 @@ async fn reset_id(client: &mut local_host::Client, context: &mut Context) -> Res
         .and_then(|list| list["reset"]["resetId"].as_str())
         .map(str::to_owned)
         .ok_or_else(|| Error::Invalid("No device asked to start fresh.".to_owned()))
+}
+
+fn sleep_warning(context: &Context, computer: Option<&str>) -> Option<String> {
+    let computer = computer?;
+    context.latest.get("power.state")?["computers"]
+        .as_array()?
+        .iter()
+        .find(|entry| entry["deviceId"] == computer)?["sleepWarning"]
+        .as_str()
+        .map(str::to_owned)
 }
 
 async fn computer_id(
@@ -1300,6 +1326,58 @@ async fn link_device(
     }
 }
 
+/// The longest wait of the host for a computer that wakes, and for one that a test puts to sleep
+/// first, each with a margin.
+const WAKE_LIMIT: Duration = Duration::from_mins(2);
+const TEST_WAKE_LIMIT: Duration = Duration::from_mins(4);
+
+async fn wake_computer(
+    client: &mut local_host::Client,
+    context: &mut Context,
+    action: DeviceAction,
+    json_output: bool,
+) -> Result<()> {
+    let test = matches!(action, DeviceAction::TestWake { .. });
+    let command = device_command(action, client, context).await?;
+    let id = command["deviceId"].as_str().unwrap_or_default().to_owned();
+    request(client, context, command, true).await?;
+    let limit = if test { TEST_WAKE_LIMIT } else { WAKE_LIMIT };
+    let state = tokio::time::timeout(limit, async {
+        loop {
+            let state = resolved(client, context, "power.state").await?;
+            let own = state["computers"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|entry| entry["deviceId"] == id.as_str())
+                .cloned()
+                .unwrap_or_default();
+            if own.get("busy").is_none() {
+                return Ok::<_, Error>(own);
+            }
+        }
+    })
+    .await
+    .map_err(|_| Error::Other("The computer did not come back in time.".into()))??;
+    let online = context
+        .latest
+        .get("devices.hosts")
+        .and_then(|hosts| hosts["deviceIds"].as_array())
+        .is_some_and(|hosts| hosts.iter().any(|host| host.as_str() == Some(id.as_str())));
+    let problem = state["problem"].as_str();
+    if !online {
+        return Err(Error::Other(
+            problem.unwrap_or("The computer did not wake.").to_owned(),
+        ));
+    }
+    let words = match (test, problem) {
+        (_, Some(problem)) => return Err(Error::Other(problem.to_owned())),
+        (false, None) => "The computer is awake.",
+        (true, None) => "The computer woke. The test is recorded.",
+    };
+    output(&state, json_output, words)
+}
+
 async fn add_device(
     client: &mut local_host::Client,
     context: &mut Context,
@@ -1460,7 +1538,18 @@ async fn device_command(
         }
         DeviceAction::Sleep { computer } => {
             let computer = computer_id(client, context, &computer).await?;
+            if let Some(warning) = sleep_warning(context, computer.as_deref()) {
+                drop(writeln!(io::stderr().lock(), "{warning}"));
+            }
             json!({"type":"power.sleep","computer":computer})
+        }
+        DeviceAction::Wake { computer } => {
+            let id = device_id(client, context, &computer, "computer").await?;
+            json!({"type":"power.wake","deviceId":id})
+        }
+        DeviceAction::TestWake { computer } => {
+            let id = device_id(client, context, &computer, "computer").await?;
+            json!({"type":"power.test","deviceId":id})
         }
         DeviceAction::KeepAwake { when, computer } => {
             let computer = match computer {

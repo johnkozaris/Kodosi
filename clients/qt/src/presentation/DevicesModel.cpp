@@ -9,6 +9,17 @@
 #include <QMimeData>
 
 namespace kodosi {
+namespace {
+    void sortByLabel(QVariantList& devices)
+    {
+        std::ranges::sort(devices, [](const QVariant& left, const QVariant& right) {
+            return QString::localeAwareCompare(left.toMap().value(QStringLiteral("label")).toString(),
+                       right.toMap().value(QStringLiteral("label")).toString())
+                < 0;
+        });
+    }
+}
+
 DevicesModel::DevicesModel(Workspace& workspace)
     : m_workspace(workspace)
 {
@@ -25,12 +36,27 @@ void DevicesModel::sleep(const QString& deviceId)
     m_workspace.sendUntracked(QStringLiteral("power.sleep"), { { QStringLiteral("computer"), deviceId } });
 }
 
-void DevicesModel::setKeepAwake(const QString& keepAwake)
+void DevicesModel::setKeepAwake(const QString& keepAwake, const QString& deviceId)
 {
+    if (!deviceId.isEmpty()) {
+        m_workspace.sendUntracked(QStringLiteral("power.keepAwake"),
+            { { QStringLiteral("keepAwake"), keepAwake }, { QStringLiteral("computer"), deviceId } });
+        return;
+    }
     m_keepAwake = keepAwake;
     emit changed();
     m_workspace.sendUntracked(
         QStringLiteral("power.keepAwake"), { { QStringLiteral("keepAwake"), keepAwake } });
+}
+
+void DevicesModel::wake(const QString& deviceId)
+{
+    m_workspace.sendUntracked(QStringLiteral("power.wake"), { { QStringLiteral("deviceId"), deviceId } });
+}
+
+void DevicesModel::testWake(const QString& deviceId)
+{
+    m_workspace.sendUntracked(QStringLiteral("power.test"), { { QStringLiteral("deviceId"), deviceId } });
 }
 
 void DevicesModel::approve(const QString& code)
@@ -136,12 +162,22 @@ QVariantList DevicesModel::computers() const
         if (m_hosts.contains(id) && id != m_selfDeviceId && !entry.value(QStringLiteral("recoveryKey")).toBool())
             computers.append(entry);
     }
-    std::ranges::sort(computers, [](const QVariant& left, const QVariant& right) {
-        return QString::localeAwareCompare(left.toMap().value(QStringLiteral("label")).toString(),
-                   right.toMap().value(QStringLiteral("label")).toString())
-            < 0;
-    });
+    sortByLabel(computers);
     return computers;
+}
+
+QVariantList DevicesModel::asleep() const
+{
+    QVariantList asleep;
+    for (const auto& device : m_devices) {
+        const auto entry = device.toMap();
+        const auto power = m_power.value(entry.value(QStringLiteral("deviceId")).toString()).toMap();
+        if (power.value(QStringLiteral("canWake")).toBool()
+            || power.value(QStringLiteral("busy")).toString() == QLatin1String("waking"))
+            asleep.append(entry);
+    }
+    sortByLabel(asleep);
+    return asleep;
 }
 
 void DevicesModel::makeRecoveryKey()
@@ -205,6 +241,7 @@ void DevicesModel::reset()
     m_pendingReset.clear();
     m_dismissedReset.clear();
     m_hosts.clear();
+    m_power.clear();
     m_approvalCode.clear();
     m_approvalQr.clear();
     m_offerState.clear();

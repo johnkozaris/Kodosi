@@ -177,6 +177,14 @@
         <translation>Recupero delle cartelle di %1</translation>
     </message>
     <message>
+        <source>Waking %1…</source>
+        <translation>Riattivazione di %1…</translation>
+    </message>
+    <message>
+        <source>Wake %1</source>
+        <translation>Riattiva %1</translation>
+    </message>
+    <message>
         <source>Agents</source>
         <translation>Agenti</translation>
     </message>
@@ -1376,12 +1384,56 @@
         <translation>I tuoi dispositivi</translation>
     </message>
     <message>
+        <source>Always awake</source>
+        <translation>Sempre attivo</translation>
+    </message>
+    <message>
+        <source>Can sleep while agents work</source>
+        <translation>Può andare in sospensione mentre gli agenti lavorano</translation>
+    </message>
+    <message>
         <source>Approves a new device when you have no other device</source>
         <translation>Approva un nuovo dispositivo quando non ne hai altri</translation>
     </message>
     <message>
         <source>This computer</source>
         <translation>Questo computer</translation>
+    </message>
+    <message>
+        <source>Testing…</source>
+        <translation>Prova in corso…</translation>
+    </message>
+    <message>
+        <source>Waking…</source>
+        <translation>Riattivazione…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>Riattiva</translation>
+    </message>
+    <message>
+        <source>Options for %1</source>
+        <translation>Opzioni per %1</translation>
+    </message>
+    <message>
+        <source>Stay awake</source>
+        <translation>Resta attivo</translation>
+    </message>
+    <message>
+        <source>While agents work</source>
+        <translation>Mentre gli agenti lavorano</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>Sempre</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>Mai</translation>
+    </message>
+    <message>
+        <source>Test wake…</source>
+        <translation>Prova la riattivazione…</translation>
     </message>
     <message>
         <source>Sleep…</source>
@@ -1550,6 +1602,18 @@
     <message>
         <source>Its terminals pause until it wakes.</source>
         <translation>I suoi terminali restano in pausa finché non si riattiva.</translation>
+    </message>
+    <message>
+        <source>Test the wake of %1?</source>
+        <translation>Provare la riattivazione di %1?</translation>
+    </message>
+    <message>
+        <source>Test</source>
+        <translation>Prova</translation>
+    </message>
+    <message>
+        <source>Kodosi puts it to sleep and wakes it again. Its terminals pause for about a minute. If it does not wake, wake it by hand.</source>
+        <translation>Kodosi lo sospende e lo riattiva di nuovo. I suoi terminali restano in pausa per circa un minuto. Se non si riattiva, riattivalo a mano.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2504,8 +2568,8 @@
         <translation>Resta attivo</translation>
     </message>
     <message>
-        <source>This computer does not go to sleep by itself while Kodosi runs.</source>
-        <translation>Questo computer non va in sospensione da solo finché Kodosi è in esecuzione.</translation>
+        <source>This computer does not go to sleep by itself while Kodosi runs. On battery, it stays awake only while agents work.</source>
+        <translation>Questo computer non va in sospensione da solo finché Kodosi è in esecuzione. A batteria, resta attivo solo mentre gli agenti lavorano.</translation>
     </message>
     <message>
         <source>This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.</source>
@@ -4695,6 +4759,14 @@
     <message>
         <source>The terminal opens when its computer is back.</source>
         <translation>Il terminale si aprirà quando il suo computer tornerà online.</translation>
+    </message>
+    <message>
+        <source>Waking…</source>
+        <translation>Riattivazione…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>Riattiva</translation>
     </message>
     <message>
         <source>The terminal opens when the connection is back.</source>

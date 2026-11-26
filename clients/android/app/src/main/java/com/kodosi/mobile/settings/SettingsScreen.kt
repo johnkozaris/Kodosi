@@ -11,7 +11,6 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -50,7 +49,6 @@ import com.kodosi.mobile.account.AppLock
 import com.kodosi.mobile.account.Device
 import com.kodosi.mobile.account.DeviceCode
 import com.kodosi.mobile.terminals.TerminalPreview
-import com.kodosi.mobile.ui.ActionIcon
 import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
 import com.kodosi.mobile.ui.ButtonKind
@@ -62,8 +60,6 @@ import com.kodosi.mobile.ui.CountBadge
 import com.kodosi.mobile.ui.IconTile
 import com.kodosi.mobile.ui.KodosiButton
 import com.kodosi.mobile.ui.KodosiDialog
-import com.kodosi.mobile.ui.KodosiMenu
-import com.kodosi.mobile.ui.KodosiMenuItem
 import com.kodosi.mobile.ui.KodosiTextButton
 import com.kodosi.mobile.ui.KodosiTheme
 import com.kodosi.mobile.ui.KodosiType
@@ -85,7 +81,7 @@ import com.kodosi.mobile.ui.raised
 import kotlinx.coroutines.launch
 
 @Composable
-fun SettingsScreen(model: AppModel, friends: () -> Unit, licenses: () -> Unit) {
+fun SettingsScreen(model: AppModel, friends: () -> Unit, licenses: () -> Unit, computer: (String) -> Unit) {
     val account by model.account.state.collectAsStateWithLifecycle()
     val people by model.people.state.collectAsStateWithLifecycle()
     val preferences by model.preferences.state.collectAsStateWithLifecycle()
@@ -100,7 +96,6 @@ fun SettingsScreen(model: AppModel, friends: () -> Unit, licenses: () -> Unit) {
     var approving by remember { mutableStateOf(false) }
     var checked by remember { mutableStateOf<Pair<String, String>?>(null) }
     var removing by remember { mutableStateOf<Device?>(null) }
-    var sleeping by remember { mutableStateOf<Device?>(null) }
     var recovery by remember { mutableStateOf<String?>(null) }
     var creatingRecovery by remember { mutableStateOf(false) }
     var scanning by remember { mutableStateOf(false) }
@@ -197,42 +192,55 @@ fun SettingsScreen(model: AppModel, friends: () -> Unit, licenses: () -> Unit) {
                             else -> 1
                         }
                     }.forEach { device ->
-                        ListLine(
-                            if (device.recoveryKey) stringResource(R.string.recovery_key) else device.label,
-                            subtitle = when {
-                                device.deviceId == account.selfDeviceId -> stringResource(R.string.this_device)
-                                device.recoveryKey -> stringResource(R.string.recovery_message)
-                                else -> null
-                            },
-                            leading = {
-                                IconTile(
-                                    when {
-                                        device.recoveryKey -> AppSymbol.KEY
-                                        device.deviceId == account.selfDeviceId -> AppSymbol.PHONE
-                                        else -> AppSymbol.COMPUTER
-                                    },
-                                    if (device.recoveryKey) TileTint.amber else TileTint.graphite
-                                )
-                            }
-                        ) {
-                            if (device.deviceId != account.selfDeviceId) {
-                                KodosiTextButton(onClick = {
-                                    removing = device
-                                }) { Text(stringResource(R.string.remove)) }
-                            }
-                            if (device in account.computers) {
-                                var actions by remember { mutableStateOf(false) }
-                                Box {
-                                    ActionIcon(AppSymbol.MORE, R.string.more, { actions = true }, open = actions)
-                                    KodosiMenu(actions, { actions = false }) {
-                                        KodosiMenuItem(
-                                            text = { Text(stringResource(R.string.sleep_computer)) },
-                                            onClick = {
-                                                actions = false
-                                                sleeping = device
-                                            }
+                        val power = account.power[device.deviceId]
+                        val awake = when (power?.keepAwake) {
+                            "always" -> stringResource(R.string.always_awake)
+                            "never" -> stringResource(R.string.can_sleep_while_agents_work)
+                            else -> null
+                        }
+                        val state = listOfNotNull(awake, power?.problem ?: power?.note).joinToString(" · ")
+                        if (power != null && device.deviceId != account.selfDeviceId) {
+                            ListButton({ computer(device.deviceId) }) {
+                                ListLine(
+                                    device.label,
+                                    subtitle = state.ifEmpty { null },
+                                    leading = { IconTile(AppSymbol.COMPUTER, TileTint.graphite) }
+                                ) {
+                                    if (power.busy != null) {
+                                        Text(
+                                            stringResource(
+                                                if (power.waking) R.string.waking else R.string.testing_wake
+                                            ),
+                                            style = KodosiType.footnote,
+                                            color = colors.inkMuted
                                         )
                                     }
+                                    AppIcon(AppSymbol.FORWARD, Modifier.size(10.dp), tint = colors.inkFaint)
+                                }
+                            }
+                        } else {
+                            ListLine(
+                                if (device.recoveryKey) stringResource(R.string.recovery_key) else device.label,
+                                subtitle = when {
+                                    device.deviceId == account.selfDeviceId -> stringResource(R.string.this_device)
+                                    device.recoveryKey -> stringResource(R.string.recovery_message)
+                                    else -> state.ifEmpty { null }
+                                },
+                                leading = {
+                                    IconTile(
+                                        when {
+                                            device.recoveryKey -> AppSymbol.KEY
+                                            device.deviceId == account.selfDeviceId -> AppSymbol.PHONE
+                                            else -> AppSymbol.COMPUTER
+                                        },
+                                        if (device.recoveryKey) TileTint.amber else TileTint.graphite
+                                    )
+                                }
+                            ) {
+                                if (device.deviceId != account.selfDeviceId) {
+                                    KodosiTextButton(onClick = {
+                                        removing = device
+                                    }) { Text(stringResource(R.string.remove)) }
                                 }
                             }
                         }
@@ -606,18 +614,6 @@ fun SettingsScreen(model: AppModel, friends: () -> Unit, licenses: () -> Unit) {
                 }
             }
         })
-    }
-    sleeping?.let { device ->
-        ConfirmDialog(
-            stringResource(R.string.sleep_computer_title, device.label),
-            stringResource(R.string.sleep_computer_message),
-            stringResource(R.string.sleep_computer),
-            { sleeping = null },
-            {
-                sleeping = null
-                scope.launch { model.runAction { model.account.sleepComputer(device) } }
-            }
-        )
     }
     removing?.let { device ->
         ConfirmDialog(

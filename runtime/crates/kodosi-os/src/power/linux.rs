@@ -13,6 +13,7 @@ const LOGIN_MANAGER: &str = "org.freedesktop.login1.Manager";
 const PORTAL: &str = "org.freedesktop.portal.Desktop";
 const PORTAL_PATH: &str = "/org/freedesktop/portal/desktop";
 const PORTAL_SUSPEND: u32 = 4;
+const POWER_SUPPLIES: &str = "/sys/class/power_supply";
 
 /// logind's `idle` lock stops only the sleep that logind itself starts. A desktop starts its own
 /// sleep after idle time and reads only the inhibitors of its session, which the portal sets. A
@@ -95,6 +96,32 @@ fn desktop_hold(reason: &str) -> Option<DesktopHold> {
             request,
         })
     })
+}
+
+/// The battery of a mouse or a headset has the scope `Device`, and it does not power the computer.
+pub(super) const fn sleeps_with_its_screen() -> bool {
+    false
+}
+
+pub(super) fn on_battery() -> bool {
+    let Ok(supplies) = std::fs::read_dir(POWER_SUPPLIES) else {
+        return false;
+    };
+    let mut discharging = false;
+    for supply in supplies.flatten() {
+        let read =
+            |name: &str| std::fs::read_to_string(supply.path().join(name)).unwrap_or_default();
+        match read("type").trim() {
+            "Mains" | "USB" if read("online").trim() == "1" => return false,
+            "Battery"
+                if read("scope").trim() != "Device" && read("status").trim() == "Discharging" =>
+            {
+                discharging = true;
+            }
+            _ => {}
+        }
+    }
+    discharging
 }
 
 pub(super) fn can_sleep() -> io::Result<()> {

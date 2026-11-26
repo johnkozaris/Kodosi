@@ -177,6 +177,14 @@
         <translation>%1에서 폴더를 가져오는 중</translation>
     </message>
     <message>
+        <source>Waking %1…</source>
+        <translation>%1 깨우는 중…</translation>
+    </message>
+    <message>
+        <source>Wake %1</source>
+        <translation>%1 깨우기</translation>
+    </message>
+    <message>
         <source>Agents</source>
         <translation>에이전트</translation>
     </message>
@@ -1357,12 +1365,56 @@
         <translation>내 기기</translation>
     </message>
     <message>
+        <source>Always awake</source>
+        <translation>항상 깨어 있음</translation>
+    </message>
+    <message>
+        <source>Can sleep while agents work</source>
+        <translation>에이전트 작업 중에도 잠자기 가능</translation>
+    </message>
+    <message>
         <source>Approves a new device when you have no other device</source>
         <translation>다른 기기가 없을 때 새 기기를 승인해요</translation>
     </message>
     <message>
         <source>This computer</source>
         <translation>이 컴퓨터</translation>
+    </message>
+    <message>
+        <source>Testing…</source>
+        <translation>테스트 중…</translation>
+    </message>
+    <message>
+        <source>Waking…</source>
+        <translation>깨우는 중…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>깨우기</translation>
+    </message>
+    <message>
+        <source>Options for %1</source>
+        <translation>%1 옵션</translation>
+    </message>
+    <message>
+        <source>Stay awake</source>
+        <translation>깨어 있기</translation>
+    </message>
+    <message>
+        <source>While agents work</source>
+        <translation>에이전트 작업 중</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>항상</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>안 함</translation>
+    </message>
+    <message>
+        <source>Test wake…</source>
+        <translation>깨우기 테스트…</translation>
     </message>
     <message>
         <source>Sleep…</source>
@@ -1531,6 +1583,18 @@
     <message>
         <source>Its terminals pause until it wakes.</source>
         <translation>깨어날 때까지 그 컴퓨터의 터미널이 일시 정지돼요.</translation>
+    </message>
+    <message>
+        <source>Test the wake of %1?</source>
+        <translation>%1 깨우기를 테스트할까요?</translation>
+    </message>
+    <message>
+        <source>Test</source>
+        <translation>테스트</translation>
+    </message>
+    <message>
+        <source>Kodosi puts it to sleep and wakes it again. Its terminals pause for about a minute. If it does not wake, wake it by hand.</source>
+        <translation>Kodosi가 잠자기로 전환한 뒤 다시 깨워요. 그 컴퓨터의 터미널이 1분 정도 일시 정지돼요. 깨어나지 않으면 직접 깨워 주세요.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2483,8 +2547,8 @@
         <translation>깨어 있기</translation>
     </message>
     <message>
-        <source>This computer does not go to sleep by itself while Kodosi runs.</source>
-        <translation>Kodosi가 실행되는 동안에는 이 컴퓨터가 스스로 잠자기로 전환되지 않아요.</translation>
+        <source>This computer does not go to sleep by itself while Kodosi runs. On battery, it stays awake only while agents work.</source>
+        <translation>Kodosi가 실행되는 동안에는 이 컴퓨터가 스스로 잠자기로 전환되지 않아요. 배터리로 작동할 때는 에이전트가 작업하는 동안에만 깨어 있어요.</translation>
     </message>
     <message>
         <source>This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.</source>
@@ -4663,6 +4727,14 @@
     <message>
         <source>The terminal opens when its computer is back.</source>
         <translation>컴퓨터가 다시 온라인이 되면 터미널이 열려요.</translation>
+    </message>
+    <message>
+        <source>Waking…</source>
+        <translation>깨우는 중…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>깨우기</translation>
     </message>
     <message>
         <source>The terminal opens when the connection is back.</source>

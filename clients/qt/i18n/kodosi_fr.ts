@@ -177,6 +177,14 @@
         <translation>Récupération des dossiers de %1</translation>
     </message>
     <message>
+        <source>Waking %1…</source>
+        <translation>Réveil de %1…</translation>
+    </message>
+    <message>
+        <source>Wake %1</source>
+        <translation>Réveiller %1</translation>
+    </message>
+    <message>
         <source>Agents</source>
         <translation>Agents</translation>
     </message>
@@ -1376,12 +1384,56 @@
         <translation>Vos appareils</translation>
     </message>
     <message>
+        <source>Always awake</source>
+        <translation>Toujours éveillé</translation>
+    </message>
+    <message>
+        <source>Can sleep while agents work</source>
+        <translation>Peut se mettre en veille pendant le travail des agents</translation>
+    </message>
+    <message>
         <source>Approves a new device when you have no other device</source>
         <translation>Approuve un nouvel appareil quand vous n&apos;en avez pas d&apos;autre</translation>
     </message>
     <message>
         <source>This computer</source>
         <translation>Cet ordinateur</translation>
+    </message>
+    <message>
+        <source>Testing…</source>
+        <translation>Test…</translation>
+    </message>
+    <message>
+        <source>Waking…</source>
+        <translation>Réveil…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>Réveiller</translation>
+    </message>
+    <message>
+        <source>Options for %1</source>
+        <translation>Options de %1</translation>
+    </message>
+    <message>
+        <source>Stay awake</source>
+        <translation>Rester éveillé</translation>
+    </message>
+    <message>
+        <source>While agents work</source>
+        <translation>Pendant le travail des agents</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>Toujours</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>Jamais</translation>
+    </message>
+    <message>
+        <source>Test wake…</source>
+        <translation>Tester le réveil…</translation>
     </message>
     <message>
         <source>Sleep…</source>
@@ -1550,6 +1602,18 @@
     <message>
         <source>Its terminals pause until it wakes.</source>
         <translation>Ses terminaux sont en pause jusqu&apos;à son réveil.</translation>
+    </message>
+    <message>
+        <source>Test the wake of %1?</source>
+        <translation>Tester le réveil de %1&#xa0;?</translation>
+    </message>
+    <message>
+        <source>Test</source>
+        <translation>Tester</translation>
+    </message>
+    <message>
+        <source>Kodosi puts it to sleep and wakes it again. Its terminals pause for about a minute. If it does not wake, wake it by hand.</source>
+        <translation>Kodosi le met en veille puis le réveille. Ses terminaux sont en pause pendant environ une minute. S&apos;il ne se réveille pas, réveillez-le à la main.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2504,8 +2568,8 @@
         <translation>Rester éveillé</translation>
     </message>
     <message>
-        <source>This computer does not go to sleep by itself while Kodosi runs.</source>
-        <translation>Cet ordinateur ne se met pas en veille de lui-même tant que Kodosi fonctionne.</translation>
+        <source>This computer does not go to sleep by itself while Kodosi runs. On battery, it stays awake only while agents work.</source>
+        <translation>Cet ordinateur ne se met pas en veille de lui-même tant que Kodosi fonctionne. Sur batterie, il ne reste éveillé que pendant le travail des agents.</translation>
     </message>
     <message>
         <source>This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.</source>
@@ -4695,6 +4759,14 @@
     <message>
         <source>The terminal opens when its computer is back.</source>
         <translation>Le terminal s&apos;ouvrira quand son ordinateur sera de nouveau en ligne.</translation>
+    </message>
+    <message>
+        <source>Waking…</source>
+        <translation>Réveil…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>Réveiller</translation>
     </message>
     <message>
         <source>The terminal opens when the connection is back.</source>

@@ -26,7 +26,7 @@ struct GeneralSettingsView: View {
 
     private var awakeFooter: LocalizedStringKey {
         switch deps.power.keepsAwake {
-        case .always?: "This Mac does not go to sleep by itself while Kodosi runs."
+        case .always?: "This Mac does not go to sleep by itself while Kodosi runs. On battery, it stays awake only while agents work."
         case .never?: "This Mac can go to sleep while an agent works. The agent then pauses until the Mac wakes."
         case .agents?, nil:
             "This Mac does not go to sleep by itself while an agent works, or for a few minutes after. An agent that waits for you does not keep it awake."

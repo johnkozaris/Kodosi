@@ -57,8 +57,8 @@ struct DevicesSection: View {
 
 struct DeviceRow: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.theme) private var theme
     @State private var confirmingRemoval = false
-    @State private var confirmingSleep = false
     let device: MyDeviceEntry
 
     private var account: AccountStore {
@@ -73,8 +73,8 @@ struct DeviceRow: View {
         account.canRemove(device)
     }
 
-    private var sleeps: Bool {
-        account.computers.contains(device)
+    private var power: ComputerPower? {
+        model.power.computers[device.deviceId]
     }
 
     private var addedAt: Date {
@@ -83,61 +83,59 @@ struct DeviceRow: View {
 
     private var subtitle: String {
         if device.recoveryKey {
-            String(localized: "Approves a new device when you have no other device")
-        } else if isThisDevice {
-            ThisDevice.title
-        } else {
-            String(localized: "Added \(addedAt, format: .dateTime.day().month().year())")
+            return String(localized: "Approves a new device when you have no other device")
         }
+        if isThisDevice {
+            return ThisDevice.title
+        }
+        let awake: String? = switch power?.keepAwake {
+        case .always?: String(localized: "Always awake")
+        case .never?: String(localized: "Can sleep while agents work")
+        case .agents?, nil: nil
+        }
+        let parts = [awake, power?.problem ?? power?.note].compactMap(\.self)
+        return parts.isEmpty ? String(localized: "Added \(addedAt, format: .dateTime.day().month().year())") : parts.joined(separator: " · ")
     }
 
     var body: some View {
-        ListRow(device.title, subtitle: subtitle, symbol: device.recoveryKey ? "key.fill" : DeviceGlyph.symbol(for: device.label),
-                tint: isThisDevice ? TileTint.orange : TileTint.graphite)
-        {
-            if sleeps {
-                Menu {
-                    Button { confirmingSleep = true } label: {
-                        Label("Sleep…", systemImage: "powersleep")
+        if let power, !isThisDevice {
+            NavigationLink(value: ComputerRoute(deviceId: device.deviceId)) {
+                ListRow(device.title, subtitle: subtitle, symbol: DeviceGlyph.symbol(for: device.label), tint: TileTint.graphite) {
+                    if let busy = power.busy {
+                        Text(busy == .waking ? "Waking…" : "Testing…").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                            .accessibilityIdentifier("settings.devices.busy.\(device.deviceId)")
                     }
-                } label: {
-                    IconButtonFace(symbol: "ellipsis", size: 32)
+                    Disclosure()
                 }
-                .menuStyle(.button)
-                .buttonStyle(PressScaleStyle(scale: 0.9))
-                .accessibilityLabel(Text("More for \(device.title)"))
-                .accessibilityIdentifier("settings.devices.more.\(device.deviceId)")
+                .wholeSubtitle()
             }
-            if removable {
-                Button("Remove…") { confirmingRemoval = true }
-                    .buttonStyle(.kodosi(.ghost, size: .small))
-                    .accessibilityLabel(Text("Remove \(device.title)"))
-                    .accessibilityIdentifier("settings.devices.remove.\(device.deviceId)")
-            }
-        }
-        .contextMenu {
-            if sleeps {
-                Button { confirmingSleep = true } label: {
-                    Label("Sleep…", systemImage: "powersleep")
+            .buttonStyle(ListRowButtonStyle())
+            .accessibilityIdentifier("settings.devices.open.\(device.deviceId)")
+        } else {
+            ListRow(device.title, subtitle: subtitle, symbol: device.recoveryKey ? "key.fill" : DeviceGlyph.symbol(for: device.label),
+                    tint: isThisDevice ? TileTint.orange : TileTint.graphite)
+            {
+                if removable {
+                    Button("Remove…") { confirmingRemoval = true }
+                        .buttonStyle(.kodosi(.ghost, size: .small))
+                        .accessibilityLabel(Text("Remove \(device.title)"))
+                        .accessibilityIdentifier("settings.devices.remove.\(device.deviceId)")
                 }
             }
-            if removable {
-                Button(role: .destructive) { confirmingRemoval = true } label: {
-                    Label("Remove…", systemImage: "minus.circle")
+            .wholeSubtitle()
+            .contextMenu {
+                if removable {
+                    Button(role: .destructive) { confirmingRemoval = true } label: {
+                        Label("Remove…", systemImage: "minus.circle")
+                    }
                 }
             }
-        }
-        .confirmationDialog(Text("Put \(device.title) to sleep?"), isPresented: $confirmingSleep, titleVisibility: .visible) {
-            Button("Sleep") { model.power.sleep(device) }
-                .accessibilityIdentifier("settings.devices.confirmSleep")
-        } message: {
-            Text("Its terminals pause until it wakes.")
-        }
-        .confirmationDialog(Text("Remove \(device.title)?"), isPresented: $confirmingRemoval, titleVisibility: .visible) {
-            Button("Remove", role: .destructive) { account.revokeDevice(device) }
-                .accessibilityIdentifier("settings.devices.confirmRemove")
-        } message: {
-            Text(device.removalMessage(hasRecoveryKey: account.hasRecoveryKey))
+            .confirmationDialog(Text("Remove \(device.title)?"), isPresented: $confirmingRemoval, titleVisibility: .visible) {
+                Button("Remove", role: .destructive) { account.revokeDevice(device) }
+                    .accessibilityIdentifier("settings.devices.confirmRemove")
+            } message: {
+                Text(device.removalMessage(hasRecoveryKey: account.hasRecoveryKey))
+            }
         }
     }
 }

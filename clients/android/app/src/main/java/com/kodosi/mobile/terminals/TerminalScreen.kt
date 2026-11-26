@@ -79,6 +79,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.ui.LocalNavAnimatedContentScope
 import com.kodosi.mobile.AppModel
 import com.kodosi.mobile.R
+import com.kodosi.mobile.account.ComputerPower
 import com.kodosi.mobile.canvas.readPickedFile
 import com.kodosi.mobile.chat.TerminalChatView
 import com.kodosi.mobile.runtime.UuidV7
@@ -135,6 +136,7 @@ fun TerminalScreen(
     val connection = remember(sessionId) { model.connection(sessionId, scope) } ?: return
     val state by connection.state.collectAsStateWithLifecycle()
     val openResults by model.terminals.openResults.collectAsStateWithLifecycle()
+    val account by model.account.state.collectAsStateWithLifecycle()
     val session = remember(sessionId) {
         model.terminals.state.map { catalog -> catalog.sessions.firstOrNull { it.id == sessionId } }
     }.collectAsStateWithLifecycle(model.terminals.session(sessionId)).value
@@ -304,7 +306,8 @@ fun TerminalScreen(
                             )
                         }
                     } else {
-                        val cover = coverOf(session, online, state, openResults[sessionId])
+                        val power = session.hostDeviceId?.let { account.power[it] }
+                        val cover = coverOf(session, online, state, openResults[sessionId], power)
                         // Freeze the cover during exit so disconnecting on back does not flash it.
                         val leaving =
                             LocalNavAnimatedContentScope.current.transition.targetState == EnterExitState.PostExit
@@ -312,7 +315,8 @@ fun TerminalScreen(
                         CoverLayer(
                             if (leaving) kept else cover,
                             connect = connection::retry,
-                            reconnect = model.account::retryConnection
+                            reconnect = model.account::retryConnection,
+                            wake = { session.hostDeviceId?.let(model.account::wakeComputer) }
                         )
                     }
                     ReconnectingNotice(
@@ -700,7 +704,7 @@ private data class TerminalCover(
     val action: CoverAction?
 )
 
-private enum class CoverAction { CONNECT, RECONNECT, RETRY }
+private enum class CoverAction { CONNECT, RECONNECT, RETRY, WAKE, WAKING }
 
 // Treat an offline session with no message and no OpenResult yet as still connecting.
 @Composable
@@ -708,7 +712,8 @@ private fun coverOf(
     session: RuntimeSession,
     online: Boolean,
     state: TerminalConnection.State,
-    opened: OpenResult?
+    opened: OpenResult?,
+    power: ComputerPower?
 ): TerminalCover? {
     val connecting = TerminalCover(stringResource(R.string.connecting), null, working = true, action = null)
     val unavailable = stringResource(R.string.terminal_not_available)
@@ -724,8 +729,16 @@ private fun coverOf(
                 action = CoverAction.RECONNECT
             )
 
-            session.status == RuntimeSession.Status.OFFLINE ->
-                TerminalCover(statusLabel(session), stringResource(R.string.terminal_opens_when_back), false, null)
+            session.status == RuntimeSession.Status.OFFLINE -> TerminalCover(
+                statusLabel(session),
+                power?.problem ?: stringResource(R.string.terminal_opens_when_back),
+                working = power?.waking == true,
+                action = when {
+                    power?.waking == true -> CoverAction.WAKING
+                    power?.canWake == true -> CoverAction.WAKE
+                    else -> null
+                }
+            )
 
             session.connectionState == RuntimeSession.Connection.OFFLINE &&
                 (opened != null || session.message != null || !session.canOpen) -> TerminalCover(
@@ -759,7 +772,7 @@ private fun coverOf(
 }
 
 @Composable
-private fun CoverLayer(cover: TerminalCover?, connect: () -> Unit, reconnect: () -> Unit) {
+private fun CoverLayer(cover: TerminalCover?, connect: () -> Unit, reconnect: () -> Unit, wake: () -> Unit) {
     val fading = fade<Float>()
     AnimatedContent(
         cover,
@@ -773,6 +786,8 @@ private fun CoverLayer(cover: TerminalCover?, connect: () -> Unit, reconnect: ()
                     CoverAction.CONNECT -> KodosiButton(stringResource(R.string.connect), onClick = connect)
                     CoverAction.RECONNECT -> KodosiButton(stringResource(R.string.try_again), onClick = reconnect)
                     CoverAction.RETRY -> KodosiButton(stringResource(R.string.try_again), onClick = connect)
+                    CoverAction.WAKE -> KodosiButton(stringResource(R.string.wake_computer), onClick = wake)
+                    CoverAction.WAKING -> KodosiButton(stringResource(R.string.waking), onClick = {}, enabled = false)
                     null -> Unit
                 }
             }

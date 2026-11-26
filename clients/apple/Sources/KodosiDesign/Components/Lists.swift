@@ -53,6 +53,8 @@ public struct ListRow<Leading: View, Trailing: View>: View {
     public var subtitle: String?
     public var monoSubtitle = false
     public var titleColor: Color?
+    /// A subtitle that the person must read to the end, such as the one thing to do.
+    public var showsWholeSubtitle = false
 
     @ContentBuilder public let leading: () -> Leading
     @ContentBuilder public let trailing: () -> Trailing
@@ -82,7 +84,8 @@ public struct ListRow<Leading: View, Trailing: View>: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(title).appTextStyle(.body).foregroundStyle(titleColor ?? theme.colors.ink).lineLimit(1)
                             if let subtitle {
-                                subtitleText(subtitle).lineLimit(2).frame(idealWidth: 0, maxWidth: .infinity, alignment: .leading)
+                                subtitleText(subtitle).lineLimit(showsWholeSubtitle ? nil : 2)
+                                    .frame(idealWidth: 0, maxWidth: .infinity, alignment: .leading)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -106,7 +109,7 @@ public struct ListRow<Leading: View, Trailing: View>: View {
                 Spacer(minLength: 12)
                 trailing()
             }
-            .padding(.horizontal, 14).frame(minHeight: 52)
+            .padding(.horizontal, 14).padding(.vertical, showsWholeSubtitle ? 8 : 0).frame(minHeight: 52)
         #endif
     }
 
@@ -114,7 +117,7 @@ public struct ListRow<Leading: View, Trailing: View>: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title).appTextStyle(.body).foregroundStyle(titleColor ?? theme.colors.ink).lineLimit(lines)
             if let subtitle {
-                subtitleText(subtitle).lineLimit(lines)
+                subtitleText(subtitle).lineLimit(showsWholeSubtitle ? nil : lines).fixedSize(horizontal: false, vertical: showsWholeSubtitle)
             }
         }
     }
@@ -122,6 +125,14 @@ public struct ListRow<Leading: View, Trailing: View>: View {
     private func subtitleText(_ subtitle: String) -> some View {
         Text(subtitle).appTextStyle(monoSubtitle ? .monoCaption : .footnote).foregroundStyle(theme.colors.inkMuted)
             .truncationMode(.middle).textSelection(.enabled)
+    }
+}
+
+public extension ListRow {
+    func wholeSubtitle(_ whole: Bool = true) -> Self {
+        var row = self
+        row.showsWholeSubtitle = whole
+        return row
     }
 }
 

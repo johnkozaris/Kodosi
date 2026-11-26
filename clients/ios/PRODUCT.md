@@ -33,6 +33,12 @@ or updates something, a banner names the item so you can tap to open it.
 Dosi runs on your computers. You pick which of your computers to message, and that machine's Dosi
 handles the turn.
 
+### Waking a computer
+Each of your computers has a page, opened from Settings or from its name in the Terminals list, to
+wake it, test its wake, put it to sleep and choose when it stays awake. iOS lets only apps with a
+special entitlement send the wake signal, so an iPhone or iPad never sends it. It asks one of your
+awake computers on the network of the sleeping computer.
+
 ### In-person invites and QR device linking
 Your friend invite can be shown as a QR code that a friend scans with the Camera app or inside
 Kodosi. Kodosi asks before someone becomes a friend, so the scan sends the request only after they

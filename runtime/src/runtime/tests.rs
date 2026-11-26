@@ -497,6 +497,7 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
     let root = tempfile::tempdir().unwrap();
     let config = Config::isolated(&kodosi_os::fs::canonicalize(root.path()).unwrap()).unwrap();
     let project_seen = project_seen::ProjectSeen::load(&config.data_root);
+    let wakes = wake::Wakes::load(&config.data_root);
     let network = BackendClient::new(BackendConfig {
         api_url: config.backend_url.clone(),
         issuer: config.oidc_issuer.clone(),
@@ -607,6 +608,7 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             attention: attention::Attention::default(),
             project_latest: HashMap::new(),
             project_seen,
+            wakes,
         },
         root,
     )
@@ -686,10 +688,10 @@ async fn a_terminal_started_on_another_computer_is_answered_when_it_shows_here()
         .expect_answer(&start, Uuid::now_v7(), CancellationToken::new())
         .unwrap();
     let other = json!({"type":"session.result","requestId":Uuid::now_v7().to_string(),"operation":"session.create"});
-    assert!(runtime.asked(&start, other).is_err());
+    assert!(runtime.asked(&start, "studio", other).is_err());
     let id = Uuid::now_v7();
     runtime
-        .asked(&start, json!({"type":"session.result","requestId":request,"operation":"session.create","sessionId":id}))
+        .asked(&start, "studio", json!({"type":"session.result","requestId":request,"operation":"session.create","sessionId":id}))
         .unwrap();
     let mut offline = remote_session(id, Uuid::now_v7());
     offline.online = false;
@@ -2535,6 +2537,300 @@ fn my_terminal(computer: &str) -> RemoteSession {
         host_name: computer.to_owned(),
         ..remote_session(Uuid::now_v7(), Uuid::now_v7())
     }
+}
+
+const READY: &str = "Should wake from sleep. Not tested.";
+const TESTED: &str = "Wakes from sleep. Tested.";
+
+fn wake_details(address: &str, tested: Option<bool>) -> crate::protocol::WakeDetails {
+    serde_json::from_value(json!({"system":"linux","tested":tested.map(|woke| json!({
+            "hardware":format!("02:00:5e:00:00:{}", &address[address.len() - 2..]),"woke":woke})),
+        "links":[{"hardware":format!("02:00:5e:00:00:{}", &address[address.len() - 2..]),
+            "medium":"cable","address":address,"prefix":24,"router":"02:00:5e:00:01:01",
+            "wakes":"on"}]}))
+    .unwrap()
+}
+
+/// The answer of a computer to the question with this number, which carried `reported`.
+fn wake_answer(
+    runtime: &Runtime,
+    computer: &str,
+    number: u64,
+    reported: Option<crate::protocol::WakeTest>,
+) -> Job {
+    let tested = reported.as_ref().map(|test| test.woke);
+    Job {
+        scope: runtime.scope.clone(),
+        completion: Completion::WakeDescribed {
+            device: computer.to_owned(),
+            number,
+            reported,
+            result: Ok(wake_details(&format!("192.168.1.{computer}"), tested)),
+        },
+    }
+}
+
+fn wake_state(runtime: &Runtime, computer: &str) -> Value {
+    runtime.power_event()["computers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["deviceId"] == computer)
+        .cloned()
+        .unwrap_or_default()
+}
+
+fn my_computers(runtime: &mut Runtime, online: &[&str]) {
+    runtime.cached_events.insert(
+        "devices.list".to_owned(),
+        json!({"type":"devices.list","localDeviceEnrolled":true,"devices":[
+            {"deviceId":"this-device","label":"phone"},
+            {"deviceId":"20","label":"desk"},
+            {"deviceId":"30","label":"laptop"}]}),
+    );
+    runtime.devices_changed("devices.hosts", &json!({"deviceIds":online}));
+}
+
+#[tokio::test]
+async fn a_sleeping_computer_shows_wake_only_while_an_awake_device_is_on_its_network() {
+    let (mut runtime, _root) = registry_fixture();
+    sign_in(&mut runtime, true);
+    runtime.online = true;
+    my_computers(&mut runtime, &["20"]);
+    runtime.complete(wake_answer(&runtime, "20", runtime.wakes_asked(), None));
+    my_computers(&mut runtime, &[]);
+    assert_eq!(
+        wake_state(&runtime, "20")["problem"],
+        Value::Null,
+        "a device that has not read its own cards yet does not know who is on that network"
+    );
+    runtime.own_network_read(crate::wake::OwnNetwork::default(), Some(0));
+
+    my_computers(&mut runtime, &["20", "30"]);
+    runtime.complete(wake_answer(&runtime, "30", runtime.wakes_asked(), None));
+    let desk = wake_state(&runtime, "20");
+    assert_eq!(
+        (&desk["note"]["$text"], &desk["canWake"], &desk["canTest"]),
+        (&json!(READY), &json!(false), &json!(true)),
+        "an awake computer can be tested, with the laptop as the sender"
+    );
+
+    my_computers(&mut runtime, &["30"]);
+    let desk = wake_state(&runtime, "20");
+    assert_eq!(
+        (&desk["canWake"], &desk["canTest"]),
+        (&json!(true), &json!(false))
+    );
+    assert_eq!(desk["problem"], Value::Null);
+
+    my_computers(&mut runtime, &[]);
+    let desk = wake_state(&runtime, "20");
+    assert_eq!(desk["canWake"], false);
+    assert_eq!(
+        desk["problem"]["$text"],
+        "None of your devices is awake on the network of {computer}."
+    );
+
+    // Before the server says who is online, a computer that is not in the list is not asleep.
+    runtime.wakes.forget_account();
+    assert_eq!(wake_state(&runtime, "20")["problem"], Value::Null);
+    assert_eq!(wake_state(&runtime, "20")["canWake"], false);
+}
+
+#[tokio::test]
+async fn sleep_warns_when_no_device_could_wake_the_computer_again() {
+    let (mut runtime, _root) = registry_fixture();
+    sign_in(&mut runtime, true);
+    runtime.online = true;
+    my_computers(&mut runtime, &["20"]);
+    runtime.complete(wake_answer(&runtime, "20", runtime.wakes_asked(), None));
+    assert_eq!(
+        wake_state(&runtime, "20")["sleepWarning"],
+        Value::Null,
+        "a device that has not read its own cards yet does not know who is on that network"
+    );
+    runtime.own_network_read(crate::wake::OwnNetwork::default(), Some(0));
+    assert_eq!(
+        wake_state(&runtime, "20")["sleepWarning"]["$text"],
+        "None of your other devices on the network of {computer} can wake it now. You may have to wake it by hand."
+    );
+
+    my_computers(&mut runtime, &["20", "30"]);
+    runtime.complete(wake_answer(&runtime, "30", runtime.wakes_asked(), None));
+    assert_eq!(
+        wake_state(&runtime, "20")["sleepWarning"],
+        Value::Null,
+        "the laptop on its network can wake it"
+    );
+}
+
+#[tokio::test]
+async fn a_computer_whose_sleep_apps_cannot_see_offers_no_wake_test() {
+    let (mut runtime, _root) = registry_fixture();
+    sign_in(&mut runtime, true);
+    runtime.online = true;
+    my_computers(&mut runtime, &["20"]);
+    let mut details = wake_details("192.168.1.20", None);
+    details.standby = true;
+    runtime.complete(Job {
+        scope: runtime.scope.clone(),
+        completion: Completion::WakeDescribed {
+            device: "20".to_owned(),
+            number: runtime.wakes_asked(),
+            reported: None,
+            result: Ok(details),
+        },
+    });
+    runtime.own_network_read(crate::wake::OwnNetwork::default(), Some(0));
+    my_computers(&mut runtime, &["20", "30"]);
+    runtime.complete(wake_answer(&runtime, "30", runtime.wakes_asked(), None));
+
+    let desk = wake_state(&runtime, "20");
+    assert_eq!(
+        (&desk["canTest"], &desk["note"]["$text"]),
+        (&json!(false), &json!(READY)),
+        "the laptop could send, but the test would have no result"
+    );
+}
+
+#[tokio::test]
+async fn a_wake_test_with_no_signal_sent_has_no_result() {
+    use crate::wake::{Roused, Tested};
+
+    let (mut runtime, _root) = registry_fixture();
+    sign_in(&mut runtime, true);
+    runtime.online = true;
+    my_computers(&mut runtime, &["20"]);
+    runtime.complete(wake_answer(&runtime, "20", runtime.wakes_asked(), None));
+    let details = wake_details("192.168.1.20", None);
+    let unsent = |woke| {
+        Tested::Roused(Roused {
+            woke,
+            signaled: false,
+            refused: None,
+        })
+    };
+
+    runtime.wake_tested("20", &details, unsent(false));
+    assert_eq!(runtime.wakes.unreported("owner", "20"), None);
+    assert_eq!(wake_state(&runtime, "20")["note"]["$text"], READY);
+
+    runtime.wake_tested("20", &details, unsent(true));
+    assert_eq!(
+        runtime.wakes.unreported("owner", "20"),
+        None,
+        "a computer that came back with no signal woke by itself"
+    );
+    assert_eq!(
+        wake_state(&runtime, "20")["problem"]["$text"],
+        "{computer} did not stay asleep. The test has no result."
+    );
+}
+
+#[tokio::test]
+async fn the_result_of_a_wake_test_stays_until_the_computer_has_it() {
+    use crate::wake::{Roused, Tested};
+
+    let (mut runtime, root) = registry_fixture();
+    sign_in(&mut runtime, true);
+    runtime.online = true;
+    my_computers(&mut runtime, &["20"]);
+    let before_the_test = runtime.wakes_asked();
+    runtime.complete(wake_answer(&runtime, "20", before_the_test, None));
+    assert_eq!(wake_state(&runtime, "20")["note"]["$text"], READY);
+
+    let details = wake_details("192.168.1.20", None);
+    let woke = Tested::Roused(Roused {
+        woke: true,
+        signaled: true,
+        refused: None,
+    });
+    runtime.wake_tested("20", &details, woke);
+    assert_eq!(wake_state(&runtime, "20")["note"]["$text"], TESTED);
+
+    // An answer that the computer gave before the test knows nothing of the result.
+    runtime.complete(wake_answer(&runtime, "20", before_the_test, None));
+    assert_eq!(wake_state(&runtime, "20")["note"]["$text"], TESTED);
+    runtime.jobs.shutdown().await;
+    runtime.wakes.saved().await;
+    let root = kodosi_os::fs::canonicalize(root.path()).unwrap();
+    let kept = wake::Wakes::load(&Config::isolated(&root).unwrap().data_root);
+    assert_eq!(
+        serde_json::to_value(kept.unreported("owner", "20")).unwrap()["woke"],
+        true,
+        "the result is on disk until the computer has it"
+    );
+
+    let result = kept.unreported("owner", "20");
+    runtime.complete(wake_answer(&runtime, "20", runtime.wakes_asked(), result));
+    assert_eq!(runtime.wakes.unreported("owner", "20"), None);
+    assert_eq!(wake_state(&runtime, "20")["note"]["$text"], TESTED);
+}
+
+#[tokio::test]
+async fn a_choice_of_when_another_computer_stays_awake_shows_at_once() {
+    let (mut runtime, _root) = registry_fixture();
+    sign_in(&mut runtime, true);
+    runtime.online = true;
+    my_computers(&mut runtime, &["20"]);
+    runtime.complete(wake_answer(&runtime, "20", runtime.wakes_asked(), None));
+    assert_eq!(wake_state(&runtime, "20")["keepAwake"], "agents");
+
+    let request = Uuid::now_v7().to_string();
+    let command = serde_json::from_value(
+        json!({"type":"power.keepAwake","requestId":request,"keepAwake":"always"}),
+    )
+    .unwrap();
+    runtime.complete(Job {
+        scope: runtime.scope.clone(),
+        completion: Completion::Asked {
+            command,
+            computer: "20".to_owned(),
+            result: Ok(
+                json!({"type":"power.result","requestId":request,"operation":"power.keepAwake"}),
+            ),
+        },
+    });
+    assert_eq!(wake_state(&runtime, "20")["keepAwake"], "always");
+}
+
+#[tokio::test]
+async fn a_wake_that_the_computer_does_not_take_is_no_result() {
+    use crate::wake::{Roused, Tested};
+
+    let (mut runtime, _root) = registry_fixture();
+    sign_in(&mut runtime, true);
+    runtime.online = true;
+    my_computers(&mut runtime, &["20"]);
+    runtime.complete(wake_answer(&runtime, "20", runtime.wakes_asked(), None));
+
+    let details = wake_details("192.168.1.20", None);
+    let woke = Tested::Roused(Roused {
+        woke: true,
+        signaled: true,
+        refused: None,
+    });
+    runtime.wake_tested("20", &details, woke);
+    assert_eq!(wake_state(&runtime, "20")["note"]["$text"], TESTED);
+
+    // A computer that did not really sleep also comes back, and refuses the wake.
+    let number = runtime.wakes_asked();
+    let reported = runtime.wakes.unreported("owner", "20");
+    runtime.complete(Job {
+        scope: runtime.scope.clone(),
+        completion: Completion::WakeDescribed {
+            device: "20".to_owned(),
+            number,
+            reported,
+            result: Err(Error::Refused(crate::text::Text::plain(
+                "It did not stay asleep.",
+            ))),
+        },
+    });
+    assert_eq!(runtime.wakes.unreported("owner", "20"), None);
+    let desk = wake_state(&runtime, "20");
+    assert_eq!(desk["note"]["$text"], READY);
+    assert_ne!(desk["problem"], Value::Null);
 }
 
 fn asking(runtime: &Runtime) -> Vec<&str> {

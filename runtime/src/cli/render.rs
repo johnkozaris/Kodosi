@@ -131,7 +131,11 @@ pub(super) fn result(event: &Value, context: &Context) -> String {
             text(&latest("devices.link.resolved"), "deviceLabel")
         ),
         ("devices.result", "devices.link.cancelSelf") => "The request is cancelled.".to_owned(),
-        ("devices.result", _) => devices(&latest("devices.list"), &latest("devices.hosts")),
+        ("devices.result", _) => devices(
+            &latest("devices.list"),
+            &latest("devices.hosts"),
+            &latest("power.state"),
+        ),
         ("power.result", "power.sleep") => "The computer goes to sleep.".to_owned(),
         ("friends.result" | "project.result", _) if unapproved(context) => account(context),
         ("friends.result", "friends.invite") => text(event, "text"),
@@ -155,7 +159,9 @@ pub(super) fn result(event: &Value, context: &Context) -> String {
 
 pub(super) fn keeps_awake(state: &Value) -> String {
     match state["keepAwake"].as_str() {
-        Some("always") => "This computer stays awake while Kodosi runs.",
+        Some("always") => {
+            "This computer stays awake while it is plugged in. On its battery, it stays awake while an agent works."
+        }
         Some("never") => "This computer can go to sleep while an agent works.",
         _ => "This computer stays awake while an agent works.",
     }
@@ -443,7 +449,30 @@ fn window(limit: &Value) -> String {
     }
 }
 
-fn devices(event: &Value, hosts: &Value) -> String {
+fn devices(event: &Value, hosts: &Value, power: &Value) -> String {
+    let wake = |device: &Value| {
+        power["computers"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|computer| computer["deviceId"] == device["deviceId"])
+            .map_or_else(String::new, |computer| {
+                let words = if computer["problem"].is_string() {
+                    "problem"
+                } else {
+                    "note"
+                };
+                text(computer, words)
+            })
+    };
+    let awake = |device: &Value| {
+        power["computers"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|computer| computer["deviceId"] == device["deviceId"])
+            .map_or_else(String::new, |computer| text(computer, "keepAwake"))
+    };
     let online = |device: &Value| {
         hosts["deviceIds"]
             .as_array()
@@ -482,11 +511,13 @@ fn devices(event: &Value, hosts: &Value) -> String {
                     String::new()
                 },
                 short(device, "deviceId"),
+                awake(device),
+                wake(device),
             ]
         })
         .collect::<Vec<_>>();
     if !rows.is_empty() {
-        let mut all = vec![["DEVICE", "", "ID"].map(str::to_owned)];
+        let mut all = vec![["DEVICE", "", "ID", "AWAKE", "WAKE"].map(str::to_owned)];
         all.extend(rows);
         lines.push(table(&all));
     }

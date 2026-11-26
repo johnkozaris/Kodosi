@@ -137,11 +137,12 @@ struct SessionTileView: View {
             }
         } else if !session.isConnected {
             let away = session.status == .offline && session.connectionState != .blocked
+            let power = away ? session.hostDeviceId.flatMap { deps.power.computers[$0] } : nil
             TerminalStateCard(
                 symbol: session.connectionState == .blocked ? "lock" : "wifi.slash",
                 title: session.statusLabel,
-                message: away ? String(localized: "The terminal opens when its computer is back.") : session.message,
-                working: session.connectionState == .connecting,
+                message: away ? power?.problem ?? String(localized: "The terminal opens when its computer is back.") : session.message,
+                working: session.connectionState == .connecting || power?.busy == .waking,
             ) {
                 if session.connectionState == .offline, !away {
                     Button("Connect") { deps.activateSession(session.id) }
@@ -149,6 +150,11 @@ struct SessionTileView: View {
                         .accessibilityIdentifier("\(AccessibilityIdentifier.stageSession(session.id)).connect")
                 } else if session.connectionState == .blocked {
                     Button("Open devices") { deps.workbench.showAccount() }
+                } else if let power, power.canWake || power.busy == .waking {
+                    Button(power.canWake ? "Wake" : "Waking…") { deps.power.wake(power.deviceId) }
+                        .buttonStyle(.kodosi(.primary))
+                        .disabled(!power.canWake)
+                        .accessibilityIdentifier("\(AccessibilityIdentifier.stageSession(session.id)).wake")
                 }
             }
         } else {

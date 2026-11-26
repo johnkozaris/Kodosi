@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
@@ -53,9 +54,8 @@ object TileTint {
 }
 
 @Composable
-fun IconTile(symbol: AppSymbol, tint: Color) {
+fun IconTile(symbol: AppSymbol, tint: Color, size: Dp = 28.dp) {
     val colors = KodosiTheme.colors
-    val size = 28.dp
     val shape = RoundedCornerShape(size * 0.3f)
     Box(
         Modifier.size(size)

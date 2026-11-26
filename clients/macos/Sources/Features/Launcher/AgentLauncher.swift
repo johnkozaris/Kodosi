@@ -30,6 +30,10 @@ struct AgentLauncher: View {
         return wanted
     }
 
+    private var asleep: [MyDeviceEntry] {
+        deps.power.asleep(among: deps.account.devices)
+    }
+
     private var computerName: String {
         computer.flatMap { id in deps.account.computers.first { $0.deviceId == id }?.label } ?? String(localized: "This Mac")
     }
@@ -177,7 +181,7 @@ struct AgentLauncher: View {
 
     private var place: some View {
         HStack(spacing: 5) {
-            if deps.account.computers.isEmpty {
+            if deps.account.computers.isEmpty, asleep.isEmpty {
                 DeviceGlyph(label: String(localized: "This Mac"))
                 Text("This Mac")
             } else {
@@ -198,7 +202,7 @@ struct AgentLauncher: View {
             }
         }
         .appTextStyle(.footnote).foregroundStyle(ink.inkMuted)
-        .padding(.bottom, deps.account.computers.isEmpty ? 11 : 6)
+        .padding(.bottom, deps.account.computers.isEmpty && asleep.isEmpty ? 11 : 6)
     }
 
     private var computerKey: some View {
@@ -207,7 +211,7 @@ struct AgentLauncher: View {
         }
         .kodosiPopover(isPresented: presented(.computer), alignment: .trailing) {
             PickerList(
-                rows: LauncherMenu.computers(deps.account.computers, current: computer),
+                rows: LauncherMenu.computers(deps.account.computers, asleep: asleep, power: deps.power.computers, current: computer),
                 identifier: "launcher.list.computer", width: 250, pick: pick, close: closeMenu,
             )
         }
@@ -294,6 +298,9 @@ struct AgentLauncher: View {
         case let .computer(id):
             deps.settings.lastComputer = id
             deps.settings.save()
+        case let .wake(id):
+            deps.power.wake(id)
+            return
         case let .folder(path):
             deps.workbench.launcherDraft.folder = path
         case .anotherFolder:

@@ -177,6 +177,14 @@
         <translation>%1 のフォルダを取得中</translation>
     </message>
     <message>
+        <source>Waking %1…</source>
+        <translation>%1 のスリープを解除中…</translation>
+    </message>
+    <message>
+        <source>Wake %1</source>
+        <translation>%1 のスリープを解除</translation>
+    </message>
+    <message>
         <source>Agents</source>
         <translation>エージェント</translation>
     </message>
@@ -1357,12 +1365,56 @@
         <translation>お使いのデバイス</translation>
     </message>
     <message>
+        <source>Always awake</source>
+        <translation>常にスリープしない</translation>
+    </message>
+    <message>
+        <source>Can sleep while agents work</source>
+        <translation>エージェントの作業中もスリープ可能</translation>
+    </message>
+    <message>
         <source>Approves a new device when you have no other device</source>
         <translation>ほかのデバイスがないときに新しいデバイスを承認します</translation>
     </message>
     <message>
         <source>This computer</source>
         <translation>このコンピュータ</translation>
+    </message>
+    <message>
+        <source>Testing…</source>
+        <translation>テスト中…</translation>
+    </message>
+    <message>
+        <source>Waking…</source>
+        <translation>スリープ解除中…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>スリープ解除</translation>
+    </message>
+    <message>
+        <source>Options for %1</source>
+        <translation>%1 のオプション</translation>
+    </message>
+    <message>
+        <source>Stay awake</source>
+        <translation>スリープ防止</translation>
+    </message>
+    <message>
+        <source>While agents work</source>
+        <translation>エージェントの作業中</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>常に</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>なし</translation>
+    </message>
+    <message>
+        <source>Test wake…</source>
+        <translation>スリープ解除をテスト…</translation>
     </message>
     <message>
         <source>Sleep…</source>
@@ -1531,6 +1583,18 @@
     <message>
         <source>Its terminals pause until it wakes.</source>
         <translation>スリープが解除されるまで、そのターミナルは一時停止します。</translation>
+    </message>
+    <message>
+        <source>Test the wake of %1?</source>
+        <translation>%1 のスリープ解除をテストしますか？</translation>
+    </message>
+    <message>
+        <source>Test</source>
+        <translation>テスト</translation>
+    </message>
+    <message>
+        <source>Kodosi puts it to sleep and wakes it again. Its terminals pause for about a minute. If it does not wake, wake it by hand.</source>
+        <translation>Kodosi がスリープさせてから、もう一度復帰させます。そのターミナルは 1 分ほど一時停止します。復帰しない場合は、手動で復帰させてください。</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2483,8 +2547,8 @@
         <translation>スリープ防止</translation>
     </message>
     <message>
-        <source>This computer does not go to sleep by itself while Kodosi runs.</source>
-        <translation>Kodosi の実行中は、このコンピュータが自動でスリープすることはありません。</translation>
+        <source>This computer does not go to sleep by itself while Kodosi runs. On battery, it stays awake only while agents work.</source>
+        <translation>Kodosi の実行中は、このコンピュータが自動でスリープすることはありません。バッテリー駆動中は、エージェントの作業中だけスリープしません。</translation>
     </message>
     <message>
         <source>This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.</source>
@@ -4663,6 +4727,14 @@
     <message>
         <source>The terminal opens when its computer is back.</source>
         <translation>コンピュータがオンラインに戻ると、ターミナルが開きます。</translation>
+    </message>
+    <message>
+        <source>Waking…</source>
+        <translation>スリープ解除中…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>スリープ解除</translation>
     </message>
     <message>
         <source>The terminal opens when the connection is back.</source>

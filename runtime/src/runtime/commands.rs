@@ -340,8 +340,26 @@ impl Runtime {
             Command::Sleep { .. } => self.sleep(command)?,
             #[cfg(feature = "host")]
             Command::KeepAwake { keep_awake, .. } => self.keep_awake(command, *keep_awake),
+            Command::Wake { device_id, .. } => self.wake(command, device_id)?,
+            Command::TestWake { device_id, .. } => self.test_wake(command, device_id)?,
+            #[cfg(feature = "host")]
+            Command::DescribeWake { .. } => self.describe_wake(command)?,
+            #[cfg(feature = "host")]
+            Command::SignalWake { sleeper, .. } => self.signal_wake(command, sleeper)?,
+            #[cfg(feature = "host")]
+            Command::RecordWakeTest { hardware, woke, .. } => {
+                let test = crate::protocol::WakeTest {
+                    hardware: hardware.clone(),
+                    woke: *woke,
+                };
+                self.record_wake_test(command, test)?;
+            }
             #[cfg(not(feature = "host"))]
-            Command::Sleep { .. } | Command::KeepAwake { .. } => {
+            Command::Sleep { .. }
+            | Command::KeepAwake { .. }
+            | Command::DescribeWake { .. }
+            | Command::SignalWake { .. }
+            | Command::RecordWakeTest { .. } => {
                 return Err(Error::Invalid(
                     "A power command goes to a computer.".to_owned(),
                 ));
@@ -470,17 +488,26 @@ impl Runtime {
                 .ask_computer(&computer, request)
                 .await
                 .map_err(Error::from);
-            Completion::Asked { command, result }
+            Completion::Asked {
+                command,
+                computer,
+                result,
+            }
         });
         Ok(())
     }
 
-    pub(super) fn asked(&mut self, command: &Command, answer: Value) -> Result<()> {
+    pub(super) fn asked(&mut self, command: &Command, computer: &str, answer: Value) -> Result<()> {
         let event = self
             .event(answer.clone())
             .map_err(|_| Error::Text(crate::protocol::other_version()))?;
         if event.event.request_id() != Some(command.request_id()) || !event.event.is_answer() {
             return Err(Error::Text(crate::protocol::other_version()));
+        }
+        if let (Command::KeepAwake { keep_awake, .. }, crate::EventBody::PowerResult { .. }) =
+            (command, &event.event)
+        {
+            self.kept_awake(computer, *keep_awake);
         }
         let started = match (command, &event.event) {
             (
@@ -1675,7 +1702,7 @@ impl Runtime {
                 self.sleep_checked(&command, result);
             }
             #[cfg(feature = "host")]
-            Completion::Slept { result } => self.slept(&result),
+            Completion::Slept { result, slept } => self.slept(&result, slept),
             #[cfg(feature = "host")]
             Completion::Folders { command, result } if current => match result {
                 Ok(folders) => {
@@ -1683,12 +1710,44 @@ impl Runtime {
                 }
                 Err(error) => self.error(&command, &error),
             },
-            Completion::Asked { command, result } if current => {
-                if let Err(error) = result.and_then(|answer| self.asked(&command, answer)) {
+            Completion::Asked {
+                command,
+                computer,
+                result,
+            } if current => {
+                if let Err(error) =
+                    result.and_then(|answer| self.asked(&command, &computer, answer))
+                {
                     self.error(&command, &error);
                 }
             }
             Completion::Checked { held, facts } => self.checked(*held, &facts, current),
+            Completion::WakeDescribed {
+                device,
+                number,
+                reported,
+                result,
+            } if current => self.wake_described(device, number, reported.as_ref(), result),
+            Completion::OwnNetwork { own, connects } => self.own_network_read(own, connects),
+            Completion::Roused {
+                device,
+                details,
+                roused,
+            } if current => self.roused(&device, &details, &roused),
+            Completion::WakeTested {
+                device,
+                details,
+                tested,
+            } if current => self.wake_tested(&device, &details, tested),
+            Completion::WakeDescribed { .. }
+            | Completion::Roused { .. }
+            | Completion::WakeTested { .. } => {}
+            #[cfg(feature = "host")]
+            Completion::WakeRead { command, own } if current => self.wake_read(&command, own),
+            #[cfg(feature = "host")]
+            Completion::WakeSignaled { command, signal } if current => {
+                self.wake_signaled(&command, signal);
+            }
             Completion::TerminalFolders {
                 device,
                 asked,
@@ -1761,7 +1820,9 @@ impl Runtime {
             Completion::Provider { command, .. }
             | Completion::Folders { command, .. }
             | Completion::Repositories { command, .. }
-            | Completion::SleepChecked { command, .. } => {
+            | Completion::SleepChecked { command, .. }
+            | Completion::WakeRead { command, .. }
+            | Completion::WakeSignaled { command, .. } => {
                 self.error(&command, &Error::Stale);
             }
             Completion::Asked { command, .. } => self.error(&command, &Error::Stale),

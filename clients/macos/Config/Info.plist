@@ -55,7 +55,7 @@
     <key>NSSystemAdministrationUsageDescription</key>
     <string>A program in a Kodosi terminal wants to change settings of this Mac.</string>
     <key>NSLocalNetworkUsageDescription</key>
-    <string>Kodosi connects straight to your other computers on this network, so that their terminals and shared browsers answer at once.</string>
+    <string>Kodosi connects straight to your other computers on this network, so that their terminals and shared browsers answer at once, and it can wake them from sleep.</string>
     <key>LSMinimumSystemVersion</key>
     <string>$(MACOSX_DEPLOYMENT_TARGET)</string>
     <key>LSApplicationCategoryType</key>

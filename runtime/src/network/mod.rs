@@ -231,6 +231,13 @@ impl Moment {
         let passed = later.wall.duration_since(self.wall).unwrap_or_default();
         passed > awake + SHORTEST_SLEEP
     }
+
+    /// For a call that returns only after the sleep: on Windows the monotonic clock also counts
+    /// the time of a sleep.
+    #[cfg(feature = "host")]
+    pub(crate) fn slept_through(self, later: Self) -> bool {
+        later.wall.duration_since(self.wall).unwrap_or_default() > SHORTEST_SLEEP
+    }
 }
 
 #[derive(Clone)]

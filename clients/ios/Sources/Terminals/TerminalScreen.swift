@@ -315,7 +315,8 @@ private struct TerminalScreenContent: View {
             let surface = session.isConnected && !chatting ? controller.surface : nil
             let cover = chatting && session.isConnected ? nil
                 : TerminalCover.of(session, unreachable: model.unreachable(session), opening: controller.opening,
-                                   failure: controller.openFailure, render: surface.map { _ in controller.renderState })
+                                   failure: controller.openFailure, power: session.hostDeviceId.flatMap { model.power.computers[$0] },
+                                   render: surface.map { _ in controller.renderState })
             ZStack {
                 if chatting, session.isConnected {
                     TerminalChatView(chat: model.terminals.canvas.chat(session.id), agent: session.agent, me: model.terminals.userId,
@@ -354,9 +355,13 @@ private struct TerminalScreenContent: View {
                     .transition(.identity)
                 }
                 if let cover {
-                    TerminalCoverCard(cover: cover, connect: controller.open, reconnect: model.account.retryConnection, retry: controller.retry)
-                        .clipShape(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous))
-                        .transition(.opacity)
+                    TerminalCoverCard(cover: cover, connect: controller.open, reconnect: model.account.retryConnection, retry: controller.retry) {
+                        if let host = session.hostDeviceId {
+                            model.power.wake(host)
+                        }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous))
+                    .transition(.opacity)
                 }
             }
             .animation(theme.motion.fade, value: cover)

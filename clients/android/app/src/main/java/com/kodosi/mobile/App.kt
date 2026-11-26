@@ -75,6 +75,7 @@ import com.kodosi.mobile.people.FriendScreen
 import com.kodosi.mobile.people.PeopleScreen
 import com.kodosi.mobile.projects.ProjectScreen
 import com.kodosi.mobile.projects.ProjectsScreen
+import com.kodosi.mobile.settings.ComputerScreen
 import com.kodosi.mobile.settings.LicensesScreen
 import com.kodosi.mobile.settings.SettingsScreen
 import com.kodosi.mobile.terminals.NewTerminalRequest
@@ -362,9 +363,12 @@ private fun Home(model: AppModel) {
                             account.computers.map {
                                 it.deviceId
                             }.toSet(),
+                            account.power,
+                            model.account::wakeComputer,
                             account.online,
                             summaryFirst = preferences.summaryFirst,
                             open = terminal,
+                            computer = { stack.add(Destination("computer", it)) },
                             start = {
                                 starting = it
                             }
@@ -407,8 +411,11 @@ private fun Home(model: AppModel) {
                         "settings" -> SettingsScreen(
                             model,
                             friends = { stack.add(Destination("friends")) },
-                            licenses = { stack.add(Destination("licenses")) }
+                            licenses = { stack.add(Destination("licenses")) },
+                            computer = { stack.add(Destination("computer", it)) }
                         )
+
+                        "computer" -> ComputerScreen(model, destination.id, back)
 
                         "licenses" -> LicensesScreen(back)
 
