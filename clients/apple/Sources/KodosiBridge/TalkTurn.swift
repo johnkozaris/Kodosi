@@ -12,7 +12,7 @@ public struct TalkTurn: Sendable {
     }
 
     /// The quiet after the person stops talking that sends their words.
-    public static let pause: TimeInterval = 3
+    public static let pause: TimeInterval = 6
     private static let settling: TimeInterval = 2
     private static let idle: TimeInterval = 120
 

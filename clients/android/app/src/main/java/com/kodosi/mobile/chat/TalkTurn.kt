@@ -119,7 +119,7 @@ internal class TalkTurn(now: Long) {
 
     companion object {
         /** The quiet after the person stops talking that sends their words. */
-        const val PAUSE_MILLIS = 3_000L
+        const val PAUSE_MILLIS = 6_000L
 
         /** How long talking lasts without words. */
         const val IDLE_MILLIS = 120_000L
