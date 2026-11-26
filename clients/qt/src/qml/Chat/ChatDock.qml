@@ -491,8 +491,7 @@ Item {
 
                     anchors.right: parent.right
                     width: Math.min(parent.width - (waiting.removable ? 68 : 40), Math.max(queuedWords.implicitWidth + 40, refusedWords.visible ? refusedWords.implicitWidth : 0,
-                        terminalWords.visible ? terminalText.implicitWidth + terminalWords.spacing + showTerminal.implicitWidth : 0,
-                        givenWords.visible ? givenWords.implicitWidth : 0))
+                        terminalWords.visible ? terminalText.implicitWidth + terminalWords.spacing + showTerminal.implicitWidth : 0))
                     spacing: 3
 
                     Rectangle {
@@ -504,17 +503,25 @@ Item {
                         radius: 16
                         bottomRightRadius: 6
                         color: root.look.accentSoft
+                        ToolTip.visible: bubbleHover.hovered
+                        ToolTip.text: waitingSign.Accessible.name
+                        ToolTip.delay: Tip.delay
+
+                        HoverHandler { id: bubbleHover }
 
                         KIcon {
+                            id: waitingSign
+
                             x: 12
                             y: 11
                             width: 10
                             height: 10
-                            name: "history"
+                            name: waiting.given ? "check" : "history"
                             strokeWidth: 2.4
                             color: root.look.inkFaint
                             Accessible.role: Accessible.StaticText
-                            Accessible.name: qsTr("Waiting for %1").arg(root.agent)
+                            Accessible.name: waiting.given ? qsTr("%1 reads this before its next step.").arg(root.agent)
+                                : qsTr("Waiting for %1").arg(root.agent)
                         }
                         PlainLabel {
                             id: queuedWords
@@ -596,18 +603,6 @@ Item {
                                 verticalAlignment: Text.AlignVCenter
                             }
                         }
-                    }
-                    PlainLabel {
-                        id: givenWords
-
-                        anchors.right: parent.right
-                        width: Math.min(implicitWidth, parent.width)
-                        visible: waiting.given
-                        text: qsTr("%1 reads this before its next step.").arg(root.agent)
-                        wrapMode: Text.WordWrap
-                        horizontalAlignment: Text.AlignRight
-                        color: root.look.inkMuted
-                        font.pixelSize: KodosiTheme.fontCaption
                     }
                 }
             }

@@ -864,6 +864,10 @@
         <translation>Αφαίρεση</translation>
     </message>
     <message>
+        <source>%1 reads this before its next step.</source>
+        <translation>Το %1 το διαβάζει πριν από το επόμενο βήμα του.</translation>
+    </message>
+    <message>
         <source>Waiting for %1</source>
         <translation>Περιμένει το %1</translation>
     </message>
@@ -878,10 +882,6 @@
     <message>
         <source>Show the terminal</source>
         <translation>Εμφάνιση τερματικού</translation>
-    </message>
-    <message>
-        <source>%1 reads this before its next step.</source>
-        <translation>Το %1 το διαβάζει πριν από το επόμενο βήμα του.</translation>
     </message>
     <message>
         <source>No agent runs in this terminal</source>

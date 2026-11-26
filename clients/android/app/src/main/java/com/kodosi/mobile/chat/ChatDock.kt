@@ -317,7 +317,13 @@ private fun Queued(chat: TerminalChat, queued: ChatQueued, agent: AgentKind, sho
     ) {
         Column(Modifier.weight(1f, fill = false), horizontalAlignment = Alignment.End) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                AppIcon(AppSymbol.CLOCK, Modifier.size(12.dp), tint = colors.inkFaint)
+                AppIcon(
+                    if (queued.given) AppSymbol.CHECK else AppSymbol.CLOCK,
+                    Modifier.size(12.dp),
+                    description = stringResource(R.string.chat_reads_before_next_step, agentLabel(agent))
+                        .takeIf { queued.given },
+                    tint = colors.inkFaint
+                )
                 Spacer(Modifier.width(6.dp))
                 Text(
                     queued.text,
@@ -357,13 +363,6 @@ private fun Queued(chat: TerminalChat, queued: ChatQueued, agent: AgentKind, sho
                             .wrapContentHeight()
                     )
                 }
-            } else if (queued.given) {
-                Text(
-                    stringResource(R.string.chat_reads_before_next_step, agentLabel(agent)),
-                    style = KodosiType.caption,
-                    color = colors.inkMuted,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
             }
         }
         if (!queued.terminal && !queued.given) {

@@ -271,11 +271,13 @@ private struct ChatQueuedRow: View {
             }
             VStack(alignment: .trailing, spacing: 3) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Image(systemName: "clock").font(mac: 9, ios: .caption2, weight: .semibold).foregroundStyle(theme.colors.inkFaint)
-                        .accessibilityLabel(Text("Waiting for \(agent.label)", bundle: .module))
+                    Image(systemName: queued.given ? "checkmark" : "clock")
+                        .font(mac: 9, ios: .caption2, weight: .semibold).foregroundStyle(theme.colors.inkFaint)
+                        .accessibilityLabel(status)
                     Text(queued.text).appTextStyle(.footnote).foregroundStyle(theme.colors.ink).lineLimit(2)
                 }
                 .projectBubble()
+                .help(status)
                 if let refused = queued.refused {
                     Text("The agent takes the next message in its terminal.", bundle: .module)
                         .appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.caution)
@@ -291,13 +293,16 @@ private struct ChatQueuedRow: View {
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("chat.queued.terminal")
                     }
-                } else if queued.given {
-                    Text("\(agent.label) reads this before its next step.", bundle: .module)
-                        .appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted)
                 }
             }
         }
         .accessibilityElement(children: .contain)
+    }
+
+    private var status: Text {
+        queued.given
+            ? Text("\(agent.label) reads this before its next step.", bundle: .module)
+            : Text("Waiting for \(agent.label)", bundle: .module)
     }
 }
 
