@@ -13,7 +13,16 @@ from canonical_json import canonical_json
 
 
 ROOT = Path(__file__).resolve().parents[2]
-QT_MODULES = ("qtbase", "qtdeclarative", "qtsvg", "qtwayland", "qtpositioning", "qtwebchannel", "qtwebengine")
+QT_MODULES = (
+    "qtbase",
+    "qtdeclarative",
+    "qtsvg",
+    "qtwayland",
+    "qtpositioning",
+    "qtwebchannel",
+    "qtmultimedia",
+    "qtwebengine",
+)
 SBOM_FORMATS = {
     "spdx": "spdx-tag-value",
     "spdx.json": "spdx-json",
@@ -28,6 +37,7 @@ QT_ARCHIVE_SHA256 = {
     "qtwayland": "ae14d9bcf1bb3c300a3ab2e6a53f50284e5c6c966a4ac4cc5aedcb1bc74e4d02",
     "qtpositioning": "b060d410fac7413b05a0e7938bbf3325f7ad08d7df14af3956270f0696e76763",
     "qtwebchannel": "9afdfb64855b33c1cc16a4fdce69a556876f0d5b9df79d88de7306ffa2dca327",
+    "qtmultimedia": "3143f53b64257ba2a0685c940f5dce476c75871ff86b516de45cfd54ea93a62d",
 }
 # Qt WebEngine is published separately as a Qt repository extension.
 QT_WEBENGINE_ARCHIVE = (
@@ -36,6 +46,9 @@ QT_WEBENGINE_ARCHIVE = (
     "e081473af432e2b09d17caa3ca3bffd45992a0bd",
     "bb00fb3f2475122ecde4b52b294cee34c3404fb9a6c3fb1b6150a7e85e938898",
 )
+# Qt Multimedia ships these FFmpeg libraries.
+FFMPEG_LIBRARIES = ("libavcodec", "libavutil", "libswresample")
+REQUIRED_FFMPEG_LICENSES = {"LICENSE.md", "COPYING.LGPLv2.1"}
 REQUIRED_QT_LICENSES = {
     "GPL-2.0-only.txt",
     "GPL-3.0-only.txt",
@@ -94,7 +107,7 @@ def read_soname(path: Path) -> str:
     return match.group(1)
 
 
-def verify_committed_files(license_root: Path, manifest: dict, qt_version: str) -> None:
+def verify_committed_files(license_root: Path, manifest: dict, qt_version: str, ffmpeg_version: str) -> None:
     rows = manifest.get("committedFiles")
     if not isinstance(rows, list) or not rows:
         fail("committed evidence file list is malformed")
@@ -106,7 +119,7 @@ def verify_committed_files(license_root: Path, manifest: dict, qt_version: str) 
             or not isinstance(row["path"], str)
             or not isinstance(row["sha256"], str)
             or not re.fullmatch(r"[0-9a-f]{64}", row["sha256"])
-            or row["source"] not in {*QT_MODULES, "icu"}
+            or row["source"] not in {*QT_MODULES, "icu", "ffmpeg"}
         ):
             fail("committed evidence row is malformed")
         if row["path"] in expected:
@@ -120,6 +133,7 @@ def verify_committed_files(license_root: Path, manifest: dict, qt_version: str) 
         for base in (
             license_root / "qt" / qt_version,
             license_root / "icu" / "73.2",
+            license_root / "ffmpeg" / ffmpeg_version,
         )
         for path in base.rglob("*")
         if path.is_file() or path.is_symlink()
@@ -133,6 +147,9 @@ def verify_committed_files(license_root: Path, manifest: dict, qt_version: str) 
     }
     if not REQUIRED_QT_LICENSES.issubset(qt_licenses):
         fail("required Qt LGPL/GPL license texts are missing")
+    ffmpeg_licenses = {Path(path).name for path in expected if path.startswith(f"ffmpeg/{ffmpeg_version}/")}
+    if not REQUIRED_FFMPEG_LICENSES.issubset(ffmpeg_licenses):
+        fail("required FFmpeg license texts are missing")
     if any("LicenseRef-Qt-Commercial" in path for path in expected):
         fail("commercial Qt license text must not be redistributed as entitlement")
     icu_names = {
@@ -142,7 +159,7 @@ def verify_committed_files(license_root: Path, manifest: dict, qt_version: str) 
         fail("ICU license and copyright evidence is incomplete")
 
 
-def verify_source_archives(manifest: dict, qt_version: str) -> None:
+def verify_source_archives(manifest: dict, qt_version: str, ffmpeg: dict) -> None:
     release = f"https://download.qt.io/official_releases/qt/{qt_version.rsplit('.', 1)[0]}/{qt_version}"
     expected = {
         module: (
@@ -153,6 +170,7 @@ def verify_source_archives(manifest: dict, qt_version: str) -> None:
         for module, sha256 in QT_ARCHIVE_SHA256.items()
     } | {
         "qtwebengine": QT_WEBENGINE_ARCHIVE,
+        "ffmpeg": (ffmpeg["source"], f"n{ffmpeg['version']}", ffmpeg["sha256"]),
         "icu": (
             "https://github.com/unicode-org/icu/releases/download/"
             "release-73-2/icu4c-73_2-src.tgz",
@@ -237,6 +255,7 @@ def verify_packaged_evidence(
     manifest: dict,
     installed_root: Path,
     qt_version: str,
+    ffmpeg_version: str,
 ) -> None:
     packaged_manifest = require_relative_file(
         installed_root,
@@ -255,6 +274,10 @@ def verify_packaged_evidence(
             destination = Path("usr/share/doc/kodosi/icu").joinpath(
                 *relative.parts[2:]
             )
+        elif relative.parts[:2] == ("ffmpeg", ffmpeg_version):
+            destination = Path("usr/share/doc/kodosi/ffmpeg").joinpath(
+                *relative.parts[2:]
+            )
         else:
             fail(f"unsupported packaged evidence path: {row['path']}")
         packaged = require_relative_file(installed_root, destination.as_posix())
@@ -267,7 +290,7 @@ def verify_runtime(installed_root: Path, manifest: dict, qt_version: str, webeng
     if (
         not isinstance(runtime, dict)
         or set(runtime)
-        != {"qtLibraries", "icuLibraries", "plugins", "qmlPlugins"}
+        != {"qtLibraries", "icuLibraries", "ffmpegLibraries", "plugins", "qmlPlugins"}
     ):
         fail("deployed runtime evidence is malformed")
     private_root = installed_root / "usr/lib/kodosi"
@@ -318,6 +341,19 @@ def verify_runtime(installed_root: Path, manifest: dict, qt_version: str, webeng
             fail(f"deployed {key} SONAME/version set differs from native evidence")
         if key == "qtLibraries" and modules != set(QT_MODULES):
             fail("deployed Qt module evidence is incomplete")
+    rows = runtime["ffmpegLibraries"]
+    if not isinstance(rows, list) or not all(
+        isinstance(row, dict) and set(row) == {"filename", "soname"} for row in rows
+    ):
+        fail("deployed ffmpegLibraries evidence is malformed")
+    actual = {
+        path.name: read_soname(path)
+        for library in FFMPEG_LIBRARIES
+        for path in sorted((private_root / "lib").glob(f"{library}.so.*.*.*"))
+        if path.is_file() and not path.is_symlink()
+    }
+    if actual != {row["filename"]: row["soname"] for row in rows}:
+        fail("deployed ffmpegLibraries SONAME/version set differs from native evidence")
     icu = manifest.get("icu")
     if not isinstance(icu, dict) or icu != {"version": "73.2"}:
         fail("ICU evidence identity is malformed")
@@ -356,14 +392,16 @@ def main() -> None:
     try:
         qt_version = dependencies["frameworks"]["qt"]["version"]
         webengine_version = dependencies["frameworks"]["qtwebengine"]["version"]
+        ffmpeg = dependencies["frameworks"]["ffmpeg"]
+        ffmpeg_version = ffmpeg["version"]
     except (KeyError, TypeError) as error:
-        fail(f"Qt dependency pin is malformed: {error}")
+        fail(f"Qt or FFmpeg dependency pin is malformed: {error}")
     if qt_version != manifest["qt"]["version"]:
         fail("native evidence Qt version differs from dependencies.lock.json")
 
     if arguments.installed_root is None:
-        verify_source_archives(manifest, qt_version)
-        verify_committed_files(arguments.license_root.resolve(strict=True), manifest, qt_version)
+        verify_source_archives(manifest, qt_version, ffmpeg)
+        verify_committed_files(arguments.license_root.resolve(strict=True), manifest, qt_version, ffmpeg_version)
         qt_root = arguments.qt_root or ROOT / ".tools/Qt/gcc_64"
         verify_sboms(qt_root.resolve(strict=True), "sbom", manifest, qt_version, webengine_version)
         print(f"Qt {qt_version}, Qt WebEngine {webengine_version} and ICU 73.2 native license/SBOM evidence verified")
@@ -376,6 +414,7 @@ def main() -> None:
         manifest,
         installed_root,
         qt_version,
+        ffmpeg_version,
     )
     verify_runtime(installed_root, manifest, qt_version, webengine_version)
     print(f"Qt {qt_version}, Qt WebEngine {webengine_version} and ICU 73.2 native license/SBOM evidence of the package verified")

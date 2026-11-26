@@ -33,9 +33,10 @@ find_package(
     Qt6 ${KODOSI_QT_VERSION}
     EXACT
     REQUIRED
-    COMPONENTS Core Gui GuiPrivate LinguistTools Qml Quick QuickControls2 QuickPrivate Test WebChannelQuick WebEngineCore
-        WebEngineQuick Widgets ${KODOSI_PLATFORM_QT_COMPONENTS}
+    COMPONENTS Core Gui GuiPrivate LinguistTools Qml Quick QuickControls2 QuickPrivate ShaderTools Test WebChannelQuick
+        WebEngineCore WebEngineQuick Widgets ${KODOSI_PLATFORM_QT_COMPONENTS}
 )
+include(cmake/FFmpeg.cmake)
 find_package(Threads REQUIRED)
 find_package(Python3 3.12 REQUIRED COMPONENTS Interpreter)
 

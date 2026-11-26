@@ -1,0 +1,6 @@
+EXPORTS
+    av_buffer_ref
+    av_buffer_unref
+    av_frame_alloc
+    av_frame_free
+    av_hwdevice_ctx_create

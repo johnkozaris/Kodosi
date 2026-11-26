@@ -1,6 +1,5 @@
 #pragma once
 
-#include <QImage>
 #include <QJsonObject>
 #include <QPointer>
 #include <QQuickItem>
@@ -8,9 +7,11 @@
 #include <QTimer>
 #include <QVariantMap>
 
+#include <memory>
 #include <optional>
 
 namespace kodosi {
+class VideoFrame;
 class VideoStream;
 class CanvasDocuments;
 class CanvasModel;
@@ -40,7 +41,7 @@ public:
     void setSessionId(const QString& sessionId);
     [[nodiscard]] bool active() const { return m_active; }
     void setActive(bool active);
-    [[nodiscard]] bool shows() const { return !m_image.isNull(); }
+    [[nodiscard]] bool shows() const { return m_frame != nullptr; }
     [[nodiscard]] bool reconnecting() const { return m_reconnecting; }
     [[nodiscard]] QString problem() const { return m_problem; }
 
@@ -81,7 +82,7 @@ protected:
 
     void post(const QJsonObject& message);
     [[nodiscard]] bool watching() const { return m_watching; }
-    [[nodiscard]] QSize pictureSize() const { return m_image.size(); }
+    [[nodiscard]] QSize pictureSize() const;
     // The part of the source that the newest picture shows, when only a part.
     [[nodiscard]] std::optional<QRectF> pictureRegion() const { return m_region; }
 
@@ -116,9 +117,8 @@ private:
     QString m_pipe;
     bool m_active = false;
     bool m_watching = false;
-    QImage m_image;
+    std::shared_ptr<const VideoFrame> m_frame;
     std::optional<QRectF> m_region;
-    bool m_fresh = false;
     QTimer m_settle;
     bool m_reconnecting = false;
     QString m_problem;

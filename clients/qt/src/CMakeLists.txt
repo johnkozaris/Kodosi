@@ -199,6 +199,10 @@ qt_add_library(kodosi-canvas-web STATIC
     canvas/ScreenVideo.hpp
     canvas/StreamVideo.cpp
     canvas/StreamVideo.hpp
+    canvas/VideoDecoder.cpp
+    canvas/VideoDecoder.hpp
+    canvas/VideoNode.cpp
+    canvas/VideoNode.hpp
     canvas/CanvasImages.cpp
     canvas/CanvasImages.hpp
     canvas/CanvasWeb.cpp
@@ -219,6 +223,24 @@ target_link_libraries(kodosi-canvas-web
         Qt6::WebEngineCore
         Kodosi::RustRuntime
 )
+
+qt_add_shaders(kodosi-canvas-web "kodosi-video-shaders"
+    BATCHABLE
+    PREFIX "/kodosi/shaders"
+    BASE canvas/shaders
+    FILES
+        canvas/shaders/video.vert
+        canvas/shaders/video.frag
+)
+target_link_libraries(kodosi-canvas-web PRIVATE Qt6::GuiPrivate FFmpeg::avcodec FFmpeg::avutil)
+if(WIN32)
+    target_sources(kodosi-canvas-web PRIVATE canvas/VideoGpuWindows.cpp)
+    target_link_libraries(kodosi-canvas-web PRIVATE d3d11 dxgi dxguid)
+else()
+    find_package(OpenGL REQUIRED COMPONENTS EGL)
+    target_sources(kodosi-canvas-web PRIVATE canvas/VideoGpuLinux.cpp)
+    target_link_libraries(kodosi-canvas-web PRIVATE OpenGL::EGL FFmpeg::va)
+endif()
 
 qt_add_library(kodosi-qml-models STATIC)
 qt_add_qml_module(kodosi-qml-models

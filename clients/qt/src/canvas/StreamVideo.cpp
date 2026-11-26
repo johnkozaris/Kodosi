@@ -1,4 +1,6 @@
 #include "canvas/StreamVideo.hpp"
+#include "canvas/VideoDecoder.hpp"
+#include "canvas/VideoNode.hpp"
 #include "presentation/CanvasDocuments.hpp"
 #include "presentation/CanvasModel.hpp"
 
@@ -9,7 +11,6 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QQuickWindow>
-#include <QSGImageNode>
 #include <QTimer>
 #include <QtEndian>
 
@@ -17,6 +18,7 @@
 #include <array>
 #include <atomic>
 #include <bit>
+#include <chrono>
 #include <mutex>
 #include <utility>
 
@@ -24,10 +26,15 @@ namespace kodosi {
 namespace {
 constexpr char messageTag = 0;
 constexpr char frameTag = 1;
+// A frame is a tag byte, its number, its flags and its codec, then the region it shows when its flags
+// say so, then its Annex B data.
 constexpr qsizetype frameHeader = 7;
 constexpr qsizetype regionBytes = 16;
 constexpr char keyFlag = 1;
+constexpr char anchorFlag = 2;
 constexpr char regionFlag = 4;
+// Finding the GPU opens its driver; a stream that opens before that ends offers software decoding.
+constexpr std::chrono::milliseconds gpuWait { 500 };
 constexpr int settleWait = 250;
 constexpr qsizetype mostTyped = 16 * 1024;
 constexpr int mostWaitingStates = 64;
@@ -42,18 +49,16 @@ int viewerModifiers(int modifiers)
 
 // A decoded picture, and the part of the source that it shows when it shows only a part.
 struct Picture {
-    QImage image;
+    std::shared_ptr<const VideoFrame> frame;
     std::optional<QRectF> region;
 };
 
 // Reads and decodes a video pipe on a dedicated thread. Frames depend on prior frames, so every
-// frame is decoded and recovery after a broken frame or new pipe waits for a keyframe.
+// frame is decoded, and a new pipe or a broken frame waits for a keyframe.
 class VideoStream final : public QObject {
     Q_OBJECT
 
 public:
-    ~VideoStream() override { kodosi_video_decoder_free(m_decoder); }
-
     void read(const QByteArray& payload, bool afterDrop, CommandDispatcher& commands)
     {
         const auto event = QJsonDocument::fromJson(payload).object();
@@ -70,7 +75,7 @@ public:
         const auto type = event.value(QStringLiteral("type")).toString();
         if (type == QStringLiteral("document.opened")) {
             m_parts.open();
-            m_behind = true;
+            m_holds = Holds::Nothing;
             m_broken = false;
             m_statesDropped = false;
             emit opened(pipe);
@@ -100,7 +105,7 @@ public:
         return sendPipeFrame(commands, pipe, QString::fromLatin1(bytes.toBase64()));
     }
 
-    // Coalesce decoded frames so a busy GUI thread always picks up only the latest image.
+    // Coalesce decoded frames so a busy GUI thread always picks up only the latest picture.
     std::pair<QString, Picture> takePicture()
     {
         std::lock_guard lock(m_showing);
@@ -123,78 +128,77 @@ signals:
     void broke(const QString& pipe);
 
 private:
+    // What the stream waits for: a keyframe at first, or a keyframe or an anchor after a gap.
+    enum class Holds { Nothing, Stream, Gap };
+
+    // The host skips frames for a viewer that falls behind and resumes it on an anchor, so a gap in the
+    // numbers asks for a keyframe only when the next frame is neither a keyframe nor an anchor.
     void frame(const QByteArray& message, CommandDispatcher& commands)
     {
         if (message.size() <= frameHeader)
             return;
         const auto id = qFromBigEndian<quint32>(message.constData() + 1);
-        const bool key = (message.at(5) & keyFlag) != 0;
-        if (!key && !m_behind && id != m_lastFrame + 1) {
-            m_behind = true;
-            askKeyframe(commands);
-        }
+        const auto flags = message.at(5);
+        const bool key = (flags & keyFlag) != 0;
+        if (m_holds == Holds::Stream && id != m_lastFrame + 1)
+            m_holds = Holds::Gap;
         m_lastFrame = id;
-        if (m_behind && !key) {
+        if (!key && (m_holds == Holds::Nothing || (m_holds == Holds::Gap && (flags & anchorFlag) == 0))) {
             ack(commands, id);
+            if (m_holds == Holds::Gap)
+                restart(commands);
             return;
         }
-        m_behind = false;
-        if (key)
-            m_keyFrame = id;
-        if ((message.at(5) & regionFlag) == 0) {
-            decode(commands, id, key, message.mid(frameHeader), std::nullopt);
+        auto body = QByteArrayView(message).sliced(frameHeader);
+        std::optional<QRectF> region;
+        if ((flags & regionFlag) != 0) {
+            if (body.size() <= regionBytes) {
+                ack(commands, id);
+                return;
+            }
+            // Four big-endian 32-bit floats: x, y, width and height.
+            std::array<float, 4> values {};
+            for (std::size_t index = 0; index < values.size(); ++index) {
+                const auto bits = qFromBigEndian<quint32>(body.data() + static_cast<qsizetype>(index) * 4);
+                values.at(index) = std::bit_cast<float>(bits);
+            }
+            region = QRectF(values.at(0), values.at(1), values.at(2), values.at(3));
+            body = body.sliced(regionBytes);
+        }
+        auto* decoder = decoderFor(static_cast<quint8>(message.at(6)), key);
+        auto decoded = decoder != nullptr ? decoder->decode(body)
+                                          : std::expected<std::shared_ptr<VideoFrame>, int>(std::unexpect, 0);
+        ack(commands, id);
+        if (!decoded) {
+            restart(commands);
             return;
         }
-        if (message.size() <= frameHeader + regionBytes) {
-            ack(commands, id);
-            return;
-        }
-        // Four big-endian 32-bit floats: x, y, width and height.
-        std::array<float, 4> values {};
-        for (std::size_t index = 0; index < values.size(); ++index) {
-            const auto bits = qFromBigEndian<quint32>(message.constData() + frameHeader + static_cast<qsizetype>(index) * 4);
-            values.at(index) = std::bit_cast<float>(bits);
-        }
-        decode(commands, id, key, message.mid(frameHeader + regionBytes),
-            QRectF(values.at(0), values.at(1), values.at(2), values.at(3)));
+        m_holds = Holds::Stream;
+        if (*decoded)
+            show({ std::move(*decoded), region });
     }
 
-    void decode(CommandDispatcher& commands, quint32 frame, bool key, const QByteArray& data, std::optional<QRectF> region)
+    // A keyframe starts a decoder for its codec, on the GPU unless Qt Quick could not show the GPU's
+    // pictures.
+    VideoDecoder* decoderFor(quint8 wire, bool key)
     {
-        if (!m_decoder && key)
-            m_decoder = kodosi_video_decoder_new();
-        if (!m_decoder) {
-            if (key)
-                decodeFailed(commands, frame);
-            else
-                ack(commands, frame);
-            return;
-        }
-        kodosi_picture_t picture {};
-        const auto answer = kodosi_video_decoder_decode(
-            m_decoder, reinterpret_cast<const uint8_t*>(data.constData()), static_cast<size_t>(data.size()), &picture);
-        if (answer < 0) {
-            reset();
-            decodeFailed(commands, frame);
-            return;
-        }
-        if (answer > 0) {
-            const QImage image(picture.rgba, static_cast<int>(picture.width), static_cast<int>(picture.height),
-                static_cast<qsizetype>(picture.width) * 4, QImage::Format_RGBA8888);
-            show({ image.copy(), region });
-        }
-        ack(commands, frame);
+        if (wire > static_cast<quint8>(VideoCodec::Hevc))
+            return nullptr;
+        const auto codec = static_cast<VideoCodec>(wire);
+        const auto& gpu = videoGpu().get();
+        const bool current
+            = m_decoder && m_decoder->codec() == codec && (!m_decoder->onGpu() || (gpu && gpu->decodes(codec)));
+        if (!current && key)
+            m_decoder = VideoDecoder::open(codec, gpu);
+        else if (!current)
+            return nullptr;
+        return m_decoder.get();
     }
 
-    // Wait for a keyframe after the first decode failure, since subsequent delta frames will also
-    // fail. Ignore failures for frames older than the latest keyframe to avoid asking the host for
-    // a redundant keyframe.
-    void decodeFailed(CommandDispatcher& commands, quint32 frame)
+    // Waits for a keyframe, which the host sends at most once a second.
+    void restart(CommandDispatcher& commands)
     {
-        ack(commands, frame);
-        if (m_behind || static_cast<qint32>(frame - m_keyFrame) < 0)
-            return;
-        m_behind = true;
+        m_holds = Holds::Nothing;
         askKeyframe(commands);
     }
 
@@ -218,7 +222,7 @@ private:
         bool waking = false;
         {
             std::lock_guard lock(m_showing);
-            waking = m_picture.image.isNull();
+            waking = !m_picture.frame;
             m_picture = std::move(picture);
             m_picturePipe = m_pipe;
         }
@@ -252,18 +256,13 @@ private:
             emit broke(m_pipe);
     }
 
-    void reset()
-    {
-        kodosi_video_decoder_free(m_decoder);
-        m_decoder = nullptr;
-    }
+    void reset() { m_decoder.reset(); }
 
     QString m_pipe;
     PipeParts m_parts;
-    kodosi_video_decoder_t* m_decoder = nullptr;
+    std::unique_ptr<VideoDecoder> m_decoder;
     quint32 m_lastFrame = 0;
-    quint32 m_keyFrame = 0;
-    bool m_behind = true;
+    Holds m_holds = Holds::Nothing;
     bool m_broken = false;
     bool m_statesDropped = false;
     std::mutex m_sending;
@@ -290,6 +289,7 @@ StreamVideo::StreamVideo(const QString& key, QQuickItem* parent)
     connect(m_stream, &VideoStream::closed, this, [this](const QString& pipe) { closed(pipe, {}); });
     connect(m_stream, &VideoStream::broke, this, &StreamVideo::broke);
     m_decoding.start();
+    videoGpu();
     m_settle.setSingleShot(true);
     m_settle.setInterval(settleWait);
     connect(&m_settle, &QTimer::timeout, this, [this] {
@@ -353,8 +353,8 @@ void StreamVideo::forgetTerminal()
     setReconnecting(false);
     setProblem({});
     m_region.reset();
-    if (!m_image.isNull()) {
-        m_image = {};
+    if (m_frame) {
+        m_frame.reset();
         update();
         emit showsChanged();
     }
@@ -404,12 +404,18 @@ void StreamVideo::watch()
 {
     m_sentSize = sizeMessage();
     m_watching = true;
-    // OpenH264 decodes H.264 only, so the host streams H.264 while this view watches.
-    const QJsonObject h264 { { QStringLiteral("codec"), QStringLiteral("h264") },
-        { QStringLiteral("hardware"), false } };
+    const auto& found = videoGpu();
+    const auto gpu = found.wait_for(gpuWait) == std::future_status::ready ? found.get() : nullptr;
+    const auto decoder = [&gpu](const QString& codec, VideoCodec decoded) {
+        return QJsonObject { { QStringLiteral("codec"), codec },
+            { QStringLiteral("hardware"), gpu && gpu->decodes(decoded) } };
+    };
     post({ { QStringLiteral("type"), QStringLiteral("watch") },
         { QStringLiteral("size"), m_sentSize },
-        { QStringLiteral("decoders"), QJsonArray { h264 } },
+        { QStringLiteral("decoders"),
+            QJsonArray { decoder(QStringLiteral("h264"), VideoCodec::H264),
+                decoder(QStringLiteral("hevc"), VideoCodec::Hevc) } },
+        { QStringLiteral("anchors"), true },
         { QStringLiteral("opened"), m_canvas && m_canvas->takeChoice(m_sessionId, m_key) } });
     watched();
 }
@@ -424,12 +430,11 @@ void StreamVideo::received(const QString& pipe, quint64 generation, const QByteA
 void StreamVideo::showPicture()
 {
     auto [pipe, picture] = m_stream->takePicture();
-    if (pipe != m_pipe || picture.image.isNull())
+    if (pipe != m_pipe || !picture.frame)
         return;
-    const bool first = m_image.isNull();
-    m_image = std::move(picture.image);
+    const bool first = !m_frame;
+    m_frame = std::move(picture.frame);
     m_region = picture.region;
-    m_fresh = true;
     update();
     setReconnecting(false);
     if (first)
@@ -616,37 +621,28 @@ void StreamVideo::paste()
     type(QGuiApplication::clipboard()->text());
 }
 
+QSize StreamVideo::pictureSize() const
+{
+    return m_frame ? m_frame->size() : QSize();
+}
+
 QRectF StreamVideo::pictureRect() const
 {
-    const auto picture = QSizeF(m_image.size()).scaled(size(), Qt::KeepAspectRatio);
+    const auto picture = QSizeF(pictureSize()).scaled(size(), Qt::KeepAspectRatio);
     return QRectF(QPointF((width() - picture.width()) / 2, (height() - picture.height()) / 2), picture);
 }
 
 QSGNode* StreamVideo::updatePaintNode(QSGNode* node, UpdatePaintNodeData*)
 {
-    auto* picture = static_cast<QSGImageNode*>(node);
-    if (m_image.isNull()) {
-        delete picture;
+    auto* video = static_cast<VideoNode*>(node);
+    if (!m_frame) {
+        delete video;
         return nullptr;
     }
-    if (!picture) {
-        picture = QQuickItem::window()->createImageNode();
-        picture->setOwnsTexture(true);
-        picture->setFiltering(QSGTexture::Linear);
-    }
-    const auto shown = pictureRect();
-    // Enable mipmaps when downscaling to avoid shimmer. Textures do not retain the source image,
-    // so toggling mipmap filtering requires recreating the texture.
-    const auto mipmaps = qRound(shown.width() * QQuickItem::window()->effectiveDevicePixelRatio()) < m_image.width()
-        ? QSGTexture::Linear
-        : QSGTexture::None;
-    if (m_fresh || !picture->texture() || picture->mipmapFiltering() != mipmaps) {
-        picture->setMipmapFiltering(mipmaps);
-        picture->setTexture(QQuickItem::window()->createTextureFromImage(m_image, QQuickWindow::TextureIsOpaque));
-        m_fresh = false;
-    }
-    picture->setRect(shown);
-    return picture;
+    if (video == nullptr)
+        video = new VideoNode;
+    video->show(m_frame, pictureRect());
+    return video;
 }
 
 void StreamVideo::geometryChange(const QRectF& next, const QRectF& previous)

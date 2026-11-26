@@ -4,6 +4,7 @@
 
 #include <QElapsedTimer>
 #include <QHash>
+#include <QImage>
 #include <QVariantList>
 #include <QVariantMap>
 

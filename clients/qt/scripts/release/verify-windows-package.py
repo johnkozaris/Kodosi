@@ -51,7 +51,7 @@ REQUIRED_FILES = (
 QML_IMPORT = re.compile(r"^\s*import\s+([A-Za-z][\w.]*)", re.MULTILINE)
 # Require C runtime DLLs to be bundled because System32 may contain an older version.
 C_RUNTIME = re.compile(r"(vcruntime|msvcp|concrt|vccorlib)\d")
-QT_SBOM_MODULES = ("qtbase", "qtdeclarative", "qtsvg", "qtpositioning", "qtwebchannel")
+QT_SBOM_MODULES = ("qtbase", "qtdeclarative", "qtsvg", "qtpositioning", "qtwebchannel", "qtmultimedia")
 QT_SBOM_FORMATS = ("spdx", "spdx.json", "cdx.json")
 WEBENGINE_SBOMS = ("qtwebengine", "qtwebengine-chromium-webengine")
 
@@ -252,6 +252,12 @@ def verify_evidence(files: dict[str, zipfile.ZipInfo], read: Reader, build_dir: 
         expected[f"doc/qt/sbom/{sbom}"] = qt_root / "sbom" / sbom
     if {name for name in files if name.startswith("doc/qt/")} != set(expected):
         fail("the Qt notices and SBOMs are incomplete or have extra files")
+    for name, source in expected.items():
+        same(files, read, name, source)
+    ffmpeg_licenses = ROOT / "packaging/licenses/ffmpeg" / frameworks["ffmpeg"]["version"]
+    expected = {f"doc/ffmpeg/{path.name}": path for path in ffmpeg_licenses.iterdir() if path.is_file()}
+    if {name for name in files if name.startswith("doc/ffmpeg/")} != set(expected):
+        fail("the FFmpeg notices are incomplete or have extra files")
     for name, source in expected.items():
         same(files, read, name, source)
 

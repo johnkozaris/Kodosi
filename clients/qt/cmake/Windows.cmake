@@ -42,7 +42,7 @@ set(KODOSI_PLATFORM_LIBRARIES windowsapp user32 dwmapi shell32 wtsapi32)
 set(KODOSI_TEST_LAUNCHER "")
 set(KODOSI_TEST_ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 set(KODOSI_TEST_ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
-set(KODOSI_QT_SBOM_MODULES qtbase qtdeclarative qtsvg qtpositioning qtwebchannel)
+set(KODOSI_QT_SBOM_MODULES qtbase qtdeclarative qtsvg qtpositioning qtwebchannel qtmultimedia)
 set(KODOSI_PROVIDER_ICON_LICENSE_DIR doc/provider-icons)
 set(KODOSI_CONPTY_DIR "${PROJECT_BINARY_DIR}/conpty")
 # Windows installs an unsigned package only when its publisher carries this OID.
@@ -73,7 +73,7 @@ function(kodosi_install app)
         VERBATIM
     )
     install(TARGETS ${app} RUNTIME DESTINATION .)
-    install(FILES ${conpty} DESTINATION .)
+    install(FILES ${conpty} ${KODOSI_FFMPEG_RUNTIME} DESTINATION .)
     install(
         FILES "${KODOSI_RUNTIME_ROOT}/terminal/conpty/LICENSE" "${KODOSI_RUNTIME_ROOT}/terminal/conpty/ConPTY.lock"
         DESTINATION doc/conpty

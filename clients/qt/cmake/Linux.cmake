@@ -39,7 +39,7 @@ set(KODOSI_PLATFORM_SOURCES
     platform/linux/X11IdleWatch.cpp
 )
 set(KODOSI_PLATFORM_LIBRARIES Qt6::DBus Qt6::WaylandClient X11::X11 X11::Xext)
-set(KODOSI_QT_SBOM_MODULES qtbase qtdeclarative qtsvg qtwayland qtpositioning qtwebchannel)
+set(KODOSI_QT_SBOM_MODULES qtbase qtdeclarative qtsvg qtwayland qtpositioning qtwebchannel qtmultimedia)
 set(KODOSI_PROVIDER_ICON_LICENSE_DIR share/licenses/kodosi-qt/provider-icons)
 set(KODOSI_NATIVE_LICENSE_MANIFEST "${PROJECT_SOURCE_DIR}/packaging/licenses/native-license-evidence.json")
 
@@ -55,7 +55,7 @@ function(kodosi_install app)
         OUTPUT_SCRIPT deploy_script
         NO_TRANSLATIONS
         NO_UNSUPPORTED_PLATFORM_ERROR
-        EXCLUDE_PLUGIN_TYPES position
+        EXCLUDE_PLUGIN_TYPES position multimedia
     )
     set(private_deploy_script "${CMAKE_CURRENT_BINARY_DIR}/deploy-kodosi-private-runtime.cmake")
     list(JOIN KODOSI_QT_LANGUAGES " " qt_languages)

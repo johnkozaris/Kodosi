@@ -257,6 +257,8 @@ its flow control.
 Each viewer declares the codecs it decodes and which of them in hardware. A stream uses HEVC only
 while its source encodes it and every viewer decodes it in hardware, since decoding HEVC in
 software costs more than the bits it saves; otherwise it uses H.264, which every viewer decodes.
+The Linux and Windows apps decode with the FFmpeg that Qt Multimedia ships, on the GPU through
+VA-API or D3D11VA, and draw the GPU's pictures without passing them through the processor.
 When the viewers change, the encoder restarts in the new codec with a keyframe, and every frame
 names its codec. Pictures are BT.709 limited range, tagged in the stream and converted the same
 way by every client. A frame that shows only a part of its source names that part, so a viewer

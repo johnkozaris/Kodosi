@@ -28,14 +28,6 @@ mod link;
 mod links;
 mod subscriptions;
 mod terminal_bridge;
-// Only the Linux and Windows desktop apps decode video here. Keep the explicit
-// `not(target_os = "android")` so cbindgen guards the C header against Android
-// defining `__linux__`.
-#[cfg(any(
-    target_os = "windows",
-    all(target_os = "linux", not(target_os = "android"))
-))]
-mod video;
 
 pub use app::{kodosi_close_app, kodosi_forward_activation, kodosi_log, kodosi_prepare};
 pub use instance::kodosi_start;
