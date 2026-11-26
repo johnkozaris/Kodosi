@@ -16,11 +16,13 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
         didSet { restartIfQuiet() }
     }
 
+    /// Kodosi downloads updates in the background and installs them by itself while nobody uses it.
     var automatic = false {
         didSet {
             if configured {
                 controller.updater.automaticallyDownloadsUpdates = automatic
             }
+            restartIfQuiet()
         }
     }
 
@@ -72,7 +74,7 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
     }
 
     private func restartIfQuiet() {
-        guard quiet, waiting, !restarting, install != nil else { return }
+        guard automatic, quiet, waiting, !restarting, install != nil else { return }
         restartingQuietly = true
         restart()
     }

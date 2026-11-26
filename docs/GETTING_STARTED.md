@@ -109,8 +109,9 @@ permissions, and verbosity. If Kodosi can't identify which conversation an agent
 agent lists its conversations so you can pick one.
 
 Kodosi installs updates by itself while nobody uses it, no agent is busy, and no other program runs
-in a terminal. When you restart for an update yourself, agents that were in the middle of a task
-carry on afterwards. After any other stop, such an agent waits until you press **Continue** on its
+in a terminal. To choose the moment yourself, turn off **Update automatically** in **Settings ›
+General**. When you restart for an update yourself, agents that were in the middle of a task carry
+on afterwards. After any other stop, such an agent waits until you press **Continue** on its
 terminal.
 
 On macOS, programs inside Kodosi inherit the macOS permissions granted to Kodosi, just like in any

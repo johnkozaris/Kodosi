@@ -124,9 +124,15 @@ void ApplicationLifecycleModel::applyRestart(bool quiet, int stops)
     restartIfQuiet();
 }
 
+void ApplicationLifecycleModel::setUpdatesAutomatically(bool automatic)
+{
+    m_updatesAutomatically = automatic;
+    restartIfQuiet();
+}
+
 void ApplicationLifecycleModel::restartIfQuiet()
 {
-    if (!m_updateInstalled || !m_restartQuiet || m_restartRequested || m_stopping)
+    if (!m_updatesAutomatically || !m_updateInstalled || !m_restartQuiet || m_restartRequested || m_stopping)
         return;
     m_restartsQuietly = true;
     restart();

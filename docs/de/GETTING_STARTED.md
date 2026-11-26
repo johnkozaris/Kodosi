@@ -124,9 +124,10 @@ welche Unterhaltung ein Agent zuletzt offen hatte, listet der Agent seine Unterh
 Auswahl auf.
 
 Kodosi installiert Updates selbst, solange niemand es benutzt, kein Agent beschäftigt ist und in
-keinem Terminal ein anderes Programm läuft. Startest du für ein Update selbst neu, machen Agenten,
-die mitten in einer Aufgabe waren, danach weiter. Nach jedem anderen Halt wartet ein solcher Agent,
-bis du in seinem Terminal auf **Weiter** drückst.
+keinem Terminal ein anderes Programm läuft. Um den Zeitpunkt selbst zu wählen, schalte **Automatisch
+aktualisieren** unter **Einstellungen › Allgemein** aus. Startest du für ein Update selbst neu,
+machen Agenten, die mitten in einer Aufgabe waren, danach weiter. Nach jedem anderen Halt wartet ein
+solcher Agent, bis du in seinem Terminal auf **Weiter** drückst.
 
 Unter macOS erben Programme in Kodosi die macOS-Berechtigungen, die du Kodosi erteilt hast, genau
 wie in jeder anderen Terminal-App. Blockiert macOS ein Programm beim Ändern einer anderen App,

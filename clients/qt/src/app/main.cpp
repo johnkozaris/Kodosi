@@ -213,6 +213,9 @@ int main(int argc, char* argv[])
     terminalNotifications.setNotifies(desktopSettings.notifies());
     QObject::connect(&desktopSettings, &kodosi::DesktopSettings::settingsChanged, &terminalNotifications,
         [&] { terminalNotifications.setNotifies(desktopSettings.notifies()); });
+    lifecycle.setUpdatesAutomatically(desktopSettings.updatesAutomatically());
+    QObject::connect(&desktopSettings, &kodosi::DesktopSettings::settingsChanged, &lifecycle,
+        [&] { lifecycle.setUpdatesAutomatically(desktopSettings.updatesAutomatically()); });
     kodosi::SystemPresenceSource presenceSource;
     kodosi::PresenceReporter presence(runtime, presenceSource);
     presence.setActive(QGuiApplication::applicationState() == Qt::ApplicationActive);

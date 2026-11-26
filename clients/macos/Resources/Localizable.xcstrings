@@ -14143,54 +14143,54 @@
         }
       }
     },
-    "Kodosi downloads updates in the background and installs them when you quit it." : {
+    "Kodosi downloads updates and installs them while nobody uses it." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi lädt Updates im Hintergrund und installiert sie, wenn du es beendest."
+            "value" : "Kodosi lädt Updates und installiert sie, solange niemand es benutzt."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Το Kodosi κατεβάζει ενημερώσεις στο παρασκήνιο και τις εγκαθιστά όταν το κλείνετε."
+            "value" : "Το Kodosi κατεβάζει τις ενημερώσεις και τις εγκαθιστά όταν κανείς δεν το χρησιμοποιεί."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi descarga las actualizaciones en segundo plano y las instala cuando lo cierras."
+            "value" : "Kodosi descarga las actualizaciones y las instala cuando nadie lo usa."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi télécharge les mises à jour en arrière-plan et les installe quand vous le quittez."
+            "value" : "Kodosi télécharge les mises à jour et les installe lorsque personne ne l'utilise."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi scarica gli aggiornamenti in background e li installa quando lo chiudi."
+            "value" : "Kodosi scarica gli aggiornamenti e li installa quando nessuno lo usa."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi はバックグラウンドでアップデートをダウンロードし、終了時にインストールします。"
+            "value" : "Kodosi はアップデートをダウンロードし、誰も使っていないときにインストールします。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi는 백그라운드에서 업데이트를 내려받고, 종료할 때 설치해요."
+            "value" : "Kodosi는 업데이트를 내려받고, 아무도 사용하지 않을 때 설치해요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi 会在后台下载更新，并在你退出时安装。"
+            "value" : "Kodosi 会下载更新，并在无人使用时安装。"
           }
         }
       }

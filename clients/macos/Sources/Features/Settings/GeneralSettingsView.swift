@@ -14,7 +14,7 @@ struct GeneralSettingsView: View {
             return "This build of Kodosi does not update itself."
         }
         return deps.updater.automatic
-            ? "Kodosi downloads updates in the background and installs them when you quit it."
+            ? "Kodosi downloads updates and installs them while nobody uses it."
             : "Kodosi asks before it downloads an update."
     }
 

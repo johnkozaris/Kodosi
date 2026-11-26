@@ -58,6 +58,8 @@ public:
     [[nodiscard]] int restartStops() const noexcept { return m_restartStops; }
     // The host says whether a restart now loses nothing while nobody uses Kodosi.
     void applyRestart(bool quiet, int stops);
+    // Kodosi restarts by itself to install an update only while it updates automatically.
+    void setUpdatesAutomatically(bool automatic);
 
     void beginInitialStart();
     void stop() noexcept;
@@ -94,6 +96,7 @@ private:
     bool m_restartRequested = false;
     bool m_restartQuiet = false;
     bool m_restartsQuietly = false;
+    bool m_updatesAutomatically = true;
     int m_restartStops = 0;
     bool m_outdatedHostRestarted = false;
 
