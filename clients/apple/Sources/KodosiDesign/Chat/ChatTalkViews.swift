@@ -167,11 +167,12 @@ private struct ChatTalkBubble: View {
     var body: some View {
         HStack(spacing: 0) {
             Spacer(minLength: 56)
-            ViewThatFits(in: .vertical) {
-                spoken
-                ScrollView { spoken }.defaultScrollAnchor(.bottom).scrollIndicators(.hidden)
+            HeightLimit(168) {
+                ViewThatFits(in: .vertical) {
+                    spoken
+                    ScrollView { spoken }.defaultScrollAnchor(.bottom).scrollIndicators(.hidden)
+                }
             }
-            .frame(maxHeight: 168)
             .projectBubble()
             .contentShape(Rectangle())
             .onTapGesture(perform: edit)
@@ -193,6 +194,28 @@ private struct ChatTalkBubble: View {
         tail.foregroundColor = theme.colors.inkFaint
         text.append(tail)
         return Text(text).appTextStyle(.body).lineSpacing(2)
+    }
+}
+
+/// Offers its content no more height than the limit and takes the content's own size, where a frame
+/// with only a maximum height grows to the height that it is offered.
+private struct HeightLimit: Layout {
+    let limit: CGFloat
+
+    init(_ limit: CGFloat) {
+        self.limit = limit
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
+        subviews.first?.sizeThatFits(limited(proposal)) ?? .zero
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) {
+        subviews.first?.place(at: bounds.origin, proposal: limited(proposal))
+    }
+
+    private func limited(_ proposal: ProposedViewSize) -> ProposedViewSize {
+        ProposedViewSize(width: proposal.width, height: min(proposal.height ?? limit, limit))
     }
 }
 
