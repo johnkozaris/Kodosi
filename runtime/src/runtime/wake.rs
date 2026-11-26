@@ -527,7 +527,8 @@ impl Runtime {
     }
 
     /// Reads the cards of this device again after each new connection to the server. A device
-    /// with no connection can wake nothing, so it reads nothing.
+    /// with no connection can wake nothing, so it reads nothing. A phone cannot read its router,
+    /// and many networks use the same addresses, so its public address tells them apart.
     fn read_own(&mut self) {
         let connects = self.network.inner.link.connects();
         if !self.online
@@ -541,7 +542,10 @@ impl Runtime {
         let network = self.network.clone();
         self.spawn(async move {
             Completion::OwnNetwork {
-                own: OwnNetwork::read(&network, |_| false).await,
+                own: OwnNetwork::read(&network, |cards| {
+                    cards.iter().any(|card| card.router.is_none())
+                })
+                .await,
                 connects: Some(connects),
             }
         });
