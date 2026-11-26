@@ -13,7 +13,7 @@ use std::{
 use bytes::Bytes;
 use serde::Serialize;
 use stream::{media, viewer};
-use tokio::{sync::mpsc, time::MissedTickBehavior};
+use tokio::sync::mpsc;
 
 use super::super::peers::Media;
 
@@ -114,8 +114,8 @@ async fn send_frames(
     let mut told: Option<(u64, Instant)> = None;
     let mut last_frame: Option<Instant> = None;
     let mut period = Duration::from_millis(16);
-    let mut tick = tokio::time::interval(SEND_EVERY);
-    tick.set_missed_tick_behavior(MissedTickBehavior::Delay);
+    let wake = tokio::time::sleep(SEND_EVERY);
+    tokio::pin!(wake);
     loop {
         tokio::select! {
             frame = frames.recv() => {
@@ -144,7 +144,7 @@ async fn send_frames(
                     waiting.push_front(Waiting { shard, since: now, until: now + rtt });
                 }
             }
-            _ = tick.tick() => {}
+            () = &mut wake => {}
         }
         let now = Instant::now();
         while let Some(next) = waiting.front() {
@@ -165,5 +165,12 @@ async fn send_frames(
                 told = Some((share, now));
             }
         }
+        // Shards that wait go out as the path takes them; a still picture leaves only the rate.
+        let next = if waiting.is_empty() {
+            RATE_EVERY
+        } else {
+            SEND_EVERY
+        };
+        wake.as_mut().reset(tokio::time::Instant::now() + next);
     }
 }

@@ -425,6 +425,11 @@ impl Unpacker {
         self.hand_on(now, None)
     }
 
+    /// Whether a tick has nothing to do until the next shard comes.
+    pub fn idle(&self) -> bool {
+        self.frames.is_empty() && self.told.is_empty()
+    }
+
     /// Gives up on frames that cannot arrive in time, asks for the shards that frames still miss,
     /// and returns the messages that can now go on, with a report for the host when there is news.
     pub fn tick(
@@ -734,6 +739,27 @@ mod tests {
             .flat_map(|shard| unpacker.shard(shard, now))
             .collect();
         assert_eq!(handed, vec![Bytes::from(sent)]);
+    }
+
+    #[test]
+    fn an_unpacker_rests_only_once_its_frames_are_handed_on_and_reported() {
+        let now = Instant::now();
+        let mut packer = Packer::new(4);
+        let mut unpacker = Unpacker::new(4);
+        assert!(unpacker.idle());
+        let shards = packer.pack(&message(3000, true), DATAGRAM, now + RTT, now);
+        unpacker.shard(&shards[0], now);
+        assert!(!unpacker.idle(), "a frame being put together needs ticks");
+        for shard in &shards[1..] {
+            unpacker.shard(shard, now);
+        }
+        assert!(
+            !unpacker.idle(),
+            "the host has not heard that the frame came"
+        );
+        let (_, report) = unpacker.tick(now + QUIET, RTT, ROOM);
+        assert!(report.is_some());
+        assert!(unpacker.idle());
     }
 
     #[test]

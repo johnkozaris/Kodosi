@@ -475,10 +475,18 @@ async fn video_frames_go_as_datagrams_once_the_viewer_takes_the_flow() {
     })
     .await;
     assert!(sent.is_ok(), "the viewer's greeting readies the flow");
-    let shown = tokio::time::timeout(Duration::from_secs(5), shown.recv()).await;
-    assert_eq!(shown.unwrap().unwrap(), frame);
+    let arrived = tokio::time::timeout(Duration::from_secs(5), shown.recv()).await;
+    assert_eq!(arrived.unwrap().unwrap(), frame);
     let rate = tokio::time::timeout(Duration::from_secs(5), heard.recv()).await;
     let rate = rate.unwrap().unwrap();
     assert_eq!(rate.first(), Some(&stream::viewer::JSON));
     assert!(String::from_utf8_lossy(&rate[1..]).contains("\"rate\""));
+
+    // Both sides rest while the picture is still, and wake for the next frame.
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let mut next = vec![stream::viewer::FRAME, 0, 0, 0, 2, 0, 0];
+    next.extend((0..5_000_u32).map(|byte| byte.to_be_bytes()[3]));
+    assert!(flow.take(next.clone()).is_ok());
+    let arrived = tokio::time::timeout(Duration::from_secs(5), shown.recv()).await;
+    assert_eq!(arrived.unwrap().unwrap(), next);
 }

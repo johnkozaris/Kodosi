@@ -44,13 +44,19 @@ async fn unpack(
     let mut tick = tokio::time::interval(RECEIVE_EVERY);
     tick.set_missed_tick_behavior(MissedTickBehavior::Delay);
     loop {
+        // A still picture sends nothing, so once the host answered and nothing waits to be put
+        // together or reported, the viewer sleeps until a shard comes.
+        let ticking = !heard || !unpacker.idle();
         let handed = tokio::select! {
             shard = shards.recv() => {
                 let Some(shard) = shard else { return };
+                if !ticking {
+                    tick.reset();
+                }
                 heard = true;
                 unpacker.shard(&shard, Instant::now())
             }
-            _ = tick.tick() => {
+            _ = tick.tick(), if ticking => {
                 let now = Instant::now();
                 if !heard && now.saturating_duration_since(greeted_at) >= GREET_EVERY {
                     media.send(greeting.clone());
