@@ -204,7 +204,8 @@ impl Worker<'_> {
         if picture.is_some() {
             slot.changed = 0.0;
         }
-        if retry_due {
+        // A new picture repairs the stream as well as a retry would.
+        if retry_due || picture.is_some() {
             self.retry_at = None;
         }
         self.repair = false;
