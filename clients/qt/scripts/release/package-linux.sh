@@ -95,6 +95,7 @@ depend = harfbuzz
 depend = nspr
 depend = nss
 depend = pango
+depend = libpulse
 depend = systemd-libs
 depend = wayland
 depend = libx11
@@ -116,6 +117,8 @@ depend = xdg-desktop-portal
 depend = xdg-utils
 depend = zstd
 depend = zlib
+optdepend = libva: video encoded and decoded on the GPU
+optdepend = intel-media-driver: video on Intel graphics
 provides = kodosi
 conflict = kodosi
 EOF

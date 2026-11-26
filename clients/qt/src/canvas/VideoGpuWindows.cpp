@@ -115,7 +115,8 @@ private:
             return false;
         }
         const bool opened = SUCCEEDED(m_device.As(&device))
-            && SUCCEEDED(device->OpenSharedResource1(handle, IID_PPV_ARGS(&m_opened)));
+            && SUCCEEDED(device->OpenSharedResource1(
+                handle, IID_ID3D11Texture2D, reinterpret_cast<void**>(m_opened.ReleaseAndGetAddressOf())));
         CloseHandle(handle);
         description.MiscFlags = 0;
         if (!opened || FAILED(m_opened.As(&m_qtSide)) || FAILED(m_device->CreateTexture2D(&description, nullptr, &m_local))) {
