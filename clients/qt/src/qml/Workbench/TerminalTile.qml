@@ -315,6 +315,19 @@ Item {
                         elide: Text.ElideMiddle
                     }
                 }
+                KButton {
+                    visible: (root.session.added ?? -1) >= 0
+                    compact: true
+                    variant: KButton.Ghost
+                    text: "+" + root.session.added + " \u2212" + root.session.removed
+                    objectName: "terminal.changes." + root.sessionId
+                    Accessible.id: objectName
+                    Accessible.name: qsTr("Lines added: %1. Lines removed: %2.").arg(root.session.added).arg(root.session.removed)
+                    ToolTip.text: qsTr("Show the changes")
+                    ToolTip.visible: hovered
+                    ToolTip.delay: Tip.delay
+                    onClicked: Models.SessionActions.showChanges(root.sessionId)
+                }
                 ActivityLine {
                     Layout.fillWidth: true
                     session: root.session
@@ -322,6 +335,14 @@ Item {
                 }
                 DosiKeys {
                     sessionId: root.sessionId
+                }
+                KButton {
+                    visible: root.session.offersContinue === true
+                    compact: true
+                    text: qsTr("Continue")
+                    objectName: "terminal.continue." + root.sessionId
+                    Accessible.id: objectName
+                    onClicked: Models.SessionActions.continueTask(root.sessionId)
                 }
                 HelperMarks {
                     session: root.session

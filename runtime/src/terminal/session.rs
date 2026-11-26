@@ -116,6 +116,8 @@ enum Request {
         settings: crate::agents::AgentSettings,
     },
     Pending(Option<crate::agents::AgentSettings>),
+    OfferContinue,
+    Changes(Option<crate::worktree::WorktreeChanges>),
 }
 
 #[derive(Debug, Default)]
@@ -272,6 +274,9 @@ impl TerminalSession {
             look,
             pictures,
             saving: JoinSet::new(),
+            stopped: false,
+            rested: false,
+            branch_changes: None,
             metadata_dirty: false,
             next_program_check: tokio::time::Instant::now() + Duration::from_secs(1),
             next_refresh: tokio::time::Instant::now(),
@@ -442,6 +447,19 @@ impl TerminalSession {
 
     pub(crate) fn set_pending(&self, pending: Option<crate::agents::AgentSettings>) -> Result<()> {
         self.send(Request::Pending(pending))
+    }
+
+    /// The agent stopped in the middle of a task, so the apps offer to let it go on until it
+    /// works again, someone types or it exits.
+    pub(crate) fn offer_continue(&self) -> Result<()> {
+        self.send(Request::OfferContinue)
+    }
+
+    pub(crate) fn set_changes(
+        &self,
+        changes: Option<crate::worktree::WorktreeChanges>,
+    ) -> Result<()> {
+        self.send(Request::Changes(changes))
     }
 
     pub(crate) fn foreground(
@@ -739,6 +757,10 @@ fn clear_line_keys(shell: &Path) -> &'static str {
     }
 }
 
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is a separate fact about one terminal"
+)]
 struct LocalActor {
     id: Uuid,
     incarnation: Uuid,
@@ -791,6 +813,11 @@ struct LocalActor {
     look: TerminalLook,
     pictures: PathBuf,
     saving: JoinSet<SavedPicture>,
+    /// The agent stopped in the middle of a task when the last host stopped.
+    stopped: bool,
+    /// The agent rested since it came back, so work it reports now is new work.
+    rested: bool,
+    branch_changes: Option<crate::worktree::WorktreeChanges>,
     metadata_dirty: bool,
     next_program_check: tokio::time::Instant,
     next_refresh: tokio::time::Instant,
@@ -851,6 +878,33 @@ impl LocalActor {
             face: self.face(),
             helpers: self.helpers(),
             look: self.look,
+            stopped: self.stopped,
+            changes: self.branch_changes,
+        }
+    }
+
+    fn forget_stop_when_working(&mut self) {
+        match self.status.summary().map(|status| status.state) {
+            Some(ProgramState::Working) if self.rested => self.set_stopped(false),
+            Some(ProgramState::Idle | ProgramState::Done | ProgramState::Blocked) => {
+                self.rested = true;
+            }
+            _ => {}
+        }
+    }
+
+    fn set_stopped(&mut self, stopped: bool) {
+        if self.stopped != stopped
+            && self
+                .changes
+                .try_send(SessionChange::Stopped {
+                    id: self.id,
+                    stopped,
+                })
+                .is_ok()
+        {
+            self.stopped = stopped;
+            self.metadata_dirty = true;
         }
     }
 
@@ -997,6 +1051,7 @@ impl LocalActor {
     /// them on the same line.
     fn type_keys(&mut self, write: PendingWrite) {
         self.typed_at = Some(tokio::time::Instant::now());
+        self.set_stopped(false);
         match &mut self.start {
             Some(start) => start.early.push_back(write),
             None => self.queue.push_back(write),
@@ -1446,6 +1501,7 @@ impl LocalActor {
         {
             self.status_program = None;
             self.status.program_exited();
+            self.set_stopped(false);
         }
         if self.pty.foreground_is_child()
             && let Some(shell) = self.pty.foreground_process_group()
@@ -1496,11 +1552,13 @@ impl LocalActor {
                     self.status.apply(report);
                     self.status_program = self.pty.foreground_process_group();
                     self.publish_status();
+                    self.forget_stop_when_working();
                 }
                 TerminalEffect::Progress(report) => {
                     self.status.apply_progress(report);
                     self.status_program = self.pty.foreground_process_group();
                     self.publish_status();
+                    self.forget_stop_when_working();
                 }
                 TerminalEffect::Reset => {
                     self.status.reset();
@@ -1587,6 +1645,7 @@ impl LocalActor {
             }
             return;
         }
+        self.set_stopped(false);
         self.queue.push_back(write);
     }
 
@@ -1777,6 +1836,16 @@ impl LocalActor {
             Request::Pending(pending) => {
                 if self.agent.pending != pending {
                     self.agent.pending = pending;
+                    self.metadata_dirty = true;
+                }
+            }
+            Request::OfferContinue => {
+                self.rested = false;
+                self.set_stopped(true);
+            }
+            Request::Changes(changes) => {
+                if self.branch_changes != changes {
+                    self.branch_changes = changes;
                     self.metadata_dirty = true;
                 }
             }
@@ -2113,6 +2182,10 @@ impl LocalActor {
                 }
                 Ok(())
             }
+            TerminalControl::Changes => self
+                .changes
+                .try_send(SessionChange::ShowChanges { id: self.id })
+                .map_err(|_| Error::Busy),
         };
         let reason = result.as_ref().err().map(Error::text);
         drop(

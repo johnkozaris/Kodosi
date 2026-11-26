@@ -9,10 +9,15 @@ struct TerminalTitle: View {
     let unreachable: Bool
     let rename: (() -> Void)?
     let reconnect: () -> Void
+    let showChanges: () -> Void
 
     var body: some View {
         HStack(spacing: 10) {
             title
+            if let changes = session.changes {
+                BranchChangesKey(changes: changes, show: showChanges)
+                    .accessibilityIdentifier("terminal.header.changes")
+            }
             if unreachable, session.isConnected {
                 Button("Try again", action: reconnect)
                     .buttonStyle(.kodosi(.tinted, size: .small))

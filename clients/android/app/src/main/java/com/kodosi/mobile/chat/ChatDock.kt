@@ -89,7 +89,10 @@ import com.kodosi.mobile.ui.ActionIcon
 import com.kodosi.mobile.ui.AgentMark
 import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
+import com.kodosi.mobile.ui.ButtonKind
+import com.kodosi.mobile.ui.ButtonSize
 import com.kodosi.mobile.ui.Elevation
+import com.kodosi.mobile.ui.KodosiButton
 import com.kodosi.mobile.ui.KodosiTheme
 import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.MarkActivity
@@ -120,6 +123,7 @@ internal fun ChatDock(
     send: () -> Unit,
     showTerminal: () -> Unit,
     changesAgent: Boolean,
+    goOn: (() -> Unit)?,
     agentMenu: @Composable () -> Unit
 ) {
     val colors = KodosiTheme.colors
@@ -192,6 +196,14 @@ internal fun ChatDock(
             ) { shown ->
                 if (shown != null) {
                     Box(Modifier.padding(horizontal = 10.dp, vertical = 4.dp)) { ChatAskCard(chat, view, shown, agent) }
+                } else if (goOn != null && !view.working) {
+                    KodosiButton(
+                        stringResource(R.string.continue_task),
+                        onClick = goOn,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        kind = ButtonKind.SECONDARY,
+                        size = ButtonSize.SMALL
+                    )
                 }
             }
         },

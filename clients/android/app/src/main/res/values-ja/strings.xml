@@ -606,4 +606,7 @@
     <string name="local_network_title">コンピュータに直接つなぐ</string>
     <string name="local_network_reason">同じ Wi-Fi では、スマートフォンが自分のコンピュータに直接つながり、より速くなります。Android ではこの権限を「付近のデバイス」と呼びます。</string>
     <string name="local_network_continue">続ける</string>
+    <string name="continue_task">続ける</string>
+    <string name="show_changes">変更を表示</string>
+    <string name="branch_changes">追加した行: %1$d。削除した行: %2$d。</string>
 </resources>

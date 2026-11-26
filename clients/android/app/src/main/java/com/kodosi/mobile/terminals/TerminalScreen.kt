@@ -89,6 +89,7 @@ import com.kodosi.mobile.ui.AgentMark
 import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
 import com.kodosi.mobile.ui.ButtonKind
+import com.kodosi.mobile.ui.ButtonSize
 import com.kodosi.mobile.ui.ConfirmDialog
 import com.kodosi.mobile.ui.FileIcon
 import com.kodosi.mobile.ui.HelperMarks
@@ -206,7 +207,18 @@ fun TerminalScreen(
         if (!(typing && landscape) || chatShown) {
             Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) {
-                    Header(session, online, model.account::retryConnection, back, rename = { renaming = true })
+                    Header(
+                        session,
+                        online,
+                        model.account::retryConnection,
+                        back,
+                        rename = { renaming = true },
+                        showChanges = {
+                            session?.let { shown ->
+                                scope.launch { model.runAction { model.terminals.act("session.changes", shown) } }
+                            }
+                        }
+                    )
                 }
                 if (typing && !landscape && !composing && !chatShown) {
                     ActionIcon(
@@ -369,6 +381,16 @@ fun TerminalScreen(
                         listOf("1", "2", "3").forEach { answer ->
                             KeyCap(answer, look = look) { view?.paste(answer, enter = true) }
                         }
+                        Spacer(Modifier.weight(1f))
+                    } else if (session?.offersContinue == true) {
+                        KodosiButton(
+                            stringResource(R.string.continue_task),
+                            onClick = {
+                                scope.launch { model.runAction { model.terminals.act("session.continue", session) } }
+                            },
+                            kind = ButtonKind.SECONDARY,
+                            size = ButtonSize.SMALL
+                        )
                         Spacer(Modifier.weight(1f))
                     }
                     ActionIcon(
@@ -600,7 +622,8 @@ private fun Header(
     online: Boolean,
     retryConnection: () -> Unit,
     back: () -> Unit,
-    rename: () -> Unit
+    rename: () -> Unit,
+    showChanges: () -> Unit
 ) {
     val colors = KodosiTheme.colors
     Row(
@@ -690,6 +713,7 @@ private fun Header(
                     }
                 }
             }
+            session.changes?.let { changes -> BranchChangesKey(changes, showChanges) }
             if (session.isConnected && session.unreachable(online)) {
                 KodosiButton(stringResource(R.string.try_again), onClick = retryConnection, kind = ButtonKind.GHOST)
             }
@@ -909,4 +933,25 @@ private fun FaceSwitch(chatting: Boolean, choose: (Boolean) -> Unit) {
         if (chatting) 1 else 0,
         symbolic = true
     ) { choose(it == 1) }
+}
+
+/** What a terminal's branch folder changed, as one quiet key that shows the diff on the canvas. */
+@Composable
+private fun BranchChangesKey(changes: BranchChanges, show: () -> Unit) {
+    val description = stringResource(R.string.branch_changes, changes.added, changes.removed)
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .defaultMinSize(minHeight = 48.dp)
+            .clickable(role = Role.Button, onClickLabel = stringResource(R.string.show_changes), onClick = show)
+            .semantics { contentDescription = description }
+            .padding(horizontal = 8.dp)
+    ) {
+        Text(
+            "+${changes.added} \u2212${changes.removed}",
+            style = KodosiType.caption,
+            color = KodosiTheme.colors.inkMuted,
+            maxLines = 1
+        )
+    }
 }

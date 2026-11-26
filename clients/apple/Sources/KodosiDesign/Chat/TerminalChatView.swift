@@ -9,6 +9,7 @@ import SwiftUI
 /// in place of the chat. Links open by the same rules as links in the terminal, and
 /// `otherComputer` names the computer of a terminal that is not on this device, where its files
 /// are. `names`, such as the terminal's and its project's, help talking spell them right.
+/// `goOn` lets an agent that a restart stopped in the middle of a task go on.
 public struct TerminalChatView<ModelKey: View>: View {
     @Environment(\.theme) private var theme
     let chat: TerminalChat
@@ -16,6 +17,7 @@ public struct TerminalChatView<ModelKey: View>: View {
     let me: String?
     let otherComputer: String?
     let names: [String]
+    let goOn: (() -> Void)?
     let showTerminal: () -> Void
     let modelKey: (_ model: String, _ effort: String?, _ open: Binding<Bool>) -> ModelKey
     @FocusState private var focused: Bool
@@ -23,7 +25,7 @@ public struct TerminalChatView<ModelKey: View>: View {
 
     public init(
         chat: TerminalChat, agent: AgentKind, me: String?, otherComputer: String?, names: [String] = [],
-        showTerminal: @escaping () -> Void,
+        goOn: (() -> Void)? = nil, showTerminal: @escaping () -> Void,
         @ContentBuilder modelKey: @escaping (_ model: String, _ effort: String?, _ open: Binding<Bool>) -> ModelKey,
     ) {
         self.chat = chat
@@ -31,6 +33,7 @@ public struct TerminalChatView<ModelKey: View>: View {
         self.me = me
         self.otherComputer = otherComputer
         self.names = names
+        self.goOn = goOn
         self.showTerminal = showTerminal
         self.modelKey = modelKey
     }
@@ -38,7 +41,9 @@ public struct TerminalChatView<ModelKey: View>: View {
     public var body: some View {
         VStack(spacing: 0) {
             ChatThread(chat: chat, agent: chat.facts.agent.flatMap(AgentKind.init(rawValue:)) ?? agent, me: me, sent: sent)
-            ChatDock(chat: chat, agent: agent, names: names, focused: $focused, modelKey: modelKey, showTerminal: showTerminal) {
+            ChatDock(chat: chat, agent: agent, names: names, focused: $focused, modelKey: modelKey, goOn: goOn,
+                     showTerminal: showTerminal)
+            {
                 sent += 1
             }
             .layoutPriority(1)

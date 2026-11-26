@@ -42,6 +42,12 @@ public struct TerminalContext: Decodable, Equatable, Sendable {
     public let root: Bool
 }
 
+/// The lines that a terminal's branch folder added and removed since its branch started.
+public struct BranchChanges: Decodable, Equatable, Sendable {
+    public let added: Int
+    public let removed: Int
+}
+
 public struct TerminalPlace: Decodable, Equatable, Sendable {
     public enum Kind: String, Decodable, Sendable { case remote, container, vm }
 
@@ -124,6 +130,10 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public let connectedUsers: [String]?
     public let sharedWith: [String]
     public let restoredFrom: String?
+    /// The agent stopped in the middle of a task when its computer's Kodosi stopped.
+    private let stopped: Bool?
+    /// What the terminal's branch folder changed since its branch started.
+    public let changes: BranchChanges?
     public let attention: Bool
     public let hidden: Bool
 
@@ -179,6 +189,11 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
 
     public var canControl: Bool {
         isConnected && status == .running
+    }
+
+    /// The agent stopped in the middle of a task, and anyone here may let it go on.
+    public var offersContinue: Bool {
+        stopped == true && canControl && !working
     }
 
     /// An open terminal of another computer that reconnects, or whose typing waits for its

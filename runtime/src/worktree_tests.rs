@@ -190,3 +190,57 @@ async fn an_unchanged_branch_goes_away_and_a_branch_with_work_stays() {
     remove_unchanged(switched.clone()).await;
     assert!(switched.path.exists());
 }
+
+#[tokio::test]
+async fn a_branch_counts_its_commits_edits_and_new_files_but_not_links() {
+    let (_root, folder) = repository().await;
+    tokio::fs::write(folder.join("app.py"), "one\ntwo\nthree\n")
+        .await
+        .expect("file");
+    let commit = |directory: PathBuf, message: &'static str| async move {
+        git(&directory, &["add", "--all"]).await.expect("add");
+        git(
+            &directory,
+            &[
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.invalid",
+                "commit",
+                "--quiet",
+                "-m",
+                message,
+            ],
+        )
+        .await
+        .expect("commit");
+    };
+    commit(folder.clone(), "App").await;
+    let branch = create(&folder, "fix", None).await.expect("worktree");
+    assert_eq!(branch.changes().await.expect("count"), None);
+
+    tokio::fs::write(branch.path.join("app.py"), "one\n2\nthree\nfour\n")
+        .await
+        .expect("edit");
+    commit(branch.path.clone(), "Fix").await;
+    tokio::fs::write(branch.path.join("app.py"), "one\n2\nthree\nfour\nfive\n")
+        .await
+        .expect("edit");
+    tokio::fs::write(branch.path.join("test_app.py"), "assert True\nassert 1\n")
+        .await
+        .expect("new file");
+    #[cfg(unix)]
+    std::os::unix::fs::symlink("/etc/hosts", branch.path.join("hosts")).expect("link");
+
+    assert_eq!(
+        branch.changes().await.expect("count"),
+        Some(WorktreeChanges {
+            added: 5,
+            removed: 1
+        })
+    );
+    let diff = branch.diff().await.expect("diff");
+    assert!(diff.contains("+five"));
+    assert!(diff.contains("+++ b/test_app.py\n@@ -0,0 +1,2 @@\n+assert True"));
+    assert!(!diff.contains("hosts"));
+}

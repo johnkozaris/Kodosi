@@ -51,6 +51,10 @@ public:
     Q_INVOKABLE bool close(const QString& sessionId);
     Q_INVOKABLE bool hide(const QString& sessionId);
     Q_INVOKABLE bool rename(const QString& sessionId, const QString& name);
+    // Lets the terminal's agent go on with the task that a restart cut off.
+    Q_INVOKABLE bool continueTask(const QString& sessionId);
+    // Shows what the terminal's branch folder changed on its canvas.
+    Q_INVOKABLE bool showChanges(const QString& sessionId);
     Q_INVOKABLE bool startAgent(const QString& sessionId, const QString& agent);
     Q_INVOKABLE bool changeAgent(const QString& sessionId, const QVariantMap& change);
     Q_INVOKABLE bool input(const QString& sessionId, const QString& text);

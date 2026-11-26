@@ -59,9 +59,10 @@ public struct RuntimeStartFailure: Equatable, Sendable {
 public enum HostStopResult: Equatable, Sendable {
     case accepted, refused, unreachable, failed
 
+    /// `update` tells the host that it stops to install an update and comes right back.
     @concurrent
-    public static func stopHost(force: Bool) async -> HostStopResult {
-        switch kodosi_host_stop(force ? 1 : 0) {
+    public static func stopHost(force: Bool, update: Bool = false) async -> HostStopResult {
+        switch kodosi_host_stop(force ? 1 : 0, update ? 1 : 0) {
         case KODOSI_HOST_STOP_ACCEPTED: .accepted
         case KODOSI_HOST_STOP_REFUSED: .refused
         case KODOSI_HOST_STOP_UNREACHABLE: .unreachable

@@ -19,7 +19,7 @@ ApplicationLifecycleModel::ApplicationLifecycleModel(
           [&runtime](Completion completion) {
               runtime.startAsync(std::move(completion));
           },
-          [&runtime] { runtime.quit(); },
+          [&runtime](bool update) { runtime.quit(update); },
           [&runtime](std::function<void(HostStop)> completion) {
               runtime.stopHostAsync(std::move(completion));
           },
@@ -89,7 +89,7 @@ void ApplicationLifecycleModel::stop() noexcept
     m_stopping = true;
     ++m_attemptToken;
     m_attemptInFlight = false;
-    m_stopOperation();
+    m_stopOperation(m_restartRequested && m_updateInstalled);
 }
 
 void ApplicationLifecycleModel::retry()
@@ -111,6 +111,25 @@ void ApplicationLifecycleModel::setUpdateInstalled()
     }
     m_updateInstalled = true;
     emit updateInstalledChanged();
+    restartIfQuiet();
+}
+
+void ApplicationLifecycleModel::applyRestart(bool quiet, int stops)
+{
+    m_restartQuiet = quiet;
+    if (m_restartStops != stops) {
+        m_restartStops = stops;
+        emit restartStopsChanged();
+    }
+    restartIfQuiet();
+}
+
+void ApplicationLifecycleModel::restartIfQuiet()
+{
+    if (!m_updateInstalled || !m_restartQuiet || m_restartRequested || m_stopping)
+        return;
+    m_restartsQuietly = true;
+    restart();
 }
 
 void ApplicationLifecycleModel::offerRestart(const QString& launched, const QString& running)

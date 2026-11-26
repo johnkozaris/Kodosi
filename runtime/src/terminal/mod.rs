@@ -136,6 +136,16 @@ pub(crate) enum SessionChange {
         helpers: u8,
     },
     #[cfg(feature = "host")]
+    Stopped {
+        id: Uuid,
+        stopped: bool,
+    },
+    /// A view on another computer asks to see what the terminal's branch folder changed.
+    #[cfg(feature = "host")]
+    ShowChanges {
+        id: Uuid,
+    },
+    #[cfg(feature = "host")]
     Ended {
         id: Uuid,
         reason: crate::text::Text,

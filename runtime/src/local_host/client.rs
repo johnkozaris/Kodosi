@@ -50,14 +50,14 @@ impl Commands {
     }
 }
 
-pub async fn stop_other_host(root: &Path, force: bool) -> Result<()> {
+pub async fn stop_other_host(root: &Path, force: bool, update: bool) -> Result<()> {
     let (mut stream, welcome) = handshake(root, None, ClientKind::Command).await?;
     if welcome.version == VERSION
         && let Some(error) = welcome.error
     {
         return Err(Error::Other(error));
     }
-    write_json(&mut stream, &ClientRequest::Stop { force }).await?;
+    write_json(&mut stream, &ClientRequest::Stop { force, update }).await?;
     let mut replies = FrameReader::new(&mut stream);
     loop {
         let reply: Value = read_json(&mut replies).await?;

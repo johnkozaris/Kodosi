@@ -165,6 +165,12 @@ extension AppDependencies {
             updater.checkInBackground()
             return
         }
+        if event.type == "system.restart" {
+            let stops: Int = try event.value("stops")
+            restartStops = stops
+            updater.quiet = try event.value("quiet")
+            return
+        }
         guard event.type == "system.ready" else { return }
         hostForeground = event.string("host") == "foreground"
         let version: UInt32 = try event.value("protocolVersion")

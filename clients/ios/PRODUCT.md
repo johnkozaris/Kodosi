@@ -13,7 +13,8 @@ conversation history stay desktop-only.
 ### Built for quick answers
 The app is designed around agents waiting for input. Every terminal displays its status, common
 short answers for waiting agents are one tap away, and tapping a push notification jumps straight
-into the terminal that needs you, even from a cold launch.
+into the terminal that needs you, even from a cold launch. An agent that a restart stopped in the
+middle of a task goes on with one tap too.
 
 ### Terminal input and sizing
 You can type directly into the terminal (with an accessory row for keys missing from the iOS

@@ -113,7 +113,12 @@ fun TerminalChatView(model: AppModel, session: RuntimeSession, modifier: Modifie
                         hideKeyboard()
                         model.terminals.pick(TerminalFace.TERMINAL, session.id, session.face)
                     },
-                    changesAgent = session.changesAgent()
+                    changesAgent = session.changesAgent(),
+                    goOn = if (session.offersContinue) {
+                        { scope.launch { model.runAction { model.terminals.act("session.continue", session) } } }
+                    } else {
+                        null
+                    }
                 ) { AgentSettingsSection(model, session) }
             }
         }

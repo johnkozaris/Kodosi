@@ -631,4 +631,7 @@
     <string name="local_network_title">Απευθείας στον υπολογιστή σας</string>
     <string name="local_network_reason">Στο ίδιο Wi-Fi, το τηλέφωνό σας συνδέεται απευθείας με τον δικό σας υπολογιστή, και είναι πιο γρήγορο. Το Android ονομάζει αυτή την άδεια «Συσκευές σε κοντινή απόσταση».</string>
     <string name="local_network_continue">Συνέχεια</string>
+    <string name="continue_task">Συνέχεια</string>
+    <string name="show_changes">Εμφάνιση των αλλαγών</string>
+    <string name="branch_changes">Γραμμές που προστέθηκαν: %1$d. Γραμμές που αφαιρέθηκαν: %2$d.</string>
 </resources>

@@ -656,4 +656,7 @@
     <string name="local_network_title">Raggiungi direttamente il tuo computer</string>
     <string name="local_network_reason">Sulla stessa rete Wi-Fi, il telefono si collega direttamente al tuo computer, ed è più veloce. Android chiama questa autorizzazione «Dispositivi nelle vicinanze».</string>
     <string name="local_network_continue">Continua</string>
+    <string name="continue_task">Continua</string>
+    <string name="show_changes">Mostra le modifiche</string>
+    <string name="branch_changes">Righe aggiunte: %1$d. Righe rimosse: %2$d.</string>
 </resources>

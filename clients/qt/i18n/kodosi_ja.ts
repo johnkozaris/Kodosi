@@ -3742,6 +3742,12 @@
             <numerusform>このコンピュータのターミナル %n 個が停止します。Kodosi を開くと再び起動します。</numerusform>
         </translation>
     </message>
+    <message numerus="yes">
+        <source>%n running programs stop.</source>
+        <translation>
+            <numerusform>実行中のプログラム %n 個が停止します。</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>ReconnectingNotice</name>
@@ -4790,6 +4796,18 @@
     <message>
         <source>Paste</source>
         <translation>貼り付け</translation>
+    </message>
+    <message>
+        <source>Lines added: %1. Lines removed: %2.</source>
+        <translation>追加した行: %1。削除した行: %2。</translation>
+    </message>
+    <message>
+        <source>Show the changes</source>
+        <translation>変更を表示</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>続ける</translation>
     </message>
 </context>
 <context>

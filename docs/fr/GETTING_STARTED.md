@@ -95,6 +95,9 @@ latérale, cliquez sur le bouton de branche et saisissez un nom de branche. Kodo
 dans un nouveau worktree Git et le supprime automatiquement à la fermeture du terminal si rien n'a
 changé. Vous pouvez choisir où sont stockés les worktrees dans **Réglages › Terminal**.
 
+L'en-tête du terminal indique combien de lignes la branche a ajoutées et supprimées. Cliquez sur les
+chiffres pour voir les modifications dans le canvas.
+
 Chaque terminal est clair ou sombre comme Kodosi sur son ordinateur hôte, sur tous les appareils
 qui l'affichent. Les programmes à l'intérieur du terminal reçoivent les notifications de thème, de
 sorte que des outils comme Claude Code (avec `/theme` réglé sur Auto) s'adaptent automatiquement.
@@ -118,6 +121,11 @@ automatiquement leurs conversations, et conservent également sous macOS et Linu
 l'effort, le mode rapide, les autorisations et la verbosité choisis. Si Kodosi ne parvient pas à
 identifier la conversation qu'exécutait un agent, celui-ci affiche la liste de ses conversations
 pour vous laisser en sélectionner une.
+
+Kodosi installe les mises à jour tout seul lorsque personne ne l'utilise, qu'aucun agent n'est
+occupé et qu'aucun autre programme ne tourne dans un terminal. Si vous redémarrez vous-même pour une
+mise à jour, les agents qui étaient au milieu d'une tâche continuent ensuite. Après tout autre
+arrêt, un tel agent attend que vous appuyiez sur **Continuer** dans son terminal.
 
 Sur macOS, les programmes lancés dans Kodosi héritent des autorisations macOS accordées à Kodosi,
 comme dans toute autre app de terminal. Si macOS empêche un programme de modifier une autre app,

@@ -35,6 +35,8 @@ use crate::{
 use crate::{network::LocalPublication, terminal::TerminalSession};
 
 mod attention;
+#[cfg(feature = "host")]
+mod branch;
 mod catalog;
 #[cfg(feature = "host")]
 mod changes;
@@ -48,6 +50,8 @@ mod pipes;
 #[cfg(feature = "host")]
 mod power;
 mod project_seen;
+#[cfg(feature = "host")]
+mod restart;
 #[cfg(feature = "host")]
 mod restore;
 mod saver;
@@ -181,7 +185,10 @@ enum Request {
         size: TerminalSize,
         reply: oneshot::Sender<Result<()>>,
     },
-    Shutdown,
+    Shutdown {
+        /// The host stops to install an update and comes right back.
+        update: bool,
+    },
 }
 
 impl RuntimeHandle {
@@ -448,11 +455,20 @@ impl RuntimeHandle {
     }
 
     pub async fn shutdown(&self) {
+        self.stop(false).await;
+    }
+
+    /// Stops the host to install an update. Agents that work now go on after the update.
+    pub async fn shutdown_for_update(&self) {
+        self.stop(true).await;
+    }
+
+    async fn stop(&self, update: bool) {
         let mut stopped = self.stopped.clone();
         if *stopped.borrow() {
             return;
         }
-        drop(self.commands.send(Request::Shutdown).await);
+        drop(self.commands.send(Request::Shutdown { update }).await);
         drop(stopped.wait_for(|stopped| *stopped).await);
     }
 
@@ -499,6 +515,9 @@ struct Local {
     changed: crate::agents::AgentSettings,
     account_folder: Option<PathBuf>,
     marked: watch::Sender<Option<crate::terminal::Waiting>>,
+    /// When the terminal's branch folder was counted last.
+    counted: Option<tokio::time::Instant>,
+    counting: bool,
 }
 
 #[cfg(feature = "host")]
@@ -696,6 +715,20 @@ enum Completion {
     Told {
         id: Uuid,
         mentions: Vec<messages::Mention>,
+        result: Result<()>,
+    },
+    #[cfg(feature = "host")]
+    WentOn {
+        id: Uuid,
+        result: Result<()>,
+    },
+    #[cfg(feature = "host")]
+    Counted {
+        id: Uuid,
+        changes: Result<Option<crate::worktree::WorktreeChanges>>,
+    },
+    #[cfg(feature = "host")]
+    ChangesShown {
         result: Result<()>,
     },
     #[cfg(feature = "host")]
@@ -1039,6 +1072,22 @@ impl TerminalTarget {
         }
     }
 
+    /// Asks the computer of a terminal on another computer to show its diff on the canvas.
+    fn ask_changes(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+        match self {
+            #[cfg(feature = "host")]
+            Self::Local(_) => Box::pin(async {
+                Err(Error::Invalid(
+                    "expected a terminal on another computer".to_owned(),
+                ))
+            }),
+            Self::Remote(terminal) => {
+                let result = terminal.control(None, TerminalControl::Changes);
+                Box::pin(async move { result.await.map(|_| ()) })
+            }
+        }
+    }
+
     fn end(&self, closing: bool) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
         match self {
             #[cfg(feature = "host")]
@@ -1227,6 +1276,8 @@ struct Runtime {
     mentions: messages::Mentions,
     #[cfg(feature = "host")]
     agent_changes: changes::AgentChanges,
+    #[cfg(feature = "host")]
+    restart: restart::Restart,
     person: Option<String>,
     network: BackendClient,
     events: broadcast::Sender<Event>,
@@ -1407,6 +1458,8 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         mentions: messages::Mentions::default(),
         #[cfg(feature = "host")]
         agent_changes: changes::AgentChanges::default(),
+        #[cfg(feature = "host")]
+        restart: restart::Restart::default(),
         person: None,
         #[cfg(feature = "host")]
         config,
@@ -2130,7 +2183,11 @@ impl Runtime {
                 request = requests.recv() => {
                     if self.synchronize_account().is_err() { break; }
                     match request {
-                        None | Some(Request::Shutdown) => break,
+                        None => break,
+                        Some(Request::Shutdown { update }) => {
+                            self.note_stop(update);
+                            break;
+                        }
                         Some(Request::Command { envelope, consumer, lifetime, origin }) => {
                             if !lifetime.is_cancelled() {
                                 self.know_consumer(consumer, origin, &lifetime);
@@ -2181,13 +2238,27 @@ impl Runtime {
                 Some(sign_in) = sign_ins.recv() => self.sign_in_asked(sign_in),
                 Ok(()) = link.changed() => {}
                 () = &mut timer, if due.is_some() => {}
-                _ = retry.tick(), if !background => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.remember_conversations(); self.save_terminals(HashMap::new()); self.check_mentions(); self.tell_mentions(); self.type_agent_changes(); } self.started_remotes(); self.ask_folders(); self.ask_wakes(); }
+                _ = retry.tick(), if !background => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.remember_conversations(); self.save_terminals(HashMap::new()); self.check_mentions(); self.tell_mentions(); self.type_agent_changes(); self.continue_restored(); self.count_branches(); self.tell_restart(); } self.started_remotes(); self.ask_folders(); self.ask_wakes(); }
             }
         }
         self.send_waiting_list();
         requests.close();
         self.stop().await;
     }
+
+    #[cfg(feature = "host")]
+    fn note_stop(&self, update: bool) {
+        if update {
+            self.restore.stop_for_update();
+        }
+    }
+
+    #[cfg(not(feature = "host"))]
+    #[expect(
+        clippy::unused_self,
+        reason = "only a computer that hosts terminals brings them back"
+    )]
+    const fn note_stop(&self, _update: bool) {}
 
     async fn stop(&mut self) {
         self.jobs.abort_all();
@@ -2403,6 +2474,13 @@ impl Runtime {
                         .collect(),
                     browser: local.terminal.canvas.address(),
                     quiet_settings,
+                    busy: local
+                        .entry
+                        .program
+                        .as_deref()
+                        .is_some_and(crate::agents::is_agent_name)
+                        && (local.entry.working
+                            || local.entry.waiting == Some(crate::terminal::Waiting::Blocked)),
                 }
             })
             .collect();
@@ -3037,7 +3115,9 @@ impl Runtime {
                     }
                 }
             }
-            Request::Command { .. } | Request::TerminalCommand { .. } | Request::Shutdown => {}
+            Request::Command { .. }
+            | Request::TerminalCommand { .. }
+            | Request::Shutdown { .. } => {}
         }
     }
 
@@ -3163,6 +3243,8 @@ impl Runtime {
         self.reopen_pipes();
         self.starting.clear();
         self.cached_events.clear();
+        #[cfg(feature = "host")]
+        self.restart.retell();
         self.project_latest.clear();
         self.attention.forget_account();
         #[cfg(feature = "host")]
@@ -3561,6 +3643,8 @@ impl Runtime {
         if !notice.online {
             entry.program_status = None;
             entry.helpers = 0;
+            entry.stopped = false;
+            entry.changes = None;
         }
         if !self.streams(id) {
             self.show_shared_status(id);
@@ -3703,6 +3787,10 @@ impl Runtime {
             .is_some_and(|connection| connection.is_interrupted() && !connection.is_closed())
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "every field of a terminal on another computer"
+    )]
     fn remote_entry(&self, remote: RemoteSession) -> SessionEntry {
         let is_owner = self.scope.user.as_deref() == Some(remote.owner_user_id.as_str());
         let connection_state = if self
@@ -3798,6 +3886,8 @@ impl Runtime {
             project_name: remote.project_name,
             shared_with: remote.shared_with,
             restored_from: remote.restored_from.map(|id| id.to_string()),
+            stopped: false,
+            changes: None,
         };
         if !streaming {
             forget_stale_title(&mut entry, shared);
@@ -3810,6 +3900,13 @@ impl Runtime {
     fn ended(&mut self, id: Uuid) {
         self.mentions.forget(id);
         self.agent_changes.forget(id);
+        if let Some(worktree) = self
+            .local
+            .get(&id)
+            .and_then(|local| local.worktree.as_ref())
+        {
+            self.forget_diff(worktree);
+        }
         self.launcher.release_quiet(id);
         let (published, worktree) = self.local.remove(&id).map_or((false, None), |local| {
             let canvas = local.terminal.canvas.clone();
@@ -3975,10 +4072,21 @@ impl Runtime {
             #[cfg(feature = "host")]
             SessionChange::Status { id, status } => {
                 if let Some(local) = self.local.get_mut(&id) {
+                    let working = |status: Option<&crate::terminal::ProgramStatus>| {
+                        status.is_some_and(|status| {
+                            status.state == crate::terminal::ProgramState::Working
+                        })
+                    };
+                    let ended_turn =
+                        working(local.entry.program_status.as_ref()) && !working(status.as_ref());
                     local.entry.program_status = status;
                     self.publish_catalog();
                     self.tell_mentions();
                     self.type_agent_changes();
+                    self.continue_restored();
+                    if ended_turn {
+                        self.count_branch(id);
+                    }
                 }
             }
             #[cfg(feature = "host")]
@@ -3990,6 +4098,17 @@ impl Runtime {
             }
             #[cfg(feature = "host")]
             SessionChange::Canvas { id } => self.sync_canvas(&id.to_string()),
+            #[cfg(feature = "host")]
+            SessionChange::Stopped { id, stopped } => {
+                if let Some(local) = self.local.get_mut(&id)
+                    && local.entry.stopped != stopped
+                {
+                    local.entry.stopped = stopped;
+                    self.publish_catalog();
+                }
+            }
+            #[cfg(feature = "host")]
+            SessionChange::ShowChanges { id } => self.show_changes_here(id),
             #[cfg(feature = "host")]
             SessionChange::Chat { id, face, helpers } => {
                 if let Some(local) = self.local.get_mut(&id)
@@ -4054,6 +4173,8 @@ impl Runtime {
                     entry.face = metadata.face;
                     entry.helpers = metadata.helpers;
                     entry.look = metadata.look;
+                    entry.stopped = metadata.stopped;
+                    entry.changes = metadata.changes;
                     self.publish_catalog();
                 }
             }

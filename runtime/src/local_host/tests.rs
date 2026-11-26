@@ -37,9 +37,15 @@ async fn a_host_names_itself_to_another_version_and_stops_for_it() {
             kind: HostKind::Background
         })
     );
-    write_json(&mut stream, &ClientRequest::Stop { force: false })
-        .await
-        .unwrap();
+    write_json(
+        &mut stream,
+        &ClientRequest::Stop {
+            force: false,
+            update: false,
+        },
+    )
+    .await
+    .unwrap();
     let reply: Value = read_json(&mut FrameReader::new(&mut stream)).await.unwrap();
     assert_eq!(reply["kind"], "stopping");
     tokio::time::timeout(Duration::from_secs(10), handle.stopped())
@@ -230,7 +236,7 @@ async fn a_foreground_host_stops_only_from_its_own_terminal() {
     let (_storage, root, handle) = hosted(HostKind::Foreground).await;
     for force in [false, true] {
         assert!(matches!(
-            stop_other_host(&root, force).await,
+            stop_other_host(&root, force, false).await,
             Err(Error::HostBusy(_))
         ));
     }

@@ -94,6 +94,9 @@ Kodosi abre el terminal en un worktree de Git nuevo y lo elimina automáticament
 terminal si no ha habido cambios. Puedes configurar dónde se guardan los worktrees en **Ajustes ›
 Terminal**.
 
+La cabecera del terminal muestra cuántas líneas ha añadido y eliminado la rama. Haz clic en los
+números para ver los cambios en el lienzo.
+
 Cada terminal es claro u oscuro como Kodosi en su ordenador anfitrión, en todos los dispositivos
 desde los que lo veas. Los programas dentro del terminal reciben notificaciones del tema, de modo
 que herramientas como Claude Code (con `/theme` en Auto) se adaptan automáticamente. Si prefieres
@@ -116,6 +119,11 @@ Claude Code, Codex y Copilot CLI reanudan automáticamente sus conversaciones y,
 mantienen también el modelo, el esfuerzo, el modo rápido, los permisos y la verbosidad que elegiste.
 Si Kodosi no puede identificar qué conversación estaba ejecutando un agente, el agente muestra la
 lista de sus conversaciones para que elijas una.
+
+Kodosi instala las actualizaciones por sí solo cuando nadie lo usa, ningún agente está ocupado y
+ningún otro programa se ejecuta en un terminal. Si reinicias tú para actualizar, los agentes que
+estaban a mitad de una tarea continúan después. Tras cualquier otra parada, ese agente espera hasta
+que pulses **Continuar** en su terminal.
 
 En macOS, los programas dentro de Kodosi heredan los permisos de macOS concedidos a Kodosi, igual
 que en cualquier otra app de terminal. Si macOS impide que un programa modifique otra app, activa

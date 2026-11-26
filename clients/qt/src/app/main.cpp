@@ -112,6 +112,8 @@ int main(int argc, char* argv[])
     QGuiApplication::setDesktopFileName(QStringLiteral("com.kodosi.Kodosi"));
 #endif
     std::optional<QSize> windowSize;
+    // Kodosi opens again by itself after a quiet update, so it stays out of the way.
+    bool quietly = false;
     kodosi::AppActivation launch { .route = {}, .token = kodosi::takeActivationToken(), .appVersion = {} };
     const auto arguments = app.arguments();
     for (int i = 1; i < arguments.size(); ++i) {
@@ -123,6 +125,8 @@ int main(int argc, char* argv[])
             if (!match.hasMatch() || match.captured(1).toInt() < 820 || match.captured(2).toInt() < 560)
                 return EXIT_FAILURE;
             windowSize = QSize(match.captured(1).toInt(), match.captured(2).toInt());
+        } else if (arguments[i] == QStringLiteral("--quietly")) {
+            quietly = true;
         } else if (!arguments[i].startsWith(QLatin1Char('-'))) {
             if (launch.route)
                 return EXIT_FAILURE;
@@ -218,6 +222,8 @@ int main(int argc, char* argv[])
         workspace.apply(event, accountEpoch);
         terminalNotifications.apply(event);
         const auto type = event.value(QStringLiteral("type")).toString();
+        if (type == QStringLiteral("system.restart"))
+            lifecycle.applyRestart(event.value(QStringLiteral("quiet")).toBool(), event.value(QStringLiteral("stops")).toInt());
         if (type == QStringLiteral("canvas.result") || type == QStringLiteral("canvas.error"))
             canvas.apply(event);
         if (type.startsWith(QStringLiteral("document.")))
@@ -286,6 +292,8 @@ int main(int argc, char* argv[])
 #endif
     files.setTransientParent(window);
     desktop.attachWindow(window, windowSize);
+    if (quietly)
+        window->showMinimized();
     const auto open = [&](const kodosi::AppActivation& activation) {
         const auto destination = activation.route ? activation.route->destination : std::nullopt;
         if (destination && destination->notification) {
@@ -325,7 +333,8 @@ int main(int argc, char* argv[])
     QObject::connect(&update, &kodosi::PackageUpdate::staged, &lifecycle,
         &kodosi::ApplicationLifecycleModel::setUpdateInstalled);
 #endif
-    open(launch);
+    if (!quietly)
+        open(launch);
     activations.setHandler(open);
     QObject::connect(&app, &QCoreApplication::aboutToQuit, &lifecycle, [&] { lifecycle.stop(); });
     const auto code = app.exec();
@@ -335,7 +344,8 @@ int main(int argc, char* argv[])
         if (kodosi::PackageUpdate::openAgainAfterExit())
             return code;
 #endif
-        QProcess::startDetached(executable, {});
+        QProcess::startDetached(executable,
+            lifecycle.restartsQuietly() ? QStringList { QStringLiteral("--quietly") } : QStringList {});
     }
     return code;
 }

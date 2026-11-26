@@ -58,9 +58,19 @@ struct SessionTileHeader: View {
                     TerminalLocation(host: session.hostLabel, glyph: "folder", name: nil).layoutPriority(1)
                 }
             }
+            if let changes = session.changes {
+                BranchChangesKey(changes: changes) { deps.showChanges(session) }
+                    .accessibilityIdentifier("\(stageId).changes")
+            }
             Color.clear.frame(minWidth: 4, maxWidth: .infinity).titleBarGap().layoutPriority(-1)
             if deps.workbench.dosiOn, let (item, question) = deps.dosi.question(forTerminal: session) {
                 DosiKeys(sessionId: session.id, item: item, question: question).transition(AnyTransition.pop)
+            }
+            if session.offersContinue {
+                Button("Continue") { deps.continueTask(session) }
+                    .buttonStyle(.kodosi(.secondary, size: .small))
+                    .accessibilityIdentifier("\(stageId).continue")
+                    .transition(AnyTransition.pop)
             }
             status
             if session.face != nil || face.wrappedValue == .chat {

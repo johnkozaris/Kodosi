@@ -96,6 +96,9 @@ Terminal in einem neuen Git-Worktree und entfernt diesen beim Schließen des Ter
 wieder, wenn nichts geändert wurde. Wo Worktrees gespeichert werden, legst du unter **Einstellungen
 › Terminal** fest.
 
+Die Kopfzeile des Terminals zeigt, wie viele Zeilen der Branch hinzugefügt und entfernt hat. Klicke
+auf die Zahlen, um die Änderungen im Canvas zu sehen.
+
 Jedes Terminal ist hell oder dunkel wie Kodosi auf seinem Host-Computer, und zwar auf allen
 Geräten, die es anzeigen. Programme im Terminal erhalten Hinweise zum Designwechsel, sodass sich
 Werkzeuge wie Claude Code (mit `/theme` auf Auto) automatisch anpassen. Wenn du dunkle Terminals
@@ -119,6 +122,11 @@ automatisch fort und behalten unter macOS und Linux außerdem das gewählte Mode
 den Schnellmodus, die Berechtigungen und die Ausführlichkeit bei. Kann Kodosi nicht erkennen,
 welche Unterhaltung ein Agent zuletzt offen hatte, listet der Agent seine Unterhaltungen zur
 Auswahl auf.
+
+Kodosi installiert Updates selbst, solange niemand es benutzt, kein Agent beschäftigt ist und in
+keinem Terminal ein anderes Programm läuft. Startest du für ein Update selbst neu, machen Agenten,
+die mitten in einer Aufgabe waren, danach weiter. Nach jedem anderen Halt wartet ein solcher Agent,
+bis du in seinem Terminal auf **Weiter** drückst.
 
 Unter macOS erben Programme in Kodosi die macOS-Berechtigungen, die du Kodosi erteilt hast, genau
 wie in jeder anderen Terminal-App. Blockiert macOS ein Programm beim Ändern einer anderen App,

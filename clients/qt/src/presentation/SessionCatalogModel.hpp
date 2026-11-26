@@ -65,6 +65,11 @@ public:
         int helpers = 0;
         bool stalled = false;
         bool direct = false;
+        // The agent stopped in the middle of a task when its computer's Kodosi stopped.
+        bool stopped = false;
+        // The lines that the terminal's branch folder added and removed, or -1 without changes.
+        int added = -1;
+        int removed = -1;
         QString message;
         QStringList sharedWith;
         QString restoredFrom;

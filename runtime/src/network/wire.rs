@@ -152,6 +152,7 @@ pub(crate) fn encode_control(control: &TerminalControl) -> Result<Vec<u8>> {
             json!({"type":"agent","change":change})
         }
         TerminalControl::Seen => json!({"type":"seen"}),
+        TerminalControl::Changes => json!({"type":"changes"}),
     };
     serde_json::to_vec(&value).map_err(Into::into)
 }
@@ -220,6 +221,7 @@ pub(crate) fn decode_control(value: &[u8]) -> Result<TerminalControl> {
             })
         }
         "seen" => Ok(TerminalControl::Seen),
+        "changes" => Ok(TerminalControl::Changes),
         _ => Err(invalid("Unsupported terminal operation.")),
     }
 }

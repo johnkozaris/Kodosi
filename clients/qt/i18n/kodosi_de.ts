@@ -3773,6 +3773,13 @@
             <numerusform>%n Terminals auf diesem Computer werden beendet. Sie starten wieder, wenn Kodosi öffnet.</numerusform>
         </translation>
     </message>
+    <message numerus="yes">
+        <source>%n running programs stop.</source>
+        <translation>
+            <numerusform>%n laufendes Programm wird beendet.</numerusform>
+            <numerusform>%n laufende Programme werden beendet.</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>ReconnectingNotice</name>
@@ -4822,6 +4829,18 @@
     <message>
         <source>Paste</source>
         <translation>Einfügen</translation>
+    </message>
+    <message>
+        <source>Lines added: %1. Lines removed: %2.</source>
+        <translation>Hinzugefügte Zeilen: %1. Entfernte Zeilen: %2.</translation>
+    </message>
+    <message>
+        <source>Show the changes</source>
+        <translation>Änderungen zeigen</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Weiter</translation>
     </message>
 </context>
 <context>

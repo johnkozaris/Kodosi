@@ -606,4 +606,7 @@
     <string name="local_network_title">直接连接你的电脑</string>
     <string name="local_network_reason">在同一 Wi-Fi 下，手机会直接连接你自己的电脑，速度更快。Android 将此权限称为“附近的设备”。</string>
     <string name="local_network_continue">继续</string>
+    <string name="continue_task">继续</string>
+    <string name="show_changes">显示更改</string>
+    <string name="branch_changes">新增行：%1$d。删除行：%2$d。</string>
 </resources>

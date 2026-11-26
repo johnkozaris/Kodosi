@@ -656,4 +656,7 @@
     <string name="local_network_title">Conecta directamente con tu ordenador</string>
     <string name="local_network_reason">En la misma red Wi-Fi, tu teléfono se conecta directamente a tu propio ordenador, y es más rápido. Android llama a este permiso «Dispositivos cercanos».</string>
     <string name="local_network_continue">Continuar</string>
+    <string name="continue_task">Continuar</string>
+    <string name="show_changes">Mostrar los cambios</string>
+    <string name="branch_changes">Líneas añadidas: %1$d. Líneas eliminadas: %2$d.</string>
 </resources>

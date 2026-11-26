@@ -11,6 +11,7 @@ struct ChatDock<ModelKey: View>: View {
     let names: [String]
     var focused: FocusState<Bool>.Binding
     let modelKey: (_ model: String, _ effort: String?, _ open: Binding<Bool>) -> ModelKey
+    let goOn: (() -> Void)?
     let showTerminal: () -> Void
     let sent: () -> Void
     @State private var sends = 0
@@ -58,6 +59,11 @@ struct ChatDock<ModelKey: View>: View {
                 // Give the prompt card layout priority so a growing composer does not squeeze it.
                 ChatAskCard(chat: chat, ask: ask, agent: agent).id(ask.id).transition(AnyTransition.rise)
                     .layoutPriority(1)
+            } else if let goOn, !chat.working {
+                Button(action: goOn) { Text("Continue", bundle: .module) }
+                    .buttonStyle(.kodosi(.secondary, size: .small))
+                    .accessibilityIdentifier("chat.continue")
+                    .transition(AnyTransition.rise)
             }
             if let failure = chat.failure {
                 HStack(spacing: 7) {

@@ -106,7 +106,7 @@ private struct TerminalScreenContent: View {
             if let session, !chatting {
                 TerminalControls(
                     controller: controller, session: session, input: input, compact: compact, composing: $composing,
-                    actions: inputActions,
+                    actions: inputActions, goOn: { model.terminals.continueTask(session) },
                     menu: input.showsHeader(compact: compact)
                         ? nil
                         : TerminalMenu(session: session, prompt: $prompt, showsSharing: $showsSharing, capped: true,
@@ -129,6 +129,7 @@ private struct TerminalScreenContent: View {
                     TerminalTitle(
                         session: session, sign: model.terminals.sign(of: session), unreachable: model.unreachable(session),
                         rename: session.isOwner ? { prompt = .rename(session) } : nil, reconnect: model.account.retryConnection,
+                        showChanges: { model.terminals.showChanges(session) },
                     )
                 }
             }
@@ -321,7 +322,8 @@ private struct TerminalScreenContent: View {
                 if chatting, session.isConnected {
                     TerminalChatView(chat: model.terminals.canvas.chat(session.id), agent: session.agent, me: model.terminals.userId,
                                      otherComputer: session.otherComputer,
-                                     names: [session.name, session.projectName, session.folderName].compactMap(\.self))
+                                     names: [session.name, session.projectName, session.folderName].compactMap(\.self),
+                                     goOn: session.offersContinue ? { model.terminals.continueTask(session) } : nil)
                     {
                         model.terminals.pick(.terminal, of: session.id, over: session.face)
                     } modelKey: { name, effort, open in

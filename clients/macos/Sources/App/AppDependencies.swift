@@ -50,6 +50,8 @@ final class AppDependencies {
     var errorMessage: String?
     var doneMessage: String?
     let updater = AppUpdater()
+    /// How many terminals would lose a running program if Kodosi restarted now.
+    var restartStops = 0
     var updateRequired = false
     var updateNoticeDismissed = false
     var commandLink: String?
@@ -398,6 +400,20 @@ final class AppDependencies {
 
     func mutateSession(_ operation: String, session target: RuntimeSession, fields: [String: JSONValue] = [:]) async throws {
         try await commandSink.mutate(operation, session: target, current: session(target.id), fields: fields)
+    }
+
+    /// Lets the terminal's agent go on with the task that a restart cut off.
+    func continueTask(_ session: RuntimeSession) {
+        Task {
+            do { try await mutateSession("session.continue", session: session) } catch { errorMessage = error.localizedDescription }
+        }
+    }
+
+    /// Shows what the terminal's branch folder changed on its canvas.
+    func showChanges(_ session: RuntimeSession) {
+        Task {
+            do { try await mutateSession("session.changes", session: session) } catch { errorMessage = error.localizedDescription }
+        }
     }
 
     func openProject(_ project: ProjectEntry) {

@@ -330,6 +330,7 @@
 "This task is done. Open it again before you take it.": "此任务已完成。请先重新打开再认领。",
 "This task is unavailable.": "此任务不可用。",
 "This terminal connection is no longer authorized.": "此终端连接已不再获得授权。",
+"This terminal has no branch of its own.": "此终端没有自己的分支。",
 "This terminal is no longer available.": "此终端已不可用。",
 "This terminal is not available.": "此终端不可用。",
 "This terminal is not shared with you.": "此终端未与你共享。",
