@@ -61,9 +61,9 @@ pub struct Encoder(Backend);
 enum Backend {
     #[cfg(target_os = "macos")]
     VideoToolbox(videotoolbox::Encoder),
-    /// VA-API or `OpenH264`, both of which encode only H.264 and repair only with keyframes.
-    /// `OpenH264`'s long-term references need camera mode, which halves the quality of scrolled
-    /// text.
+    /// VA-API or `OpenH264`, both of which repair only with keyframes. `OpenH264` encodes only
+    /// H.264, and its long-term references need camera mode, which halves the quality of
+    /// scrolled text.
     #[cfg(not(target_os = "macos"))]
     Pixels(pixels::Encoder),
 }
@@ -73,7 +73,9 @@ impl Encoder {
     pub fn encodable() -> Vec<Codec> {
         #[cfg(target_os = "macos")]
         return videotoolbox::encodable();
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(target_os = "linux")]
+        return vaapi::encodable().unwrap_or_else(|| vec![Codec::H264]);
+        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
         return vec![Codec::H264];
     }
 
@@ -85,7 +87,7 @@ impl Encoder {
         #[cfg(not(target_os = "macos"))]
         return Self(Backend::Pixels(pixels::Encoder::start(move |shared| {
             #[cfg(target_os = "linux")]
-            if vaapi::work(settings.bitrate, output.as_ref(), shared) {
+            if vaapi::work(settings, output.as_ref(), shared) {
                 return;
             }
             openh264::work(settings.bitrate, output.as_ref(), shared);
@@ -158,10 +160,7 @@ impl Encoder {
             #[cfg(target_os = "macos")]
             Backend::VideoToolbox(encoder) => encoder.set_format(format),
             #[cfg(not(target_os = "macos"))]
-            Backend::Pixels(encoder) => {
-                let _ = format;
-                encoder.want_key();
-            }
+            Backend::Pixels(encoder) => encoder.set_format(format),
         }
     }
 }

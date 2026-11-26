@@ -1,26 +1,45 @@
-//! H.264 on Intel and AMD graphics through VA-API. The worker chooses each frame's quantizer for
-//! the link, and sharpens a picture that settles with passes that encode it again. When the GPU
-//! fails, software takes over.
+//! H.264 and HEVC on Intel and AMD graphics through VA-API. The worker chooses each frame's
+//! quantizer for the link, and sharpens a picture that settles with passes that encode it
+//! again. When the GPU fails, software takes over.
 
-mod headers;
+mod bits;
+mod h264;
+mod hevc;
 mod session;
 mod va;
 
 use std::{ffi::c_int, path::PathBuf, rc::Rc, sync::OnceLock, time::Instant};
 
 use bytes::Bytes;
-use stream::{Codec, Encoded, FrameKind, Region};
+use stream::{Codec, Encoded, FrameKind};
 
 use self::{session::Session, va::Display};
 use crate::{
-    Output, RETRY,
+    Output, RETRY, Settings,
     pixels::{self, Pixels, Shared, Slot},
     rate::{self, Choice, Rate, SETTLED},
 };
 
-/// The first GPU that encodes H.264 as the encoder needs, and the entrypoint to use.
-fn gpu() -> Option<&'static (PathBuf, c_int)> {
-    static GPU: OnceLock<Option<(PathBuf, c_int)>> = OnceLock::new();
+/// A GPU that encodes H.264 as the encoder needs, and HEVC too when its driver says how.
+struct Gpu {
+    node: PathBuf,
+    h264: c_int,
+    hevc: Option<hevc::Capabilities>,
+}
+
+impl Gpu {
+    /// The codec that the GPU encodes for a stream that asks for `codec`.
+    fn encodes(&self, codec: Codec) -> Codec {
+        match codec {
+            Codec::Hevc if self.hevc.is_some() => Codec::Hevc,
+            _ => Codec::H264,
+        }
+    }
+}
+
+/// The first GPU that encodes H.264 as the encoder needs.
+fn gpu() -> Option<&'static Gpu> {
+    static GPU: OnceLock<Option<Gpu>> = OnceLock::new();
     GPU.get_or_init(|| {
         let mut nodes: Vec<PathBuf> = std::fs::read_dir("/dev/dri")
             .ok()?
@@ -33,38 +52,52 @@ fn gpu() -> Option<&'static (PathBuf, c_int)> {
             .collect();
         nodes.sort();
         nodes.into_iter().find_map(|node| {
-            let entrypoint = session::entrypoint(&Display::open(&node)?)?;
-            Some((node, entrypoint))
+            let display = Display::open(&node)?;
+            let converts = display
+                .entrypoints(va::NO_PROFILE)
+                .contains(&va::VIDEO_PROCESSING);
+            let h264 = h264::entrypoint(&display).filter(|_| converts)?;
+            let hevc = hevc::capabilities(&display);
+            Some(Gpu { node, h264, hevc })
         })
     })
     .as_ref()
 }
 
+/// The codecs that the GPU encodes, when there is one.
+pub(crate) fn encodable() -> Option<Vec<Codec>> {
+    let gpu = gpu()?;
+    let mut codecs = vec![Codec::H264];
+    if gpu.hevc.is_some() {
+        codecs.push(Codec::Hevc);
+    }
+    Some(codecs)
+}
+
 /// Encodes the pictures that come into `shared` until the encoder stops. Returns false when the
-/// GPU cannot encode them, with the picture it could not encode back in the slot.
-pub(crate) fn work(bitrate: u32, output: &dyn Output, shared: &Shared) -> bool {
-    let Some((display, entrypoint)) =
-        gpu().and_then(|(node, entrypoint)| Some((Display::open(node)?, *entrypoint)))
-    else {
+/// GPU cannot encode them, with the newest picture back in the slot.
+pub(crate) fn work(settings: Settings, output: &dyn Output, shared: &Shared) -> bool {
+    let Some((gpu, display)) = gpu().and_then(|gpu| Some((gpu, Display::open(&gpu.node)?))) else {
         return false;
     };
     let now = Instant::now();
     let mut worker = Worker {
         output,
         shared,
+        gpu,
         display: Rc::new(display),
-        entrypoint,
+        codec: gpu.encodes(settings.format.codec),
         session: None,
-        bitrate,
-        rate: Rate::new(bitrate, now),
-        region: None,
+        last: None,
+        bitrate: settings.bitrate,
+        rate: Rate::new(settings.bitrate, now),
         drawn_at: now,
         repair: false,
         retry_at: None,
     };
     while let Some(job) = worker.next() {
-        if let Err(picture) = worker.code(job) {
-            give_back(shared, picture, worker.bitrate);
+        if worker.code(job).is_err() {
+            give_back(shared, worker.last.take(), worker.bitrate);
             return false;
         }
     }
@@ -94,13 +127,16 @@ struct Job {
 struct Worker<'a> {
     output: &'a dyn Output,
     shared: &'a Shared,
+    gpu: &'static Gpu,
     display: Rc<Display>,
-    entrypoint: c_int,
+    /// The codec of the stream's next keyframe.
+    codec: Codec,
     session: Option<Session>,
+    /// The last picture, which the session encodes again for passes and repairs, and loads
+    /// again when it restarts in another codec.
+    last: Option<Pixels>,
     bitrate: u32,
     rate: Rate,
-    /// What the picture in the session shows of the source.
-    region: Option<Region>,
     drawn_at: Instant,
     /// Set when the next frame must be a keyframe.
     repair: bool,
@@ -121,6 +157,9 @@ impl Worker<'_> {
                 self.rate.set_bitrate(bitrate, now);
             }
             self.repair |= std::mem::take(&mut slot.key);
+            if let Some(format) = slot.format.take() {
+                self.codec = self.gpu.encodes(format.codec);
+            }
             match self.plan(&mut slot, now) {
                 Ok(job) => return Some(job),
                 Err(wake) => slot = pixels::wait(shared, slot, wake),
@@ -134,17 +173,22 @@ impl Worker<'_> {
     fn plan(&mut self, slot: &mut Slot, now: Instant) -> Result<Job, Option<Instant>> {
         let retry_due = self.retry_at.is_some_and(|at| at <= now);
         let repair_due = retry_due || (self.retry_at.is_none() && self.repair);
-        let shown = self.session.as_ref().map(Session::size);
-        let (size, changed) = match (&slot.picture, shown) {
-            (Some(picture), _) => ((picture.width, picture.height), Some(slot.changed)),
-            (None, Some(size)) if repair_due => (size, Some(1.0)),
-            (None, Some(size)) if self.retry_at.is_none() => (size, None),
-            _ => return Err(self.retry_at.filter(|at| *at > now)),
+        let Some(shown) = slot.picture.as_ref().or(self.last.as_ref()) else {
+            return Err(None);
         };
-        let key = self.repair || shown != Some(size);
+        let size = (shown.width, shown.height);
+        let current = self
+            .session
+            .as_ref()
+            .map(|session| (session.size(), session.codec()));
+        let key = self.repair || current != Some((size, self.codec));
         let pixels = rate::pixels(size.0, size.1);
-        let choice = if let Some(changed) = changed {
-            self.rate.picture(changed, key, pixels, now).map_err(Some)?
+        let choice = if slot.picture.is_some() {
+            self.rate.picture(slot.changed, key, pixels, now)
+        } else if repair_due {
+            self.rate.picture(1.0, true, pixels, now)
+        } else if self.retry_at.is_some() {
+            return Err(self.retry_at);
         } else {
             let settled = self.drawn_at + SETTLED;
             if self.rate.sharp() {
@@ -153,8 +197,9 @@ impl Worker<'_> {
             if now < settled {
                 return Err(Some(settled));
             }
-            self.rate.pass(pixels, now).ok_or(None)?.map_err(Some)?
-        };
+            self.rate.pass(pixels, now).ok_or(None)?
+        }
+        .map_err(Some)?;
         let picture = slot.picture.take();
         if picture.is_some() {
             slot.changed = 0.0;
@@ -170,63 +215,53 @@ impl Worker<'_> {
         })
     }
 
-    /// Encodes a frame; on failure, gives back the new picture that it could not encode.
-    fn code(&mut self, job: Job) -> Result<(), Option<Pixels>> {
-        let Job {
-            picture,
-            key,
-            choice,
-        } = job;
-        if let Some(new) = &picture
-            && self.load(new).is_err()
-        {
-            return Err(picture);
-        }
-        let Some(Ok(data)) = self
-            .session
-            .as_mut()
-            .map(|session| session.encode(key, choice.quantizer))
-        else {
-            return Err(picture);
-        };
-        if let Some(picture) = picture {
-            self.region = picture.region;
+    /// Encodes a frame of the new picture, or of the last one again.
+    fn code(&mut self, job: Job) -> Result<(), va::Status> {
+        let fresh = job.picture.is_some();
+        if let Some(picture) = job.picture {
+            if let Some(shown) = self.last.replace(picture) {
+                pixels::lock(self.shared).spare = shown.bgra;
+            }
             self.drawn_at = Instant::now();
-            pixels::lock(self.shared).spare = picture.bgra;
         }
+        let Some(last) = &self.last else {
+            return Ok(());
+        };
+        let size = (last.width, last.height);
+        let region = last.region;
+        let stale = self
+            .session
+            .as_ref()
+            .is_none_or(|session| (session.size(), session.codec()) != (size, self.codec));
+        if stale {
+            self.session = None;
+            self.session = Some(Session::start(&self.display, self.gpu, self.codec, size)?);
+        }
+        let (Some(session), Some(last)) = (&mut self.session, &self.last) else {
+            return Ok(());
+        };
+        if fresh || stale {
+            session.load(&last.bgra)?;
+        }
+        let codec = session.codec();
+        let data = session.encode(job.key, job.choice.quantizer)?;
         let size = data.len();
         let taken = self.output.frame(Encoded {
-            codec: Codec::H264,
-            kind: if key {
+            codec,
+            kind: if job.key {
                 FrameKind::Key
             } else {
                 FrameKind::Delta
             },
             mark: None,
-            region: self.region,
+            region,
             data: Bytes::from(data),
         });
-        self.rate.coded(choice, if taken { size } else { 0 });
+        self.rate.coded(job.choice, if taken { size } else { 0 });
         if !taken {
             self.repair = true;
             self.retry_at = Some(Instant::now() + RETRY);
         }
         Ok(())
-    }
-
-    /// Puts a picture on the GPU, in a new session when its size changed.
-    fn load(&mut self, picture: &Pixels) -> Result<(), va::Status> {
-        let size = (picture.width, picture.height);
-        if self
-            .session
-            .as_ref()
-            .is_none_or(|session| session.size() != size)
-        {
-            self.session = None;
-            self.session = Some(Session::start(&self.display, self.entrypoint, size)?);
-        }
-        self.session
-            .as_ref()
-            .map_or(Ok(()), |session| session.load(&picture.bgra))
     }
 }

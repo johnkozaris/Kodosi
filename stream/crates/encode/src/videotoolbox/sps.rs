@@ -44,7 +44,7 @@ pub(super) fn allowing_gaps(nal: &[u8]) -> Option<Vec<u8>> {
     let at = bits.at;
     let mut rbsp = bits.rbsp;
     *rbsp.get_mut(at / 8)? |= 0x80 >> (at % 8);
-    Some(escape(header, &rbsp))
+    Some(escape(&[header], &rbsp))
 }
 
 struct Bits {
@@ -109,6 +109,6 @@ mod tests {
     #[test]
     fn the_bytes_that_would_look_like_a_start_code_keep_their_escape() {
         let payload = [0x42, 0x00, 0x00, 0x03, 0x00, 0x01, 0x00, 0x00, 0x03, 0x03];
-        assert_eq!(escape(0x67, &unescape(&payload))[1..], payload);
+        assert_eq!(escape(&[0x67], &unescape(&payload))[1..], payload);
     }
 }

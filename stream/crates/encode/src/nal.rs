@@ -2,8 +2,8 @@
 //! look like a start code.
 
 /// A unit of `header` and an escaped `rbsp` payload.
-pub(crate) fn escape(header: u8, rbsp: &[u8]) -> Vec<u8> {
-    let mut nal = vec![header];
+pub(crate) fn escape(header: &[u8], rbsp: &[u8]) -> Vec<u8> {
+    let mut nal = header.to_vec();
     let mut zeros = 0;
     for &byte in rbsp {
         if zeros >= 2 && byte <= 3 {

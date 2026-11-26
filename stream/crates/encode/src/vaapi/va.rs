@@ -21,6 +21,7 @@ pub(super) const OUT_OF_RANGE: Status = -1;
 pub(super) const NO_ID: Id = Id::MAX;
 
 pub(super) const H264_HIGH: c_int = 7;
+pub(super) const HEVC_MAIN: c_int = 17;
 pub(super) const NO_PROFILE: c_int = -1;
 pub(super) const ENCODE: c_int = 6;
 pub(super) const ENCODE_LOW_POWER: c_int = 8;
@@ -29,6 +30,12 @@ pub(super) const VIDEO_PROCESSING: c_int = 10;
 pub(super) const ATTRIBUTE_FORMAT: c_int = 0;
 pub(super) const ATTRIBUTE_RATE_CONTROL: c_int = 5;
 pub(super) const ATTRIBUTE_PACKED_HEADERS: c_int = 10;
+pub(super) const ATTRIBUTE_PREDICTION: c_int = 39;
+pub(super) const ATTRIBUTE_HEVC_FEATURES: c_int = 50;
+pub(super) const ATTRIBUTE_HEVC_BLOCKS: c_int = 51;
+pub(super) const NOT_SUPPORTED: u32 = 0x8000_0000;
+/// `VA_PREDICTION_DIRECTION_BI_NOT_EMPTY`: B slices that stand for P frames need both lists.
+pub(super) const BOTH_LISTS: u32 = 0x4;
 pub(super) const FORMAT_YUV420: u32 = 0x1;
 pub(super) const FORMAT_RGB32: u32 = 0x2_0000;
 pub(super) const CONSTANT_QUANTIZER: u32 = 0x10;
@@ -48,9 +55,14 @@ pub(super) const PACKED_DATA: c_int = 26;
 pub(super) const PIPELINE: c_int = 41;
 
 pub(super) const SHORT_TERM_REFERENCE: u32 = 0x8;
+/// `VA_PICTURE_HEVC_RPS_ST_CURR_BEFORE`: a reference that shows before the current picture.
+pub(super) const CURRENT_BEFORE: u32 = 0x10;
 const PICTURE_INVALID: u32 = 0x1;
 const PROGRESSIVE: c_int = 1;
 const ATTRIBUTE_PIXEL_FORMAT: c_int = 1;
+/// `VASurfaceAttribAlignmentSize`: the log2 of the width a coded size must be a multiple of in
+/// the low four bits, and of the height in the next four.
+const ATTRIBUTE_ALIGNMENT: c_int = 10;
 const SETTABLE: u32 = 0x2;
 const INTEGER: c_int = 1;
 
@@ -287,6 +299,115 @@ pub(super) struct SliceH264 {
     pub(super) reserved: [u32; 4],
 }
 
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub(super) struct PictureHevc {
+    pub(super) surface: Id,
+    pub(super) order: i32,
+    pub(super) flags: u32,
+    pub(super) reserved: [u32; 4],
+}
+
+impl PictureHevc {
+    pub(super) const NONE: Self = Self {
+        surface: NO_ID,
+        order: 0,
+        flags: PICTURE_INVALID,
+        reserved: [0; 4],
+    };
+}
+
+#[repr(C)]
+pub(super) struct SequenceHevc {
+    pub(super) profile: u8,
+    pub(super) level: u8,
+    pub(super) tier: u8,
+    pub(super) intra_period: u32,
+    pub(super) idr_period: u32,
+    pub(super) ip_period: u32,
+    pub(super) bits_per_second: u32,
+    pub(super) width: u16,
+    pub(super) height: u16,
+    /// Bit fields from `chroma_format_idc` in the lowest bits up.
+    pub(super) fields: u32,
+    pub(super) log2_min_block_minus3: u8,
+    pub(super) log2_block_range: u8,
+    pub(super) log2_min_transform_minus2: u8,
+    pub(super) log2_transform_range: u8,
+    pub(super) depth_inter: u8,
+    pub(super) depth_intra: u8,
+    pub(super) pcm_luma_depth_minus1: u32,
+    pub(super) pcm_chroma_depth_minus1: u32,
+    pub(super) log2_min_pcm_minus3: u32,
+    pub(super) log2_max_pcm_minus3: u32,
+    pub(super) vui_present: u8,
+    pub(super) vui_fields: u32,
+    pub(super) aspect_ratio: u8,
+    pub(super) sample_width: u32,
+    pub(super) sample_height: u32,
+    pub(super) units_in_tick: u32,
+    pub(super) time_scale: u32,
+    pub(super) min_spatial_segmentation: u16,
+    pub(super) max_bytes_per_picture_denominator: u8,
+    pub(super) max_bits_per_block_denominator: u8,
+    pub(super) screen_content_fields: u32,
+    pub(super) reserved: [u32; 7],
+}
+
+#[repr(C)]
+pub(super) struct PictureParametersHevc {
+    pub(super) current: PictureHevc,
+    pub(super) references: [PictureHevc; 15],
+    pub(super) coded: Id,
+    pub(super) collocated_reference: u8,
+    pub(super) last_picture: u8,
+    pub(super) initial_quantizer: u8,
+    pub(super) quantizer_delta_depth: u8,
+    pub(super) cb_offset: i8,
+    pub(super) cr_offset: i8,
+    pub(super) tile_columns_minus1: u8,
+    pub(super) tile_rows_minus1: u8,
+    pub(super) column_widths_minus1: [u8; 19],
+    pub(super) row_heights_minus1: [u8; 21],
+    pub(super) log2_parallel_merge_minus2: u8,
+    pub(super) most_tree_bits: u8,
+    pub(super) list0_default_minus1: u8,
+    pub(super) list1_default_minus1: u8,
+    pub(super) picture_set: u8,
+    pub(super) nal_unit_type: u8,
+    /// Bit fields from `idr_pic_flag` in the lowest bit up.
+    pub(super) fields: u32,
+    pub(super) hierarchical_level_plus1: u8,
+    pub(super) byte_reserved: u8,
+    pub(super) screen_content_fields: u16,
+    pub(super) reserved: [u32; 15],
+}
+
+#[repr(C)]
+pub(super) struct SliceHevc {
+    pub(super) address: u32,
+    pub(super) trees: u32,
+    pub(super) slice_type: u8,
+    pub(super) picture_set: u8,
+    pub(super) list0_references_minus1: u8,
+    pub(super) list1_references_minus1: u8,
+    pub(super) list0: [PictureHevc; 15],
+    pub(super) list1: [PictureHevc; 15],
+    /// Weighted prediction's tables, which the encoder leaves off.
+    pub(super) weights: [u8; 182],
+    pub(super) merge_candidates: u8,
+    pub(super) quantizer_delta: i8,
+    pub(super) cb_offset: i8,
+    pub(super) cr_offset: i8,
+    pub(super) beta_offset: i8,
+    pub(super) tc_offset: i8,
+    /// Bit fields from `last_slice_of_pic_flag` in the lowest bit up.
+    pub(super) fields: u32,
+    pub(super) weight_table_offset: u32,
+    pub(super) weight_table_length: u32,
+    pub(super) reserved: [u32; 6],
+}
+
 // libva's layouts on 64-bit Linux.
 const _: () = {
     assert!(size_of::<ConfigAttribute>() == 8);
@@ -299,6 +420,10 @@ const _: () = {
     assert!(size_of::<SequenceH264>() == 1132);
     assert!(size_of::<PictureParametersH264>() == 648);
     assert!(size_of::<SliceH264>() == 3140);
+    assert!(size_of::<PictureHevc>() == 28);
+    assert!(size_of::<SequenceHevc>() == 116);
+    assert!(size_of::<PictureParametersHevc>() == 576);
+    assert!(size_of::<SliceHevc>() == 1076);
 };
 
 macro_rules! zeroed_by_default {
@@ -312,7 +437,15 @@ macro_rules! zeroed_by_default {
     };
 }
 
-zeroed_by_default!(Pipeline, SequenceH264, PictureParametersH264, SliceH264);
+zeroed_by_default!(
+    Pipeline,
+    SequenceH264,
+    PictureParametersH264,
+    SliceH264,
+    SequenceHevc,
+    PictureParametersHevc,
+    SliceHevc
+);
 
 macro_rules! library {
     ($($name:ident = $symbol:literal: fn($($argument:ty),*) -> $result:ty;)*) => {
@@ -377,6 +510,7 @@ library! {
     render_picture = c"vaRenderPicture": fn(Handle, Id, *mut Id, c_int) -> Status;
     end_picture = c"vaEndPicture": fn(Handle, Id) -> Status;
     sync_surface = c"vaSyncSurface": fn(Handle, Id) -> Status;
+    surface_attributes = c"vaQuerySurfaceAttributes": fn(Handle, Id, *mut SurfaceAttribute, *mut c_uint) -> Status;
 }
 
 fn library() -> Option<&'static Library> {
@@ -495,6 +629,47 @@ impl Display {
             )
         })?;
         Ok(config)
+    }
+
+    /// The width and height that an encoder's coded size must be multiples of, as far as the
+    /// driver says.
+    pub(super) fn alignment(&self, profile: c_int, entrypoint: c_int) -> (usize, usize) {
+        let Ok(config) = self.create_config(profile, entrypoint, &[]) else {
+            return (1, 1);
+        };
+        let mut count: c_uint = 0;
+        // SAFETY: without a list, libva only counts the attributes.
+        let counted = unsafe {
+            (self.library.surface_attributes)(self.handle, config, ptr::null_mut(), &raw mut count)
+        };
+        let mut attributes: Vec<SurfaceAttribute> = (0..count)
+            .map(|_| SurfaceAttribute {
+                kind: 0,
+                flags: 0,
+                value_kind: 0,
+                value: Value { integer: 0 },
+            })
+            .collect();
+        // SAFETY: the list holds `count` attributes.
+        let listed = counted == SUCCESS
+            && unsafe {
+                (self.library.surface_attributes)(
+                    self.handle,
+                    config,
+                    attributes.as_mut_ptr(),
+                    &raw mut count,
+                )
+            } == SUCCESS;
+        self.destroy_config(config);
+        attributes
+            .iter()
+            .take(if listed { count as usize } else { 0 })
+            .find(|attribute| attribute.kind == ATTRIBUTE_ALIGNMENT)
+            .map_or((1, 1), |attribute| {
+                // SAFETY: libva sets the alignment as an integer.
+                let log2 = unsafe { attribute.value.integer }.cast_unsigned();
+                (1 << (log2 & 0xf), 1 << ((log2 >> 4) & 0xf))
+            })
     }
 
     pub(super) fn destroy_config(&self, config: Id) {

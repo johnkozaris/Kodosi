@@ -254,6 +254,8 @@ the encoders, chosen at run time from what the computer has (VideoToolbox with M
 macOS, VA-API on Linux graphics that encode H.264, OpenH264 elsewhere). The browser engine and
 Kodosi Screen encode with it, and the host runs its flow control. libva is loaded at run time, so a
 Linux computer without it encodes in software, and a stream whose GPU fails continues in OpenH264.
+VA-API also encodes HEVC where the driver reports which coding tools its encoder uses, since the
+stream's own parameter sets must name them.
 
 Each viewer declares the codecs it decodes and which of them in hardware. A stream uses HEVC only
 while its source encodes it and every viewer decodes it in hardware, since decoding HEVC in

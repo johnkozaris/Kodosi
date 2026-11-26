@@ -8,7 +8,7 @@ use std::{
     time::Instant,
 };
 
-use stream::Region;
+use stream::{Format, Region};
 
 use crate::Picture;
 
@@ -26,6 +26,8 @@ pub(crate) struct Slot {
     pub(crate) changed: f64,
     pub(crate) spare: Vec<u8>,
     pub(crate) key: bool,
+    /// A new format for the stream, which `OpenH264` encodes as H.264 all the same.
+    pub(crate) format: Option<Format>,
     pub(crate) bitrate: Option<u32>,
     pub(crate) stop: bool,
 }
@@ -78,6 +80,14 @@ impl Encoder {
 
     pub(crate) fn want_key(&self) {
         self.change(|slot| slot.key = true);
+    }
+
+    /// Restarts the stream in the new format; the next frame is a keyframe.
+    pub(crate) fn set_format(&self, format: Format) {
+        self.change(|slot| {
+            slot.format = Some(format);
+            slot.key = true;
+        });
     }
 
     pub(crate) fn set_bitrate(&self, bitrate: u32) {
