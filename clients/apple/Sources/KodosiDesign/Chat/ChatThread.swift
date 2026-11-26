@@ -239,12 +239,13 @@ struct ChatRowView: View {
         switch row.kind {
         case let .person(text, by):
             if let by, let me, by.id != me {
-                ChatOtherPerson(text: text, person: by, time: row.date)
+                ChatOtherPerson(text: text, person: by, time: row.date).copiesMessage(text).padding(.top, 16)
             } else {
-                PersonBubble(text: text).padding(.top, 18)
+                PersonBubble(text: text, copies: true).padding(.top, 18)
             }
         case let .answer(text, live):
-            AgentProse(text: text, live: live).padding(.top, 6)
+            AgentProse(text: text, live: live).frame(maxWidth: .infinity, alignment: .leading)
+                .copiesMessage(live ? nil : text).padding(.top, 6)
         case let .plan(text, live):
             VStack(alignment: .leading, spacing: 6) {
                 Label { Text(verbatim: ChatWords.mode(.plan)) } icon: { Image(systemName: ChatWords.symbol(.plan)) }
@@ -252,6 +253,7 @@ struct ChatRowView: View {
                 AgentProse(text: text, live: live).padding(12).frame(maxWidth: .infinity, alignment: .leading)
                     .raised(Radius.lg, fill: theme.colors.raised)
             }
+            .copiesMessage(live ? nil : text)
             .padding(.top, 8)
         case let .work(items):
             ChatWork(items: items, hold: hold).padding(.top, 4)
@@ -280,11 +282,10 @@ private struct ChatOtherPerson: View {
                     }
                 }
                 Text(ProjectMessageText.formatted(text))
-                    .appTextStyle(.body).lineSpacing(2).foregroundStyle(theme.colors.ink).textSelection(.enabled)
+                    .appTextStyle(.body).lineSpacing(2).foregroundStyle(theme.colors.ink).messageTextSelection()
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(.top, 16)
     }
 }
 

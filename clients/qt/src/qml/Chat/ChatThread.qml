@@ -134,6 +134,7 @@ Item {
             width: ListView.view.width
             height: body.y + body.height
             transformOrigin: Item.Bottom
+            z: hover.hovered ? 2 : 1
             ListView.onAdd: {
                 if (root.settled)
                     arrive.restart()
@@ -145,6 +146,7 @@ Item {
                 NumberAnimation { target: entry; property: "opacity"; from: 0; to: 1; duration: KodosiTheme.motionFade }
                 NumberAnimation { target: entry; property: "scale"; from: 0.97; to: 1; duration: KodosiTheme.motionSpring; easing.type: Easing.OutCubic }
             }
+            HoverHandler { id: hover }
 
             Loader {
                 id: body
@@ -174,6 +176,15 @@ Item {
                     text: entry.line.text || ""
                     look: root.look
                     onLinkActivated: link => root.linkActivated(link)
+
+                    CopyKey {
+                        x: parent.width - width
+                        y: -10
+                        message: entry.line.text || ""
+                        shown: hover.hovered
+                        look: root.look
+                        objectName: "chat.message.copy." + entry.line.id
+                    }
                 }
             }
             Component {
@@ -227,6 +238,14 @@ Item {
                         selectedTextColor: root.look.accentInk
                         Accessible.ignored: true
                         onLinkActivated: link => root.linkActivated(link)
+                    }
+                    CopyKey {
+                        x: parent.width - width
+                        y: -10
+                        message: entry.line.text || ""
+                        shown: hover.hovered
+                        look: root.look
+                        objectName: "chat.message.copy." + entry.line.id
                     }
                 }
             }
@@ -326,54 +345,79 @@ Item {
                         look: root.look
                         onLinkActivated: link => root.linkActivated(link)
                     }
+                    CopyKey {
+                        x: parent.width - width
+                        y: prose.y - 10
+                        enabled: entry.line.live !== true
+                        message: entry.line.text || ""
+                        shown: hover.hovered
+                        look: root.look
+                        objectName: "chat.message.copy." + entry.line.id
+                    }
                 }
             }
             Component {
                 id: planView
 
-                Column {
-                    topPadding: 8
-                    spacing: 6
+                Item {
+                    implicitHeight: plan.implicitHeight
 
-                    Row {
-                        spacing: 5
+                    Column {
+                        id: plan
 
-                        KIcon {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: KodosiTheme.scaled(11)
-                            height: KodosiTheme.scaled(11)
-                            name: "tasks"
-                            strokeWidth: 2.2
-                            color: root.look.inkMuted
+                        width: parent.width
+                        topPadding: 8
+                        spacing: 6
+
+                        Row {
+                            spacing: 5
+
+                            KIcon {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: KodosiTheme.scaled(11)
+                                height: KodosiTheme.scaled(11)
+                                name: "tasks"
+                                strokeWidth: 2.2
+                                color: root.look.inkMuted
+                            }
+                            PlainLabel {
+                                text: qsTr("Plan")
+                                color: root.look.inkMuted
+                                font.pixelSize: KodosiTheme.fontCaption
+                                font.weight: Font.Medium
+                            }
                         }
-                        PlainLabel {
-                            text: qsTr("Plan")
-                            color: root.look.inkMuted
-                            font.pixelSize: KodosiTheme.fontCaption
-                            font.weight: Font.Medium
+                        Item {
+                            width: parent.width
+                            implicitHeight: planProse.implicitHeight + 24
+
+                            Raised {
+                                anchors.fill: parent
+                                radius: KodosiTheme.radiusLg
+                                look: root.look
+                                fill: root.look.raised
+                            }
+                            AgentProse {
+                                id: planProse
+
+                                x: 12
+                                y: 12
+                                width: parent.width - 24
+                                blocks: entry.line.blocks || []
+                                live: entry.line.live === true
+                                look: root.look
+                                onLinkActivated: link => root.linkActivated(link)
+                            }
                         }
                     }
-                    Item {
-                        width: parent.width
-                        implicitHeight: planProse.implicitHeight + 24
-
-                        Raised {
-                            anchors.fill: parent
-                            radius: KodosiTheme.radiusLg
-                            look: root.look
-                            fill: root.look.raised
-                        }
-                        AgentProse {
-                            id: planProse
-
-                            x: 12
-                            y: 12
-                            width: parent.width - 24
-                            blocks: entry.line.blocks || []
-                            live: entry.line.live === true
-                            look: root.look
-                            onLinkActivated: link => root.linkActivated(link)
-                        }
+                    CopyKey {
+                        x: parent.width - width
+                        y: plan.topPadding - 10
+                        enabled: entry.line.live !== true
+                        message: entry.line.text || ""
+                        shown: hover.hovered
+                        look: root.look
+                        objectName: "chat.message.copy." + entry.line.id
                     }
                 }
             }

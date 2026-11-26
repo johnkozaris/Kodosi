@@ -84,6 +84,7 @@
         private var isReadOnlySelectionDrag = false
         private var runtimeRejectedFocus = false
         private var clipboardPromptOpen = false
+        private var keyOfferedToMenu: NSEvent?
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
@@ -182,12 +183,22 @@
             }
             // Let the app's main menu claim Command shortcuts before Ghostty's default bindings
             // (such as Cmd+N and Cmd+K) intercept them.
-            if modifiers.contains(.command),
-               NSApp.mainMenu?.performKeyEquivalent(with: event) == true
-            {
-                return true
+            if modifiers.contains(.command) {
+                keyOfferedToMenu = event
+                defer { keyOfferedToMenu = nil }
+                if NSApp.mainMenu?.performKeyEquivalent(with: event) == true {
+                    return true
+                }
             }
             return super.performKeyEquivalent(with: event)
+        }
+
+        /// Programs that select text themselves, such as agent CLIs that take the mouse, copy on
+        /// Cmd+C. With nothing selected in the terminal, the key goes on to the program, as in Ghostty.
+        override func copy(_: Any?) {
+            if !copySelectedTextToPasteboard(), let keyOfferedToMenu {
+                keyDown(with: keyOfferedToMenu)
+            }
         }
 
         override func tryToPerform(_ action: Selector, with object: Any?) -> Bool {

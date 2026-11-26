@@ -315,6 +315,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/ChangeLines.qml
         qml/Controls/CodeWell.qml
         qml/Controls/ComposerBox.qml
+        qml/Controls/CopyKey.qml
         qml/Controls/DayDivider.qml
         qml/Controls/LatestKey.qml
         qml/Controls/PersonBubble.qml

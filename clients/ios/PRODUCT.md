@@ -23,7 +23,8 @@ only resizes a terminal while that terminal has focus.
 ### Screen and chat views
 Terminals with chat-capable agents can toggle between the terminal screen (with the accessory key
 row) and the chat view. Each terminal opens in whichever view its agent runs in, and you can
-switch views at any time.
+switch views at any time. In the chat, a long press on a message or a finished answer copies it
+whole, as written, or opens it to select part of it.
 
 ### Full-screen canvas
 The canvas opens full screen on demand and never interrupts you automatically. When an agent shows

@@ -39,7 +39,9 @@ Terminals with chat-capable agents support toggling between the terminal screen 
 the header, opening on whichever view the agent uses. Dragging scrolls the terminal (or sends
 scroll-wheel events when a program enables mouse reporting). Text selection, copy/paste (including
 images), shared link rules, header renaming, live agent setting changes (with a notice when
-queued for the next turn), and Android's predictive back gesture are all supported.
+queued for the next turn), and Android's predictive back gesture are all supported. In the chat
+view, a long press on a message or a finished agent answer offers to copy it as written or to
+select part of it.
 
 From a terminal's menu, its owner shares it with friends or with a project, and everyone else sees
 who shared it with them. A change that lets someone new in waits for the owner's OK in a dialog,

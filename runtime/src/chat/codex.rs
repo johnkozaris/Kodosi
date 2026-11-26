@@ -67,6 +67,8 @@ enum Follows {
 struct Turn {
     id: Option<String>,
     stopped: bool,
+    /// Codex did not take a message into this turn, so the next ones wait for its end.
+    refuses_messages: bool,
 }
 
 struct Asked {
@@ -90,6 +92,8 @@ struct Handed {
     queued: Option<String>,
     text: String,
     by: Option<ChatPerson>,
+    /// Given to the running turn, and Codex has not yet answered whether the turn took it.
+    steering: bool,
 }
 
 impl Codex {
@@ -207,6 +211,8 @@ impl Codex {
                 self.history(chat, result);
             }
             ("prompt" | "plan", None) => self.refused(chat, name, event),
+            ("steer", Some(_)) => self.steered(chat, name),
+            ("steer", None) => self.not_steered(name),
             ("background", Some(result)) => {
                 let ended = std::mem::take(&mut self.stopped);
                 let Some(thread) = self.thread.clone() else {
@@ -244,6 +250,73 @@ impl Codex {
             chat.refuse(&queued, start_of(reason, MOST_TARGET).to_owned());
             self.held = true;
         }
+    }
+
+    /// Codex took a message into its turn. When the turn ended before that answer, Codex shows
+    /// nothing more of the message, so it leaves the queue now.
+    fn steered(&mut self, chat: &mut Chat, n: &str) {
+        let n = n.parse::<u64>().ok();
+        let Some(index) = self.handed.iter().position(|handed| Some(handed.n) == n) else {
+            return;
+        };
+        if self.turn.is_some() {
+            self.handed[index].steering = false;
+        } else if let Some(Handed {
+            queued: Some(queued),
+            ..
+        }) = self.handed.remove(index)
+        {
+            chat.unqueue(&queued);
+        }
+    }
+
+    /// Codex did not take a message into its turn, as when the turn ended meanwhile; the message
+    /// stays in the queue for the next turn.
+    fn not_steered(&mut self, n: &str) {
+        let n = n.parse::<u64>().ok();
+        if let Some(index) = self.handed.iter().position(|handed| Some(handed.n) == n) {
+            self.handed.remove(index);
+        }
+        if let Some(turn) = &mut self.turn {
+            turn.refuses_messages = true;
+        }
+    }
+
+    /// The first queued message for the turn that runs, as Enter gives it in Codex's terminal. A
+    /// command, and the follow-up of a plan decision, wait for the turn to end.
+    fn steer(&mut self, chat: &Chat) -> Option<Value> {
+        let turn = self
+            .turn
+            .as_ref()
+            .filter(|turn| !turn.stopped && !turn.refuses_messages)?
+            .id
+            .clone()?;
+        let thread = self.thread.clone()?;
+        if self.said.is_some() {
+            return None;
+        }
+        let queued = chat
+            .queued()
+            .first()
+            .filter(|queued| !queued.text.trim_start().starts_with(['/', '!']))?;
+        self.sent += 1;
+        self.handed.push_back(Handed {
+            n: self.sent,
+            queued: Some(queued.id.clone()),
+            text: queued.text.clone(),
+            by: queued.by.clone(),
+            steering: true,
+        });
+        Some(json!({
+            "do": "call",
+            "tag": format!("steer:{}", self.sent),
+            "m": "turn/steer",
+            "p": {
+                "threadId": thread,
+                "expectedTurnId": turn,
+                "input": [{"type": "text", "text": queued.text, "text_elements": []}],
+            },
+        }))
     }
 
     /// Adopts the terminal's main user thread, skipping internal threads Codex creates for title
@@ -388,7 +461,7 @@ impl Codex {
             "turn/started" => {
                 self.turn = Some(Turn {
                     id: words(&params["turn"], "id"),
-                    stopped: false,
+                    ..Turn::default()
                 });
                 self.now = None;
                 self.held = false;
@@ -400,8 +473,13 @@ impl Codex {
             "turn/completed" => {
                 let closed = self.end_turn(chat, &params["turn"], at);
                 // Unqueue any handed prompts whose echoed text did not match verbatim in
-                // `said_by_person`.
-                for handed in std::mem::take(&mut self.handed) {
+                // `said_by_person`. A message given to the turn waits for Codex's answer, which
+                // says whether the turn took it before it ended.
+                let (steering, handed) = std::mem::take(&mut self.handed)
+                    .into_iter()
+                    .partition(|handed| handed.steering);
+                self.handed = steering;
+                for handed in handed {
                     if let Some(queued) = handed.queued {
                         chat.unqueue(&queued);
                     }
@@ -1046,11 +1124,12 @@ impl Agent for Codex {
 
     fn commands(&mut self, chat: &Chat) -> Vec<Value> {
         let mut commands = self.calls.drain(..).collect::<Vec<_>>();
-        let ready = self.linked
-            && !self.held
-            && self.turn.is_none()
-            && self.handed.is_empty()
-            && chat.asks().is_empty();
+        let free = self.linked && !self.held && self.handed.is_empty() && chat.asks().is_empty();
+        if free && let Some(steer) = self.steer(chat) {
+            commands.push(steer);
+            return commands;
+        }
+        let ready = free && self.turn.is_none();
         let (true, Some(thread)) = (ready, self.thread.clone()) else {
             return commands;
         };
@@ -1085,6 +1164,7 @@ impl Agent for Codex {
                         queued,
                         text,
                         by,
+                        steering: false,
                     });
                 }
                 return commands;
@@ -1125,6 +1205,7 @@ impl Agent for Codex {
                 queued,
                 text,
                 by,
+                steering: false,
             });
         }
         commands

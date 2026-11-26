@@ -91,12 +91,23 @@ struct PickerList: View {
     let close: () -> Void
     @State private var highlighted: String?
     @State private var filter = ""
-    @FocusState private var focused: Bool
+    @State private var caret: TextSelection?
+    @State private var typed = false
+    @FocusState private var focus: Focus?
+
+    private enum Focus {
+        case list, filter
+    }
 
     private static let visibleRows = 7
 
     private var rowHeight: CGFloat {
         rows.contains { $0.subtitle != nil } ? 44 : 32
+    }
+
+    /// A short list shows its filter only once a person types.
+    private var filters: Bool {
+        typed || rows.count > Self.visibleRows
     }
 
     private var matches: [PickerRow] {
@@ -112,8 +123,8 @@ struct PickerList: View {
     var body: some View {
         let matches = matches
         VStack(alignment: .leading, spacing: 0) {
-            if rows.count > Self.visibleRows || !filter.isEmpty {
-                filterWell.padding(.horizontal, 8).padding(.top, 8)
+            if filters {
+                filterField.padding(.horizontal, 8).padding(.top, 8)
             }
             ScrollViewReader { proxy in
                 ScrollView(.vertical) {
@@ -142,7 +153,7 @@ struct PickerList: View {
         }
         .frame(width: width)
         .focusable()
-        .focused($focused)
+        .focused($focus, equals: .list)
         .focusEffectDisabled()
         .onKeyPress(.upArrow) { move(-1) }
         .onKeyPress(.downArrow) { move(1) }
@@ -152,48 +163,57 @@ struct PickerList: View {
             }
             return .handled
         }
-        .onKeyPress(.delete) {
-            guard !filter.isEmpty else { return .ignored }
-            filter.removeLast()
-            return .handled
-        }
-        .onKeyPress(phases: .down) { press in
-            guard press.modifiers.isDisjoint(with: [.command, .control, .option]),
-                  let character = press.characters.first, !character.isNewline, character.isLetter || character.isNumber
-                  || character.isPunctuation || character.isSymbol || (character == " " && !filter.isEmpty)
-            else { return .ignored }
-            filter.append(press.characters)
-            return .handled
-        }
+        .onKeyPress(phases: .down, action: startFilter)
         .onChange(of: filter) { _, _ in
             highlighted = self.matches.first { $0.kind != .note }?.id
         }
-        .onChange(of: focused) { _, focused in
-            if !focused {
+        .onChange(of: focus) { _, focus in
+            switch focus {
+            case nil:
                 close()
+            case .filter:
+                // AppKit selects the whole text of a field that it focuses, and the next key would
+                // replace what the person typed so far.
+                Task { caret = TextSelection(insertionPoint: filter.endIndex) }
+            case .list:
+                break
             }
         }
         .onAppear {
-            focused = true
+            focus = filters ? .filter : .list
             highlighted = (rows.first(where: \.current) ?? rows.first { $0.kind != .note })?.id
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(identifier)
     }
 
-    private var filterWell: some View {
+    private var filterField: some View {
         HStack(spacing: 7) {
             Image(systemName: "magnifyingglass").font(scaled: 11, weight: .semibold).foregroundStyle(theme.colors.inkFaint)
-            if filter.isEmpty {
-                Text("Type to find").appTextStyle(.footnote).foregroundStyle(theme.colors.inkFaint)
-            } else {
-                Text(verbatim: filter).appTextStyle(.footnote).foregroundStyle(theme.colors.ink)
-                CursorBlock(width: 2, height: 14, blinks: false)
-            }
-            Spacer(minLength: 0)
+            TextField("Type to find", text: $filter, selection: $caret)
+                .textFieldStyle(.plain)
+                .appTextStyle(.footnote)
+                .foregroundStyle(theme.colors.ink)
+                .tint(theme.colors.accent)
+                .focused($focus, equals: .filter)
+                .onAppear { focus = .filter }
+                .accessibilityIdentifier("\(identifier).filter")
         }
         .padding(.horizontal, 10).frame(height: 28)
         .well(Radius.sm)
+    }
+
+    private func startFilter(_ press: KeyPress) -> KeyPress.Result {
+        guard focus == .list, press.modifiers.isDisjoint(with: [.command, .control, .option]),
+              let character = press.characters.first, !character.isNewline, character.isLetter || character.isNumber
+              || character.isPunctuation || character.isSymbol || (character == " " && !filter.isEmpty)
+        else { return .ignored }
+        filter += press.characters
+        if filters {
+            focus = .filter
+        }
+        typed = true
+        return .handled
     }
 
     private func item(_ row: PickerRow) -> some View {

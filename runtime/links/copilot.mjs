@@ -218,7 +218,8 @@ async function run(command) {
   if (command.do !== 'prompt') return
   try {
     if (command.mode) await session.rpc.mode.set({ mode: String(command.mode) })
-    if (command.text) await session.send({ prompt: String(command.text) })
+    // `immediate` gives the message to the turn that runs, as Enter does in Copilot's terminal.
+    if (command.text) await session.send({ prompt: String(command.text), ...(command.steer && { mode: 'immediate' }) })
     tell('did', { n: command.n })
   } catch (error) {
     tell('did', { n: command.n, error: String((error && error.message) || error) })

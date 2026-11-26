@@ -92,7 +92,9 @@ The agent still runs inside its terminal as usual; the chat is simply a structur
 session. Supported agents report activity through their native extension or server interface, and
 messages, answers, and stops travel back the same way. Kodosi never scrapes the terminal screen or
 simulates keypresses for chat, so UI updates to an agent don't break it. Answering in chat answers
-the agent's real prompt, and permissions stay with the provider. Agents that don't report chat
+the agent's real prompt, and permissions stay with the provider. A message sent while the agent
+works joins the running turn, as typing in the agent's terminal does, when the agent's interface
+takes it there; otherwise it waits in a queue for the next turn. Agents that don't report chat
 events simply use the normal terminal view. Each terminal opens in whichever view its agent works
 in, across all devices.
 

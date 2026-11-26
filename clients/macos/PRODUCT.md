@@ -23,7 +23,8 @@ terminal, toggle its canvas, and rename it.
 
 A terminal supports both a terminal screen view and a chat view. It opens in whichever view its
 agent works in, the header switches between them, the terminal screen stays live while chat is
-shown, and you can switch the agent's model from either view.
+shown, and you can switch the agent's model from either view. Pointing at a message or a finished
+answer in the chat shows a key that copies it whole, as written.
 
 ## Canvas, projects, and Dosi
 

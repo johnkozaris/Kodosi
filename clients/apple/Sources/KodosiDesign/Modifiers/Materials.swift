@@ -184,7 +184,25 @@ public extension View {
     func popoverSheet(width: CGFloat? = nil) -> some View {
         modifier(PopoverSheet(width: width))
     }
+
+    #if os(iOS)
+        func kodosiSheet() -> some View {
+            modifier(KodosiSheet())
+        }
+    #endif
 }
+
+#if os(iOS)
+    private struct KodosiSheet: ViewModifier {
+        @Environment(\.theme) private var theme
+
+        func body(content: Content) -> some View {
+            content
+                .presentationBackground(theme.colors.surface)
+                .presentationCornerRadius(Radius.sheet)
+        }
+    }
+#endif
 
 private struct TerminalScope: ViewModifier {
     @Environment(\.theme) private var theme

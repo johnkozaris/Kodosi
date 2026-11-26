@@ -2,10 +2,6 @@ import KodosiDesign
 import SwiftUI
 
 extension View {
-    func kodosiSheet() -> some View {
-        modifier(KodosiSheet())
-    }
-
     func readableWidth(_ width: CGFloat = 760) -> some View {
         modifier(ReadableWidth(width: width))
     }
@@ -46,16 +42,6 @@ private struct TabPage: ViewModifier {
             .toolbarTitleDisplayMode(inline || namedByTabBar ? .inline : .inlineLarge)
             .toolbar(removing: namedByTabBar ? .title : nil)
             .pageFacts(namedByTabBar ? nil : facts)
-    }
-}
-
-private struct KodosiSheet: ViewModifier {
-    @Environment(\.theme) private var theme
-
-    func body(content: Content) -> some View {
-        content
-            .presentationBackground(theme.colors.surface)
-            .presentationCornerRadius(Radius.sheet)
     }
 }
 

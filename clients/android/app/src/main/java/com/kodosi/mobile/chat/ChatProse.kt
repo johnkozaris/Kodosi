@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
@@ -183,25 +182,21 @@ internal fun ChatProse(text: String, live: Boolean, modifier: Modifier = Modifie
             when (block) {
                 is ProseBlock.Lines -> ProseLines(block.text, live && index == blocks.lastIndex)
 
-                is ProseBlock.Heading -> SelectionContainer {
-                    Text(
-                        rememberWords(block.text, true),
-                        style = KodosiType.subhead,
-                        color = colors.ink,
-                        modifier = Modifier.padding(top = if (index == 0) 0.dp else 3.dp)
-                    )
-                }
+                is ProseBlock.Heading -> Text(
+                    rememberWords(block.text, true),
+                    style = KodosiType.subhead,
+                    color = colors.ink,
+                    modifier = Modifier.padding(top = if (index == 0) 0.dp else 3.dp)
+                )
 
                 is ProseBlock.Code -> CodeWell(Modifier.fillMaxWidth()) {
-                    SelectionContainer {
-                        Text(
-                            block.text,
-                            style = ChatType.mono,
-                            color = colors.ink,
-                            softWrap = false,
-                            modifier = Modifier.horizontalScroll(rememberScrollState())
-                        )
-                    }
+                    Text(
+                        block.text,
+                        style = ChatType.mono,
+                        color = colors.ink,
+                        softWrap = false,
+                        modifier = Modifier.horizontalScroll(rememberScrollState())
+                    )
                 }
 
                 is ProseBlock.Table -> ProseTableView(block.table)
@@ -217,60 +212,58 @@ private fun ProseTableView(table: ProseTable) {
     val named = table.header.isNotEmpty()
     val rows = remember(table) { if (named) listOf(table.header) + table.rows else table.rows }
     val columns = table.columns
-    SelectionContainer {
-        Layout(
-            content = {
-                rows.forEachIndexed { row, words ->
-                    repeat(columns) { column ->
-                        key(row, column) {
-                            Text(
-                                rememberWords(words.getOrElse(column) { "" }, true),
-                                style = KodosiType.body,
-                                fontWeight = if (named && row == 0) FontWeight.SemiBold else null,
-                                color = colors.ink,
-                                textAlign = when (table.side(column)) {
-                                    ProseTable.Side.START -> TextAlign.Start
-                                    ProseTable.Side.CENTER -> TextAlign.Center
-                                    ProseTable.Side.END -> TextAlign.End
-                                }
-                            )
-                        }
+    Layout(
+        content = {
+            rows.forEachIndexed { row, words ->
+                repeat(columns) { column ->
+                    key(row, column) {
+                        Text(
+                            rememberWords(words.getOrElse(column) { "" }, true),
+                            style = KodosiType.body,
+                            fontWeight = if (named && row == 0) FontWeight.SemiBold else null,
+                            color = colors.ink,
+                            textAlign = when (table.side(column)) {
+                                ProseTable.Side.START -> TextAlign.Start
+                                ProseTable.Side.CENTER -> TextAlign.Center
+                                ProseTable.Side.END -> TextAlign.End
+                            }
+                        )
                     }
                 }
-                if (named) Box(Modifier.background(colors.hairline))
-            },
-            modifier = Modifier.horizontalScroll(rememberScrollState())
-        ) { measurables, _ ->
-            val gap = TableGap.roundToPx()
-            val space = TableSpace.roundToPx()
-            val line = TableLine.roundToPx().coerceAtLeast(1)
-            val cell = Constraints(maxWidth = WidestCell.roundToPx())
-            val cells = measurables.take(rows.size * columns).map { it.measure(cell) }.chunked(columns.coerceAtLeast(1))
-            val widths = List(columns) { column -> cells.maxOfOrNull { it[column].width } ?: 0 }
-            val heights = cells.map { row -> row.maxOfOrNull { it.height } ?: 0 }
-            val width = widths.sum() + gap * (columns - 1).coerceAtLeast(0)
-            val under = if (named) measurables.last().measure(Constraints.fixed(width, line)) else null
-            val height = heights.sum() + space * (heights.size - 1).coerceAtLeast(0) +
-                if (under != null) line + space else 0
-            layout(width, height) {
-                var y = 0
-                cells.forEachIndexed { row, placed ->
-                    var x = 0
-                    placed.forEachIndexed { column, words ->
-                        val free = widths[column] - words.width
-                        val start = when (table.side(column)) {
-                            ProseTable.Side.START -> 0
-                            ProseTable.Side.CENTER -> free / 2
-                            ProseTable.Side.END -> free
-                        }
-                        words.placeRelative(x + start, y)
-                        x += widths[column] + gap
+            }
+            if (named) Box(Modifier.background(colors.hairline))
+        },
+        modifier = Modifier.horizontalScroll(rememberScrollState())
+    ) { measurables, _ ->
+        val gap = TableGap.roundToPx()
+        val space = TableSpace.roundToPx()
+        val line = TableLine.roundToPx().coerceAtLeast(1)
+        val cell = Constraints(maxWidth = WidestCell.roundToPx())
+        val cells = measurables.take(rows.size * columns).map { it.measure(cell) }.chunked(columns.coerceAtLeast(1))
+        val widths = List(columns) { column -> cells.maxOfOrNull { it[column].width } ?: 0 }
+        val heights = cells.map { row -> row.maxOfOrNull { it.height } ?: 0 }
+        val width = widths.sum() + gap * (columns - 1).coerceAtLeast(0)
+        val under = if (named) measurables.last().measure(Constraints.fixed(width, line)) else null
+        val height = heights.sum() + space * (heights.size - 1).coerceAtLeast(0) +
+            if (under != null) line + space else 0
+        layout(width, height) {
+            var y = 0
+            cells.forEachIndexed { row, placed ->
+                var x = 0
+                placed.forEachIndexed { column, words ->
+                    val free = widths[column] - words.width
+                    val start = when (table.side(column)) {
+                        ProseTable.Side.START -> 0
+                        ProseTable.Side.CENTER -> free / 2
+                        ProseTable.Side.END -> free
                     }
-                    y += heights[row] + space
-                    if (row == 0 && under != null) {
-                        under.placeRelative(0, y)
-                        y += line + space
-                    }
+                    words.placeRelative(x + start, y)
+                    x += widths[column] + gap
+                }
+                y += heights[row] + space
+                if (row == 0 && under != null) {
+                    under.placeRelative(0, y)
+                    y += line + space
                 }
             }
         }
@@ -308,14 +301,12 @@ private fun ProseLines(text: String, live: Boolean) {
             words
         }
     }
-    SelectionContainer {
-        Text(
-            shown,
-            style = KodosiType.body,
-            color = colors.ink,
-            inlineContent = if (live) cursor else emptyMap()
-        )
-    }
+    Text(
+        shown,
+        style = KodosiType.body,
+        color = colors.ink,
+        inlineContent = if (live) cursor else emptyMap()
+    )
 }
 
 private const val CURSOR = "cursor"
