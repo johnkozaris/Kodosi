@@ -531,6 +531,10 @@
         <translation>共享浏览器</translation>
     </message>
     <message>
+        <source>Try again</source>
+        <translation>重试</translation>
+    </message>
+    <message>
         <source>Copy</source>
         <translation>复制</translation>
     </message>

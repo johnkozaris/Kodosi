@@ -532,6 +532,10 @@
         <translation>Geteilter Browser</translation>
     </message>
     <message>
+        <source>Try again</source>
+        <translation>Erneut versuchen</translation>
+    </message>
+    <message>
         <source>Copy</source>
         <translation>Kopieren</translation>
     </message>

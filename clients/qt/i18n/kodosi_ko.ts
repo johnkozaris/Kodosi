@@ -531,6 +531,10 @@
         <translation>공유 브라우저</translation>
     </message>
     <message>
+        <source>Try again</source>
+        <translation>다시 시도</translation>
+    </message>
+    <message>
         <source>Copy</source>
         <translation>복사</translation>
     </message>

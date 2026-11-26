@@ -532,6 +532,10 @@
         <translation>Κοινόχρηστος browser</translation>
     </message>
     <message>
+        <source>Try again</source>
+        <translation>Δοκιμάστε ξανά</translation>
+    </message>
+    <message>
         <source>Copy</source>
         <translation>Αντιγραφή</translation>
     </message>

@@ -532,6 +532,10 @@
         <translation>Browser condiviso</translation>
     </message>
     <message>
+        <source>Try again</source>
+        <translation>Riprova</translation>
+    </message>
+    <message>
         <source>Copy</source>
         <translation>Copia</translation>
     </message>

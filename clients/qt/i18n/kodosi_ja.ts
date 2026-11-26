@@ -531,6 +531,10 @@
         <translation>共有ブラウザ</translation>
     </message>
     <message>
+        <source>Try again</source>
+        <translation>再試行</translation>
+    </message>
+    <message>
         <source>Copy</source>
         <translation>コピー</translation>
     </message>

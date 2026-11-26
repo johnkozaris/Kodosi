@@ -532,6 +532,10 @@
         <translation>Navegador compartido</translation>
     </message>
     <message>
+        <source>Try again</source>
+        <translation>Reintentar</translation>
+    </message>
+    <message>
         <source>Copy</source>
         <translation>Copiar</translation>
     </message>

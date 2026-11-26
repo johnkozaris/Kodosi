@@ -532,6 +532,10 @@
         <translation>Navigateur partagé</translation>
     </message>
     <message>
+        <source>Try again</source>
+        <translation>Réessayer</translation>
+    </message>
+    <message>
         <source>Copy</source>
         <translation>Copier</translation>
     </message>
