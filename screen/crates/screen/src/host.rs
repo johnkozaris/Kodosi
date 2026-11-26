@@ -31,7 +31,9 @@ const EVENTS: usize = 1024;
 const VIEWER_QUEUE: usize = 1024;
 #[cfg(target_os = "macos")]
 const CONNECT_LIMIT: Duration = Duration::from_secs(30);
-const HELLO_LIMIT: Duration = Duration::from_secs(5);
+/// A helper that runs as the host's child says hello once it reached the desktop, which takes
+/// a while on a busy computer.
+const HELLO_LIMIT: Duration = Duration::from_secs(15);
 /// Join number, so that a closing pipe only removes its own seat and not a reconnected one.
 static SEATS: AtomicU64 = AtomicU64::new(1);
 
@@ -196,6 +198,7 @@ pub(crate) struct Started {
     /// The helper where the host runs it as its child, which ends with the screen.
     pub(crate) child: Option<tokio::process::Child>,
     pub(crate) encodable: Vec<stream::Codec>,
+    pub(crate) largest: (u32, u32),
     pub(crate) access: Access,
     pub(crate) away: Option<Away>,
 }
@@ -268,6 +271,7 @@ async fn hello(
             token: said,
             version,
             encodable,
+            largest,
             access,
             away,
         })) if said == token && version == VERSION => Ok(Started {
@@ -275,6 +279,7 @@ async fn hello(
             writer,
             child,
             encodable,
+            largest,
             access,
             away,
         }),

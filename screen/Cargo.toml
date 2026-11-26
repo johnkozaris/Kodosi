@@ -40,6 +40,8 @@ missing_const_for_fn = "allow"
 [workspace.dependencies]
 base64 = "0.23.1"
 bytes = "1.12.1"
+fast_image_resize = "6.2.0"
+png = "0.18.1"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 screen = { path = "crates/screen", default-features = false }

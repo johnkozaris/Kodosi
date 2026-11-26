@@ -142,6 +142,7 @@ impl Session {
             token,
             version: VERSION,
             encodable: Encoder::encodable(),
+            largest: Encoder::largest(),
             access: self.access,
             away: self.away,
         })

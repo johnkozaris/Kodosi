@@ -148,12 +148,23 @@ time, so Chromium is never compiled from source):
 
 ### Kodosi Screen
 
-Kodosi Screen, the helper app that captures a Mac's screen, ships inside the Mac app's
-`Contents/Helpers`, where the Mac build puts it with `screen/build/build-helper.py` and signs it.
-It is an app of its own so that macOS grants Screen Recording and Accessibility to it alone. A host
-that does not run from the app, such as `just rust-cli-build`, finds it through
-`KODOSI_SCREEN_HELPER`. The host starts it through Launch Services, so it needs its own permissions
-in System Settings even when the terminal that starts the host has them.
+Kodosi Screen, the helper that captures a computer's screen and plays viewers' input there, ships
+with each desktop app, which builds it with `screen/build/build-helper.py`:
+
+- On a Mac it is an app of its own inside the Mac app's `Contents/Helpers`, where the Mac build
+  puts it and signs it, so that macOS grants Screen Recording and Accessibility to it alone. The
+  host starts it through Launch Services, so it needs its own permissions in System Settings even
+  when the terminal that starts the host has them.
+- On Linux and Windows it is the `kodosi-screen` program next to the `kodosi` program, where the
+  app's build puts it, optimized even in a development build because it may encode video in
+  software. The host runs it as its child. On Linux it shares the screen through the desktop's
+  portal (remote desktop and screen cast, with the clipboard where the desktop offers it), PipeWire
+  and libei, so it needs a desktop whose portal offers remote desktop with libei input, such as
+  KDE Plasma 6. Building it needs PipeWire's headers and libclang (`libpipewire-0.3-dev` and
+  `libclang-dev` on Ubuntu), also for `just screen-check`.
+
+A host that does not run from an app, such as `just rust-cli-build`, finds the helper through
+`KODOSI_SCREEN_HELPER`: the `Kodosi Screen.app` folder on a Mac, the program elsewhere.
 
 ## Texts and languages
 

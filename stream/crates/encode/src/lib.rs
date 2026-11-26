@@ -74,7 +74,27 @@ enum Backend {
     Pixels(pixels::Encoder),
 }
 
+/// The largest picture, long side by short side, that graphics encode in real time.
+const LARGEST_ON_GRAPHICS: (u32, u32) = (4096, 2304);
+/// The largest picture that the processor encodes in real time without taking over the computer.
+#[cfg(not(target_os = "macos"))]
+const LARGEST_ON_PROCESSOR: (u32, u32) = (1920, 1080);
+
 impl Encoder {
+    /// The largest picture, long side by short side, that this computer encodes in real time.
+    pub fn largest() -> (u32, u32) {
+        #[cfg(target_os = "macos")]
+        return LARGEST_ON_GRAPHICS;
+        #[cfg(target_os = "linux")]
+        return if vaapi::encodable().is_some() {
+            LARGEST_ON_GRAPHICS
+        } else {
+            LARGEST_ON_PROCESSOR
+        };
+        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+        return LARGEST_ON_PROCESSOR;
+    }
+
     /// Codecs this computer encodes in real time.
     pub fn encodable() -> Vec<Codec> {
         #[cfg(target_os = "macos")]

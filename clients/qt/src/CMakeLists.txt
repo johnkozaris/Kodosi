@@ -567,15 +567,17 @@ endforeach()
 add_custom_target(kodosi-qt-host-program ALL
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${KODOSI_RUNTIME_CLI}"
         "$<TARGET_FILE_DIR:kodosi-qt>/${KODOSI_RUNTIME_CLI_NAME}"
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${KODOSI_SCREEN_HELPER}"
+        "$<TARGET_FILE_DIR:kodosi-qt>/${KODOSI_SCREEN_HELPER_NAME}"
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${KODOSI_AGENT_BROWSER}"
         "$<TARGET_FILE_DIR:kodosi-qt>/${KODOSI_AGENT_BROWSER_NAME}"
     COMMAND "${CMAKE_COMMAND}" -E copy_directory "${KODOSI_DOCUMENT_VIEWS}"
         "$<TARGET_FILE_DIR:kodosi-qt>/DocumentViews"
-    COMMENT "Placing the kodosi program, agent-browser and the document views next to the app"
+    COMMENT "Placing the kodosi program, Kodosi Screen, agent-browser and the document views next to the app"
     VERBATIM
 )
-add_dependencies(kodosi-qt-host-program kodosi-qt kodosi-runtime-library-build kodosi-agent-browser-build
-    kodosi-document-views-build)
+add_dependencies(kodosi-qt-host-program kodosi-qt kodosi-runtime-library-build kodosi-screen-helper-build
+    kodosi-agent-browser-build kodosi-document-views-build)
 
 kodosi_install(kodosi-qt)
 

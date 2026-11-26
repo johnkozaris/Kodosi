@@ -60,8 +60,8 @@ pub enum ToHelper {
     Notice {
         notice: Option<Notice>,
     },
-    /// Asks macOS for what the helper may not do yet, which shows the person at the computer
-    /// its prompts.
+    /// Asks the system for what the helper may not do yet, which may show the person at the
+    /// computer its prompts.
     Ask,
     /// Puts a viewer's text on the computer's clipboard, before the viewer pastes it.
     Clipboard {
@@ -92,6 +92,8 @@ pub enum FromHelper {
         token: String,
         version: u32,
         encodable: Vec<Codec>,
+        /// The largest picture, long side by short side, that the helper encodes in real time.
+        largest: (u32, u32),
         access: Access,
         away: Option<Away>,
     },
@@ -135,7 +137,7 @@ pub enum Away {
     AnotherAccount,
 }
 
-/// What macOS lets the helper do.
+/// What the system lets the helper do.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Access {

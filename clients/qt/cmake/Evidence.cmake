@@ -70,6 +70,10 @@ function(kodosi_install_evidence doc_dir)
         DESTINATION "${doc_dir}/rust"
     )
     install(
+        DIRECTORY "${KODOSI_SCREEN_HELPER_DIR}/notices/"
+        DESTINATION "${doc_dir}/screen"
+    )
+    install(
         DIRECTORY "${PROJECT_SOURCE_DIR}/packaging/licenses/qt/${KODOSI_QT_VERSION}/"
         DESTINATION "${doc_dir}/qt"
     )

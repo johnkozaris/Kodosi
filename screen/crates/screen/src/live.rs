@@ -32,8 +32,6 @@ const RETRY_CAPTURE: Duration = Duration::from_secs(1);
 const IDLE: Duration = Duration::from_mins(1);
 /// How long a helper that runs as the host's child has to quit before it is ended.
 const QUIT_LIMIT: Duration = Duration::from_secs(2);
-/// The largest picture `VideoToolbox` encodes in real time (long side, short side).
-const MOST_PICTURE: (f64, f64) = (4096.0, 2304.0);
 /// The smallest region a viewer zooms into, in points.
 const SMALLEST_REGION: f64 = 32.0;
 /// Modifier bits of viewer input.
@@ -219,6 +217,8 @@ pub(crate) struct Live {
     /// The helper where it runs as the host's child.
     child: Option<tokio::process::Child>,
     encodable: Vec<Codec>,
+    /// The largest picture that the helper encodes in real time, long side by short side.
+    largest: (f64, f64),
     access: Access,
     /// While nobody can see the screen, nothing captures it.
     away: Option<Away>,
@@ -258,6 +258,7 @@ impl Live {
             helper,
             child: started.child,
             encodable: started.encodable,
+            largest: (f64::from(started.largest.0), f64::from(started.largest.1)),
             access: started.access,
             away: started.away,
             calls,
@@ -765,8 +766,13 @@ impl Live {
             Source::Display { .. } => look,
             Source::Window { .. } => None,
         };
-        let (width, height) =
-            capture_size(view, look.unwrap_or(whole), region.unwrap_or(whole), scale);
+        let (width, height) = capture_size(
+            view,
+            look.unwrap_or(whole),
+            region.unwrap_or(whole),
+            scale,
+            self.largest,
+        );
         Some(Capture {
             source,
             region,
@@ -891,8 +897,15 @@ fn queued(seats: &HashMap<String, Seat>, viewer: &str) -> usize {
 }
 
 /// The pixels to capture of `captured` so that `looked`, the part the view shows, has as many
-/// as the view, never more than the source has nor than the encoder takes, in even numbers.
-fn capture_size(view: Size, looked: Region, captured: Region, pixels_per_point: f64) -> (u32, u32) {
+/// as the view, never more than the source has nor than `largest` that the encoder takes, in even
+/// numbers.
+fn capture_size(
+    view: Size,
+    looked: Region,
+    captured: Region,
+    pixels_per_point: f64,
+    largest: (f64, f64),
+) -> (u32, u32) {
     let shown = (
         f64::from(view.width) * f64::from(view.scale),
         f64::from(view.height) * f64::from(view.scale),
@@ -905,8 +918,8 @@ fn capture_size(view: Size, looked: Region, captured: Region, pixels_per_point: 
     let fit = (shown.0 / looked.width)
         .min(shown.1 / looked.height)
         .min(pixels_per_point)
-        .min(MOST_PICTURE.0 / long)
-        .min(MOST_PICTURE.1 / short);
+        .min(largest.0 / long)
+        .min(largest.1 / short);
     (even(captured.width * fit), even(captured.height * fit))
 }
 
@@ -946,6 +959,7 @@ mod tests {
                 writer: Box::new(writer),
                 child: None,
                 encodable: vec![Codec::H264, Codec::Hevc],
+                largest: (4096, 2304),
                 access: Access {
                     screen: true,
                     input: true,
@@ -1427,9 +1441,11 @@ mod tests {
     }
 
     #[test]
-    fn the_capture_has_the_pixels_that_the_view_shows_and_no_more_than_the_screen_has() {
+    fn the_capture_has_the_pixels_that_the_view_shows_and_no_more_than_the_screen_and_encoder_take()
+    {
+        const GRAPHICS: (f64, f64) = (4096.0, 2304.0);
         let screen = region(1512.0, 982.0);
-        let whole = |view, screen, scale| capture_size(view, screen, screen, scale);
+        let whole = |view, screen, scale| capture_size(view, screen, screen, scale, GRAPHICS);
         assert_eq!(whole(view(390, 844, 3.0), screen, 2.0), (1170, 760));
         assert_eq!(whole(view(2000, 1300, 2.0), screen, 2.0), (3024, 1964));
         assert_eq!(
@@ -1437,16 +1453,38 @@ mod tests {
             (4096, 2304)
         );
         assert_eq!(
+            capture_size(
+                view(3000, 2000, 2.0),
+                region(2560.0, 1440.0),
+                region(2560.0, 1440.0),
+                2.0,
+                (1920.0, 1080.0)
+            ),
+            (1920, 1080)
+        );
+        assert_eq!(
             whole(view(390, 844, 3.0), region(200.0, 100.0), 2.0),
             (400, 200)
         );
         let window = region(800.0, 600.0);
         assert_eq!(
-            capture_size(view(400, 300, 1.0), region(400.0, 300.0), window, 2.0),
+            capture_size(
+                view(400, 300, 1.0),
+                region(400.0, 300.0),
+                window,
+                2.0,
+                GRAPHICS
+            ),
             (800, 600)
         );
         assert_eq!(
-            capture_size(view(400, 300, 2.0), region(200.0, 150.0), window, 2.0),
+            capture_size(
+                view(400, 300, 2.0),
+                region(200.0, 150.0),
+                window,
+                2.0,
+                GRAPHICS
+            ),
             (1600, 1200)
         );
     }

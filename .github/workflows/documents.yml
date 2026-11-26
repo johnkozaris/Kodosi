@@ -37,6 +37,11 @@ jobs:
         with:
           tool: just,uv
           fallback: none
+      - name: Install the system libraries of Kodosi Screen
+        timeout-minutes: 15
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends libpipewire-0.3-dev libclang-dev
       - run: rustup toolchain install
       - id: cef
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

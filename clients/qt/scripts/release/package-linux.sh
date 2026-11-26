@@ -95,6 +95,7 @@ depend = harfbuzz
 depend = nspr
 depend = nss
 depend = pango
+depend = libpipewire
 depend = libpulse
 depend = systemd-libs
 depend = wayland

@@ -35,6 +35,7 @@ NAMESPACES = {
 REQUIRED_FILES = (
     "kodosi-qt.exe",
     "kodosi.exe",
+    "kodosi-screen.exe",
     "agent-browser.exe",
     "doc/agent-browser/LICENSE",
     "DocumentViews/index.html",
@@ -205,7 +206,7 @@ def verify_qml_modules(files: dict[str, zipfile.ZipInfo]) -> None:
 
 def verify_home(read: Reader) -> None:
     home = str(Path.home()).encode("utf-8")
-    for name in ("kodosi-qt.exe", "kodosi.exe", "agent-browser.exe"):
+    for name in ("kodosi-qt.exe", "kodosi.exe", "kodosi-screen.exe", "agent-browser.exe"):
         data = read(name)
         if (start := data.find(home)) >= 0:
             path = data[start : data.find(b"\0", start)][:300].decode("utf-8", "replace")
@@ -265,10 +266,14 @@ def verify_evidence(files: dict[str, zipfile.ZipInfo], read: Reader, build_dir: 
         fail("missing doc/provenance/source-identity.json")
     try:
         verify_source_identity(read("doc/provenance/source-identity.json"), source_identity(ROOT))
-        verify_rust_licenses(
-            {name.removeprefix("doc/rust/"): read(name) for name in files if name.startswith("doc/rust/")},
-            build_dir / "generated/rust-dependency-licenses",
-        )
+        for packaged, generated in (
+            ("doc/rust/", build_dir / "generated/rust-dependency-licenses"),
+            ("doc/screen/", build_dir / "generated/screen-helper/notices"),
+        ):
+            verify_rust_licenses(
+                {name.removeprefix(packaged): read(name) for name in files if name.startswith(packaged)},
+                generated,
+            )
     except (OSError, ValueError) as error:
         fail(str(error))
 

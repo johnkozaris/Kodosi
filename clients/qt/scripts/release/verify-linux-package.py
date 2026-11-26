@@ -384,19 +384,23 @@ def check_source_identity(root: Path, checkout: dict[str, object]) -> None:
         fail(str(error))
 
 
-def check_evidence(root: Path, build_dir: Path) -> None:
-    rust = root / DOC / "rust"
+def check_rust_licenses(packaged: Path, generated: Path) -> None:
     try:
         verify_rust_licenses(
             {
-                path.relative_to(rust).as_posix(): path.read_bytes()
-                for path in rust.rglob("*")
+                path.relative_to(packaged).as_posix(): path.read_bytes()
+                for path in packaged.rglob("*")
                 if path.is_file()
             },
-            build_dir / "generated/rust-dependency-licenses",
+            generated,
         )
     except ValueError as error:
         fail(str(error))
+
+
+def check_evidence(root: Path, build_dir: Path) -> None:
+    check_rust_licenses(root / DOC / "rust", build_dir / "generated/rust-dependency-licenses")
+    check_rust_licenses(root / DOC / "screen", build_dir / "generated/screen-helper/notices")
     same(root, f"{DOC}/provenance/dependencies.lock.json", ROOT / "dependencies.lock.json")
 
     for name in ("LICENSE", "LICENSE-GHOSTTY", "LinuxGhostty.ref", "THIRD_PARTY_NOTICES.md"):
@@ -451,6 +455,7 @@ def check_files(root: Path, qt_version: str, webengine_version: str) -> None:
         "usr/bin/kodosi-qt",
         f"{PRIVATE}/bin/kodosi",
         f"{PRIVATE}/bin/kodosi-qt",
+        f"{PRIVATE}/bin/kodosi-screen",
         f"{PRIVATE}/bin/agent-browser",
         WEB_ENGINE_PROCESS,
     ):
@@ -509,7 +514,7 @@ def check_links(root: Path) -> None:
     if not re.search(r"^\s*Class:\s+ELF64$", run("readelf", "-h", str(cli)), re.MULTILINE):
         fail(f"{PRIVATE}/bin/kodosi is not a 64-bit ELF program")
     private = os.path.normpath(root / PRIVATE) + os.sep
-    for name in (f"{PRIVATE}/bin/kodosi", f"{PRIVATE}/bin/kodosi-qt", WEB_ENGINE_PROCESS, *(f"{PRIVATE}/{plugin}" for plugin in PLUGINS)):
+    for name in (f"{PRIVATE}/bin/kodosi", f"{PRIVATE}/bin/kodosi-qt", f"{PRIVATE}/bin/kodosi-screen", WEB_ENGINE_PROCESS, *(f"{PRIVATE}/{plugin}" for plugin in PLUGINS)):
         output = run("ldd", str(root / name))
         if "not found" in output:
             fail(f"{name} needs a library that the system and the package do not have:\n{output}")
