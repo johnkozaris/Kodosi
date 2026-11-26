@@ -412,12 +412,22 @@ Item {
                 canvas: Models.Canvas
                 sessionId: root.sessionId
                 active: !root.browser.problem && KodosiTheme.shown
-                visible: root.browserState === "awake" && shows
+                // A reason means the picture can't come back by itself, so the reason shows instead.
+                visible: root.browserState === "awake" && shows && problem.length === 0
             }
             Spinner {
                 anchors.centerIn: parent
                 size: 18
-                visible: root.browserState === "awake" && !video.shows
+                visible: root.browserState === "awake" && !video.shows && video.problem.length === 0
+            }
+            EmptyState {
+                anchors.centerIn: parent
+                width: Math.min(320, parent.width - 32)
+                visible: root.browserState === "awake" && video.problem.length > 0
+                title: video.problem
+                objectName: "canvas.browser.failed"
+
+                KButton { text: qsTr("Try again"); onClicked: video.retry() }
             }
             MouseArea {
                 anchors.fill: parent
@@ -577,7 +587,7 @@ Item {
                 anchors.top: parent.top
                 anchors.topMargin: 10
                 look: KodosiTheme.darkLook
-                shown: root.browserState === "awake" && video.shows && video.reconnecting
+                shown: root.browserState === "awake" && video.shows && video.reconnecting && video.problem.length === 0
                 objectName: "canvas.browser.reconnecting"
             }
             KMenu {

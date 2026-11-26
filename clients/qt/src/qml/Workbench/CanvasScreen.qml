@@ -114,7 +114,7 @@ Item {
 
             Layout.fillWidth: true
             Layout.fillHeight: true
-            color: video.shows && root.records ? KodosiTheme.darkLook.terminal : KodosiTheme.sheet
+            color: video.shows && root.records && video.problem.length === 0 ? KodosiTheme.darkLook.terminal : KodosiTheme.sheet
             clip: true
             activeFocusOnTab: true
             objectName: "canvas.screen.picture"
@@ -173,7 +173,8 @@ Item {
                 canvas: Models.Canvas
                 sessionId: root.sessionId
                 active: KodosiTheme.shown
-                visible: shows && root.records
+                // A reason means the picture can't come back by itself, so the reason shows instead.
+                visible: shows && root.records && problem.length === 0
             }
             PinchHandler {
                 target: null
@@ -222,7 +223,7 @@ Item {
             EmptyState {
                 anchors.centerIn: parent
                 width: Math.min(420, parent.width - 48)
-                visible: root.records && !video.shows && video.problem.length > 0
+                visible: root.records && video.problem.length > 0
                 title: qsTr("The screen did not open")
                 message: video.problem
                 objectName: "canvas.screen.failed"
@@ -250,7 +251,7 @@ Item {
                 anchors.top: parent.top
                 anchors.topMargin: 10
                 look: KodosiTheme.darkLook
-                shown: video.shows && video.reconnecting
+                shown: video.shows && video.reconnecting && video.problem.length === 0
                 objectName: "canvas.screen.reconnecting"
             }
         }

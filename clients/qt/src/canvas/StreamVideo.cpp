@@ -33,7 +33,8 @@ constexpr qsizetype regionBytes = 16;
 constexpr char keyFlag = 1;
 constexpr char anchorFlag = 2;
 constexpr char regionFlag = 4;
-// Finding the GPU opens its driver; a stream that opens before that ends offers software decoding.
+// Finding the GPU opens its driver. The first stream waits this long for it, and one that opens
+// before the search ends offers software decoding, so a driver that hangs costs one wait in all.
 constexpr std::chrono::milliseconds gpuWait { 500 };
 constexpr int settleWait = 250;
 constexpr qsizetype mostTyped = 16 * 1024;
@@ -409,7 +410,8 @@ void StreamVideo::watch()
 {
     m_sentSize = sizeMessage();
     m_watching = true;
-    const auto gpu = videoGpu(gpuWait);
+    static bool waited = false;
+    const auto gpu = videoGpu(std::exchange(waited, true) ? std::chrono::milliseconds {} : gpuWait);
     const auto decoder = [&gpu](const QString& codec, VideoCodec decoded) {
         return QJsonObject { { QStringLiteral("codec"), codec },
             { QStringLiteral("hardware"), gpu && gpu->decodes(decoded) } };
