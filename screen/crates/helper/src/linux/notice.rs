@@ -13,14 +13,17 @@
 use std::collections::HashMap;
 
 use screen::link::Notice;
-use tokio::sync::mpsc;
+use tokio::{
+    sync::{mpsc, watch},
+    task::JoinHandle,
+};
 use zbus::{
     Connection,
     object_server::SignalEmitter,
     zvariant::{self, ObjectPath, OwnedValue, Type, Value},
 };
 
-use super::session::Event;
+use super::{portal::CALL_LIMIT, session::Event};
 
 const ITEM_PATH: &str = "/StatusNotifierItem";
 const MENU_PATH: &str = "/MenuBar";
@@ -32,20 +35,57 @@ const ROOT: i32 = 0;
 const WHO: i32 = 1;
 const STOP: i32 = 2;
 
+/// Shows the notice on a task of its own, so that a tray that is slow to answer never holds up
+/// the link to the host.
+pub(super) struct Tray {
+    notice: watch::Sender<Option<Notice>>,
+    task: JoinHandle<()>,
+}
+
+impl Tray {
+    pub(super) fn start(events: mpsc::UnboundedSender<Event>) -> Self {
+        let (notice, mut changes) = watch::channel(None);
+        let task = tokio::spawn(async move {
+            let mut shown: Option<Shown> = None;
+            while changes.changed().await.is_ok() {
+                let notice = changes.borrow_and_update().clone();
+                shown = match (notice, shown) {
+                    (Some(notice), Some(shown)) => {
+                        shown.update(&notice).await;
+                        Some(shown)
+                    }
+                    (Some(notice), None) => Shown::show(&notice, events.clone()).await,
+                    (None, _) => None,
+                };
+            }
+        });
+        Self { notice, task }
+    }
+
+    /// Shows who watches, or takes the notice away once nobody does.
+    pub(super) fn show(&self, notice: Option<Notice>) {
+        self.notice.send_replace(notice);
+    }
+}
+
+impl Drop for Tray {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+
 /// The shown notice, which goes once dropped.
-pub(super) struct Shown {
+struct Shown {
     bus: Connection,
 }
 
 impl Shown {
     /// `None` where the desktop has no tray.
-    pub(super) async fn show(
-        notice: &Notice,
-        events: mpsc::UnboundedSender<Event>,
-    ) -> Option<Self> {
+    async fn show(notice: &Notice, events: mpsc::UnboundedSender<Event>) -> Option<Self> {
         let name = format!("org.kde.StatusNotifierItem-{}-1", std::process::id());
         let bus = zbus::connection::Builder::session()
             .ok()?
+            .method_timeout(CALL_LIMIT)
             .name(name.as_str())
             .ok()?
             .serve_at(
@@ -80,7 +120,7 @@ impl Shown {
         Some(Self { bus })
     }
 
-    pub(super) async fn update(&self, notice: &Notice) {
+    async fn update(&self, notice: &Notice) {
         let server = self.bus.object_server();
         if let Ok(item) = server.interface::<_, Item>(ITEM_PATH).await {
             item.get_mut().await.watching.clone_from(&notice.watching);

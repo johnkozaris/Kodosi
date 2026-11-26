@@ -7,9 +7,9 @@ use std::sync::{Arc, Mutex, PoisonError};
 use futures_util::StreamExt as _;
 use screen::link::Away;
 use tokio::{sync::mpsc, task::JoinHandle};
-use zbus::{Connection, Proxy, zvariant::OwnedObjectPath};
+use zbus::{Connection, Proxy, connection::Builder, zvariant::OwnedObjectPath};
 
-use super::session::Event;
+use super::{portal::CALL_LIMIT, session::Event};
 
 const LOGIN: &str = "org.freedesktop.login1";
 const LOGIN_PATH: &str = "/org/freedesktop/login1";
@@ -59,7 +59,7 @@ impl Watch {
                 events.clone(),
             )));
         }
-        if let Ok(bus) = Connection::session().await {
+        if let Some(bus) = connect(Builder::session()).await {
             for (name, path) in SCREEN_SAVERS {
                 let Ok(saver) = Proxy::new(&bus, name, path, name).await else {
                     continue;
@@ -85,9 +85,9 @@ impl Watch {
 
     /// Turns the display on, as a touch of the computer's mouse would, where the desktop lets
     /// the helper: KDE does.
-    pub(super) async fn wake(&self) {
-        for saver in &self.savers {
-            drop(saver.call_method("SimulateUserActivity", &()).await);
+    pub(super) fn wake(&self) {
+        for saver in self.savers.clone() {
+            tokio::spawn(async move { drop(saver.call_method("SimulateUserActivity", &()).await) });
         }
     }
 
@@ -115,8 +115,12 @@ fn note(seen: &Mutex<Seen>, change: impl FnOnce(&mut Seen)) {
     change(&mut seen.lock().unwrap_or_else(PoisonError::into_inner));
 }
 
+async fn connect(bus: zbus::Result<Builder<'static>>) -> Option<Connection> {
+    bus.ok()?.method_timeout(CALL_LIMIT).build().await.ok()
+}
+
 async fn login_session() -> Option<Proxy<'static>> {
-    let system = Connection::system().await.ok()?;
+    let system = connect(Builder::system()).await?;
     let auto = Proxy::new(&system, LOGIN, AUTO_SESSION, LOGIN_SESSION)
         .await
         .ok()?;

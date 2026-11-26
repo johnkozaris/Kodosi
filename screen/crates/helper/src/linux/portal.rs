@@ -46,8 +46,8 @@ const CURSOR_METADATA: u32 = 4;
 const PERSIST: u32 = 2;
 /// The inhibit portal's flag that keeps the screen from blanking and locking.
 const IDLE: u32 = 8;
-/// How long any one call to the portal may take.
-const CALL_LIMIT: Duration = Duration::from_secs(10);
+/// How long any one call over D-Bus may take.
+pub(super) const CALL_LIMIT: Duration = Duration::from_secs(10);
 
 static HANDLES: AtomicU32 = AtomicU32::new(1);
 

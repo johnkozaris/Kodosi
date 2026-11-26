@@ -24,7 +24,7 @@ use super::{
     clipboard::Clipboard,
     hand::Hand,
     input::Hands,
-    notice::Shown,
+    notice::Tray,
     portal::{Desktop, Grant, Portal, Problem, Shared},
 };
 
@@ -83,6 +83,7 @@ pub(super) async fn serve(arguments: Arguments) {
         tokio::time::timeout(FIRST_LOOK, Watch::start(events.clone())),
     );
     let (portal, preauthorized) = reached.ok().flatten().unzip();
+    let tray = Tray::start(events.clone());
     let mut session = Session {
         say,
         events,
@@ -99,7 +100,7 @@ pub(super) async fn serve(arguments: Arguments) {
         scales: HashMap::new(),
         capture: None,
         frames: None,
-        notice: None,
+        tray,
         awake: None,
         hand: Arc::default(),
         pointed: None,
@@ -157,7 +158,7 @@ struct Session {
     capture: Option<u32>,
     /// The encoder, from the first capture until the host stops it.
     frames: Option<Arc<Frames>>,
-    notice: Option<Shown>,
+    tray: Tray,
     /// The portal's request that keeps the screen awake while it is captured.
     awake: Option<OwnedObjectPath>,
     hand: Arc<Hand>,
@@ -237,7 +238,7 @@ impl Session {
         }
         self.stop().await;
         self.sharing = Sharing::Off;
-        self.notice = None;
+        self.tray.show(None);
     }
 
     /// Returns false when the host wants the helper to quit.
@@ -385,13 +386,7 @@ impl Session {
     async fn notice(&mut self, notice: Option<Notice>) {
         let first = notice.is_some() && !self.watched;
         self.watched = notice.is_some();
-        match notice {
-            Some(notice) => match &self.notice {
-                Some(shown) => shown.update(&notice).await,
-                None => self.notice = Shown::show(&notice, self.events.clone()).await,
-            },
-            None => self.notice = None,
-        }
+        self.tray.show(notice);
         if !self.watched {
             self.stop().await;
             self.unshare().await;
@@ -399,7 +394,7 @@ impl Session {
         }
         // Opening the screen wakes its display.
         if first && let Some(watch) = &self.watch {
-            watch.wake().await;
+            watch.wake();
         }
         self.share();
     }
@@ -604,7 +599,7 @@ impl Session {
     async fn stopped(&mut self) {
         self.stop().await;
         self.unshare().await;
-        self.notice = None;
+        self.tray.show(None);
         self.tell(FromHelper::Stopped).await;
     }
 

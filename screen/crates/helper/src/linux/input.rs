@@ -3,7 +3,11 @@
 
 use std::{
     collections::HashMap,
-    os::{fd::OwnedFd, unix::net::UnixStream},
+    io,
+    os::{
+        fd::{AsFd as _, OwnedFd},
+        unix::net::UnixStream,
+    },
     sync::Arc,
 };
 
@@ -13,7 +17,7 @@ use reis::{
     event::{Connection, Device, DeviceCapability, EiEvent},
 };
 use stream::viewer::{Input, KeyAction, MouseAction, MouseButton};
-use tokio::sync::mpsc;
+use tokio::{io::Interest, sync::mpsc};
 
 use super::{
     hand::Hand,
@@ -28,6 +32,8 @@ const ALT: u8 = 1;
 const CONTROL: u8 = 2;
 const META: u8 = 4;
 const SHIFT: u8 = 8;
+/// Long text goes in parts of this many characters, each sent before the next is played.
+const TEXT_PART: usize = 64;
 /// The viewer's modifier bits, with the computer's keys for each, the one to press first.
 const MODIFIERS: [(u8, [u32; 2]); 4] = [
     (SHIFT, [keys::LEFT_SHIFT, keys::RIGHT_SHIFT]),
@@ -54,7 +60,15 @@ impl Hands {
     /// Plays input whose pointer is in the points of a display whose top left is at `origin`
     /// on the desktop.
     pub(super) fn play(&self, input: Input, origin: (f64, f64)) {
-        drop(self.orders.send((input, origin)));
+        let Input::Text { text } = input else {
+            drop(self.orders.send((input, origin)));
+            return;
+        };
+        let mut characters = text.chars().peekable();
+        while characters.peek().is_some() {
+            let text = characters.by_ref().take(TEXT_PART).collect();
+            drop(self.orders.send((Input::Text { text }, origin)));
+        }
     }
 }
 
@@ -82,6 +96,15 @@ async fn run(
     else {
         return;
     };
+    // reis already watches this socket for the server's events, so the helper watches a copy of
+    // it to learn when the socket can take more.
+    let Ok(socket) = context
+        .as_fd()
+        .try_clone_to_owned()
+        .and_then(|socket| tokio::net::UnixStream::from_std(UnixStream::from(socket)))
+    else {
+        return;
+    };
     let mut hands = Played::new(connection, hand);
     loop {
         tokio::select! {
@@ -94,8 +117,23 @@ async fn run(
                 None => return,
             },
         }
-        if hands.connection.flush().is_err() {
+        if !sent(&hands.connection, &socket).await {
             return;
+        }
+    }
+}
+
+/// Sends what the helper played, waiting while the desktop's libei server has yet to read what
+/// came before. Returns false once the connection is lost.
+async fn sent(connection: &Connection, socket: &tokio::net::UnixStream) -> bool {
+    loop {
+        if socket.writable().await.is_err() {
+            return false;
+        }
+        match socket.try_io(Interest::WRITABLE, || Ok(connection.flush()?)) {
+            Ok(()) => return true,
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
+            Err(_) => return false,
         }
     }
 }
