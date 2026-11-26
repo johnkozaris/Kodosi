@@ -225,6 +225,7 @@ async function hello($, rewound) {
     facts.usage = await $.session.usage()
     Object.assign(facts, await modesOff($))
     facts.commands = await slashCommands($)
+    facts.settings = offersSettings($)
     turns = await prompts($)
     rows = earlier(await $.session.messages({ last: HISTORY }))
   } catch (error) {
@@ -275,11 +276,48 @@ async function stop($) {
   moved.length = 0
 }
 
+function offersSettings($) {
+  try {
+    return typeof $.config.list === 'function' && typeof $.config.set === 'function'
+  } catch (error) {
+    return false
+  }
+}
+
+// The settings of Claude Code's /config view, which Claude Code checks and saves itself.
+async function settings($) {
+  let rows = []
+  try {
+    rows = await $.config.list()
+  } catch (error) {
+    rows = []
+  }
+  tell($, 'settings', { rows: Array.isArray(rows) ? rows : [] })
+}
+
+async function set($, command) {
+  const key = String(command.key)
+  try {
+    const result = await $.config.set({ key, value: command.value })
+    if (result && result.deny !== undefined) {
+      tell($, 'set', { key, deny: String(result.deny) })
+      return
+    }
+    tell($, 'set', { key, value: result && result.value !== undefined ? result.value : command.value })
+  } catch (error) {
+    tell($, 'set', { key, deny: reason(error) })
+    return
+  }
+  settings($)
+}
+
 // A message goes in as the person's own words, and one that starts with a slash runs that command, as in the
 // terminal. Claude Code starts its turn when the session is idle. A change of the model, the effort or fast
 // mode from Kodosi's own controls runs as its command.
 function run($, command) {
   if (command.do === 'stop') stop($)
+  if (command.do === 'settings') settings($)
+  if (command.do === 'set') set($, command)
   if (command.do !== 'prompt' && command.do !== 'change') return
   if (picking) tell($, 'did', { n: picking })
   picking = 0

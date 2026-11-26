@@ -22,6 +22,7 @@ struct ChatDock<ModelKey: View>: View {
     @State private var picked = 0
     @State private var modelOpen = false
     @State private var usageOpen = false
+    @State private var settingsOpen = false
     /// The field's height while it is empty, so with one line: the keys line up with the middle of the
     /// last line.
     @State private var oneLine: CGFloat = 0
@@ -87,7 +88,9 @@ struct ChatDock<ModelKey: View>: View {
                         .transition(AnyTransition.rise)
                 }
                 ChatTalkArea(talk: talk, chat: chat, stop: stopTalking, edit: edit, send: send) { composer }
-                ChatFactsRow(facts: chat.facts, modelKey: modelKey, modelOpen: $modelOpen, usageOpen: $usageOpen)
+                ChatFactsRow(facts: chat.facts, modelKey: modelKey, modelOpen: $modelOpen, usageOpen: $usageOpen,
+                             settings: chat.commands.contains { $0.opens == .settings } ? chat : nil,
+                             settingsOpen: $settingsOpen)
                     .padding(.horizontal, 6)
             }
         }
@@ -225,6 +228,7 @@ struct ChatDock<ModelKey: View>: View {
         switch control {
         case .model: modelOpen = true
         case .usage: usageOpen = true
+        case .settings: settingsOpen = true
         }
     }
 
@@ -459,6 +463,9 @@ private struct ChatFactsRow<ModelKey: View>: View {
     let modelKey: (_ model: String, _ effort: String?, _ open: Binding<Bool>) -> ModelKey
     @Binding var modelOpen: Bool
     @Binding var usageOpen: Bool
+    /// The chat whose agent has its own settings, which the row's key opens.
+    let settings: TerminalChat?
+    @Binding var settingsOpen: Bool
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
@@ -467,6 +474,7 @@ private struct ChatFactsRow<ModelKey: View>: View {
                 model(full: true)
                 HStack(spacing: 8) {
                     usage(full: true)
+                    settingsKey
                     others
                 }
             }
@@ -481,6 +489,7 @@ private struct ChatFactsRow<ModelKey: View>: View {
         HStack(spacing: 8) {
             model(full: full)
             usage(full: full)
+            settingsKey
             others
         }
         .lineLimit(1)
@@ -497,6 +506,12 @@ private struct ChatFactsRow<ModelKey: View>: View {
             ChatModeLabel(mode: mode, named: full)
                 .padding(.horizontal, 4)
                 .foregroundStyle(theme.colors.inkMuted)
+        }
+    }
+
+    @ContentBuilder private var settingsKey: some View {
+        if let settings {
+            ChatSettingsKey(chat: settings, open: $settingsOpen)
         }
     }
 

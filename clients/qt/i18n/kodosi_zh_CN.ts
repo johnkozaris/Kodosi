@@ -949,6 +949,25 @@
             <numerusform>%n 条命令正在后台运行</numerusform>
         </translation>
     </message>
+    <message>
+        <source>Settings</source>
+        <translation>设置</translation>
+    </message>
+</context>
+<context>
+    <name>ChatSettings</name>
+    <message>
+        <source>Find a setting</source>
+        <translation>查找设置</translation>
+    </message>
+    <message>
+        <source>No setting matches</source>
+        <translation>没有匹配的设置</translation>
+    </message>
+    <message>
+        <source>Locked</source>
+        <translation>已锁定</translation>
+    </message>
 </context>
 <context>
     <name>ChatStep</name>

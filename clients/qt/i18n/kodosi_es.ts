@@ -953,6 +953,25 @@
             <numerusform>%n comandos se ejecutan en segundo plano</numerusform>
         </translation>
     </message>
+    <message>
+        <source>Settings</source>
+        <translation>Ajustes</translation>
+    </message>
+</context>
+<context>
+    <name>ChatSettings</name>
+    <message>
+        <source>Find a setting</source>
+        <translation>Buscar un ajuste</translation>
+    </message>
+    <message>
+        <source>No setting matches</source>
+        <translation>Ningún ajuste coincide</translation>
+    </message>
+    <message>
+        <source>Locked</source>
+        <translation>Bloqueado</translation>
+    </message>
 </context>
 <context>
     <name>ChatStep</name>

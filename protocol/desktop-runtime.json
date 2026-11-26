@@ -602,6 +602,9 @@
                               },
                               {
                                 "const": "usage"
+                              },
+                              {
+                                "const": "settings"
                               }
                             ]
                           },
@@ -1501,6 +1504,68 @@
                 "revision": {
                   "format": "u64",
                   "type": "integer"
+                },
+                "settings": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "description": {
+                        "type": "string"
+                      },
+                      "key": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "oneOf": [
+                          {
+                            "const": "toggle"
+                          },
+                          {
+                            "const": "choice"
+                          },
+                          {
+                            "const": "text"
+                          },
+                          {
+                            "const": "number"
+                          }
+                        ]
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "locked": {
+                        "type": "boolean"
+                      },
+                      "options": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "refusal": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "value": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "label",
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
                 },
                 "state": {
                   "oneOf": [
@@ -2898,6 +2963,9 @@
                                         },
                                         {
                                           "const": "usage"
+                                        },
+                                        {
+                                          "const": "settings"
                                         }
                                       ]
                                     },
@@ -2921,6 +2989,81 @@
                         "required": [
                           "change",
                           "commands"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "change": {
+                            "const": "settings"
+                          },
+                          "settings": {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "description": {
+                                  "type": "string"
+                                },
+                                "key": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "oneOf": [
+                                    {
+                                      "const": "toggle"
+                                    },
+                                    {
+                                      "const": "choice"
+                                    },
+                                    {
+                                      "const": "text"
+                                    },
+                                    {
+                                      "const": "number"
+                                    }
+                                  ]
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "locked": {
+                                  "type": "boolean"
+                                },
+                                "options": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "refusal": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "value": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "label",
+                                "kind",
+                                "value"
+                              ],
+                              "type": "object"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "change",
+                          "settings"
                         ],
                         "type": "object"
                       },
@@ -3436,6 +3579,38 @@
           },
           "required": [
             "do"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "do": {
+              "const": "settings"
+            }
+          },
+          "required": [
+            "do"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "do": {
+              "const": "set"
+            },
+            "key": {
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "do",
+            "key",
+            "value"
           ],
           "type": "object"
         }

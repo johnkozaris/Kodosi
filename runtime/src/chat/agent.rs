@@ -67,6 +67,17 @@ pub(super) trait Agent: Send {
         None
     }
 
+    /// The command for the link that lists the agent's own settings, when the agent has them.
+    fn settings(&mut self, _chat: &mut Chat) -> Option<Value> {
+        None
+    }
+
+    /// The command for the link that changes one of the agent's settings to `value`, in the words
+    /// of `ChatSetting::value`.
+    fn set(&mut self, _chat: &mut Chat, _key: &str, _value: &str) -> Option<Value> {
+        None
+    }
+
     /// Returns the active conversation ID when only the adapter knows it, such as Codex threads
     /// (kept in an app-server outside the terminal's process tree) or ACP sessions.
     fn conversation(&self) -> Option<&str> {

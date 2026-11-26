@@ -12,6 +12,8 @@ Item {
     required property var session
     required property string sessionId
     required property Look look
+    property Models.TerminalChat chat: null
+    readonly property bool offersSettings: chat !== null && chat.commands.some(command => command.opens === "settings")
     readonly property string agent: session.program || ""
     readonly property var launcher: actions.launcher
     readonly property var models: launcher ? launcher.models[agent] || null : null
@@ -61,6 +63,10 @@ Item {
     function openUsage(): void {
         if (usageKey.visible)
             usage.open()
+    }
+    function openSettings(): void {
+        if (settingsKey.visible)
+            settings.open()
     }
 
     implicitHeight: Math.max(26, grid.implicitHeight)
@@ -355,7 +361,7 @@ Item {
             Row {
                 id: usePart
 
-                visible: root.useShown || (root.facts.background ?? 0) > 0
+                visible: root.useShown || (root.facts.background ?? 0) > 0 || root.offersSettings
                 spacing: 8
 
                 PickerKey {
@@ -540,6 +546,49 @@ Item {
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+                PickerKey {
+                    id: settingsKey
+
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: root.offersSettings
+                    look: root.look
+                    open: settings.visible
+                    objectName: "chat.settings.key"
+                    Accessible.name: qsTr("Settings")
+                    ToolTip.visible: hovered && !settings.visible
+                    ToolTip.text: qsTr("Settings")
+                    ToolTip.delay: Tip.delay
+                    glyph: KIcon {
+                        width: KodosiTheme.scaled(14)
+                        height: KodosiTheme.scaled(14)
+                        name: "gear"
+                        strokeWidth: 1.9
+                        color: settingsKey.open ? root.look.accentStrong : root.look.inkMuted
+                    }
+                    onClicked: {
+                        if (settings.visible)
+                            settings.close()
+                        else
+                            root.openSettings()
+                    }
+
+                    KPopover {
+                        id: settings
+
+                        y: -height - 6
+                        width: 420
+                        padding: 12
+                        focus: true
+                        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
+                        objectName: "chat.settings"
+                        onAboutToShow: root.chat.askSettings()
+
+                        contentItem: ChatSettings {
+                            chat: root.chat
+                            look: root.look
                         }
                     }
                 }

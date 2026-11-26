@@ -57,6 +57,8 @@ Item {
             factsRow.openModel()
         else if (control === "usage")
             factsRow.openUsage()
+        else if (control === "settings")
+            factsRow.openSettings()
     }
     function move(step: int): bool {
         const count = root.suggestions.length
@@ -873,6 +875,7 @@ Item {
             Layout.rightMargin: 6
             visible: !root.away
             facts: root.chat.facts
+            chat: root.chat
             session: root.session
             sessionId: root.sessionId
             look: root.look

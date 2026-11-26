@@ -399,6 +399,29 @@ void TerminalChat::stop()
     request({ { QStringLiteral("do"), QStringLiteral("stop") } });
 }
 
+void TerminalChat::askSettings()
+{
+    request({ { QStringLiteral("do"), QStringLiteral("settings") } });
+}
+
+void TerminalChat::set(const QString& key, const QString& value)
+{
+    // The change shows at once; the host's next update keeps it or puts the setting back.
+    if (m_chat) {
+        for (qsizetype index = 0; index < m_chat->settings.size(); ++index) {
+            auto setting = m_chat->settings.at(index).toObject();
+            if (text(setting, "key") != key)
+                continue;
+            setting.insert(QStringLiteral("value"), value);
+            setting.remove(QStringLiteral("refusal"));
+            m_chat->settings.replace(index, setting);
+            shape();
+            break;
+        }
+    }
+    request({ { QStringLiteral("do"), QStringLiteral("set") }, { QStringLiteral("key"), key }, { QStringLiteral("value"), value } });
+}
+
 void TerminalChat::toggle(const QString& id)
 {
     if (!m_opened.removeOne(id))
@@ -469,6 +492,7 @@ std::optional<TerminalChat::Snapshot> TerminalChat::snapshotFrom(const QJsonObje
     chat.queued = value.value(QStringLiteral("queued")).toArray();
     chat.tasks = value.value(QStringLiteral("tasks")).toArray();
     chat.commands = value.value(QStringLiteral("commands")).toArray();
+    chat.settings = value.value(QStringLiteral("settings")).toArray();
     return chat;
 }
 
@@ -510,6 +534,8 @@ bool TerminalChat::apply(Snapshot& chat, const QJsonObject& change)
         chat.tasks = change.value(QStringLiteral("tasks")).toArray();
     } else if (kind == QStringLiteral("commands")) {
         chat.commands = change.value(QStringLiteral("commands")).toArray();
+    } else if (kind == QStringLiteral("settings")) {
+        chat.settings = change.value(QStringLiteral("settings")).toArray();
     } else if (kind == QStringLiteral("facts")) {
         chat.facts = change.value(QStringLiteral("facts")).toObject();
     } else if (kind == QStringLiteral("state")) {
@@ -912,6 +938,22 @@ void TerminalChat::shape()
     if (commands != m_commands) {
         m_commands = commands;
         emit commandsChanged();
+    }
+    QVariantList settings;
+    for (const auto& value : m_chat->settings) {
+        const auto setting = value.toObject();
+        QStringList options;
+        for (const auto& option : setting.value(QStringLiteral("options")).toArray())
+            options.append(option.toString());
+        settings.append(QVariantMap { { QStringLiteral("key"), text(setting, "key") }, { QStringLiteral("label"), text(setting, "label") },
+            { QStringLiteral("description"), text(setting, "description") }, { QStringLiteral("kind"), text(setting, "kind") },
+            { QStringLiteral("value"), text(setting, "value") }, { QStringLiteral("options"), options },
+            { QStringLiteral("locked"), setting.value(QStringLiteral("locked")).toBool() },
+            { QStringLiteral("refusal"), text(setting, "refusal") } });
+    }
+    if (settings != m_settings) {
+        m_settings = settings;
+        emit settingsChanged();
     }
 }
 

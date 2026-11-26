@@ -134,6 +134,8 @@ internal fun ChatDock(
     SideEffect { if (helpers.isNotEmpty()) leavingHelpers.value = helpers }
     var modelOpen by remember { mutableStateOf(false) }
     var usageOpen by remember { mutableStateOf(false) }
+    var settingsOpen by remember { mutableStateOf(false) }
+    val offersSettings = view.commands.any { it.opens == ChatControl.SETTINGS }
     val focus = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     val open: (ChatControl) -> Unit = { control ->
@@ -142,6 +144,7 @@ internal fun ChatDock(
         when (control) {
             ChatControl.MODEL -> modelOpen = changesAgent
             ChatControl.USAGE -> usageOpen = true
+            ChatControl.SETTINGS -> settingsOpen = offersSettings
         }
     }
     val choose: (ChatCommand) -> Unit = { command ->
@@ -292,8 +295,10 @@ internal fun ChatDock(
                     view.facts,
                     models,
                     changesAgent,
-                    FactsMenus(modelOpen, { modelOpen = it }, usageOpen, { usageOpen = it }, agentMenu)
+                    FactsMenus(modelOpen, { modelOpen = it }, usageOpen, { usageOpen = it }, agentMenu),
+                    if (offersSettings) ({ settingsOpen = true }) else null
                 )
+                if (settingsOpen) ChatSettingsSheet(chat, view.settings) { settingsOpen = false }
             }
         }
     )
@@ -621,13 +626,19 @@ private val FactsGap = 8.dp
  * short form in one line, which scrolls.
  */
 @Composable
-private fun FactsRow(facts: ChatFacts, models: KnownModels, changesAgent: Boolean, menus: FactsMenus) {
+private fun FactsRow(
+    facts: ChatFacts,
+    models: KnownModels,
+    changesAgent: Boolean,
+    menus: FactsMenus,
+    openSettings: (() -> Unit)?
+) {
     val scroll = rememberScrollState()
     SubcomposeLayout(Modifier.fillMaxWidth().navigationBarsPadding().heightIn(min = 36.dp)) { constraints ->
         val room = constraints.maxWidth - 2 * FactsEdge.roundToPx()
         val model = subcompose(FactsSlot.MODEL) { ModelFact(facts, models, true, changesAgent, null) }
             .maxOfOrNull { it.measure(Constraints()).width } ?: 0
-        val use = subcompose(FactsSlot.USE) { UseFacts(facts, true, null) }
+        val use = subcompose(FactsSlot.USE) { UseFacts(facts, true, null, openSettings) }
             .maxOfOrNull { it.measure(Constraints()).width } ?: 0
         val gap = if (model > 0 && use > 0) FactsGap.roundToPx() else 0
         val form = when {
@@ -639,7 +650,7 @@ private fun FactsRow(facts: ChatFacts, models: KnownModels, changesAgent: Boolea
             if (form == FactsForm.LINES) {
                 Column(Modifier.padding(horizontal = FactsEdge), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     ModelFact(facts, models, true, changesAgent, menus)
-                    UseFacts(facts, true, menus)
+                    UseFacts(facts, true, menus, openSettings)
                 }
             } else {
                 Row(
@@ -648,7 +659,7 @@ private fun FactsRow(facts: ChatFacts, models: KnownModels, changesAgent: Boolea
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     ModelFact(facts, models, form == FactsForm.LINE, changesAgent, menus)
-                    UseFacts(facts, form == FactsForm.LINE, menus)
+                    UseFacts(facts, form == FactsForm.LINE, menus, openSettings)
                 }
             }
         }.map { it.measure(constraints.copy(minWidth = 0, minHeight = 0)) }
@@ -689,12 +700,26 @@ private fun ModelFact(
     }
 }
 
-/** The use key with the background commands after it; without [menus] it only takes its room. */
+/**
+ * The use key, the key of the agent's own settings and the background commands after them; without
+ * [menus] they only take their room.
+ */
 @Composable
-private fun UseFacts(facts: ChatFacts, named: Boolean, menus: FactsMenus?) {
+private fun UseFacts(facts: ChatFacts, named: Boolean, menus: FactsMenus?, openSettings: (() -> Unit)?) {
     Row(horizontalArrangement = Arrangement.spacedBy(FactsGap), verticalAlignment = Alignment.CenterVertically) {
         if (facts.context != null || facts.limits.isNotEmpty() || (facts.cost ?: 0.0) > 0) {
             ChatUsageKey(facts, named, menus?.usage == true, menus?.setUsage ?: {}, menus != null)
+        }
+        if (openSettings != null) {
+            val words = stringResource(R.string.settings)
+            KodosiButton(
+                onClick = { if (menus != null) openSettings() },
+                modifier = Modifier.semantics { contentDescription = words },
+                kind = ButtonKind.SECONDARY,
+                size = ButtonSize.SMALL
+            ) {
+                AppIcon(AppSymbol.SETTINGS, Modifier.size(15.dp), tint = KodosiTheme.colors.inkMuted)
+            }
         }
         if (facts.background > 0) {
             Count(

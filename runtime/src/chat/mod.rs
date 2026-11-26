@@ -79,6 +79,10 @@ const MOST_ASKS: usize = 16;
 const MOST_TASKS: usize = 64;
 #[cfg(feature = "host")]
 const MOST_COMMANDS: usize = 256;
+#[cfg(feature = "host")]
+const MOST_SETTINGS: usize = 256;
+#[cfg(feature = "host")]
+const MOST_CHOICES: usize = 64;
 
 /// Host sends a `Snapshot` on attach, then sequential `Update` frames.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -105,6 +109,8 @@ pub struct ChatSnapshot {
     pub tasks: Vec<ChatTask>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub commands: Vec<ChatCommand>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub settings: Vec<ChatSetting>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -142,6 +148,10 @@ pub enum ChatChange {
     Commands {
         commands: Vec<ChatCommand>,
     },
+    /// The agent's own settings, whole.
+    Settings {
+        settings: Vec<ChatSetting>,
+    },
     Facts {
         facts: Box<ChatFacts>,
     },
@@ -151,7 +161,7 @@ pub enum ChatChange {
         now: Option<ChatNow>,
     },
     /// Clears `items`, `asks`, and `tasks` for a new conversation while keeping `queued`,
-    /// `commands`, `facts`, and `state`.
+    /// `commands`, `settings`, `facts`, and `state`.
     Reset,
 }
 
@@ -498,6 +508,39 @@ pub enum ChatControl {
     Model,
     /// The limits of the agent's plan, its context and the cost of the conversation.
     Usage,
+    /// The agent's own settings.
+    Settings,
+}
+
+/// A setting of the agent, as its own settings view lists it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatSetting {
+    pub key: String,
+    pub label: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
+    pub kind: ChatSettingKind,
+    /// The value as words: `true` or `false` for a toggle, the digits of a number.
+    pub value: String,
+    /// The values that a choice takes.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub options: Vec<String>,
+    /// Only the agent's own view or the policy of an organization changes the setting.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub locked: bool,
+    /// Why the agent did not take the last change, in its words.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refusal: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum ChatSettingKind {
+    Toggle,
+    Choice,
+    Text,
+    Number,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -598,4 +641,11 @@ pub enum ChatRequest {
         answer: ChatAnswer,
     },
     Stop,
+    /// Asks the agent for its own settings.
+    Settings,
+    /// Changes one of the agent's settings to `value`, in the words of `ChatSetting::value`.
+    Set {
+        key: String,
+        value: String,
+    },
 }

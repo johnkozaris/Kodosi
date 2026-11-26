@@ -949,6 +949,25 @@
             <numerusform>%n 個のコマンドがバックグラウンドで実行中</numerusform>
         </translation>
     </message>
+    <message>
+        <source>Settings</source>
+        <translation>設定</translation>
+    </message>
+</context>
+<context>
+    <name>ChatSettings</name>
+    <message>
+        <source>Find a setting</source>
+        <translation>設定を検索</translation>
+    </message>
+    <message>
+        <source>No setting matches</source>
+        <translation>一致する設定はありません</translation>
+    </message>
+    <message>
+        <source>Locked</source>
+        <translation>ロック中</translation>
+    </message>
 </context>
 <context>
     <name>ChatStep</name>

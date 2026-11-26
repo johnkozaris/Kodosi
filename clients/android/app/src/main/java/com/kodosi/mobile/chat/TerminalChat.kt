@@ -25,6 +25,7 @@ data class ChatView(
     val queued: List<ChatQueued> get() = chat?.queued.orEmpty()
     val tasks: List<ChatTask> get() = chat?.tasks.orEmpty()
     val commands: List<ChatCommand> get() = chat?.commands.orEmpty()
+    val settings: List<ChatSetting> get() = chat?.settings.orEmpty()
     val facts: ChatFacts get() = chat?.facts ?: ChatFacts()
     val now: ChatNow? get() = chat?.now
 
@@ -127,6 +128,27 @@ class TerminalChat internal constructor(
 
     fun stop() = request(ChatRequest.Stop)
 
+    /** Asks the agent for its own settings, which arrive in the view's `settings`. */
+    fun askSettings() = request(ChatRequest.Settings)
+
+    /**
+     * Changes one of the agent's settings to [value], in the words of [ChatSetting.value]. The
+     * change shows at once; the host's next update keeps it or puts the setting back.
+     */
+    fun set(setting: ChatSetting, value: String) {
+        view.update { current ->
+            val chat = current.chat ?: return@update current
+            current.copy(
+                chat = chat.copy(
+                    settings = chat.settings.map {
+                        if (it.key == setting.key) it.copy(value = value, refusal = null) else it
+                    }
+                )
+            )
+        }
+        request(ChatRequest.Set(setting.key, value))
+    }
+
     private fun request(request: ChatRequest) {
         link?.send(request.json().toString().encodeToByteArray())
     }
@@ -180,6 +202,7 @@ internal fun ChatSnapshot.applying(update: ChatUpdate): ChatSnapshot {
     var queued = queued
     var tasks = tasks
     var commands = commands
+    var settings = settings
     var facts = facts
     var state = state
     var now = now
@@ -206,6 +229,8 @@ internal fun ChatSnapshot.applying(update: ChatUpdate): ChatSnapshot {
 
             is ChatChange.Commands -> commands = change.commands
 
+            is ChatChange.Settings -> settings = change.settings
+
             is ChatChange.Facts -> facts = change.facts
 
             is ChatChange.State -> {
@@ -229,7 +254,8 @@ internal fun ChatSnapshot.applying(update: ChatUpdate): ChatSnapshot {
         asks = asks,
         queued = queued,
         tasks = tasks,
-        commands = commands
+        commands = commands,
+        settings = settings
     )
 }
 
@@ -242,11 +268,17 @@ internal sealed interface ChatRequest {
 
     data object Stop : ChatRequest
 
+    data object Settings : ChatRequest
+
+    data class Set(val key: String, val value: String) : ChatRequest
+
     fun json(): JsonObject = when (this) {
         is Send -> fields("do" to "send", "text" to text)
         is Unqueue -> fields("do" to "unqueue", "id" to id)
         is Answer -> fields("do" to "answer", "ask" to ask, "answer" to answer.json())
         Stop -> fields("do" to "stop")
+        Settings -> fields("do" to "settings")
+        is Set -> fields("do" to "set", "key" to key, "value" to value)
     }
 }
 

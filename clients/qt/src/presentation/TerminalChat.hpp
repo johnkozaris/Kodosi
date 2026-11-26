@@ -36,6 +36,7 @@ class TerminalChat final : public QObject {
     Q_PROPERTY(QVariantList helpers READ helpers NOTIFY helpersChanged FINAL)
     Q_PROPERTY(QVariantMap facts READ facts NOTIFY factsChanged FINAL)
     Q_PROPERTY(QVariantList commands READ commands NOTIFY commandsChanged FINAL)
+    Q_PROPERTY(QVariantList settings READ settings NOTIFY settingsChanged FINAL)
     Q_PROPERTY(QString draft READ draft WRITE setDraft NOTIFY draftChanged FINAL)
     Q_PROPERTY(QStringList opened READ opened NOTIFY openedChanged FINAL)
 
@@ -64,6 +65,7 @@ public:
     [[nodiscard]] QVariantList helpers() const { return m_helpers; }
     [[nodiscard]] QVariantMap facts() const { return m_facts; }
     [[nodiscard]] QVariantList commands() const { return m_commands; }
+    [[nodiscard]] QVariantList settings() const { return m_settings; }
     [[nodiscard]] QString draft() const { return m_draft; }
     void setDraft(const QString& draft);
     [[nodiscard]] QStringList opened() const { return m_opened; }
@@ -79,6 +81,10 @@ public:
     Q_INVOKABLE void answer(const QString& ask, const QVariantMap& answer);
     Q_INVOKABLE void unqueue(const QString& id);
     Q_INVOKABLE void stop();
+    // Asks the agent for its own settings, which arrive in `settings`.
+    Q_INVOKABLE void askSettings();
+    // Changes one of the agent's settings to `value`, in the words of the setting's value.
+    Q_INVOKABLE void set(const QString& key, const QString& value);
     Q_INVOKABLE void toggle(const QString& id);
     // The control of the chat that a draft of only a command's name opens in place of sending it.
     Q_INVOKABLE [[nodiscard]] QString control(const QString& draft) const;
@@ -100,6 +106,7 @@ signals:
     void helpersChanged();
     void factsChanged();
     void commandsChanged();
+    void settingsChanged();
     void draftChanged();
     void openedChanged();
     void linkQuestionRequested(const QUrl& link, const QString& target);
@@ -116,6 +123,7 @@ private:
         QJsonArray queued;
         QJsonArray tasks;
         QJsonArray commands;
+        QJsonArray settings;
     };
     struct Prose {
         QString text;
@@ -158,6 +166,7 @@ private:
     QVariantList m_helpers;
     QVariantMap m_facts;
     QVariantList m_commands;
+    QVariantList m_settings;
 };
 
 class TerminalChats final : public QObject {

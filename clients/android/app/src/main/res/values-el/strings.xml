@@ -607,6 +607,9 @@
     <string name="chat_reads_before_next_step">Το %1$s το διαβάζει πριν από το επόμενο βήμα του.</string>
     <string name="chat_waiting_for">Περιμένει το %1$s</string>
     <string name="chat_needs_terminal_view">Η εντολή χρειάζεται την προβολή τερματικού</string>
+    <string name="chat_find_setting">Εύρεση ρύθμισης</string>
+    <string name="chat_no_setting_matches">Καμία ρύθμιση δεν ταιριάζει</string>
+    <string name="chat_setting_locked">Κλειδωμένο</string>
     <string name="chat_commands">Εντολές</string>
     <string name="chat_tokens_of">%1$s από %2$s tokens</string>
     <string name="chat_resets_in">Ανανεώνεται σε %1$s</string>

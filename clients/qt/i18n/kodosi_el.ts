@@ -953,6 +953,25 @@
             <numerusform>%n εντολές εκτελούνται στο παρασκήνιο</numerusform>
         </translation>
     </message>
+    <message>
+        <source>Settings</source>
+        <translation>Ρυθμίσεις</translation>
+    </message>
+</context>
+<context>
+    <name>ChatSettings</name>
+    <message>
+        <source>Find a setting</source>
+        <translation>Εύρεση ρύθμισης</translation>
+    </message>
+    <message>
+        <source>No setting matches</source>
+        <translation>Καμία ρύθμιση δεν ταιριάζει</translation>
+    </message>
+    <message>
+        <source>Locked</source>
+        <translation>Κλειδωμένο</translation>
+    </message>
 </context>
 <context>
     <name>ChatStep</name>
