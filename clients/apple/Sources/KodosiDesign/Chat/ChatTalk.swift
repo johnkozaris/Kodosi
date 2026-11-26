@@ -38,6 +38,18 @@
             chat?.question != nil
         }
 
+        /// Whether this device turns speech into text, once a chat found out while the app runs.
+        private(set) static var available: Bool?
+
+        static func findAvailable() async -> Bool {
+            if let available {
+                return available
+            }
+            let found = await TalkListener.available()
+            available = found
+            return found
+        }
+
         func begin(in chat: TerminalChat, names: [String]) {
             guard phase == .off else { return }
             self.chat = chat
@@ -270,27 +282,33 @@
             try? session.setPrefersNoInterruptionsFromSystemAlerts(audio.quietAlerts)
         }
 
-        /// Takes the first of the person's languages that this device turns into text. Apple's newer
-        /// transcriber is the more accurate one but takes no word hints, so `names` help only in the
-        /// languages that only the dictation transcriber knows. Both use Apple's presets for live
-        /// words.
+        /// Takes the first of the person's languages that this device turns into text, with Apple's
+        /// presets for live words.
         private static func transcription(names: [String]) async throws -> Transcription {
-            for identifier in Locale.preferredLanguages {
-                let language = Locale(identifier: identifier)
-                if SpeechTranscriber.isAvailable, let locale = await SpeechTranscriber.supportedLocale(equivalentTo: language) {
-                    let transcriber = SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
-                    let results = heardWords(transcriber.results) { TalkResult($0.text, final: $0.isFinal, range: $0.range) }
-                    return Transcription(module: transcriber, results: results, hints: nil)
-                }
-                if let locale = await DictationTranscriber.supportedLocale(equivalentTo: language) {
-                    let transcriber = DictationTranscriber(locale: locale, preset: .progressiveLongDictation)
-                    let results = heardWords(transcriber.results) { TalkResult($0.text, final: $0.isFinal, range: $0.range) }
-                    let hints = AnalysisContext()
-                    hints.contextualStrings[.general] = Array(spokenNames(names).prefix(100))
-                    return Transcription(module: transcriber, results: results, hints: hints)
-                }
+            switch await Transcriber.chosen() {
+            case let .speech(locale)?:
+                let transcriber = SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
+                let results = heardWords(transcriber.results) { TalkResult($0.text, final: $0.isFinal, range: $0.range) }
+                return Transcription(module: transcriber, results: results, hints: nil)
+            case let .dictation(locale)?:
+                let transcriber = DictationTranscriber(locale: locale, preset: .progressiveLongDictation)
+                let results = heardWords(transcriber.results) { TalkResult($0.text, final: $0.isFinal, range: $0.range) }
+                let hints = AnalysisContext()
+                hints.contextualStrings[.general] = Array(spokenNames(names).prefix(100))
+                return Transcription(module: transcriber, results: results, hints: hints)
+            case nil:
+                throw Failure.unsupported
             }
-            throw Failure.unsupported
+        }
+
+        /// Whether this device turns speech into text in one of the person's languages.
+        static func available() async -> Bool {
+            guard let chosen = await Transcriber.chosen() else { return false }
+            let module = chosen.module
+            guard await AssetInventory.status(forModules: [module]) != .unsupported else { return false }
+            // An installed model that takes no audio can't listen, as in Simulator.
+            guard await chosen.installed else { return true }
+            return await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [module]) != nil
         }
 
         /// Names as people say them: "talk-in_chat" is "talk in chat".
@@ -371,6 +389,43 @@
                     }
                 }
                 continuation.onTermination = { _ in task.cancel() }
+            }
+        }
+    }
+
+    /// The transcriber for the first of the person's languages that this device turns into text.
+    /// Apple's newer transcriber is the more accurate one but takes no word hints, so names help only
+    /// in the languages that only the dictation transcriber knows.
+    private enum Transcriber {
+        case speech(Locale)
+        case dictation(Locale)
+
+        static func chosen() async -> Self? {
+            for identifier in Locale.preferredLanguages {
+                let language = Locale(identifier: identifier)
+                if SpeechTranscriber.isAvailable, let locale = await SpeechTranscriber.supportedLocale(equivalentTo: language) {
+                    return .speech(locale)
+                }
+                if let locale = await DictationTranscriber.supportedLocale(equivalentTo: language) {
+                    return .dictation(locale)
+                }
+            }
+            return nil
+        }
+
+        var module: any SpeechModule {
+            switch self {
+            case let .speech(locale): SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
+            case let .dictation(locale): DictationTranscriber(locale: locale, preset: .progressiveLongDictation)
+            }
+        }
+
+        var installed: Bool {
+            get async {
+                switch self {
+                case let .speech(locale): await SpeechTranscriber.installedLocales.contains(locale)
+                case let .dictation(locale): await DictationTranscriber.installedLocales.contains(locale)
+                }
             }
         }
     }
