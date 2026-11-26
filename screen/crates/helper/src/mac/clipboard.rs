@@ -16,11 +16,26 @@ const PRIVATE: [&str; 3] = [
 /// What the helper last saw on the clipboard or put there itself.
 pub(super) struct Clipboard {
     seen: isize,
+    /// The text that last went between the computer and a viewer, which a viewer's device or
+    /// a shared clipboard such as Universal Clipboard brings back.
+    last: Option<String>,
 }
 
 impl Clipboard {
     pub(super) fn new() -> Self {
-        Self { seen: count() }
+        Self {
+            seen: count(),
+            last: None,
+        }
+    }
+
+    /// True for text that did not just go between the computer and a viewer, which goes on.
+    pub(super) fn is_new(&mut self, text: &str) -> bool {
+        if self.last.as_deref() == Some(text) {
+            return false;
+        }
+        self.last = Some(text.to_owned());
+        true
     }
 
     /// Only what is copied from now on goes to viewers.
@@ -35,6 +50,7 @@ impl Clipboard {
     }
 
     pub(super) fn put(&mut self, text: &str) {
+        self.last = Some(text.to_owned());
         let pasteboard = NSPasteboard::generalPasteboard();
         pasteboard.clearContents();
         // SAFETY: an AppKit constant.

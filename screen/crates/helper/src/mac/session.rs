@@ -46,6 +46,8 @@ pub(super) enum Event {
     Stopped,
     /// The capture or its encoder failed.
     Failed(String),
+    /// Text that someone copied on the computer.
+    Copied(String),
     /// The screen locked or unlocked, the displays slept or woke, or the account on the display
     /// changed.
     Changed,
@@ -285,6 +287,11 @@ impl Session {
                 }
             }
             Event::Changed => self.look().await,
+            Event::Copied(text) => {
+                if self.clipboard.is_new(&text) {
+                    self.tell(FromHelper::Copied { text }).await;
+                }
+            }
         }
     }
 
@@ -294,16 +301,16 @@ impl Session {
         }
     }
 
-    /// Sends text copied on the computer to the host; reading it may wait for the person at the
-    /// computer to allow it.
+    /// Reads what was copied on the computer, which may wait for the person at the computer to
+    /// allow it.
     fn copies(&mut self) {
         if !self.clipboard.changed() {
             return;
         }
-        let say = self.say.clone();
+        let events = self.events.clone();
         tokio::spawn(async move {
             if let Ok(Some(text)) = tokio::task::spawn_blocking(clipboard::copied).await {
-                drop(say.send(link::json(&FromHelper::Copied { text })).await);
+                drop(events.send(Event::Copied(text)));
             }
         });
     }
