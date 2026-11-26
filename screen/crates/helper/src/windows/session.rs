@@ -266,6 +266,7 @@ impl Session {
         if let Some(capture) = self.capture.take() {
             capture.stop().await;
         }
+        self.hands.let_go();
         self.listening = None;
         self.power.keep_awake(false);
         self.frames = None;

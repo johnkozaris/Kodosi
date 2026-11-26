@@ -81,6 +81,8 @@ pub(super) struct Hands {
     /// What went down for each viewer key that is down, which lets go of the same key.
     keys: HashMap<String, Pressed>,
     alt: Option<Alt>,
+    /// The mouse button that a viewer holds down.
+    button: Option<MouseButton>,
     /// Turns of the wheel smaller than Windows takes, until they add up.
     wheel: (f64, f64),
 }
@@ -90,8 +92,36 @@ impl Hands {
         Self {
             keys: HashMap::new(),
             alt: None,
+            button: None,
             wheel: (0.0, 0.0),
         }
+    }
+
+    /// Lets go of every key and button that viewers hold down, which Windows would otherwise
+    /// keep down for the person at the computer once the screen is no longer shared.
+    pub(super) fn let_go(&mut self) {
+        let mut inputs: Vec<INPUT> = self
+            .button
+            .take()
+            .and_then(released)
+            .map(|flags| INPUT {
+                r#type: INPUT_MOUSE,
+                Anonymous: INPUT_0 {
+                    mi: MOUSEINPUT {
+                        dwFlags: flags,
+                        ..MOUSEINPUT::default()
+                    },
+                },
+            })
+            .into_iter()
+            .collect();
+        inputs.extend(self.keys.drain().map(|(_, pressed)| key(pressed, false)));
+        if let Some(alt) = self.alt.take().filter(|alt| alt.down)
+            && let Some(scan) = keys::scan_code(&alt.code)
+        {
+            inputs.push(key(Pressed::Scan(scan), false));
+        }
+        send(&inputs);
     }
 
     /// Plays input whose pointer is in the points of `screen`.
@@ -115,9 +145,16 @@ impl Hands {
                     }
                     MouseAction::Press => {
                         self.hold_alt();
-                        pressed(*button).map(|flags| vec![mouse(at, flags, 0)])
+                        let flags = pressed(*button);
+                        if flags.is_some() {
+                            self.button = Some(*button);
+                        }
+                        flags.map(|flags| vec![mouse(at, flags, 0)])
                     }
                     MouseAction::Release => {
+                        if self.button == Some(*button) {
+                            self.button = None;
+                        }
                         released(*button).map(|flags| vec![mouse(at, flags, 0)])
                     }
                     MouseAction::Wheel => {

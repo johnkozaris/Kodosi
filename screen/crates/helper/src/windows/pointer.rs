@@ -64,14 +64,18 @@ impl Pointing {
         }
         if let Some(current) = &mut self.current
             && let Some(shape) = current.untold.take()
-            && self
+        {
+            let told = self
                 .say
                 .try_send(link::json(&FromHelper::Shape {
                     shape: shape.clone(),
                 }))
-                .is_err()
-        {
-            current.untold = Some(shape);
+                .is_ok();
+            if told {
+                self.shapes.insert(shape.id);
+            } else {
+                current.untold = Some(shape);
+            }
         }
         let position = info.PointerPosition;
         let pointer = self
@@ -117,7 +121,9 @@ impl Pointing {
         let mut hasher = DefaultHasher::new();
         (&rgba, width, height, info.HotSpot.x, info.HotSpot.y).hash(&mut hasher);
         let id = hasher.finish();
-        let untold = if self.shapes.insert(id) {
+        let untold = if self.shapes.contains(&id) {
+            None
+        } else {
             Some(Shape {
                 id,
                 png: STANDARD.encode(png(&rgba, width, height)?),
@@ -126,8 +132,6 @@ impl Pointing {
                 width: f64::from(width) / scale,
                 height: f64::from(height) / scale,
             })
-        } else {
-            None
         };
         Some(Current {
             id,
