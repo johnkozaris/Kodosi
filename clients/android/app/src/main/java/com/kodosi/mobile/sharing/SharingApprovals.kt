@@ -9,9 +9,21 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.serialization.Serializable
 
-/** A change that lets someone new in and waits for the owner's OK, as the runtime words it. */
+/**
+ * A change that lets someone new in and waits for the owner's OK, as the runtime words it. The
+ * confirm works once the owner ticked the consent and the question was in front of them for
+ * [readSeconds]. [asker] says who asked, unless the owner asked in the app.
+ */
 @Serializable
-data class SharingApproval(val approvalId: String, val title: String, val message: String, val confirm: String)
+data class SharingApproval(
+    val approvalId: String,
+    val title: String,
+    val message: String,
+    val consent: String,
+    val confirm: String,
+    val asker: String? = null,
+    val readSeconds: Int
+)
 
 /** The open questions in the order they came; the app shows the first one. */
 class SharingApprovals(private val commands: CommandSink) {

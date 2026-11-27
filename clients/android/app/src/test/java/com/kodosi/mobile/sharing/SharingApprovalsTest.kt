@@ -37,7 +37,8 @@ class SharingApprovalsTest {
     private fun asked(id: String) = event(
         "sharing.approval",
         """"approvalId":"$id","operation":"session.share","title":"Share Review with Ana?",
-           "message":"Ana gets full control.","confirm":"Share","from":"app""""
+           "message":"Ana gets full control.","consent":"I trust Ana with my computer.","confirm":"Share",
+           "asker":null,"readSeconds":5"""
     )
 
     private fun shown() = approvals.waiting.value.map { it.approvalId }

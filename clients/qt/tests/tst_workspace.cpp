@@ -8,6 +8,7 @@
 #include <QJsonDocument>
 #include <QSignalSpy>
 #include <QTemporaryDir>
+#include <QWindow>
 #include <QtTest/QTest>
 
 class Commands final : public kodosi::CommandDispatcher {
@@ -53,6 +54,16 @@ bool opened(const Commands& commands, const QString& id)
         return command.value(QStringLiteral("type")).toString() == QStringLiteral("session.openRemote")
             && command.value(QStringLiteral("sessionId")).toString() == id;
     });
+}
+QJsonObject sharingQuestion(int value, const QJsonValue& asker = QJsonValue::Null)
+{
+    return QJsonObject { { QStringLiteral("type"), QStringLiteral("sharing.approval") },
+        { QStringLiteral("approvalId"), test::id(value) }, { QStringLiteral("operation"), QStringLiteral("session.share") },
+        { QStringLiteral("title"), QStringLiteral("Share “Terminal” with Ana?") },
+        { QStringLiteral("message"), QStringLiteral("Ana gets full control: they can type anything as you on Mini.") },
+        { QStringLiteral("consent"), QStringLiteral("I trust Ana with my computer.") },
+        { QStringLiteral("confirm"), QStringLiteral("Share") }, { QStringLiteral("asker"), asker },
+        { QStringLiteral("readSeconds"), 5 } };
 }
 QJsonObject accountEvent(const QString& userId, int epoch)
 {
@@ -429,13 +440,6 @@ private slots:
     {
         Fixture f;
         auto& sharing = f.workspace.sharing();
-        const auto asked = [](int value) {
-            return QJsonObject { { QStringLiteral("type"), QStringLiteral("sharing.approval") },
-                { QStringLiteral("approvalId"), test::id(value) }, { QStringLiteral("operation"), QStringLiteral("session.share") },
-                { QStringLiteral("title"), QStringLiteral("Share “Terminal” with Ana?") },
-                { QStringLiteral("message"), QStringLiteral("Ana gets full control: they can type anything as you on Mini.") },
-                { QStringLiteral("confirm"), QStringLiteral("Share") }, { QStringLiteral("from"), QStringLiteral("app") } };
-        };
         const auto ended = [](int value) {
             return QJsonObject { { QStringLiteral("type"), QStringLiteral("sharing.approvalEnded") },
                 { QStringLiteral("approvalId"), test::id(value) }, { QStringLiteral("outcome"), QStringLiteral("expired") } };
@@ -443,7 +447,7 @@ private slots:
         const auto shown = [&] { return sharing.question().value(QStringLiteral("approvalId")).toString(); };
         QSignalSpy changed(&sharing, &kodosi::SharingModel::questionChanged);
         for (const int value : { 1, 2, 3, 1 })
-            f.workspace.apply(asked(value), 0);
+            f.workspace.apply(sharingQuestion(value), 0);
         QCOMPARE(shown(), test::id(1));
         QCOMPARE(sharing.question().value(QStringLiteral("confirm")).toString(), QStringLiteral("Share"));
         f.workspace.apply(ended(2), 0);
@@ -461,11 +465,21 @@ private slots:
         QVERIFY(sharing.question().isEmpty());
         QCOMPARE(f.commands.values.size(), 1);
 
-        f.workspace.apply(asked(4), 0);
+        f.workspace.apply(sharingQuestion(4), 0);
         f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("system.ready") } }, 0);
         QVERIFY(sharing.question().isEmpty());
-        f.workspace.apply(asked(4), 0);
+        f.workspace.apply(sharingQuestion(4), 0);
         QCOMPARE(shown(), test::id(4));
+    }
+    void onlyAQuestionAskedOutsideTheAppBringsBackTheWindow()
+    {
+        Fixture f;
+        QWindow window;
+        f.desktop.attachWindow(&window);
+        f.workspace.apply(sharingQuestion(1), 0);
+        QVERIFY(!window.isVisible());
+        f.workspace.apply(sharingQuestion(2, QStringLiteral("The kodosi command asked for this.")), 0);
+        QVERIFY(window.isVisible());
     }
     void aRequestThatTheOwnerDidNotAllowEndsWithoutANotice()
     {

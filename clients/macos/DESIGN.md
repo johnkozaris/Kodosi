@@ -140,6 +140,12 @@ tooltip after a brief hover delay.
 Selected rows use a raised pill with a copper indicator bar. Segmented controls and tabs animate a
 sliding raised thumb inside a recessed track.
 
+### Questions that let someone in
+A question that lets someone new in is a warning: a floating panel with a `caution` squircle that
+holds a shield, the asker in `caution` when it was not you, a recessed row to tick whom you trust,
+and a `danger` button that works only once that row is ticked and its draining countdown ring is
+empty.
+
 ### Terminal tiles and launcher
 Terminals render inside rounded tiles matching their host's theme. Header controls stay subdued
 until hovered or selected, and the focused tile gets a thin copper border. The chat view occupies

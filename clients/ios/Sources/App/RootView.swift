@@ -68,7 +68,9 @@ struct RootView: View {
             }
         }
         .background {
-            SharingQuestionWindow(approvals: model.approvals, asking: model.approvals.current?.id, locked: model.lock.locked)
+            SharingQuestionWindow(
+                approvals: model.approvals, lock: model.lock, asking: model.approvals.current?.id, locked: model.lock.locked,
+            )
         }
         .onChange(of: model.lock.locked) { _, locked in
             if !locked {

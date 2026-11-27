@@ -349,7 +349,7 @@ private struct DrawnCheck: View {
     }
 }
 
-private struct CheckStroke: Shape {
+struct CheckStroke: Shape {
     func path(in rect: CGRect) -> Path {
         let unit = min(rect.width, rect.height) / 24
         func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {

@@ -26,6 +26,7 @@ QtObject {
     readonly property color cautionSoft: dark ? "#3a2f17" : "#f3e6bf"
     readonly property color danger: dark ? "#e77a75" : "#b23a32"
     readonly property color dangerSoft: dark ? "#3f211f" : "#f4d9d4"
+    readonly property color dangerInk: dark ? "#1a0c0b" : "#fffaf3"
     readonly property color glowAmber: dark ? "#f2bc55" : "#f2c14e"
     readonly property color glowOrange: dark ? "#f08a4b" : "#e8793a"
     readonly property color shadow: dark ? "#000000" : "#2e1f0f"

@@ -42,7 +42,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -79,6 +78,7 @@ import com.kodosi.mobile.projects.ProjectsScreen
 import com.kodosi.mobile.settings.ComputerScreen
 import com.kodosi.mobile.settings.LicensesScreen
 import com.kodosi.mobile.settings.SettingsScreen
+import com.kodosi.mobile.sharing.SharingQuestion
 import com.kodosi.mobile.terminals.NewTerminalRequest
 import com.kodosi.mobile.terminals.NewTerminalSheet
 import com.kodosi.mobile.terminals.TerminalScreen
@@ -494,15 +494,7 @@ private fun Home(model: AppModel) {
     }
     val approvals by model.sharing.waiting.collectAsStateWithLifecycle()
     approvals.firstOrNull()?.let { approval ->
-        key(approval.approvalId) {
-            ConfirmDialog(
-                approval.title,
-                approval.message,
-                approval.confirm,
-                dismiss = { model.sharing.answer(approval, allow = false) },
-                confirm = { model.sharing.answer(approval, allow = true) }
-            )
-        }
+        SharingQuestion(approval) { allow -> model.sharing.answer(approval, allow) }
     }
 }
 

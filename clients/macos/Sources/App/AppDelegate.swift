@@ -19,7 +19,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     let storageBootstrap: RuntimeStorageBootstrap
     let dependencies: AppDependencies
-    private lazy var sharingQuestions = SharingQuestions(approvals: dependencies.approvals)
+    private lazy var sharingQuestions = SharingQuestions(
+        approvals: dependencies.approvals, defaults: storageBootstrap.defaults,
+    ) { [dependencies] shown in dependencies.workbench.questionShown = shown }
 
     override init() {
         do {

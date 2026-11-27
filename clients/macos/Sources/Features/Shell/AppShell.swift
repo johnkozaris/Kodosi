@@ -49,6 +49,15 @@ struct AppShell: View {
         }
         .ignoresSafeArea()
         .kodosiPopoverLayer()
+        .overlay {
+            if workbench.questionShown {
+                theme.colors.shadow.opacity(theme.isDark ? 0.55 : 0.22)
+                    .ignoresSafeArea()
+                    .accessibilityHidden(true)
+                    .transition(.opacity)
+            }
+        }
+        .animation(theme.motion.fade, value: workbench.questionShown)
         .buttonStyle(.kodosi(.secondary))
         .textFieldStyle(WellTextFieldStyle()).toggleStyle(KodosiSwitchStyle())
         .blockConfirmation(item: $workbench.blocking, name: \.name) { target in deps.people.block(handle: target.handle) }
