@@ -10,7 +10,7 @@
 #include <utility>
 #include <thread>
 
-static_assert(KODOSI_FFI_ABI_VERSION == 12, "KodosiQT requires FFI ABI 12");
+static_assert(KODOSI_FFI_ABI_VERSION == 13, "KodosiQT requires FFI ABI 13");
 
 namespace kodosi {
 namespace {

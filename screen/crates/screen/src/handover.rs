@@ -1,4 +1,8 @@
-//! On a Mac the host hands the helper its end of the link in a Mach message.
+//! Mach messages between the programs of Kodosi on a Mac.
+//!
+//! The host hands the helper its end of the link in one kind of message, and Kodosi's app vouches
+//! in another kind that the person at the computer just turned the sharing on, so that the helper
+//! asks them only then.
 //!
 //! The kernel stamps each Mach message with the audit token of the program that sent it, so the
 //! host learns which program asks and the helper learns which program answers. A Unix socket
@@ -32,6 +36,14 @@ const MAKE_SEND_ONCE: u32 = 21;
 const PORT_SEND: u8 = 17;
 const COMPLEX: u32 = 0x8000_0000;
 const PORT_DESCRIPTOR: u8 = 0;
+/// The two kinds of exchange, in each message's id, so that neither answer counts as the other.
+const LINK: i32 = 0x4b53_4c4b;
+const VOUCH: i32 = 0x4b53_564f;
+/// Any program can list the names of the bootstrap namespace, so a vouch's name is no secret:
+/// the helper proves with these bytes, which reach it only through the host, that the host
+/// passed the vouch to it.
+const SECRET: usize = 32;
+const VOUCH_PREFIX: &str = "com.kodosi.screen.vouch.";
 #[cfg(feature = "host")]
 const MOVE_SEND: u8 = 17;
 #[cfg(feature = "host")]
@@ -103,6 +115,14 @@ struct Handed {
     link: PortDescriptor,
 }
 
+/// The helper's ask for a vouch.
+#[repr(C)]
+#[derive(Default)]
+struct VouchAsk {
+    header: Header,
+    secret: [u8; SECRET],
+}
+
 #[repr(C)]
 #[derive(Default)]
 struct AuditTrailer {
@@ -141,19 +161,20 @@ impl Drop for Receiver {
 }
 
 /// A name in this session's bootstrap namespace at which one helper takes the host's end of a
-/// link. The name goes away with it.
+/// link, or a vouch of the app. The name goes away with it.
 #[cfg(feature = "host")]
 pub(crate) struct Offer(Receiver);
 
-/// A program that asked for the link, and the right to answer it once, which goes with it.
+/// A program that asked, and the right to answer it once, which goes with it.
 #[cfg(feature = "host")]
-struct Ask {
+struct Ask<T> {
     answer: Port,
     asker: AuditToken,
+    asked: T,
 }
 
 #[cfg(feature = "host")]
-impl Drop for Ask {
+impl<T> Drop for Ask<T> {
     fn drop(&mut self) {
         if self.answer != 0 {
             // SAFETY: this task holds the right to answer.
@@ -179,24 +200,61 @@ impl Offer {
     pub(crate) fn hand(self, link: OwnedFd, limit: Duration, signer: &Signer) -> io::Result<()> {
         let deadline = Instant::now() + limit;
         loop {
-            let ask = self.next_ask(deadline)?;
+            let ask = self.next_ask::<Header>(deadline, LINK)?;
             if signer.trusts(&ask.asker) {
                 return answer(ask, link);
             }
         }
     }
 
-    fn next_ask(&self, deadline: Instant) -> io::Result<Ask> {
+    /// Vouches once, to the first program that asks with `secret` and that `signer` trusts. The
+    /// others hear nothing, and the vouch waits until `limit` for one.
+    fn vouch(self, secret: &[u8; SECRET], limit: Duration, signer: &Signer) -> io::Result<()> {
+        let deadline = Instant::now() + limit;
         loop {
-            let mut asked = Received::<Header>::default();
-            // SAFETY: the buffer holds `receive_size` bytes, and a message that does not fit is
-            // dropped.
+            let mut ask = self.next_ask::<VouchAsk>(deadline, VOUCH)?;
+            if same(&ask.asked.secret, secret) && signer.trusts(&ask.asker) {
+                let mut vouched = Header {
+                    bits: MOVE_SEND_ONCE,
+                    size: size::<Header>(),
+                    remote: std::mem::take(&mut ask.answer),
+                    id: VOUCH,
+                    ..Header::default()
+                };
+                // SAFETY: `vouched` is a whole message of `send_size` bytes.
+                let sent = unsafe {
+                    mach_msg(
+                        &raw mut vouched,
+                        SEND | SEND_TIMEOUT,
+                        vouched.size,
+                        0,
+                        0,
+                        0,
+                        0,
+                    )
+                };
+                if sent != SUCCESS {
+                    // SAFETY: the message did not go, so this task still holds the right.
+                    unsafe { mach_port_deallocate(task(), vouched.remote) };
+                }
+                return checked(sent, "vouch");
+            }
+        }
+    }
+
+    /// The next ask of `kind`, whose message is a `T`.
+    fn next_ask<T: Default>(&self, deadline: Instant, kind: i32) -> io::Result<Ask<T>> {
+        loop {
+            let mut asked = Received::<T>::default();
+            let message = (&raw mut asked.message).cast::<Header>();
+            // SAFETY: the buffer holds `receive_size` bytes and starts with a header, and a
+            // message that does not fit is dropped.
             let heard = unsafe {
                 mach_msg(
-                    &raw mut asked.message,
+                    message,
                     RECEIVE | RECEIVE_TIMEOUT | WITH_AUDIT_TOKEN,
                     0,
-                    size::<Received<Header>>(),
+                    size::<Received<T>>(),
                     (self.0).0,
                     millis(deadline.saturating_duration_since(Instant::now())),
                     0,
@@ -210,25 +268,48 @@ impl Offer {
                 RECEIVE_TOO_LARGE => continue,
                 problem => return Err(failed(problem, "hear the helper")),
             }
-            let header = &asked.message;
+            // SAFETY: the message starts with the header that the kernel wrote.
+            let header = unsafe { &*message };
             let whole = header.bits & COMPLEX == 0
                 && header.bits & 0x1f == PORT_SEND_ONCE
-                && header.size == size::<Header>()
+                && header.size == size::<T>()
+                && header.id == kind
                 && asked.trailer.size >= size::<AuditTrailer>();
             if whole {
                 return Ok(Ask {
                     answer: header.remote,
                     asker: AuditToken(asked.trailer.audit),
+                    asked: asked.message,
                 });
             }
             // SAFETY: a message that this task received, which nothing uses afterwards.
-            unsafe { mach_msg_destroy(&raw mut asked.message) };
+            unsafe { mach_msg_destroy(message) };
         }
     }
 }
 
+/// Kodosi's app vouches that the person at the computer just turned the sharing on.
+///
+/// The helper that the host then starts or links with takes the vouch once, until `limit`, as a
+/// program of the team. Returns what the host passes to the helper.
 #[cfg(feature = "host")]
-fn answer(mut ask: Ask, link: OwnedFd) -> io::Result<()> {
+pub fn vouch(limit: Duration) -> io::Result<String> {
+    let signer =
+        Signer::own().ok_or_else(|| io::Error::other("the app cannot tell who signed it"))?;
+    let mut bytes = [0_u8; 8 + SECRET];
+    getrandom::fill(&mut bytes)?;
+    let (name, secret) = bytes.split_at(8);
+    let name = format!("{VOUCH_PREFIX}{}", hex(name));
+    let secret: [u8; SECRET] = secret.try_into().map_err(io::Error::other)?;
+    let offer = Offer::new(&name)?;
+    std::thread::Builder::new()
+        .name("kodosi-screen-vouch".to_owned())
+        .spawn(move || drop(offer.vouch(&secret, limit, &signer)))?;
+    Ok(format!("{name}/{}", hex(&secret)))
+}
+
+#[cfg(feature = "host")]
+fn answer(mut ask: Ask<Header>, link: OwnedFd) -> io::Result<()> {
     let mut port = 0;
     // SAFETY: `link` is an open file and `port` is valid to write.
     let made = unsafe { fileport_makeport(link.as_raw_fd(), &raw mut port) };
@@ -242,6 +323,7 @@ fn answer(mut ask: Ask, link: OwnedFd) -> io::Result<()> {
             bits: MOVE_SEND_ONCE | COMPLEX,
             size: size::<Handed>(),
             remote: std::mem::take(&mut ask.answer),
+            id: LINK,
             ..Header::default()
         },
         descriptors: 1,
@@ -289,51 +371,15 @@ pub fn take(name: &str, limit: Duration, signer: &Signer) -> io::Result<OwnedFd>
 }
 
 fn taken(name: &str, limit: Duration) -> io::Result<(OwnedFd, AuditToken)> {
-    let name = CString::new(name).map_err(io::Error::other)?;
-    let mut service = 0;
-    // SAFETY: `name` is a C string and `service` is valid to write.
-    let found = unsafe { bootstrap_look_up(bootstrap_port, name.as_ptr(), &raw mut service) };
-    checked(found, "find the host")?;
-    let answers = Receiver::new()?;
-    let mut ask = Header {
-        bits: COPY_SEND | (MAKE_SEND_ONCE << 8),
-        size: size::<Header>(),
-        remote: service,
-        local: answers.0,
+    let ask = Header {
+        id: LINK,
         ..Header::default()
     };
-    // SAFETY: `ask` is a whole message of `send_size` bytes.
-    let asked = unsafe {
-        mach_msg(
-            &raw mut ask,
-            SEND | SEND_TIMEOUT,
-            ask.size,
-            0,
-            0,
-            millis(limit),
-            0,
-        )
-    };
-    // SAFETY: this task holds the send right that the lookup gave it.
-    unsafe { mach_port_deallocate(task(), service) };
-    checked(asked, "ask the host")?;
-    let mut handed = Received::<Handed>::default();
-    // SAFETY: the buffer holds `receive_size` bytes, and a message that does not fit is dropped.
-    let heard = unsafe {
-        mach_msg(
-            &raw mut handed.message.header,
-            RECEIVE | RECEIVE_TIMEOUT | WITH_AUDIT_TOKEN,
-            0,
-            size::<Received<Handed>>(),
-            answers.0,
-            millis(limit),
-            0,
-        )
-    };
-    checked(heard, "hear the host")?;
+    let mut handed = asked::<Header, Handed>(name, ask, limit)?;
     let message = &handed.message;
     let whole = message.header.bits & COMPLEX != 0
         && message.header.size == size::<Handed>()
+        && message.header.id == LINK
         && message.descriptors == 1
         && message.link.kind == PORT_DESCRIPTOR
         && message.link.disposition == PORT_SEND
@@ -360,6 +406,120 @@ fn taken(name: &str, limit: Duration) -> io::Result<(OwnedFd, AuditToken)> {
     // SAFETY: `fileport_makefd` opened `fd` for this task alone.
     let link = unsafe { OwnedFd::from_raw_fd(fd) };
     Ok((link, AuditToken(handed.trailer.audit)))
+}
+
+/// Takes the vouch of Kodosi's app that `vouch` names, when `signer` trusts the program that
+/// gives it.
+pub fn vouched(vouch: &str, limit: Duration, signer: &Signer) -> io::Result<()> {
+    let refused = || io::Error::new(io::ErrorKind::InvalidInput, "no vouch of Kodosi's app");
+    let (name, secret) = vouch.split_once('/').ok_or_else(refused)?;
+    let secret: [u8; SECRET] = unhex(secret)
+        .and_then(|secret| secret.try_into().ok())
+        .ok_or_else(refused)?;
+    if !name.starts_with(VOUCH_PREFIX) {
+        return Err(refused());
+    }
+    let ask = VouchAsk {
+        header: Header {
+            id: VOUCH,
+            ..Header::default()
+        },
+        secret,
+    };
+    let mut answer = asked::<VouchAsk, Header>(name, ask, limit)?;
+    let whole = answer.message.bits & COMPLEX == 0
+        && answer.message.size == size::<Header>()
+        && answer.message.id == VOUCH
+        && answer.trailer.size >= size::<AuditTrailer>();
+    if !whole {
+        // SAFETY: a message that this task received, which nothing uses afterwards.
+        unsafe { mach_msg_destroy(&raw mut answer.message) };
+        return Err(refused());
+    }
+    if signer.trusts(&AuditToken(answer.trailer.audit)) {
+        Ok(())
+    } else {
+        Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "another program vouched",
+        ))
+    }
+}
+
+/// Sends `ask`, a message that starts with its header, to the program that registered `name`,
+/// and returns that program's answer, a `T`.
+fn asked<A, T: Default>(name: &str, mut ask: A, limit: Duration) -> io::Result<Received<T>> {
+    let name = CString::new(name).map_err(io::Error::other)?;
+    let mut service = 0;
+    // SAFETY: `name` is a C string and `service` is valid to write.
+    let found = unsafe { bootstrap_look_up(bootstrap_port, name.as_ptr(), &raw mut service) };
+    checked(found, "find the program that offers")?;
+    let answers = Receiver::new()?;
+    let header = (&raw mut ask).cast::<Header>();
+    // SAFETY: every ask starts with its header, and `ask` is a whole message of `send_size`
+    // bytes.
+    let sent = unsafe {
+        (*header).bits = COPY_SEND | (MAKE_SEND_ONCE << 8);
+        (*header).size = size::<A>();
+        (*header).remote = service;
+        (*header).local = answers.0;
+        mach_msg(
+            header,
+            SEND | SEND_TIMEOUT,
+            size::<A>(),
+            0,
+            0,
+            millis(limit),
+            0,
+        )
+    };
+    // SAFETY: this task holds the send right that the lookup gave it.
+    unsafe { mach_port_deallocate(task(), service) };
+    checked(sent, "ask the program that offers")?;
+    let mut answer = Received::<T>::default();
+    // SAFETY: the buffer holds `receive_size` bytes and starts with a header, and a message that
+    // does not fit is dropped.
+    let heard = unsafe {
+        mach_msg(
+            (&raw mut answer.message).cast::<Header>(),
+            RECEIVE | RECEIVE_TIMEOUT | WITH_AUDIT_TOKEN,
+            0,
+            size::<Received<T>>(),
+            answers.0,
+            millis(limit),
+            0,
+        )
+    };
+    checked(heard, "hear the program that offers")?;
+    Ok(answer)
+}
+
+#[cfg(feature = "host")]
+fn hex(bytes: &[u8]) -> String {
+    use std::fmt::Write as _;
+    bytes.iter().fold(String::new(), |mut text, byte| {
+        let _ = write!(text, "{byte:02x}");
+        text
+    })
+}
+
+fn unhex(text: &str) -> Option<Vec<u8>> {
+    let (pairs, []) = text.as_bytes().as_chunks::<2>() else {
+        return None;
+    };
+    pairs
+        .iter()
+        .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).ok()?, 16).ok())
+        .collect()
+}
+
+/// Compares in the same time whatever the bytes are.
+#[cfg(feature = "host")]
+fn same(one: &[u8; SECRET], other: &[u8; SECRET]) -> bool {
+    one.iter()
+        .zip(other)
+        .fold(0, |differ, (one, other)| differ | (one ^ other))
+        == 0
 }
 
 fn task() -> Port {
@@ -414,7 +574,7 @@ mod tests {
         let (name, offer) = offer("tokens");
         let (mut host, helper) = UnixStream::pair().unwrap();
         let handing = std::thread::spawn(move || {
-            let ask = offer.next_ask(Instant::now() + Duration::from_secs(5))?;
+            let ask = offer.next_ask::<Header>(Instant::now() + Duration::from_secs(5), LINK)?;
             let asker = ask.asker;
             answer(ask, helper.into()).map(|()| asker)
         });
@@ -454,5 +614,80 @@ mod tests {
         );
         assert_eq!(taken.unwrap_err().kind(), io::ErrorKind::PermissionDenied);
         handing.join().unwrap().unwrap();
+    }
+
+    fn vouch_offer(test: &str) -> (String, Offer) {
+        let name = format!("{VOUCH_PREFIX}test.{}.{test}", std::process::id());
+        let offer = Offer::new(&name).unwrap();
+        (name, offer)
+    }
+
+    #[test]
+    fn a_vouch_counts_once_and_only_with_the_secret_that_came_with_its_name() {
+        let (name, offer) = vouch_offer("once");
+        let secret = [7; SECRET];
+        let vouching = std::thread::spawn(move || {
+            offer.vouch(&secret, Duration::from_secs(5), &Signer::NoTeam)
+        });
+        let guessed = format!("{name}/{}", hex(&[8; SECRET]));
+        assert!(vouched(&guessed, Duration::from_secs(5), &Signer::NoTeam).is_err());
+        let passed_on = format!("{name}/{}", hex(&secret));
+        vouched(&passed_on, Duration::from_secs(5), &Signer::NoTeam).unwrap();
+        vouching.join().unwrap().unwrap();
+        assert!(vouched(&passed_on, Duration::from_secs(5), &Signer::NoTeam).is_err());
+    }
+
+    #[test]
+    fn a_link_never_counts_as_a_vouch_nor_a_vouch_as_a_link() {
+        let secret = [7; SECRET];
+        let (name, offer) = vouch_offer("link");
+        let (_host, helper) = UnixStream::pair().unwrap();
+        let handing = std::thread::spawn(move || {
+            offer.hand(helper.into(), Duration::from_secs(1), &Signer::NoTeam)
+        });
+        let asked = format!("{name}/{}", hex(&secret));
+        assert!(vouched(&asked, Duration::from_secs(5), &Signer::NoTeam).is_err());
+        assert_eq!(
+            handing.join().unwrap().unwrap_err().kind(),
+            io::ErrorKind::TimedOut
+        );
+
+        let (name, offer) = vouch_offer("vouch");
+        let vouching = std::thread::spawn(move || {
+            offer.vouch(&secret, Duration::from_secs(1), &Signer::NoTeam)
+        });
+        assert!(take(&name, Duration::from_secs(5), &Signer::NoTeam).is_err());
+        assert_eq!(
+            vouching.join().unwrap().unwrap_err().kind(),
+            io::ErrorKind::TimedOut
+        );
+    }
+
+    #[test]
+    fn a_vouch_goes_only_between_programs_of_the_team() {
+        let secret = [7; SECRET];
+        let (name, offer) = vouch_offer("app");
+        let team = Signer::Team(TEAM.to_owned());
+        let vouching =
+            std::thread::spawn(move || offer.vouch(&secret, Duration::from_secs(1), &team));
+        let asked = format!("{name}/{}", hex(&secret));
+        assert!(vouched(&asked, Duration::from_secs(5), &Signer::NoTeam).is_err());
+        assert_eq!(
+            vouching.join().unwrap().unwrap_err().kind(),
+            io::ErrorKind::TimedOut
+        );
+
+        let (name, offer) = vouch_offer("helper");
+        let vouching = std::thread::spawn(move || {
+            offer.vouch(&secret, Duration::from_secs(5), &Signer::NoTeam)
+        });
+        let asked = format!("{name}/{}", hex(&secret));
+        let taken = vouched(
+            &asked,
+            Duration::from_secs(5),
+            &Signer::Team(TEAM.to_owned()),
+        );
+        assert_eq!(taken.unwrap_err().kind(), io::ErrorKind::PermissionDenied);
+        vouching.join().unwrap().unwrap();
     }
 }

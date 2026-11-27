@@ -100,11 +100,14 @@ impl Screens {
 
     /// Whether the person at the computer allowed the account, which is no when Kodosi Screen
     /// could not ask them.
-    pub(super) async fn allow(&self, question: screen::Question) -> bool {
-        self.0.allow(question).await.unwrap_or_else(|problem| {
-            tracing::warn!(%problem, "Kodosi Screen did not allow this account");
-            false
-        })
+    pub(super) async fn allow(&self, question: screen::Question, vouch: Option<String>) -> bool {
+        self.0
+            .allow(question, vouch)
+            .await
+            .unwrap_or_else(|problem| {
+                tracing::warn!(%problem, "Kodosi Screen did not allow this account");
+                false
+            })
     }
 
     pub(super) async fn forget(self) {

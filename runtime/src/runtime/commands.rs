@@ -700,11 +700,18 @@ impl Runtime {
         let screen = self.services.screen.clone();
         let mut question = None;
         match command {
-            Command::ScreenAllow { allowed: true, .. } => {
+            Command::ScreenAllow {
+                allowed: true,
+                vouch,
+                ..
+            } => {
                 screen.offered().map_err(Error::Text)?;
                 let account = self.network.account().unwrap_or_default();
                 let server = self.config.foreign_server();
-                question = Some(crate::canvas::screen_question(&account, server.as_deref()));
+                question = Some((
+                    crate::canvas::screen_question(&account, server.as_deref()),
+                    vouch.clone(),
+                ));
             }
             Command::ScreenAllow { allowed: false, .. } => screen.turn_off(),
             _ => {}
@@ -712,8 +719,8 @@ impl Runtime {
         self.job_capacity()?;
         let command = command.clone();
         self.spawn(async move {
-            if let Some(question) = question {
-                screen.turn_on(question).await;
+            if let Some((question, vouch)) = question {
+                screen.turn_on(question, vouch).await;
             }
             let access = screen.access().await;
             let result = Ok(json!({

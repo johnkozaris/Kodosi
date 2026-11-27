@@ -51,6 +51,8 @@ const COPIES_EVERY: Duration = Duration::from_millis(500);
 const HANDOVER_LIMIT: Duration = Duration::from_secs(15);
 /// Kodosi Screen's bundle, which after the team names the keychain group of its signature.
 const BUNDLE: &str = "com.kodosi.screen";
+/// Kodosi's app offers its vouch before it sends the click on to the host, so it answers at once.
+const VOUCH_LIMIT: Duration = Duration::from_secs(5);
 
 pub(super) enum Event {
     /// The person at the computer stopped the sharing.
@@ -85,10 +87,6 @@ pub(super) fn serve(
     let Ok(link) = handover::take(link, HANDOVER_LIMIT, &signer) else {
         return;
     };
-    let answers = match &signer {
-        Signer::Team(team) => Some(Answers::new(&format!("{team}.{BUNDLE}"))),
-        Signer::NoTeam => None,
-    };
     let Ok(runtime) = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -105,7 +103,7 @@ pub(super) fn serve(
         };
         let (reader, writer) = socket.into_split();
         tokio::spawn(write(writer, saying));
-        let mut session = Session::new(say, events, answers);
+        let mut session = Session::new(say, events, signer);
         session.hello(token).await;
         session.run(reader, hearing).await;
     });
@@ -133,6 +131,8 @@ struct Session {
     say: mpsc::Sender<Bytes>,
     events: mpsc::UnboundedSender<Event>,
     gate: Gate,
+    /// The team that signed this program, whose app vouches for the person's clicks.
+    signer: Signer,
     /// Where a Kodosi Screen of a team keeps the accounts that the person allowed.
     answers: Option<Answers>,
     access: Access,
@@ -151,15 +151,16 @@ struct Session {
 }
 
 impl Session {
-    fn new(
-        say: mpsc::Sender<Bytes>,
-        events: mpsc::UnboundedSender<Event>,
-        answers: Option<Answers>,
-    ) -> Self {
+    fn new(say: mpsc::Sender<Bytes>, events: mpsc::UnboundedSender<Event>, signer: Signer) -> Self {
+        let answers = match &signer {
+            Signer::Team(team) => Some(Answers::new(&format!("{team}.{BUNDLE}"))),
+            Signer::NoTeam => None,
+        };
         Self {
             say,
             events,
             gate: Gate::new(answers.is_some()),
+            signer,
             answers,
             access: Access::default(),
             away: None,
@@ -273,7 +274,7 @@ impl Session {
                 }
             }
             ToHelper::Owner { key } => self.own(key).await,
-            ToHelper::Allow { question } => self.allow(question).await,
+            ToHelper::Allow { question, vouch } => self.allow(question, vouch.as_deref()).await,
             ToHelper::Forget => self.forget().await,
             ToHelper::Quit => return false,
         }
@@ -291,12 +292,28 @@ impl Session {
         }
     }
 
-    async fn allow(&mut self, question: Question) {
-        match self.gate.ask() {
+    async fn allow(&mut self, question: Question, vouch: Option<&str>) {
+        let mut unvouched = None;
+        let signer = &self.signer;
+        let vouched = || {
+            let taken = vouch
+                .ok_or_else(|| "no vouch came with the ask".to_owned())
+                .and_then(|vouch| {
+                    handover::vouched(vouch, VOUCH_LIMIT, signer).map_err(|error| error.to_string())
+                });
+            taken
+                .map_err(|problem| {
+                    unvouched = Some(format!(
+                        "Kodosi Screen asks only for a click in Kodosi's app: {problem}"
+                    ));
+                })
+                .is_ok()
+        };
+        match self.gate.ask(vouched) {
             Step::Answer(allowed) => {
                 self.tell(FromHelper::Allowed {
                     allowed,
-                    problem: None,
+                    problem: unvouched,
                 })
                 .await;
             }

@@ -63,6 +63,7 @@ pub(crate) enum Event {
     Ask,
     Allow {
         question: Question,
+        vouch: Option<String>,
         reply: oneshot::Sender<Result<bool, Error>>,
     },
     /// Ends the screen after the helper forgot every account.
@@ -418,10 +419,14 @@ impl Live {
                 }
             }
             Event::Ask => self.say(&ToHelper::Ask),
-            Event::Allow { question, reply } => {
+            Event::Allow {
+                question,
+                vouch,
+                reply,
+            } => {
                 if self
                     .helper
-                    .try_send(link::json(&ToHelper::Allow { question }))
+                    .try_send(link::json(&ToHelper::Allow { question, vouch }))
                     .is_ok()
                 {
                     self.asking.push_back(reply);
@@ -1335,6 +1340,7 @@ mod tests {
                 .events
                 .send(Event::Allow {
                     question: question(),
+                    vouch: None,
                     reply,
                 })
                 .await

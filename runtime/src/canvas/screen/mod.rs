@@ -69,13 +69,14 @@ impl ScreenHost {
 
     /// The person at the computer turns the sharing on there. Kodosi Screen asks them first
     /// whether the devices of this account may see and control the computer, unless they allowed
-    /// it before, and the command waits for their answer. Then it is the time for the system to
-    /// ask them for what Kodosi Screen may not do yet.
-    pub(crate) async fn turn_on(&self, question: screen::Question) {
+    /// it before, and on a Mac only with the `vouch` of the app for their click. The command waits
+    /// for their answer. Then it is the time for the system to ask them for what Kodosi Screen may
+    /// not do yet.
+    pub(crate) async fn turn_on(&self, question: screen::Question, vouch: Option<String>) {
         let Some(screens) = self.0.screens.clone() else {
             return;
         };
-        if screens.allow(question).await {
+        if screens.allow(question, vouch).await {
             self.0.set(true);
             screens.ask().await;
         }
@@ -161,6 +162,19 @@ impl Shared {
             tokio::spawn(screens.stop());
         }
     }
+}
+
+/// How long Kodosi's app vouches for a click, which may wait for Kodosi Screen to start.
+#[cfg(target_os = "macos")]
+const VOUCH_LIFE: std::time::Duration = std::time::Duration::from_mins(1);
+
+/// Kodosi's app vouches that the person at this Mac just clicked its switch to share the screen.
+///
+/// Kodosi Screen asks them only with the vouch. Only the code that runs on that click calls this,
+/// through the C contract, and sends what it returns with `screen.allow`; no host makes an offer.
+#[cfg(target_os = "macos")]
+pub fn vouch() -> std::io::Result<String> {
+    ::screen::handover::vouch(VOUCH_LIFE)
 }
 
 /// What Kodosi Screen asks the person at the Mac before the devices of `account` see it. An

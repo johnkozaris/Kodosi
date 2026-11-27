@@ -172,12 +172,17 @@ impl Screens {
 
     /// Whether the person at the computer lets the devices of the host's account see and control
     /// it. A helper that guards the computer asks them in `question`'s words unless they allowed
-    /// the account before, and this waits for their answer as long as they take.
-    pub async fn allow(&self, question: Question) -> Result<bool, Error> {
+    /// the account before, only with the `vouch` of Kodosi's app for their click, and this waits
+    /// for their answer as long as they take.
+    pub async fn allow(&self, question: Question, vouch: Option<String>) -> Result<bool, Error> {
         let events = self.live().await?;
         let (reply, answer) = oneshot::channel();
         events
-            .send(Event::Allow { question, reply })
+            .send(Event::Allow {
+                question,
+                vouch,
+                reply,
+            })
             .await
             .map_err(|_| Error::Stopped)?;
         answer.await.map_err(|_| Error::Stopped)?

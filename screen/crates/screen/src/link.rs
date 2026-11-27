@@ -79,9 +79,11 @@ pub enum ToHelper {
         key: String,
     },
     /// The person at the computer turns the sharing on: the helper asks them in these words,
-    /// unless they allowed the account before.
+    /// unless they allowed the account before. A helper that guards the computer asks only with
+    /// the vouch of Kodosi's app that came with the click, from `handover::vouch`.
     Allow {
         question: Question,
+        vouch: Option<String>,
     },
     /// The sharing went off, so the helper forgets every account that the person allowed.
     Forget,
