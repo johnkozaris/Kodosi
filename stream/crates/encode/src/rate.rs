@@ -129,7 +129,8 @@ impl Rate {
 
     /// Chooses the quantizer for a new picture of which `changed` is new, or which `whole` codes
     /// all of again, like a keyframe; or tells when its frame time comes or when the link will
-    /// have room for it.
+    /// have room for it. A whole picture repairs the stream, so it does not wait for its frame
+    /// time.
     pub(crate) fn picture(
         &mut self,
         changed: f64,
@@ -137,7 +138,9 @@ impl Rate {
         pixels: f64,
         now: Instant,
     ) -> Result<Choice, Instant> {
-        due(self.pace, self.pictured_at, now)?;
+        if !whole {
+            due(self.pace, self.pictured_at, now)?;
+        }
         let choice = self.choose(changed, whole, pixels, now)?;
         self.pictured_at = Some(now);
         Ok(choice)
@@ -419,6 +422,27 @@ mod tests {
             (share..=2.0 * share).contains(&watching.expected),
             "{} of {share}",
             watching.expected
+        );
+    }
+
+    #[test]
+    fn a_repair_with_a_new_picture_comes_at_once_and_the_next_picture_waits_its_frame_time_after_it()
+     {
+        let start = Instant::now();
+        let mut rate = Rate::new(100_000_000, Pace::Watching, start);
+        let first = rate.picture(0.01, false, PIXELS, start).unwrap();
+        rate.coded(first, 0);
+        let soon = start + FRAME;
+        assert!(rate.picture(0.01, false, PIXELS, soon).is_err());
+        let key = rate.picture(0.01, true, PIXELS, soon).unwrap();
+        rate.coded(key, 0);
+        let due = rate
+            .picture(0.01, false, PIXELS, start + FRAME * 2)
+            .unwrap_err();
+        assert!(
+            due >= soon + Pace::Watching.frame_time(),
+            "{:?}",
+            due - soon
         );
     }
 

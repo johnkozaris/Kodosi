@@ -245,8 +245,8 @@ struct Worker<'a> {
 }
 
 impl Worker<'_> {
-    /// Waits for a new picture at its frame time, or while none waits, for a keyframe asked for
-    /// while the picture is still, a retry or a pass.
+    /// Waits for a new picture at its frame time, or at once when a keyframe was asked for; or
+    /// while none waits, for a keyframe asked for while the picture is still, a retry or a pass.
     fn next(&mut self) -> Option<Work> {
         let shared = self.shared;
         let mut slot = pixels::lock(shared);
@@ -260,8 +260,8 @@ impl Worker<'_> {
             let now = Instant::now();
             let wake = if slot.picture.is_some() {
                 match due(self.pace, self.pictured_at, now) {
-                    Ok(()) => break,
-                    Err(at) => Some(at),
+                    Err(at) if !slot.key => Some(at),
+                    _ => break,
                 }
             } else {
                 if slot.key && self.running.is_some() {
