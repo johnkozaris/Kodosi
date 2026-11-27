@@ -2044,6 +2044,7 @@ dependencies = [
  "trash",
  "windows-sys 0.61.2",
  "zbus 5.19.0",
+ "zbus 6.5.0",
  "zbus-secret-service-keyring-store",
  "zeroize",
 ]

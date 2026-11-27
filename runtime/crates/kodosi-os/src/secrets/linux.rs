@@ -11,8 +11,9 @@ use zbus_secret_service_keyring_store::Store as SecretService;
 use zeroize::Zeroizing;
 
 const OPENING: Duration = Duration::from_secs(10);
-// KDE's Secret Service rejects ~1 in 256 handshakes because `secret-service`
-// drops a leading zero byte from the key (secret-service-rs#127); retries draw a new key.
+// KDE's Secret Service rejects ~1 in 256 handshakes because `secret-service` 5, which the keyring
+// store still uses, drops a leading zero byte from the key (secret-service-rs#127, fixed in 6.0.0);
+// retries draw a new key.
 const OPENINGS: usize = 3;
 const REFUSED_ARGUMENTS: &str = "org.freedesktop.DBus.Error.InvalidArgs";
 
@@ -40,8 +41,8 @@ fn refused_key(error: &Error) -> bool {
     })
     .any(|error| {
         matches!(
-            error.downcast_ref::<zbus::Error>(),
-            Some(zbus::Error::MethodError(name, ..)) if *name == REFUSED_ARGUMENTS
+            error.downcast_ref::<zbus5::Error>(),
+            Some(zbus5::Error::MethodError(name, ..)) if *name == REFUSED_ARGUMENTS
         )
     })
 }

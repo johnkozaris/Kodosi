@@ -1,9 +1,6 @@
 use std::{collections::HashMap, io, os::fd::OwnedFd};
 
-use zbus::{
-    blocking::Connection,
-    zvariant::{self, OwnedObjectPath, Value},
-};
+use zbus::{Connection, OwnedObjectPath, Variant};
 
 use crate::bus;
 
@@ -30,13 +27,19 @@ struct DesktopHold {
 
 impl Drop for DesktopHold {
     fn drop(&mut self) {
-        drop(self.bus.call_method(
-            Some(PORTAL),
-            &self.request,
-            Some("org.freedesktop.portal.Request"),
-            "Close",
-            &(),
-        ));
+        let request = self.request.clone();
+        bus::ask_on(self.bus.clone(), async move |bus| {
+            bus.call_method(
+                Some(PORTAL),
+                &request,
+                Some("org.freedesktop.portal.Request"),
+                "Close",
+                &(),
+            )
+            .await
+            .ok()
+            .map(drop)
+        });
     }
 }
 
@@ -58,8 +61,8 @@ impl Awake {
 
 fn idle_lock(reason: &str) -> Option<OwnedFd> {
     let reason = reason.to_owned();
-    bus::ask_system(move |bus| {
-        let lock: zvariant::OwnedFd = bus
+    bus::ask_system(async move |bus| {
+        let lock: zbus::OwnedFd = bus
             .call_method(
                 Some(LOGIN),
                 LOGIN_PATH,
@@ -67,6 +70,7 @@ fn idle_lock(reason: &str) -> Option<OwnedFd> {
                 "Inhibit",
                 &("idle", "Kodosi", reason.as_str(), "block"),
             )
+            .await
             .ok()?
             .body()
             .deserialize()
@@ -77,8 +81,8 @@ fn idle_lock(reason: &str) -> Option<OwnedFd> {
 
 fn desktop_hold(reason: &str) -> Option<DesktopHold> {
     let reason = reason.to_owned();
-    bus::ask_session(move |bus| {
-        let options = HashMap::from([("reason", Value::from(reason.as_str()))]);
+    bus::ask_session(async move |bus| {
+        let options = HashMap::from([("reason", Variant::from(reason.as_str()))]);
         let request: OwnedObjectPath = bus
             .call_method(
                 Some(PORTAL),
@@ -87,6 +91,7 @@ fn desktop_hold(reason: &str) -> Option<DesktopHold> {
                 "Inhibit",
                 &("", PORTAL_SUSPEND, options),
             )
+            .await
             .ok()?
             .body()
             .deserialize()
@@ -125,7 +130,7 @@ pub(super) fn on_battery() -> bool {
 }
 
 pub(super) fn can_sleep() -> io::Result<()> {
-    let answer: Option<String> = bus::ask_system(|bus| {
+    let answer: Option<String> = bus::ask_system(async |bus| {
         bus.call_method(
             Some(LOGIN),
             LOGIN_PATH,
@@ -133,6 +138,7 @@ pub(super) fn can_sleep() -> io::Result<()> {
             "CanSuspend",
             &(),
         )
+        .await
         .ok()?
         .body()
         .deserialize()
@@ -149,7 +155,7 @@ pub(super) fn can_sleep() -> io::Result<()> {
 }
 
 pub(super) fn sleep() -> io::Result<super::Sleep> {
-    bus::ask_system(|bus| {
+    bus::ask_system(async |bus| {
         Some(
             bus.call_method(
                 Some(LOGIN),
@@ -158,6 +164,7 @@ pub(super) fn sleep() -> io::Result<super::Sleep> {
                 "Suspend",
                 &(false,),
             )
+            .await
             .map(drop)
             .map_err(|error| error.to_string()),
         )
