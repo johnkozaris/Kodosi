@@ -40,6 +40,7 @@ QtObject {
     readonly property color cautionSoft: look.cautionSoft
     readonly property color danger: look.danger
     readonly property color dangerSoft: look.dangerSoft
+    readonly property color dangerInk: look.dangerInk
     readonly property color glowAmber: look.glowAmber
     readonly property color glowOrange: look.glowOrange
     readonly property color shadow: look.shadow

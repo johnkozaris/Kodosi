@@ -55,7 +55,8 @@ struct AppModelTests {
         try deliver("sessions.snapshot", ["sessions": [session(id: "s1")]])
         try deliver("sharing.approval", [
             "approvalId": UUID().uuidString.lowercased(), "operation": "project.invite", "title": "Invite Ana to Release?",
-            "message": "Ana sees its chat and tasks and gets full control of your terminal in it.", "confirm": "Invite", "from": "app",
+            "message": "Ana sees its chat and tasks and gets full control of your terminal in it.",
+            "consent": "I trust Ana with my computer.", "confirm": "Invite", "asker": NSNull(), "readSeconds": 5,
         ])
         #expect(model.terminals.sessions.count == 1)
         #expect(model.approvals.current?.confirm == "Invite")

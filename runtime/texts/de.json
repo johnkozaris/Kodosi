@@ -50,6 +50,10 @@
 "Dosi's conversation is missing.": "Die Unterhaltung von Dosi fehlt.",
 "Friends you share a terminal or project with get full control of it.": "Freunde, mit denen du ein Terminal oder Projekt teilst, bekommen die volle Kontrolle darüber.",
 "Git is not available on this computer.": "Git ist auf diesem Computer nicht verfügbar.",
+"I asked for a new recovery key.": "Ich habe einen neuen Wiederherstellungsschlüssel angefordert.",
+"I asked for this code to add a device of mine.": "Ich habe diesen Code angefordert, um ein eigenes Gerät hinzuzufügen.",
+"I trust the members of {project} with my computer.": "Ich vertraue den Mitgliedern von {project} meinen Computer an.",
+"I trust {people} with my computer.": "Ich vertraue {people} meinen Computer an.",
 "Import issues from a computer.": "Importiere Issues an einem Computer.",
 "Install Claude Code or Codex, then choose it for Dosi in Settings.": "Installiere Claude Code oder Codex und wähle es dann in den Einstellungen für Dosi aus.",
 "Invalid device code.": "Dieser Gerätecode ist ungültig.",
@@ -309,6 +313,7 @@
 "This friend has a new identity. Trust it in Friends before you share or connect.": "Dieser Freund hat eine neue Identität. Vertraue ihr unter „Freunde“, bevor du teilst oder dich verbindest.",
 "This invitation is no longer available.": "Diese Einladung ist nicht mehr verfügbar.",
 "This invitation is unavailable.": "Diese Einladung ist nicht verfügbar.",
+"This invite came from {person}.": "Diese Einladung kommt von {person}.",
 "This invite is for another identity than the one that Kodosi has for this friend.": "Diese Einladung gilt für eine andere Identität als die, die Kodosi für diesen Freund kennt.",
 "This invite is for another person.": "Diese Einladung ist für eine andere Person.",
 "This invite is not for the identity that this friend has now. Ask them for a new invite.": "Diese Einladung gilt nicht für die aktuelle Identität dieses Freundes. Bitte um eine neue Einladung.",
@@ -442,10 +447,12 @@
 "{person} sees its chat and tasks and gets full control of your terminal in it.": "{person} sieht den Chat und die Aufgaben des Projekts und bekommt die volle Kontrolle über dein Terminal darin.",
 "{person} sees its chat and tasks and gets full control of your terminals in it.": "{person} sieht den Chat und die Aufgaben des Projekts und bekommt die volle Kontrolle über deine Terminals darin.",
 "{person} sees its chat and tasks and gets full control of your {count} terminals in it.": "{person} sieht den Chat und die Aufgaben des Projekts und bekommt die volle Kontrolle über deine {count} Terminals darin.",
+"{person} told me that their identity changed.": "{person} hat mir gesagt, dass sich die Identität geändert hat.",
 "{program} did not start: {error}": "{program} ist nicht gestartet: {error}",
 "{reason} Approve this device from another device, or start fresh here.": "{reason} Gib dieses Gerät von einem anderen Gerät aus frei oder beginne hier neu.",
 "{reason} Go back to Kodosi and try again.": "{reason} Kehre zu Kodosi zurück und versuche es erneut.",
 "{reason} Kodosi did not send some of your last input.": "{reason} Kodosi hat einen Teil deiner letzten Eingabe nicht gesendet.",
 "{reason} {error}": "{reason} {error}",
-"{sentence} {next}": "{sentence} {next}"
+"{sentence} {next}": "{sentence} {next}",
+"“{device}” is my device.": "„{device}“ ist mein Gerät."
 }

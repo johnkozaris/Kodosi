@@ -28,7 +28,7 @@ Button {
     readonly property color foreground: !enabled ? look.inkFaint
         : variant === KButton.Primary ? look.accentInk
         : variant === KButton.Tinted ? look.accentStrong
-        : variant === KButton.Danger ? look.danger
+        : variant === KButton.Danger ? look.dangerInk
         : variant === KButton.Ghost && !hovered ? look.inkMuted
         : ink
 
@@ -82,12 +82,12 @@ Button {
             visible: root.variant !== KButton.Ghost
             look: root.look
             radius: root.radius
-            quiet: root.variant !== KButton.Primary || !root.enabled
+            quiet: (root.variant !== KButton.Primary && root.variant !== KButton.Danger) || !root.enabled
             pressed: root.pressed && root.enabled
             fill: !root.enabled ? root.look.buttonFace(false)
                 : root.variant === KButton.Primary ? (root.lit ? root.look.accentHover : root.look.accent)
                 : root.variant === KButton.Tinted ? KodosiTheme.mix(root.look.accentSoft, root.look.accent, root.lit ? 0.14 : 0)
-                : root.variant === KButton.Danger ? KodosiTheme.mix(root.look.dangerSoft, root.look.danger, root.lit ? 0.14 : 0)
+                : root.variant === KButton.Danger ? KodosiTheme.mix(root.look.danger, "#ffffff", root.lit ? 0.12 : 0)
                 : root.look.buttonFace(root.lit)
         }
         Rectangle {
@@ -104,6 +104,8 @@ Button {
         objectName: "control.keyboardFocus"
         Accessible.id: objectName
         active: root.visualFocus && root.enabled
-        color: root.variant === KButton.Primary ? root.look.accentInk : root.look.accentStrong
+        color: root.variant === KButton.Primary ? root.look.accentInk
+            : root.variant === KButton.Danger ? root.look.dangerInk
+            : root.look.accentStrong
     }
 }

@@ -33,7 +33,10 @@ private:
         QString approvalId;
         QString title;
         QString message;
+        QString consent;
         QString confirm;
+        QString asker;
+        qint64 readSeconds = 0;
     };
 
     Workspace& m_workspace;

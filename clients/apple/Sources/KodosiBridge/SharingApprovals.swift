@@ -4,17 +4,16 @@ import Observation
 /// A change that lets someone new into the owner's terminals or projects, waiting for the owner's
 /// answer. The runtime words the question; the apps ask it as it is.
 public struct SharingApproval: Decodable, Equatable, Identifiable, Sendable {
-    public enum Asker: String, Decodable, Sendable {
-        case app
-        case command
-    }
-
     public let approvalId: String
     public let operation: String
     public let title: String
     public let message: String
+    public let consent: String
     public let confirm: String
-    public let from: Asker
+    /// Who asked, when the question did not come from a person in the app.
+    public let asker: String?
+    /// How long the question shows while Kodosi is in front before its confirm button works.
+    public let readSeconds: Int
 
     public var id: String {
         approvalId

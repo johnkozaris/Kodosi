@@ -21,7 +21,9 @@ QVariantMap SharingModel::question() const
         return {};
     const auto& shown = m_questions.first();
     return { { QStringLiteral("approvalId"), shown.approvalId }, { QStringLiteral("title"), shown.title },
-        { QStringLiteral("message"), shown.message }, { QStringLiteral("confirm"), shown.confirm } };
+        { QStringLiteral("message"), shown.message }, { QStringLiteral("consent"), shown.consent },
+        { QStringLiteral("confirm"), shown.confirm }, { QStringLiteral("asker"), shown.asker },
+        { QStringLiteral("readSeconds"), shown.readSeconds } };
 }
 
 void SharingModel::answer(const QString& approvalId, bool allow)
@@ -42,13 +44,16 @@ void SharingModel::apply(const QString& type, const QJsonObject& event)
     }
     if (std::ranges::find(m_questions, id, &Question::approvalId) != m_questions.end())
         return;
+    const auto asker = event.value(QStringLiteral("asker"));
     Question question { .approvalId = id,
         .title = event.value(QStringLiteral("title")).toString(),
         .message = event.value(QStringLiteral("message")).toString(),
-        .confirm = event.value(QStringLiteral("confirm")).toString() };
-    const auto from = event.value(QStringLiteral("from")).toString();
-    if (id.isEmpty() || question.title.isEmpty() || question.message.isEmpty() || question.confirm.isEmpty()
-        || (from != QStringLiteral("app") && from != QStringLiteral("command"))) {
+        .consent = event.value(QStringLiteral("consent")).toString(),
+        .confirm = event.value(QStringLiteral("confirm")).toString(),
+        .asker = asker.toString(),
+        .readSeconds = event.value(QStringLiteral("readSeconds")).toInteger(-1) };
+    if (id.isEmpty() || question.title.isEmpty() || question.message.isEmpty() || question.consent.isEmpty()
+        || question.confirm.isEmpty() || (!asker.isString() && !asker.isNull()) || question.readSeconds < 0) {
         m_faults.unreadable(type, QStringLiteral("its question is incomplete"));
         return;
     }
@@ -56,10 +61,11 @@ void SharingModel::apply(const QString& type, const QJsonObject& event)
         m_faults.unreadable(type, QStringLiteral("%1 questions wait already").arg(mostQuestions));
         return;
     }
+    const bool askedOutsideTheApp = !question.asker.isEmpty();
     m_questions.append(std::move(question));
     if (m_questions.size() == 1)
         emit questionChanged();
-    if (from == QStringLiteral("command"))
+    if (askedOutsideTheApp)
         m_workspace.m_desktop.askForAttention();
 }
 

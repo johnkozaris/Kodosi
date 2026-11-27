@@ -50,6 +50,10 @@
 "Dosi's conversation is missing.": "Dosi의 대화를 찾을 수 없어요.",
 "Friends you share a terminal or project with get full control of it.": "터미널이나 프로젝트를 함께 쓰는 친구는 그것에 대한 전체 권한을 가져요.",
 "Git is not available on this computer.": "이 컴퓨터에서 Git을 사용할 수 없어요.",
+"I asked for a new recovery key.": "새 복구 키를 요청했어요.",
+"I asked for this code to add a device of mine.": "내 기기를 추가하려고 이 코드를 요청했어요.",
+"I trust the members of {project} with my computer.": "{project}의 멤버에게 내 컴퓨터를 맡겨도 된다고 믿어요.",
+"I trust {people} with my computer.": "{people}에게 내 컴퓨터를 맡겨도 된다고 믿어요.",
 "Import issues from a computer.": "이슈는 컴퓨터에서 가져오세요.",
 "Install Claude Code or Codex, then choose it for Dosi in Settings.": "Claude Code나 Codex를 설치한 뒤 설정에서 Dosi용으로 고르세요.",
 "Invalid device code.": "기기 코드가 올바르지 않아요.",
@@ -309,6 +313,7 @@
 "This friend has a new identity. Trust it in Friends before you share or connect.": "이 친구의 신원이 새로 바뀌었어요. 공유하거나 연결하기 전에 친구에서 신뢰하세요.",
 "This invitation is no longer available.": "이 초대는 더 이상 사용할 수 없어요.",
 "This invitation is unavailable.": "이 초대는 사용할 수 없어요.",
+"This invite came from {person}.": "이 초대는 {person}에게서 받았어요.",
 "This invite is for another identity than the one that Kodosi has for this friend.": "이 초대는 Kodosi가 알고 있는 이 친구의 신원과 다른 신원용이에요.",
 "This invite is for another person.": "이 초대는 다른 사람용이에요.",
 "This invite is not for the identity that this friend has now. Ask them for a new invite.": "이 초대는 이 친구의 현재 신원용이 아니에요. 새 초대를 요청하세요.",
@@ -442,10 +447,12 @@
 "{person} sees its chat and tasks and gets full control of your terminal in it.": "{person}은(는) 프로젝트의 채팅과 작업을 볼 수 있고, 그 안에 있는 내 터미널에 대한 전체 권한을 가져요.",
 "{person} sees its chat and tasks and gets full control of your terminals in it.": "{person}은(는) 프로젝트의 채팅과 작업을 볼 수 있고, 그 안에 있는 내 터미널들에 대한 전체 권한을 가져요.",
 "{person} sees its chat and tasks and gets full control of your {count} terminals in it.": "{person}은(는) 프로젝트의 채팅과 작업을 볼 수 있고, 그 안에 있는 내 터미널 {count}개에 대한 전체 권한을 가져요.",
+"{person} told me that their identity changed.": "{person}에게서 신원이 바뀌었다고 들었어요.",
 "{program} did not start: {error}": "{program}을 시작하지 못했어요: {error}",
 "{reason} Approve this device from another device, or start fresh here.": "{reason} 다른 기기에서 이 기기를 승인하거나 여기서 새로 시작하세요.",
 "{reason} Go back to Kodosi and try again.": "{reason} Kodosi로 돌아가서 다시 시도하세요.",
 "{reason} Kodosi did not send some of your last input.": "{reason} 마지막 입력의 일부를 보내지 못했어요.",
 "{reason} {error}": "{reason} {error}",
-"{sentence} {next}": "{sentence} {next}"
+"{sentence} {next}": "{sentence} {next}",
+"“{device}” is my device.": "'{device}'은(는) 내 기기예요."
 }

@@ -15074,24 +15074,31 @@
           "approvalId": {
             "type": "string"
           },
+          "asker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "confirm": {
             "type": "string"
           },
-          "from": {
-            "oneOf": [
-              {
-                "const": "app"
-              },
-              {
-                "const": "command"
-              }
-            ]
+          "consent": {
+            "type": "string"
           },
           "message": {
             "type": "string"
           },
           "operation": {
             "type": "string"
+          },
+          "readSeconds": {
+            "format": "u64",
+            "type": "integer"
           },
           "title": {
             "type": "string"
@@ -15108,8 +15115,10 @@
           "operation",
           "title",
           "message",
+          "consent",
           "confirm",
-          "from"
+          "asker",
+          "readSeconds"
         ],
         "type": "object"
       },
@@ -19868,7 +19877,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 115,
+  "protocolVersion": 116,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

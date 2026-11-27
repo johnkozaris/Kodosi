@@ -50,6 +50,10 @@
 "Dosi's conversation is missing.": "找不到 Dosi 的对话。",
 "Friends you share a terminal or project with get full control of it.": "与你共享终端或项目的好友将能完全控制它。",
 "Git is not available on this computer.": "此电脑上没有可用的 Git。",
+"I asked for a new recovery key.": "我请求了新的恢复密钥。",
+"I asked for this code to add a device of mine.": "我请求此验证码是为了添加我自己的设备。",
+"I trust the members of {project} with my computer.": "我信任 {project} 的成员，愿意让他们使用我的电脑。",
+"I trust {people} with my computer.": "我信任 {people}，愿意让其使用我的电脑。",
 "Import issues from a computer.": "请在电脑上导入 Issue。",
 "Install Claude Code or Codex, then choose it for Dosi in Settings.": "请安装 Claude Code 或 Codex，然后在设置中为 Dosi 选择它。",
 "Invalid device code.": "设备验证码无效。",
@@ -309,6 +313,7 @@
 "This friend has a new identity. Trust it in Friends before you share or connect.": "此好友的身份已变更。共享或连接前，请先在“好友”中信任其新身份。",
 "This invitation is no longer available.": "此邀请已不可用。",
 "This invitation is unavailable.": "此邀请不可用。",
+"This invite came from {person}.": "此邀请来自 {person}。",
 "This invite is for another identity than the one that Kodosi has for this friend.": "此邀请针对的身份与 Kodosi 记录的此好友身份不同。",
 "This invite is for another person.": "此邀请是给其他人的。",
 "This invite is not for the identity that this friend has now. Ask them for a new invite.": "此邀请不适用于此好友当前的身份。请向对方索取新邀请。",
@@ -442,10 +447,12 @@
 "{person} sees its chat and tasks and gets full control of your terminal in it.": "{person} 将能查看该项目的聊天和任务，并能完全控制其中你的终端。",
 "{person} sees its chat and tasks and gets full control of your terminals in it.": "{person} 将能查看该项目的聊天和任务，并能完全控制其中你的终端。",
 "{person} sees its chat and tasks and gets full control of your {count} terminals in it.": "{person} 将能查看该项目的聊天和任务，并能完全控制其中你的 {count} 个终端。",
+"{person} told me that their identity changed.": "{person} 告诉过我其身份已更改。",
 "{program} did not start: {error}": "{program} 未能启动：{error}",
 "{reason} Approve this device from another device, or start fresh here.": "{reason} 请从另一台设备批准此设备，或在这里重新开始。",
 "{reason} Go back to Kodosi and try again.": "{reason} 请返回 Kodosi 并重试。",
 "{reason} Kodosi did not send some of your last input.": "{reason}Kodosi 没有发送你最后输入的一部分。",
 "{reason} {error}": "{reason}{error}",
-"{sentence} {next}": "{sentence}{next}"
+"{sentence} {next}": "{sentence}{next}",
+"“{device}” is my device.": "“{device}”是我的设备。"
 }

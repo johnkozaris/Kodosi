@@ -28,7 +28,7 @@ struct SharingApprovalsTests {
         try ask(first)
         #expect(approvals.waiting.map(\.id) == [first, second])
         #expect(approvals.current?.title == "Share “build” with Ana?")
-        #expect(approvals.current?.from == .command)
+        #expect(approvals.current?.asker == "The kodosi command asked for this.")
     }
 
     @Test func `a question that ends is no longer asked, and the next one is`() throws {
@@ -85,8 +85,9 @@ struct SharingApprovalsTests {
     private func ask(_ id: String) throws {
         try deliver("sharing.approval", [
             "approvalId": id, "operation": "session.share", "title": "Share “build” with Ana?",
-            "message": "Ana gets full control: they can type anything as you on Studio. The kodosi command asked for this.",
-            "confirm": "Share", "from": "command",
+            "message": "Ana gets full control: they can type anything as you on Studio.",
+            "consent": "I trust Ana with my computer.", "confirm": "Share",
+            "asker": "The kodosi command asked for this.", "readSeconds": 5,
         ])
     }
 

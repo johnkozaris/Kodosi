@@ -1,17 +1,19 @@
 import KodosiBridge
+import KodosiDesign
 import SwiftUI
 import UIKit
 
-/// Most questions come while a sheet is open, and an alert of the root view would close that
-/// sheet, so the questions get a window of their own above the sheets and below the lock.
+/// Most questions come while a sheet is open, so the questions get a window of their own above the
+/// sheets and below the lock.
 struct SharingQuestionWindow: UIViewRepresentable {
     let approvals: SharingApprovals
-    /// The question to ask now, so that SwiftUI updates the window when it changes.
+    let lock: AppLock
+    /// The question to ask now and the lock, so that SwiftUI updates the window when they change.
     let asking: String?
     let locked: Bool
 
     func makeUIView(context _: Context) -> SharingQuestionAnchor {
-        SharingQuestionAnchor(approvals: approvals)
+        SharingQuestionAnchor(approvals: approvals, lock: lock)
     }
 
     func updateUIView(_ anchor: SharingQuestionAnchor, context _: Context) {
@@ -26,15 +28,15 @@ struct SharingQuestionWindow: UIViewRepresentable {
 
 final class SharingQuestionAnchor: UIView {
     private let approvals: SharingApprovals
+    private let lock: AppLock
     private var host: UIWindow?
-    private var shown: (approval: SharingApproval, alert: UIAlertController)?
-    /// UIKit takes no new alert while one comes or goes.
-    private var moving = false
-    private var moves = 0
+    /// The window stays while the last question leaves.
+    private var hiding: Task<Void, Never>?
     var locked = false
 
-    init(approvals: SharingApprovals) {
+    init(approvals: SharingApprovals, lock: AppLock) {
         self.approvals = approvals
+        self.lock = lock
         super.init(frame: .zero)
         isUserInteractionEnabled = false
         accessibilityElementsHidden = true
@@ -51,94 +53,37 @@ final class SharingQuestionAnchor: UIView {
     }
 
     func settle() {
-        guard !moving else { return }
-        let current = approvals.current
-        if let shown, shown.approval.id != current?.id {
-            self.shown = nil
-            move { done in shown.alert.dismiss(animated: true) { done() } }
+        guard approvals.current != nil else {
+            if let host, hiding == nil {
+                // The window stays for the fade, but taps and keys go back to the app at once.
+                host.isUserInteractionEnabled = false
+                if host.isKeyWindow {
+                    window?.makeKey()
+                }
+                hiding = Task { [weak self] in
+                    try? await Task.sleep(for: .milliseconds(400))
+                    guard !Task.isCancelled else { return }
+                    self?.close()
+                }
+            }
             return
         }
-        if shown == nil {
-            guard let current else {
-                if host?.rootViewController?.presentedViewController == nil {
-                    hide()
-                } else {
-                    waitForLeaving()
-                }
-                return
-            }
-            ask(current)
-        }
-        if shown != nil, !locked, let host, !host.isKeyWindow {
+        hiding?.cancel()
+        hiding = nil
+        guard let scene = window?.windowScene else { return }
+        let host = host ?? Self.window(in: scene, approvals: approvals, lock: lock)
+        self.host = host
+        host.isUserInteractionEnabled = true
+        host.isHidden = false
+        if !locked, !host.isKeyWindow {
+            window?.endEditing(true)
             host.makeKey()
         }
     }
 
     func close() {
-        shown?.alert.dismiss(animated: false)
-        shown = nil
-        hide()
-    }
-
-    private func ask(_ approval: SharingApproval) {
-        guard let scene = window?.windowScene else { return }
-        let host = host ?? Self.window(in: scene)
-        self.host = host
-        host.isHidden = false
-        guard let root = host.rootViewController else { return }
-        if root.presentedViewController != nil {
-            waitForLeaving()
-            return
-        }
-        let alert = UIAlertController(title: approval.title, message: approval.message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: String(localized: "Cancel"), style: .cancel) { [weak self] _ in
-            self?.answer(approval, allow: false)
-        })
-        let confirm = UIAlertAction(title: approval.confirm, style: .default) { [weak self] _ in
-            self?.answer(approval, allow: true)
-        }
-        alert.addAction(confirm)
-        alert.preferredAction = confirm
-        shown = (approval, alert)
-        move { done in root.present(alert, animated: true) { done() } }
-    }
-
-    private func answer(_ approval: SharingApproval, allow: Bool) {
-        guard shown?.approval.id == approval.id else { return }
-        shown = nil
-        approvals.answer(approval, allow: allow)
-        settle()
-    }
-
-    /// The alert that was answered can still be on its way out.
-    private func waitForLeaving() {
-        move { done in
-            Task {
-                try? await Task.sleep(for: .milliseconds(300))
-                done()
-            }
-        }
-    }
-
-    /// UIKit drops the completion of a dismissal that it already does itself, as when a question
-    /// ends as it is answered, so a move also ends after a second.
-    private func move(_ transition: (@escaping @MainActor () -> Void) -> Void) {
-        moves += 1
-        let move = moves
-        moving = true
-        let done = { @MainActor [weak self] in
-            guard let self, moving, moves == move else { return }
-            moving = false
-            settle()
-        }
-        transition(done)
-        Task {
-            try? await Task.sleep(for: .seconds(1))
-            done()
-        }
-    }
-
-    private func hide() {
+        hiding?.cancel()
+        hiding = nil
         guard let host else { return }
         self.host = nil
         let key = host.isKeyWindow
@@ -148,12 +93,45 @@ final class SharingQuestionAnchor: UIView {
         }
     }
 
-    private static func window(in scene: UIWindowScene) -> UIWindow {
+    private static func window(in scene: UIWindowScene, approvals: SharingApprovals, lock: AppLock) -> UIWindow {
         let made = UIWindow(windowScene: scene)
         made.windowLevel = .alert
-        let root = UIViewController()
+        let root = UIHostingController(rootView: SharingQuestionLayer(approvals: approvals, lock: lock).kodosiTheme(ground: false))
         root.view.backgroundColor = .clear
         made.rootViewController = root
         return made
+    }
+}
+
+private struct SharingQuestionLayer: View {
+    @Environment(\.theme) private var theme
+    let approvals: SharingApprovals
+    let lock: AppLock
+
+    var body: some View {
+        ZStack {
+            if let approval = approvals.current {
+                theme.colors.shadow.opacity(theme.isDark ? 0.55 : 0.22)
+                    .ignoresSafeArea()
+                    .accessibilityHidden(true)
+                    .transition(.opacity)
+                GeometryReader { screen in
+                    ScrollView {
+                        SharingQuestionPanel(approval: approval, covered: lock.locked) { allow in
+                            approvals.answer(approval, allow: allow)
+                        }
+                        .padding(16)
+                        .frame(maxWidth: .infinity, minHeight: screen.size.height)
+                    }
+                    .scrollBounceBehavior(.basedOnSize)
+                }
+                .id(approval.id)
+                .transition(.asymmetric(
+                    insertion: .scale(scale: 0.95).combined(with: .offset(y: 18)).combined(with: .opacity),
+                    removal: .opacity,
+                ))
+            }
+        }
+        .animation(theme.motion.spring, value: approvals.current?.id)
     }
 }

@@ -68,6 +68,6 @@ resume any conversation in a new terminal via the provider's CLI.
 
 Kodosi asks before someone becomes a friend, since friends get full interactive control over any
 terminal you share with them, and before any other change lets someone new into your terminals or
-projects. The question appears as an alert on Kodosi's front window, or on its own while no window
+projects. The question appears as a sheet on Kodosi's front window, or on its own while no window
 is open. While you work in another app, Kodosi bounces its Dock icon and waits instead of taking
 the focus.

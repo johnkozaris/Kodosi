@@ -37,6 +37,8 @@ final class WorkbenchState {
     var closeRequest: String?
     /// No sheet or palette covers the stage.
     var stageTakesKeys = true
+    /// A question that lets someone new in waits in a sheet on the window.
+    var questionShown = false
     /// The terminal whose canvas is open beside it. That terminal is alone on the stage.
     private(set) var canvasSessionId: String?
     /// The canvas fills the stage, and its terminal waits in a capsule.

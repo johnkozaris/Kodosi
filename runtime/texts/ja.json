@@ -50,6 +50,10 @@
 "Dosi's conversation is missing.": "Dosi の会話が見つかりません。",
 "Friends you share a terminal or project with get full control of it.": "ターミナルやプロジェクトを共有したフレンドは、それをフル操作できるようになります。",
 "Git is not available on this computer.": "このコンピュータでは Git を利用できません。",
+"I asked for a new recovery key.": "新しいリカバリーキーを依頼しました。",
+"I asked for this code to add a device of mine.": "自分のデバイスを追加するために、このコードを依頼しました。",
+"I trust the members of {project} with my computer.": "{project} のメンバーを信頼して、自分のコンピュータを任せます。",
+"I trust {people} with my computer.": "{people} を信頼して、自分のコンピュータを任せます。",
 "Import issues from a computer.": "Issue はコンピュータから取り込んでください。",
 "Install Claude Code or Codex, then choose it for Dosi in Settings.": "Claude Code か Codex をインストールしてから、設定で Dosi 用に選んでください。",
 "Invalid device code.": "デバイスのコードが正しくありません。",
@@ -309,6 +313,7 @@
 "This friend has a new identity. Trust it in Friends before you share or connect.": "このフレンドの ID が新しくなりました。共有や接続の前に、フレンドで信頼してください。",
 "This invitation is no longer available.": "この招待はもう利用できません。",
 "This invitation is unavailable.": "この招待は利用できません。",
+"This invite came from {person}.": "この招待は {person} から届きました。",
 "This invite is for another identity than the one that Kodosi has for this friend.": "この招待は、Kodosi が把握しているこのフレンドの ID とは別の ID 向けです。",
 "This invite is for another person.": "この招待は別の人向けです。",
 "This invite is not for the identity that this friend has now. Ask them for a new invite.": "この招待は、このフレンドの現在の ID 向けではありません。新しい招待を頼んでください。",
@@ -442,10 +447,12 @@
 "{person} sees its chat and tasks and gets full control of your terminal in it.": "{person} はプロジェクトのチャットとタスクを見られるようになり、その中のあなたのターミナルをフル操作できるようになります。",
 "{person} sees its chat and tasks and gets full control of your terminals in it.": "{person} はプロジェクトのチャットとタスクを見られるようになり、その中のあなたのターミナルをフル操作できるようになります。",
 "{person} sees its chat and tasks and gets full control of your {count} terminals in it.": "{person} はプロジェクトのチャットとタスクを見られるようになり、その中のあなたのターミナル {count} 個をフル操作できるようになります。",
+"{person} told me that their identity changed.": "{person} から、ID が変わったと聞きました。",
 "{program} did not start: {error}": "{program} を起動できませんでした: {error}",
 "{reason} Approve this device from another device, or start fresh here.": "{reason} 別のデバイスからこのデバイスを承認するか、ここで新しく始めてください。",
 "{reason} Go back to Kodosi and try again.": "{reason} Kodosi に戻って、もう一度お試しください。",
 "{reason} Kodosi did not send some of your last input.": "{reason}直前の入力の一部を送信できませんでした。",
 "{reason} {error}": "{reason}{error}",
-"{sentence} {next}": "{sentence}{next}"
+"{sentence} {next}": "{sentence}{next}",
+"“{device}” is my device.": "「{device}」は自分のデバイスです。"
 }

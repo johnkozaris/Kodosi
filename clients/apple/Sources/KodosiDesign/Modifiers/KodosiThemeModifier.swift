@@ -4,6 +4,7 @@ import SwiftUI
 #endif
 
 private struct KodosiThemeModifier: ViewModifier {
+    let ground: Bool
     @Environment(\.colorScheme) private var systemColorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(ThemePreference.storageKey) private var preference: String = ThemePreference.system.rawValue
@@ -52,7 +53,11 @@ private struct KodosiThemeModifier: ViewModifier {
             .environment(\.theme, theme)
             .environment(\.onScreen, onScreen)
             .tint(theme.colors.accent)
-            .background(theme.colors.ground.ignoresSafeArea())
+            .background {
+                if ground {
+                    theme.colors.ground.ignoresSafeArea()
+                }
+            }
         #if os(macOS)
             .background(WindowVisibility(visible: $windowVisible))
         #endif
@@ -118,7 +123,7 @@ private struct KodosiThemeModifier: ViewModifier {
 #endif
 
 public extension View {
-    func kodosiTheme() -> some View {
-        modifier(KodosiThemeModifier())
+    func kodosiTheme(ground: Bool = true) -> some View {
+        modifier(KodosiThemeModifier(ground: ground))
     }
 }
