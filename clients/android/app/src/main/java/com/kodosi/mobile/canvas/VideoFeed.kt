@@ -571,7 +571,10 @@ internal class VideoDecoder(
             MediaFormat.createVideoFormat(type.mime, width, height).apply {
                 setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, MAX_FRAME)
                 setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
-                setInteger(MediaFormat.KEY_PRIORITY, REALTIME)
+                // Qualcomm's driver admits a realtime session only if the chip can decode it at its operating rate,
+                // so it refuses a large stream that asks for both; the full-speed request takes the place of realtime
+                // priority.
+                if (request.isEmpty()) setInteger(MediaFormat.KEY_PRIORITY, REALTIME)
                 request.forEach { (key, value) -> setInteger(key, value) }
                 val supported = next.supportedVendorParameters.toSet()
                 VENDOR_LOW_LATENCY.filterKeys { it in supported }.forEach { (key, value) -> setInteger(key, value) }
