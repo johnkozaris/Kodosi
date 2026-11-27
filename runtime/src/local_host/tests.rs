@@ -19,6 +19,24 @@ async fn interrupted_frame_read_keeps_consumed_prefix_and_body() {
     assert_eq!(read_frame(&mut reader).await.unwrap(), b"hello");
 }
 #[tokio::test]
+async fn a_video_connection_tells_the_app_what_the_runtime_showed_in_order() {
+    use crate::video::Shown;
+    let (mut writer, input) = tokio::io::duplex(1024);
+    let mut reader = FrameReader::new(input);
+    let shown = [
+        Shown::Stale(true),
+        Shown::Message(Bytes::from_static(b"\0{}")),
+        Shown::Stale(false),
+        Shown::Frame(Bytes::from_static(&[1, 0, 0, 0, 7, 1, 0, 0, 0, 0, 1, 0x65])),
+    ];
+    for next in &shown {
+        write_shown(&mut writer, next).await.unwrap();
+    }
+    for next in shown {
+        assert_eq!(read_shown(&mut reader).await.unwrap(), next);
+    }
+}
+#[tokio::test]
 async fn a_host_names_itself_to_another_version_and_stops_for_it() {
     let (_storage, root, handle) = hosted(HostKind::Background).await;
     let root = kodosi_os::fs::canonicalize(&root).unwrap();

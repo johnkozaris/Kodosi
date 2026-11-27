@@ -163,7 +163,7 @@ typedef int32_t (*kodosi_video_frame_cb_t)(const char*, const struct kodosi_vide
 
 typedef void (*kodosi_video_message_cb_t)(const char*, const uint8_t*, uintptr_t, void*);
 
-typedef void (*kodosi_video_repair_cb_t)(const char*, void*);
+typedef void (*kodosi_video_stale_cb_t)(const char*, bool, void*);
 
 typedef struct kodosi_callbacks_t {
   kodosi_event_cb_t on_event;
@@ -173,7 +173,7 @@ typedef struct kodosi_callbacks_t {
   kodosi_terminal_checkpoint_cb_t on_terminal_checkpoint;
   kodosi_video_frame_cb_t on_video_frame;
   kodosi_video_message_cb_t on_video_message;
-  kodosi_video_repair_cb_t on_video_repair;
+  kodosi_video_stale_cb_t on_video_stale;
 } kodosi_callbacks_t;
 
 #ifdef __cplusplus

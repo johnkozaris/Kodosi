@@ -721,7 +721,7 @@ mod tests {
                 on_terminal_checkpoint: None,
                 on_video_frame: None,
                 on_video_message: None,
-                on_video_repair: None,
+                on_video_stale: None,
             },
             userdata: UserData(std::ptr::from_ref(events).cast_mut().cast()),
             gate: Gate::default(),

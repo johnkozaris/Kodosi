@@ -19,7 +19,7 @@ fn start_rejects_missing_or_wrong_callback_table() {
         on_terminal_checkpoint: None,
         on_video_frame: None,
         on_video_message: None,
-        on_video_repair: None,
+        on_video_stale: None,
     };
     assert!(
         unsafe {
@@ -101,7 +101,7 @@ fn callbacks() -> KodosiCallbacks {
         on_terminal_checkpoint: Some(accept_checkpoint),
         on_video_frame: Some(take_frame),
         on_video_message: Some(ignore_message),
-        on_video_repair: Some(ignore_repair),
+        on_video_stale: Some(ignore_stale),
     }
 }
 unsafe extern "C" fn take_frame(
@@ -112,7 +112,7 @@ unsafe extern "C" fn take_frame(
     KODOSI_VIDEO_TAKEN
 }
 unsafe extern "C" fn ignore_message(_: *const c_char, _: *const u8, _: usize, _: *mut c_void) {}
-unsafe extern "C" fn ignore_repair(_: *const c_char, _: *mut c_void) {}
+unsafe extern "C" fn ignore_stale(_: *const c_char, _: bool, _: *mut c_void) {}
 fn state() -> State {
     State {
         callbacks: callbacks(),
@@ -353,5 +353,44 @@ fn a_watch_goes_on_with_its_next_connection_after_one_ends() {
         executor.block_on(serving).unwrap();
     }
     assert_eq!(count.load(Ordering::SeqCst), 2);
+    executor.shutdown_timeout(Duration::from_secs(1));
+}
+
+unsafe extern "C" fn heard_stale(_: *const c_char, stale: bool, userdata: *mut c_void) {
+    let heard = unsafe { &*userdata.cast::<Mutex<Vec<bool>>>() };
+    lock(heard).push(stale);
+}
+#[test]
+fn the_app_hears_in_order_whether_its_picture_is_the_streams_newest() {
+    use kodosi_runtime::video::Shown;
+    let executor = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1)
+        .enable_all()
+        .build()
+        .unwrap();
+    let heard = Mutex::new(Vec::<bool>::new());
+    let mut state = state();
+    state.callbacks.on_video_stale = Some(heard_stale);
+    state.userdata = UserData(std::ptr::from_ref(&heard).cast_mut().cast());
+    let state = Arc::new(state);
+    let watch = Arc::new(video::Watch::new(
+        CString::new(Uuid::now_v7().to_string()).unwrap(),
+        CancellationToken::new(),
+    ));
+    let (shown, watched) = tokio::sync::mpsc::channel(4);
+    let (took, _answers) = tokio::sync::mpsc::channel(4);
+    let serving = executor.spawn(video::serve(
+        Arc::clone(&state),
+        Arc::clone(&watch),
+        watched,
+        took,
+    ));
+    for stale in [true, false, true] {
+        shown.blocking_send(Shown::Stale(stale)).unwrap();
+    }
+    drop(shown);
+    executor.block_on(serving).unwrap();
+    assert_eq!(*lock(&heard), [true, false, true]);
+    drop(state);
     executor.shutdown_timeout(Duration::from_secs(1));
 }

@@ -102,7 +102,7 @@ fn call(
             Shown::Message(message) => state
                 .video_message(watch, message.get(1..).unwrap_or_default())
                 .map(|()| None),
-            Shown::Repair => state.video_repair(watch).map(|()| None),
+            Shown::Stale(flag) => state.video_stale(watch, flag).map(|()| None),
             Shown::Frame(message) => state.video_frame(watch, &message).map(Some),
         };
         match answer {
@@ -175,10 +175,10 @@ impl State {
         })
     }
 
-    fn video_repair(&self, watch: &Watch) -> Option<()> {
-        let callback = self.callbacks.on_video_repair?;
+    fn video_stale(&self, watch: &Watch, stale: bool) -> Option<()> {
+        let callback = self.callbacks.on_video_stale?;
         self.video_call(watch, || unsafe {
-            callback(watch.pipe.as_ptr(), self.userdata.get());
+            callback(watch.pipe.as_ptr(), stale, self.userdata.get());
         })
     }
 }

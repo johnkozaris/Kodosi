@@ -128,7 +128,7 @@ type TerminalCheckpointCb = Option<
 type VideoFrameCb =
     Option<unsafe extern "C" fn(*const c_char, *const KodosiVideoFrame, *mut c_void) -> i32>;
 type VideoMessageCb = Option<unsafe extern "C" fn(*const c_char, *const u8, usize, *mut c_void)>;
-type VideoRepairCb = Option<unsafe extern "C" fn(*const c_char, *mut c_void)>;
+type VideoStaleCb = Option<unsafe extern "C" fn(*const c_char, bool, *mut c_void)>;
 
 /// The part of a stream's source that a frame shows, in the source's points.
 #[repr(C)]
@@ -161,7 +161,7 @@ pub struct KodosiCallbacks {
     pub on_terminal_checkpoint: TerminalCheckpointCb,
     pub on_video_frame: VideoFrameCb,
     pub on_video_message: VideoMessageCb,
-    pub on_video_repair: VideoRepairCb,
+    pub on_video_stale: VideoStaleCb,
 }
 
 #[repr(C)]

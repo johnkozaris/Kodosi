@@ -26,7 +26,7 @@ include = []
 "KodosiVideoRegion" = "kodosi_video_region_t"
 "VideoFrameCb" = "kodosi_video_frame_cb_t"
 "VideoMessageCb" = "kodosi_video_message_cb_t"
-"VideoRepairCb" = "kodosi_video_repair_cb_t"
+"VideoStaleCb" = "kodosi_video_stale_cb_t"
 
 [parse]
 parse_deps = false

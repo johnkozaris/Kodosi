@@ -548,6 +548,7 @@ impl Video {
                 self.show(Shown::Message(message)).await;
             }
             Some(&viewer::FRAME) => self.frame(message, attempt).await,
+            Some(&viewer::UNCHANGED) => self.unchanged().await,
             _ => {}
         }
     }
@@ -596,6 +597,12 @@ impl Video {
         }
     }
 
+    async fn unchanged(&mut self) {
+        if self.viewing.unchanged(Instant::now()) {
+            self.show(Shown::Stale(false)).await;
+        }
+    }
+
     fn took(&mut self, took: Option<Took>, attempt: Option<Uuid>) {
         let now = Instant::now();
         match took {
@@ -625,7 +632,7 @@ impl Video {
                     return;
                 }
                 if answer == Took::Taken {
-                    self.viewing.taken();
+                    self.viewing.taken(now);
                 } else {
                     self.viewing.failed(now);
                     self.ask();
@@ -634,9 +641,10 @@ impl Video {
         }
     }
 
-    fn repair_due(&self) -> Option<Instant> {
+    /// While the app has a frame the viewer reads nothing more, so no wait or silence counts.
+    fn stale_due(&self) -> Option<Instant> {
         (self.outlet.is_some() && self.at_app.is_none())
-            .then(|| self.viewing.repair_due())
+            .then(|| self.viewing.stale_due())
             .flatten()
     }
 
@@ -705,7 +713,7 @@ impl Delivery {
             let patience = self.lost_at.filter(|_| !self.told).map(|at| at + PATIENCE);
             let takes = self.video.as_ref().is_none_or(Video::takes);
             let room = self.video.as_ref().and_then(Video::wants_room);
-            let repair = self.video.as_ref().and_then(Video::repair_due);
+            let stale = self.video.as_ref().and_then(Video::stale_due);
             let going = tokio::select! {
                 news = self.news.recv() => match news {
                     Some(news) => self.heard(news).await,
@@ -728,10 +736,10 @@ impl Delivery {
                     }
                     true
                 }
-                () = until(repair) => {
+                () = until(stale) => {
                     if let Some(video) = &mut self.video {
-                        video.viewing.told();
-                        video.show(Shown::Repair).await;
+                        video.viewing.went_stale();
+                        video.show(Shown::Stale(true)).await;
                     }
                     true
                 }

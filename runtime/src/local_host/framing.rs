@@ -12,9 +12,10 @@ pub(super) const INPUT_ACK: u8 = 6;
 pub(super) const REFRESH: u8 = 7;
 
 /// A video connection carries the stream's own messages to the app, JSON after
-/// `stream::viewer::JSON` and frames after `stream::viewer::FRAME`, and these; the app answers
-/// each frame with `TAKEN` or `FAILED`.
-const REPAIR: u8 = 2;
+/// `stream::viewer::JSON` and frames after `stream::viewer::FRAME`, and `STALE` with 1 when the
+/// picture is not the stream's newest any more or 0 when it is again; the app answers each frame
+/// with `TAKEN` or `FAILED`.
+const STALE: u8 = 2;
 const TAKEN: u8 = 3;
 const FAILED: u8 = 4;
 const RESTART: u8 = 5;
@@ -162,7 +163,9 @@ pub async fn read_shown<R: AsyncRead + Unpin>(
     match bytes.first() {
         Some(&stream::viewer::JSON) => Ok(crate::video::Shown::Message(bytes)),
         Some(&stream::viewer::FRAME) => Ok(crate::video::Shown::Frame(bytes)),
-        Some(&REPAIR) if bytes.len() == 1 => Ok(crate::video::Shown::Repair),
+        Some(&STALE) if bytes.len() == 2 && bytes[1] <= 1 => {
+            Ok(crate::video::Shown::Stale(bytes[1] == 1))
+        }
         _ => Err(Error::Invalid("malformed video frame".into())),
     }
 }
@@ -174,7 +177,7 @@ pub(super) async fn write_shown<W: AsyncWrite + Unpin>(
         crate::video::Shown::Message(bytes) | crate::video::Shown::Frame(bytes) => {
             write_frame(writer, bytes).await
         }
-        crate::video::Shown::Repair => write_frame(writer, &[REPAIR]).await,
+        crate::video::Shown::Stale(stale) => write_frame(writer, &[STALE, u8::from(*stale)]).await,
     }
 }
 pub async fn write_took<W: AsyncWrite + Unpin>(

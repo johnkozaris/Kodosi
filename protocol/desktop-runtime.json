@@ -20135,16 +20135,16 @@
       "h264": 0,
       "hevc": 1
     },
-    "connection": "a desktop app watches each pipe on its own local connection whose hello names the pipe: the host sends the stream's messages as it got them (0 and JSON, 1 and a frame) and 2 for a repair; the app answers each frame with 3 (taken) or 4 (failed) and sends 5 when its decoder starts over",
+    "connection": "a desktop app watches each pipe on its own local connection whose hello names the pipe: the host sends the stream's messages as it got them (0 and JSON, 1 and a frame) and 2 with the flag of on_video_stale (1 or 0); the app answers each frame with 3 (taken) or 4 (failed) and sends 5 when its decoder starts over",
     "kinds": {
       "anchor": 2,
       "delta": 0,
       "key": 1
     },
-    "repair": "on_video_repair says that the picture waited for a repair longer than a moment; the next on_video_frame ends the wait",
     "results": {
       "failed": 1,
       "taken": 0
-    }
+    },
+    "stale": "on_video_stale says true when the picture is not the stream's newest any more, because a repair took longer than a moment or the stream went silent, so the app rests it; false when it is the newest again without a frame; the next on_video_frame ends a rest too"
   }
 }

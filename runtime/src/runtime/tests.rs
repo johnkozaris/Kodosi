@@ -1276,6 +1276,46 @@ async fn an_answer_from_before_a_video_opened_again_acknowledges_nothing() {
     );
 }
 
+#[tokio::test(start_paused = true)]
+async fn a_watched_video_rests_once_its_stream_went_silent_until_the_stream_says_nothing_changed() {
+    use crate::video::{SILENCE, Shown, Took};
+    let (mut runtime, _root) = registry_fixture();
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let (_view, mut requests, _updates) = open_view(&mut runtime, &remote).await;
+    let video = open_pipe(&mut runtime, remote.id, "browser");
+    let mut watch = watched(&mut runtime, &video).await;
+    attempt_finished(&mut runtime).await;
+    let frames = pipe_opened(&mut requests).await;
+    frames
+        .send(picture(1, stream::FrameKind::Key))
+        .await
+        .unwrap();
+    assert!(matches!(watch.shown.recv().await, Some(Shown::Frame(_))));
+    watch.took.send(Took::Taken).await.unwrap();
+    let unchanged = || stream::viewer::unchanged().to_vec();
+    for _ in 0..8 {
+        tokio::time::sleep(SILENCE / 4).await;
+        frames.send(unchanged()).await.unwrap();
+    }
+    tokio::time::sleep(SILENCE / 4).await;
+    assert!(
+        watch.shown.try_recv().is_err(),
+        "a still stream that says so stays live"
+    );
+    let silent_since = Instant::now() - SILENCE / 4;
+    assert_eq!(
+        timeout(SILENCE * 2, watch.shown.recv()).await,
+        Ok(Some(Shown::Stale(true)))
+    );
+    assert!(Instant::now() >= silent_since + SILENCE);
+    frames.send(unchanged()).await.unwrap();
+    assert_eq!(
+        timeout(SILENCE * 2, watch.shown.recv()).await,
+        Ok(Some(Shown::Stale(false))),
+        "the word makes the picture the newest again without a frame"
+    );
+}
+
 #[tokio::test]
 async fn closed_remote_is_not_reported_connected_and_old_close_cannot_replace_new_connection() {
     let (mut runtime, _root) = registry_fixture();

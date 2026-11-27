@@ -133,7 +133,7 @@ pub unsafe extern "C" fn kodosi_start(
                 || callbacks.on_terminal_checkpoint.is_none()
                 || callbacks.on_video_frame.is_none()
                 || callbacks.on_video_message.is_none()
-                || callbacks.on_video_repair.is_none()
+                || callbacks.on_video_stale.is_none()
             {
                 return Err(start_failure(
                     KODOSI_START_INVALID_CALLBACKS,
