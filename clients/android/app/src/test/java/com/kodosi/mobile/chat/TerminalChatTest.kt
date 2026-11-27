@@ -66,6 +66,40 @@ class TerminalChatTest {
         assertEquals("a1", chat.view.value.question?.id)
     }
 
+    @Test
+    fun theChatKeepsTheAgentsThatItsAgentReachesAndTheOnesThatAPersonNamedOrHandedOver() = runTest {
+        watch()
+        send(
+            """{"snapshot":{"revision":1,"state":"working","facts":{},
+              "peers":[{"terminal":"t2","name":"Timber Elk","agent":"copilot","place":"KodosiWebsite"},
+                {"terminal":"t3","name":"Slate Wren","agent":"codex"}],
+              "items":[{"id":"i1","at":1,"body":{"kind":"person","text":"Ask @Timber Elk for the schema.",
+                  "by":{"id":"u1","name":"Ann"},"mentions":[{"name":"Timber Elk","agent":"copilot"}]}},
+                {"id":"i2","at":2,"body":{"kind":"person","text":"","handoff":{"name":"Slate Wren"}}}],
+              "queued":[{"id":"q1","text":"","handoff":{"name":"Timber Elk","agent":"copilot"}}]}}"""
+        )
+
+        val view = chat.view.value
+        assertEquals(
+            listOf(
+                ChatPeer("t2", "Timber Elk", "copilot", "KodosiWebsite"),
+                ChatPeer("t3", "Slate Wren", "codex")
+            ),
+            view.peers
+        )
+        assertEquals(listOf(ChatMention("Timber Elk", "copilot")), (view.items[0].body as ChatBody.Person).mentions)
+        assertEquals(ChatMention("Slate Wren"), (view.items[1].body as ChatBody.Person).handoff)
+        assertEquals(ChatMention("Timber Elk", "copilot"), view.queued.single().handoff)
+
+        send(
+            """{"update":{"revision":2,"changes":[
+              {"change":"peers","peers":[{"terminal":"t3","name":"Slate Wren","agent":"codex","place":"lab"}]},
+              {"change":"reset"}]}}"""
+        )
+        assertEquals(listOf(ChatPeer("t3", "Slate Wren", "codex", "lab")), chat.view.value.peers)
+        assertTrue(chat.view.value.items.isEmpty())
+    }
+
     private fun TestScope.watch() {
         backgroundScope.launch { chat.watch() }
         runCurrent()

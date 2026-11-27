@@ -26,6 +26,7 @@ data class ChatView(
     val tasks: List<ChatTask> get() = chat?.tasks.orEmpty()
     val commands: List<ChatCommand> get() = chat?.commands.orEmpty()
     val settings: List<ChatSetting> get() = chat?.settings.orEmpty()
+    val peers: List<ChatPeer> get() = chat?.peers.orEmpty()
     val facts: ChatFacts get() = chat?.facts ?: ChatFacts()
     val now: ChatNow? get() = chat?.now
 
@@ -124,6 +125,13 @@ class TerminalChat internal constructor(
         request(ChatRequest.Answer(ask.id, answer))
     }
 
+    /** Hands this agent the work of [peer]'s agent, which gets no message. */
+    fun handOff(peer: ChatPeer): Boolean {
+        if (!view.value.canWrite) return false
+        request(ChatRequest.HandOff(peer.terminal))
+        return true
+    }
+
     fun unqueue(queued: ChatQueued) = request(ChatRequest.Unqueue(queued.id))
 
     fun stop() = request(ChatRequest.Stop)
@@ -203,6 +211,7 @@ internal fun ChatSnapshot.applying(update: ChatUpdate): ChatSnapshot {
     var tasks = tasks
     var commands = commands
     var settings = settings
+    var peers = peers
     var facts = facts
     var state = state
     var now = now
@@ -231,6 +240,8 @@ internal fun ChatSnapshot.applying(update: ChatUpdate): ChatSnapshot {
 
             is ChatChange.Settings -> settings = change.settings
 
+            is ChatChange.Peers -> peers = change.peers
+
             is ChatChange.Facts -> facts = change.facts
 
             is ChatChange.State -> {
@@ -255,12 +266,15 @@ internal fun ChatSnapshot.applying(update: ChatUpdate): ChatSnapshot {
         queued = queued,
         tasks = tasks,
         commands = commands,
-        settings = settings
+        settings = settings,
+        peers = peers
     )
 }
 
 internal sealed interface ChatRequest {
     data class Send(val text: String) : ChatRequest
+
+    data class HandOff(val terminal: String) : ChatRequest
 
     data class Unqueue(val id: String) : ChatRequest
 
@@ -274,6 +288,7 @@ internal sealed interface ChatRequest {
 
     fun json(): JsonObject = when (this) {
         is Send -> fields("do" to "send", "text" to text)
+        is HandOff -> fields("do" to "handOff", "terminal" to terminal)
         is Unqueue -> fields("do" to "unqueue", "id" to id)
         is Answer -> fields("do" to "answer", "ask" to ask, "answer" to answer.json())
         Stop -> fields("do" to "stop")

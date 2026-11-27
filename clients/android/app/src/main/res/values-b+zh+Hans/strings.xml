@@ -602,6 +602,9 @@
     <string name="chat_no_setting_matches">没有匹配的设置</string>
     <string name="chat_setting_locked">已锁定</string>
     <string name="chat_commands">命令</string>
+    <string name="chat_mention">提及</string>
+    <string name="chat_hand_off">交接</string>
+    <string name="chat_hand_off_from">来自 %1$s 的交接</string>
     <string name="chat_tokens_of">%2$s 个 token 中的 %1$s</string>
     <string name="chat_resets_in">%1$s后重置</string>
     <string name="chat_this_conversation">此对话</string>

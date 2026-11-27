@@ -91,7 +91,6 @@ import com.kodosi.mobile.ui.PersonAvatar
 import com.kodosi.mobile.ui.SelectableWords
 import com.kodosi.mobile.ui.StatusSign
 import com.kodosi.mobile.ui.fade
-import com.kodosi.mobile.ui.rememberWords
 import com.kodosi.mobile.ui.snappy
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
@@ -204,6 +203,7 @@ internal fun ChatThread(
     agent: AgentKind,
     me: String?,
     sent: Int,
+    terminals: MentionTerminals,
     hideKeyboard: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -295,7 +295,7 @@ internal fun ChatThread(
                         fadeOutSpec = fade()
                     )
                 ) {
-                    Entry(entry, view, agent) { following = false }
+                    Entry(entry, view, agent, terminals) { following = false }
                 }
             }
             item(key = "tail") {
@@ -331,13 +331,13 @@ internal fun ChatThread(
 }
 
 @Composable
-private fun Entry(entry: ThreadEntry, view: ChatView, agent: AgentKind, hold: () -> Unit) {
+private fun Entry(entry: ThreadEntry, view: ChatView, agent: AgentKind, terminals: MentionTerminals, hold: () -> Unit) {
     val colors = KodosiTheme.colors
     when (entry) {
         is ThreadEntry.Day ->
             DayCapsule(ChatWords.day(entry.at), Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp))
 
-        is ThreadEntry.Person -> if (entry.mine) Mine(entry, hold) else Theirs(entry, hold)
+        is ThreadEntry.Person -> if (entry.mine) Mine(entry, terminals, hold) else Theirs(entry, terminals, hold)
 
         is ThreadEntry.Head -> Row(Modifier.padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             AgentMark(agent, 24.dp, activity = if (entry.working) MarkActivity.WORKING else MarkActivity.AWAKE)
@@ -456,7 +456,7 @@ private fun Answer(text: String, live: Boolean, hold: () -> Unit) {
 }
 
 @Composable
-private fun Mine(entry: ThreadEntry.Person, hold: () -> Unit) {
+private fun Mine(entry: ThreadEntry.Person, terminals: MentionTerminals, hold: () -> Unit) {
     val colors = KodosiTheme.colors
     Column(
         Modifier.fillMaxWidth().padding(start = 48.dp, top = if (entry.opens) 16.dp else 4.dp),
@@ -464,7 +464,7 @@ private fun Mine(entry: ThreadEntry.Person, hold: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Bubble(entry.words.text, colors.accentSoft, MineShape, hold) {
-            Text(rememberWords(entry.words.text, true), style = KodosiType.body, color = colors.ink)
+            PersonSaid(entry.words, colors.accentSoft, terminals)
         }
         if (entry.closes && entry.row.at > 0) {
             Text(ChatWords.time(entry.row.at), style = KodosiType.caption, color = colors.inkFaint)
@@ -473,7 +473,7 @@ private fun Mine(entry: ThreadEntry.Person, hold: () -> Unit) {
 }
 
 @Composable
-private fun Theirs(entry: ThreadEntry.Person, hold: () -> Unit) {
+private fun Theirs(entry: ThreadEntry.Person, terminals: MentionTerminals, hold: () -> Unit) {
     val colors = KodosiTheme.colors
     val person = entry.words.by
     Row(Modifier.fillMaxWidth().padding(end = 12.dp, top = if (entry.opens) 16.dp else 4.dp)) {
@@ -488,7 +488,7 @@ private fun Theirs(entry: ThreadEntry.Person, hold: () -> Unit) {
                 Text(person.name, style = KodosiType.caption, color = colors.inkMuted, maxLines = 1)
             }
             Bubble(entry.words.text, colors.raised, TheirsShape, hold) {
-                Text(rememberWords(entry.words.text, true), style = KodosiType.body, color = colors.ink)
+                PersonSaid(entry.words, colors.raised, terminals)
             }
             if (entry.closes && entry.row.at > 0) {
                 Text(ChatWords.time(entry.row.at), style = KodosiType.caption, color = colors.inkFaint)
@@ -500,7 +500,8 @@ private fun Theirs(entry: ThreadEntry.Person, hold: () -> Unit) {
 /**
  * A message whose long press, once the message is finished, offers to copy it whole as it was
  * written, to select part of it or to read it aloud. Its words are selectable only after Select
- * text, so that a long press on them opens this menu rather than starting a selection.
+ * text, so that a long press on them opens this menu rather than starting a selection. A message
+ * without words, such as a hand-off, has nothing to copy.
  */
 @Composable
 private fun Bubble(
@@ -517,6 +518,7 @@ private fun Bubble(
     val holding by rememberUpdatedState(hold)
     val copyLabel = stringResource(R.string.copy)
     val reads = MessageReader.reading == text
+    val copies = !live && text.isNotEmpty()
     var menu by remember { mutableStateOf(false) }
     var pressed by remember { mutableStateOf(IntOffset.Zero) }
     var selecting by remember { mutableStateOf(false) }
@@ -535,7 +537,7 @@ private fun Bubble(
     Box(
         Modifier.widthIn(max = 640.dp).background(fill, shape)
             .semantics(mergeDescendants = true) {
-                if (!live) {
+                if (copies) {
                     customActions = listOf(
                         CustomAccessibilityAction(copyLabel) {
                             copy()
@@ -545,7 +547,7 @@ private fun Bubble(
                 }
             }
             .then(
-                if (live || selecting) {
+                if (!copies || selecting) {
                     Modifier
                 } else {
                     Modifier.pointerInput(text) {

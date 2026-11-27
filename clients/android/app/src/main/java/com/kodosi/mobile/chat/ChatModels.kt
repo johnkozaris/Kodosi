@@ -21,7 +21,8 @@ data class ChatSnapshot(
     val queued: List<ChatQueued> = emptyList(),
     val tasks: List<ChatTask> = emptyList(),
     val commands: List<ChatCommand> = emptyList(),
-    val settings: List<ChatSetting> = emptyList()
+    val settings: List<ChatSetting> = emptyList(),
+    val peers: List<ChatPeer> = emptyList()
 )
 
 @Serializable
@@ -63,6 +64,11 @@ sealed interface ChatChange {
     @Serializable
     @SerialName("settings")
     data class Settings(val settings: List<ChatSetting>) : ChatChange
+
+    /** The agents that this terminal's agent can reach, whole. */
+    @Serializable
+    @SerialName("peers")
+    data class Peers(val peers: List<ChatPeer>) : ChatChange
 
     @Serializable
     @SerialName("facts")
@@ -120,10 +126,18 @@ data class ChatItem(val id: String, val at: Long, val body: ChatBody)
 @Serializable
 @JsonClassDiscriminator("kind")
 sealed interface ChatBody {
-    // A null sender means the message was typed directly in the terminal.
+    /**
+     * [text] holds only the person's own words, and [handoff] the agent whose work the message handed
+     * to this one. A null sender means the message was typed directly in the terminal.
+     */
     @Serializable
     @SerialName("person")
-    data class Person(val text: String, val by: ChatPerson? = null) : ChatBody
+    data class Person(
+        val text: String,
+        val by: ChatPerson? = null,
+        val mentions: List<ChatMention> = emptyList(),
+        val handoff: ChatMention? = null
+    ) : ChatBody
 
     @Serializable
     @SerialName("text")
@@ -305,6 +319,8 @@ enum class ChangeSign {
 data class ChatQueued(
     val id: String,
     val text: String,
+    val mentions: List<ChatMention> = emptyList(),
+    val handoff: ChatMention? = null,
     val by: ChatPerson? = null,
     val refused: String? = null,
     /**
@@ -379,6 +395,17 @@ enum class ChatSettingKind {
 
 @Serializable
 data class ChatPerson(val id: String, val name: String)
+
+/**
+ * The agent of another terminal that this terminal's agent can reach. [place] is the agent's computer
+ * when that is another one, else the name of its folder.
+ */
+@Serializable
+data class ChatPeer(val terminal: String, val name: String, val agent: String, val place: String = "")
+
+/** An agent of another terminal, as a message names it, by its terminal's name; [agent] is empty when unknown. */
+@Serializable
+data class ChatMention(val name: String, val agent: String = "")
 
 @Serializable
 data class ChatTask(val text: String, val state: TaskState)

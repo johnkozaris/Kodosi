@@ -648,6 +648,9 @@
     <string name="chat_no_setting_matches">Ningún ajuste coincide</string>
     <string name="chat_setting_locked">Bloqueado</string>
     <string name="chat_commands">Comandos</string>
+    <string name="chat_mention">Mencionar</string>
+    <string name="chat_hand_off">Traspasar</string>
+    <string name="chat_hand_off_from">Traspaso de %1$s</string>
     <string name="chat_tokens_of">%1$s de %2$s tokens</string>
     <string name="chat_resets_in">Se restablece en %1$s</string>
     <string name="chat_this_conversation">Esta conversación</string>

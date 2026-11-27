@@ -68,6 +68,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -109,7 +110,9 @@ internal class KnownModels(val label: (String) -> String, val levels: (String?) 
 
 /**
  * Everything below the conversation: the agent's task list, the helpers working for it, queued
- * messages, the agent's open question, the composer or the talk bar, and the session facts.
+ * messages, the agent's open question, the commands or the peers that the draft names, the composer
+ * or the talk bar, and the session facts. [handOff] hands this agent a peer's work and says if the
+ * chat took it.
  */
 @Composable
 internal fun ChatDock(
@@ -120,6 +123,7 @@ internal fun ChatDock(
     talk: ChatTalk,
     models: KnownModels,
     send: () -> Unit,
+    handOff: (ChatPeer) -> Boolean,
     showTerminal: () -> Unit,
     changesAgent: Boolean,
     goOn: (() -> Unit)?,
@@ -156,9 +160,26 @@ internal fun ChatDock(
             draft.setTextAndPlaceCursorAtEnd("/${command.name} ")
         }
     }
-    val suggestions = ChatCommandMatch.commands(view.commands, draft.text.toString())
+    val typed = draft.text.toString()
+    val suggestions = ChatCommandMatch.commands(view.commands, typed)
     val shownSuggestions = remember { mutableStateOf(suggestions) }
     SideEffect { if (suggestions.isNotEmpty()) shownSuggestions.value = suggestions }
+    // The peers stay hidden after a hand-off until the person changes the draft.
+    var handedOff by remember { mutableStateOf<String?>(null) }
+    val query = ChatMentionMatch.query(typed)?.takeIf { suggestions.isEmpty() && typed != handedOff }
+    val namedPeers = query?.let { ChatMentionMatch.peers(view.peers, it) }.orEmpty()
+    val shownPeers = remember { mutableStateOf(namedPeers) }
+    SideEffect { if (namedPeers.isNotEmpty()) shownPeers.value = namedPeers }
+    val mentionPeer: (ChatPeer) -> Unit = { peer ->
+        draft.setTextAndPlaceCursorAtEnd(ChatMentionMatch.naming(draft.text.toString(), peer))
+    }
+    val handOffPeer: (ChatPeer) -> Unit = { peer ->
+        if (handOff(peer)) {
+            val rest = ChatMentionMatch.unnamed(draft.text.toString())
+            draft.setTextAndPlaceCursorAtEnd(rest)
+            handedOff = rest
+        }
+    }
     val composer = remember { FocusRequester() }
     var typing by remember { mutableStateOf(false) }
     val type = {
@@ -242,6 +263,14 @@ internal fun ChatDock(
                     ChatCommandList(
                         suggestions.ifEmpty { shownSuggestions.value },
                         choose,
+                        Modifier.padding(start = 10.dp, end = 10.dp, top = 4.dp)
+                    )
+                }
+                Unfolding(namedPeers.isNotEmpty()) {
+                    ChatPeerList(
+                        namedPeers.ifEmpty { shownPeers.value },
+                        mentionPeer,
+                        handOffPeer,
                         Modifier.padding(start = 10.dp, end = 10.dp, top = 4.dp)
                     )
                 }
@@ -352,7 +381,7 @@ private fun Queued(chat: TerminalChat, queued: ChatQueued, agent: AgentKind, sho
                 QueuedSign(queued, agent)
                 Spacer(Modifier.width(6.dp))
                 Text(
-                    queued.text,
+                    queued.handoff?.let { handOffWords(it.name) } ?: AnnotatedString(queued.text),
                     style = KodosiType.footnote,
                     color = colors.ink,
                     maxLines = 3,

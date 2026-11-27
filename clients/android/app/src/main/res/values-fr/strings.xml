@@ -648,6 +648,9 @@
     <string name="chat_no_setting_matches">Aucun réglage ne correspond</string>
     <string name="chat_setting_locked">Verrouillé</string>
     <string name="chat_commands">Commandes</string>
+    <string name="chat_mention">Mentionner</string>
+    <string name="chat_hand_off">Transmettre</string>
+    <string name="chat_hand_off_from">Passation de %1$s</string>
     <string name="chat_tokens_of">%1$s sur %2$s jetons</string>
     <string name="chat_resets_in">Se réinitialise dans %1$s</string>
     <string name="chat_this_conversation">Cette conversation</string>

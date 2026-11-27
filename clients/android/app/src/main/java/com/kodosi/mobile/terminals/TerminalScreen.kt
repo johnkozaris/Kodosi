@@ -130,7 +130,8 @@ fun TerminalScreen(
     online: Boolean,
     back: () -> Unit,
     addFriend: () -> Unit,
-    canvas: (String?) -> Unit
+    canvas: (String?) -> Unit,
+    terminal: (String) -> Unit
 ) {
     val colors = KodosiTheme.colors
     val scope = rememberCoroutineScope()
@@ -259,7 +260,7 @@ fun TerminalScreen(
             }
         }
         if (chatShown && session != null) {
-            TerminalChatView(model, session, Modifier.weight(1f).fillMaxWidth())
+            TerminalChatView(model, session, terminal, Modifier.weight(1f).fillMaxWidth())
         } else {
             Box(
                 Modifier
