@@ -258,6 +258,21 @@ QString answerKey(const QJsonObject& answer)
     return kind;
 }
 
+QVariantMap mention(const QJsonObject& value)
+{
+    return { { QStringLiteral("name"), text(value, "name") }, { QStringLiteral("agent"), text(value, "agent") } };
+}
+
+void insertMentions(QVariantMap& shown, const QJsonObject& said)
+{
+    QVariantList named;
+    for (const auto& value : said.value(QStringLiteral("mentions")).toArray())
+        named.append(mention(value.toObject()));
+    shown.insert(QStringLiteral("mentions"), named);
+    if (said.value(QStringLiteral("handoff")).isObject())
+        shown.insert(QStringLiteral("handoff"), mention(said.value(QStringLiteral("handoff")).toObject()));
+}
+
 bool knownItem(const QJsonValue& value)
 {
     static const QSet<QString> kinds { QStringLiteral("person"), QStringLiteral("text"), QStringLiteral("tool"),
@@ -394,6 +409,12 @@ void TerminalChat::unqueue(const QString& id)
     request({ { QStringLiteral("do"), QStringLiteral("unqueue") }, { QStringLiteral("id"), id } });
 }
 
+void TerminalChat::handOff(const QString& terminal)
+{
+    if (canWrite())
+        request({ { QStringLiteral("do"), QStringLiteral("handOff") }, { QStringLiteral("terminal"), terminal } });
+}
+
 void TerminalChat::stop()
 {
     request({ { QStringLiteral("do"), QStringLiteral("stop") } });
@@ -493,6 +514,7 @@ std::optional<TerminalChat::Snapshot> TerminalChat::snapshotFrom(const QJsonObje
     chat.tasks = value.value(QStringLiteral("tasks")).toArray();
     chat.commands = value.value(QStringLiteral("commands")).toArray();
     chat.settings = value.value(QStringLiteral("settings")).toArray();
+    chat.peers = value.value(QStringLiteral("peers")).toArray();
     return chat;
 }
 
@@ -536,6 +558,8 @@ bool TerminalChat::apply(Snapshot& chat, const QJsonObject& change)
         chat.commands = change.value(QStringLiteral("commands")).toArray();
     } else if (kind == QStringLiteral("settings")) {
         chat.settings = change.value(QStringLiteral("settings")).toArray();
+    } else if (kind == QStringLiteral("peers")) {
+        chat.peers = change.value(QStringLiteral("peers")).toArray();
     } else if (kind == QStringLiteral("facts")) {
         chat.facts = change.value(QStringLiteral("facts")).toObject();
     } else if (kind == QStringLiteral("state")) {
@@ -809,9 +833,9 @@ void TerminalChat::shape()
         if (row.kind == QStringLiteral("person")) {
             const auto values = body(row.item);
             const auto by = values.value(QStringLiteral("by")).toObject();
-            line.insert({ { QStringLiteral("html"), ChatProse::text(text(values, "text")) },
-                { QStringLiteral("text"), text(values, "text") }, { QStringLiteral("byId"), text(by, "id") },
+            line.insert({ { QStringLiteral("text"), text(values, "text") }, { QStringLiteral("byId"), text(by, "id") },
                 { QStringLiteral("byName"), text(by, "name") } });
+            insertMentions(line, values);
         } else if (row.kind == QStringLiteral("answer") || row.kind == QStringLiteral("plan")) {
             kept.insert(row.id);
             line.insert({ { QStringLiteral("blocks"), blocks(row.id, row.text) }, { QStringLiteral("live"), row.live },
@@ -881,10 +905,12 @@ void TerminalChat::shape()
     QVariantList queued;
     for (const auto& value : m_chat->queued) {
         const auto waiting = value.toObject();
-        queued.append(QVariantMap { { QStringLiteral("id"), text(waiting, "id") }, { QStringLiteral("text"), text(waiting, "text") },
+        QVariantMap entry { { QStringLiteral("id"), text(waiting, "id") }, { QStringLiteral("text"), text(waiting, "text") },
             { QStringLiteral("refused"), text(waiting, "refused") },
             { QStringLiteral("terminal"), waiting.value(QStringLiteral("terminal")).toBool() },
-            { QStringLiteral("given"), waiting.value(QStringLiteral("given")).toBool() } });
+            { QStringLiteral("given"), waiting.value(QStringLiteral("given")).toBool() } };
+        insertMentions(entry, waiting);
+        queued.append(entry);
     }
     if (queued != m_queued) {
         m_queued = queued;
@@ -954,6 +980,16 @@ void TerminalChat::shape()
     if (settings != m_settings) {
         m_settings = settings;
         emit settingsChanged();
+    }
+    QVariantList peers;
+    for (const auto& value : m_chat->peers) {
+        const auto peer = value.toObject();
+        peers.append(QVariantMap { { QStringLiteral("terminal"), text(peer, "terminal") }, { QStringLiteral("name"), text(peer, "name") },
+            { QStringLiteral("agent"), text(peer, "agent") }, { QStringLiteral("place"), text(peer, "place") } });
+    }
+    if (peers != m_peers) {
+        m_peers = peers;
+        emit peersChanged();
     }
 }
 

@@ -1010,6 +1010,24 @@
     </message>
 </context>
 <context>
+    <name>ChatHandOff</name>
+    <message>
+        <source>Hand-off from %1</source>
+        <translation>来自 %1 的交接</translation>
+    </message>
+</context>
+<context>
+    <name>ChatPeerMenu</name>
+    <message>
+        <source>Mention</source>
+        <translation>提及</translation>
+    </message>
+    <message>
+        <source>Hand off</source>
+        <translation>交接</translation>
+    </message>
+</context>
+<context>
     <name>ChatSettings</name>
     <message>
         <source>Find a setting</source>

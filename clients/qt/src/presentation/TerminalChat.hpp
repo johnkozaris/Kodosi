@@ -37,6 +37,7 @@ class TerminalChat final : public QObject {
     Q_PROPERTY(QVariantMap facts READ facts NOTIFY factsChanged FINAL)
     Q_PROPERTY(QVariantList commands READ commands NOTIFY commandsChanged FINAL)
     Q_PROPERTY(QVariantList settings READ settings NOTIFY settingsChanged FINAL)
+    Q_PROPERTY(QVariantList peers READ peers NOTIFY peersChanged FINAL)
     Q_PROPERTY(QString draft READ draft WRITE setDraft NOTIFY draftChanged FINAL)
     Q_PROPERTY(QStringList opened READ opened NOTIFY openedChanged FINAL)
 
@@ -66,6 +67,8 @@ public:
     [[nodiscard]] QVariantMap facts() const { return m_facts; }
     [[nodiscard]] QVariantList commands() const { return m_commands; }
     [[nodiscard]] QVariantList settings() const { return m_settings; }
+    // The agents of other terminals that this terminal's agent can reach, in the order to show.
+    [[nodiscard]] QVariantList peers() const { return m_peers; }
     [[nodiscard]] QString draft() const { return m_draft; }
     void setDraft(const QString& draft);
     [[nodiscard]] QStringList opened() const { return m_opened; }
@@ -80,6 +83,8 @@ public:
     // lists), or "plan" (`choice`).
     Q_INVOKABLE void answer(const QString& ask, const QVariantMap& answer);
     Q_INVOKABLE void unqueue(const QString& id);
+    // Asks the agent to go on with the work of the agent of a peer's terminal, which gets no message.
+    Q_INVOKABLE void handOff(const QString& terminal);
     Q_INVOKABLE void stop();
     // Asks the agent for its own settings, which arrive in `settings`.
     Q_INVOKABLE void askSettings();
@@ -107,6 +112,7 @@ signals:
     void factsChanged();
     void commandsChanged();
     void settingsChanged();
+    void peersChanged();
     void draftChanged();
     void openedChanged();
     void linkQuestionRequested(const QUrl& link, const QString& target);
@@ -124,6 +130,7 @@ private:
         QJsonArray tasks;
         QJsonArray commands;
         QJsonArray settings;
+        QJsonArray peers;
     };
     struct Prose {
         QString text;
@@ -167,6 +174,7 @@ private:
     QVariantMap m_facts;
     QVariantList m_commands;
     QVariantList m_settings;
+    QVariantList m_peers;
 };
 
 class TerminalChats final : public QObject {

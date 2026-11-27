@@ -625,6 +625,9 @@
     <string name="chat_no_setting_matches">Καμία ρύθμιση δεν ταιριάζει</string>
     <string name="chat_setting_locked">Κλειδωμένο</string>
     <string name="chat_commands">Εντολές</string>
+    <string name="chat_mention">Αναφορά</string>
+    <string name="chat_hand_off">Παράδοση</string>
+    <string name="chat_hand_off_from">Παράδοση από το %1$s</string>
     <string name="chat_tokens_of">%1$s από %2$s tokens</string>
     <string name="chat_resets_in">Ανανεώνεται σε %1$s</string>
     <string name="chat_this_conversation">Αυτή η συνομιλία</string>

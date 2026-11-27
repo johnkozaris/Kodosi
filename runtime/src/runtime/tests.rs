@@ -5302,6 +5302,7 @@ async fn screen_shows(handle: &RuntimeHandle, entry: &Value, text: &str) -> Stri
                     .unwrap()
                     .to_owned(),
                 history: false,
+                conversation: false,
             };
             send_to(handle, read).await;
             let screen = loop {
@@ -5516,12 +5517,18 @@ async fn a_restored_terminal_rejoins_its_project_for_its_account_and_leaves_a_re
 fn a_message_names_the_terminal_whose_whole_name_follows_the_at_sign() {
     let terminals = [(1, "Build"), (2, "Build 2"), (3, "Docs")];
     assert_eq!(
-        messages::named("@Build 2 and @Docs, please", &terminals),
+        crate::names::named("@Build 2 and @Docs, please", &terminals),
         [2, 3]
     );
-    assert_eq!(messages::named("@Build: the test fails", &terminals), [1]);
-    assert_eq!(messages::named("@build 2, then @DOCS", &terminals), [2, 3]);
-    assert_eq!(messages::named("@Build-fix is red", &terminals), [1]);
+    assert_eq!(
+        crate::names::named("@Build: the test fails", &terminals),
+        [1]
+    );
+    assert_eq!(
+        crate::names::named("@build 2, then @DOCS", &terminals),
+        [2, 3]
+    );
+    assert_eq!(crate::names::named("@Build-fix is red", &terminals), [1]);
     for text in [
         "@Builder",
         "write to ana@Build",
@@ -5530,7 +5537,7 @@ fn a_message_names_the_terminal_whose_whole_name_follows_the_at_sign() {
         "@",
     ] {
         assert_eq!(
-            messages::named(text, &terminals),
+            crate::names::named(text, &terminals),
             Vec::<i32>::new(),
             "{text}"
         );

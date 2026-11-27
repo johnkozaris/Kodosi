@@ -8,13 +8,14 @@ use std::{
 use serde_json::{Value, json};
 use tokio::{
     io::AsyncReadExt as _,
-    sync::{Semaphore, mpsc, oneshot},
+    sync::{Semaphore, mpsc, oneshot, watch},
 };
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use super::{
     claude, http,
+    mention::{Peer, Peers},
     room::{Asked, ChatHandle, Job},
 };
 
@@ -39,7 +40,7 @@ impl TerminalChat {
     #[cfg(test)]
     pub(crate) fn alone() -> Self {
         Self {
-            handle: ChatHandle::spawn(),
+            handle: ChatHandle::spawn(String::new(), None),
             variables: Vec::new(),
         }
     }
@@ -48,6 +49,7 @@ impl TerminalChat {
 #[derive(Clone)]
 pub(crate) struct Links {
     rooms: Rooms,
+    peers: Arc<watch::Sender<Peers>>,
     addresses: Arc<[(&'static str, String)]>,
     codex: Option<CodexAddresses>,
     _served: Arc<tokio_util::sync::DropGuard>,
@@ -72,6 +74,7 @@ impl Links {
         };
         Self {
             rooms,
+            peers: Arc::new(watch::Sender::new(Peers::default())),
             addresses: addresses.into(),
             codex,
             _served: Arc::new(stop.drop_guard()),
@@ -83,6 +86,7 @@ impl Links {
         let stop = CancellationToken::new();
         Self {
             rooms: Rooms::default(),
+            peers: Arc::new(watch::Sender::new(Peers::default())),
             addresses: Arc::new([]),
             codex: None,
             _served: Arc::new(stop.drop_guard()),
@@ -90,7 +94,7 @@ impl Links {
     }
 
     pub(crate) fn room(&self, terminal: Uuid) -> TerminalChat {
-        let handle = ChatHandle::spawn();
+        let handle = ChatHandle::spawn(terminal.to_string(), Some(self.peers.subscribe()));
         {
             let mut rooms = self.rooms.lock().unwrap_or_else(PoisonError::into_inner);
             rooms.retain(|_, room| room.upgrade().is_some());
@@ -105,6 +109,18 @@ impl Links {
             variables: self.addresses.iter().cloned().chain(codex).collect(),
             handle,
         }
+    }
+
+    /// Gives the chat of each terminal the agents that its agent can reach: those of the other
+    /// terminals that this computer lists.
+    pub(crate) fn reach(&self, peers: Vec<Peer>) {
+        self.peers.send_if_modified(|known| {
+            let changed = **known != peers;
+            if changed {
+                *known = Arc::new(peers);
+            }
+            changed
+        });
     }
 
     /// Returns the common address prefix shared by all per-terminal Codex servers.

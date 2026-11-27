@@ -74,6 +74,7 @@ Item {
         case "share": return "M10 11 A3.5 3.5 0 1 0 10 4 A3.5 3.5 0 1 0 10 11 M3.5 20 Q3.5 14 10 14 Q13 14 14.6 15.4 M18 14 V20 M15 17 H21"
         case "return": return "M19 6 V11 Q19 14 16 14 H5.5 M9.5 10 L5.5 14 L9.5 18"
         case "arrow-right": return "M5 12 H19 M13 6 L19 12 L13 18"
+        case "turn-down-right": return "M6 4 V10 Q6 15 11 15 H19 M15 11 L19 15 L15 19"
         case "pencil": return "M4 20 L5 15.5 L16 4.5 L19.5 8 L8.5 19 Z M14 6.5 L17.5 10"
         case "play": return "M8 5 L19 12 L8 19 Z"
         case "link": return "M10 14 A4 4 0 0 0 15.7 14.3 L19 11 A4 4 0 0 0 13.3 5.3 L12 6.6 M14 10 A4 4 0 0 0 8.3 9.7 L5 13 A4 4 0 0 0 10.7 18.7 L12 17.4"

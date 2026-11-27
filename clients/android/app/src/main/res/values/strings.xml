@@ -632,6 +632,9 @@
     <string name="chat_no_setting_matches">No setting matches</string>
     <string name="chat_setting_locked">Locked</string>
     <string name="chat_commands">Commands</string>
+    <string name="chat_mention">Mention</string>
+    <string name="chat_hand_off">Hand off</string>
+    <string name="chat_hand_off_from">Hand-off from %1$s</string>
     <string name="chat_tokens_of">%1$s of %2$s tokens</string>
     <string name="chat_resets_in">Resets in %1$s</string>
     <string name="chat_this_conversation">This conversation</string>

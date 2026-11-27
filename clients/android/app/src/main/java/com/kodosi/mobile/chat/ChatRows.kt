@@ -6,7 +6,12 @@ package com.kodosi.mobile.chat
  */
 data class ChatRow(val id: String, val at: Long, val kind: Kind) {
     sealed interface Kind {
-        data class Person(val text: String, val by: ChatPerson?) : Kind
+        data class Person(
+            val text: String,
+            val by: ChatPerson?,
+            val mentions: List<ChatMention>,
+            val handoff: ChatMention?
+        ) : Kind
 
         data class Answer(val text: String, val live: Boolean) : Kind
 
@@ -61,7 +66,7 @@ data class ChatRow(val id: String, val at: Long, val kind: Kind) {
                 when (val body = item.body) {
                     is ChatBody.Person -> {
                         fold(ended = true)
-                        add(ChatRow(item.id, item.at, Kind.Person(body.text, body.by)))
+                        add(ChatRow(item.id, item.at, Kind.Person(body.text, body.by, body.mentions, body.handoff)))
                     }
 
                     is ChatBody.Text, is ChatBody.Tool -> turn += item

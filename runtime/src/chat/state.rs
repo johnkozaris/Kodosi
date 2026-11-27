@@ -1,8 +1,8 @@
 use super::{
-    ChatAsk, ChatBody, ChatChange, ChatCommand, ChatFacts, ChatItem, ChatNow, ChatPerson,
+    ChatAsk, ChatBody, ChatChange, ChatCommand, ChatFacts, ChatItem, ChatNow, ChatPeer, ChatPerson,
     ChatQueued, ChatSetting, ChatSnapshot, ChatState, ChatTask, ChatTool, ChatUpdate, MOST_ASKS,
     MOST_COMMANDS, MOST_ITEMS, MOST_QUEUED, MOST_SETTINGS, MOST_TARGET, MOST_TASKS, MOST_TEXT,
-    ToolKind, ToolState,
+    ToolKind, ToolState, mention::Message,
 };
 
 #[derive(Default)]
@@ -17,6 +17,7 @@ pub(super) struct Chat {
     tasks: Vec<ChatTask>,
     commands: Vec<ChatCommand>,
     settings: Vec<ChatSetting>,
+    peers: Vec<ChatPeer>,
     changes: Vec<ChatChange>,
     made: u64,
     /// Used to shorten paths outside the terminal's working directory with `~`.
@@ -47,6 +48,7 @@ impl Chat {
             tasks: self.tasks.clone(),
             commands: self.commands.clone(),
             settings: self.settings.clone(),
+            peers: self.peers.clone(),
         }
     }
 
@@ -241,14 +243,22 @@ impl Chat {
         &self.queued
     }
 
-    pub(super) fn queue(&mut self, text: String, by: Option<ChatPerson>) -> Option<String> {
+    pub(super) fn queue(
+        &mut self,
+        message: impl Into<Message>,
+        by: Option<ChatPerson>,
+    ) -> Option<String> {
         if self.queued.len() >= MOST_QUEUED {
             return None;
         }
+        let message = message.into();
         let id = self.name('q');
         self.queued.push(ChatQueued {
             id: id.clone(),
-            text,
+            text: message.words,
+            mentions: message.mentions,
+            handoff: message.handoff,
+            said: message.said,
             by,
             refused: None,
             terminal: false,
@@ -326,6 +336,18 @@ impl Chat {
             .retain(|change| !matches!(change, ChatChange::Commands { .. }));
         self.changes.push(ChatChange::Commands {
             commands: self.commands.clone(),
+        });
+    }
+
+    pub(super) fn set_peers(&mut self, peers: Vec<ChatPeer>) {
+        if peers == self.peers {
+            return;
+        }
+        self.peers = peers;
+        self.changes
+            .retain(|change| !matches!(change, ChatChange::Peers { .. }));
+        self.changes.push(ChatChange::Peers {
+            peers: self.peers.clone(),
         });
     }
 
@@ -413,7 +435,7 @@ impl Chat {
     }
 
     /// A new conversation: the items, the questions and the agent's list of its work go, and what
-    /// the person queued and the agent's commands stay.
+    /// the person queued, the agent's commands and the agents that it reaches stay.
     pub(super) fn reset(&mut self) {
         self.items.clear();
         self.asks.clear();
@@ -426,6 +448,7 @@ impl Chat {
                     | ChatChange::State { .. }
                     | ChatChange::Commands { .. }
                     | ChatChange::Settings { .. }
+                    | ChatChange::Peers { .. }
             )
         });
         self.changes.insert(0, ChatChange::Reset);

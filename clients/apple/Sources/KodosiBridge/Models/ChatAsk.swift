@@ -121,6 +121,8 @@ public enum ChatMode: String, Decodable, Sendable {
 
 public enum ChatRequest: Equatable, Sendable {
     case send(String)
+    /// Hands the agent the work of the agent of a peer's terminal, which gets no message.
+    case handOff(terminal: String)
     case unqueue(String)
     case answer(ask: String, ChatAnswer)
     case stop
@@ -130,6 +132,7 @@ public enum ChatRequest: Equatable, Sendable {
     var json: JSONValue {
         switch self {
         case let .send(text): .object(["do": .string("send"), "text": .string(text)])
+        case let .handOff(terminal): .object(["do": .string("handOff"), "terminal": .string(terminal)])
         case let .unqueue(id): .object(["do": .string("unqueue"), "id": .string(id)])
         case let .answer(ask, answer): .object(["do": .string("answer"), "ask": .string(ask), "answer": answer.json])
         case .stop: .object(["do": .string("stop")])

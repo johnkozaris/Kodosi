@@ -625,6 +625,9 @@
     <string name="chat_no_setting_matches">Keine Einstellung passt</string>
     <string name="chat_setting_locked">Gesperrt</string>
     <string name="chat_commands">Befehle</string>
+    <string name="chat_mention">Erwähnen</string>
+    <string name="chat_hand_off">Übergeben</string>
+    <string name="chat_hand_off_from">Übergabe von %1$s</string>
     <string name="chat_tokens_of">%1$s von %2$s Tokens</string>
     <string name="chat_resets_in">Noch %1$s bis zum Zurücksetzen</string>
     <string name="chat_this_conversation">Dieses Gespräch</string>

@@ -32,6 +32,16 @@ FocusScope {
         if (watched)
             watched.watch()
     }
+    function open(link: string): void {
+        const terminal = Mentions.terminal(link)
+        if (terminal.length > 0)
+            Models.SessionActions.activate(terminal)
+        else
+            root.chat.follow(link, root.otherComputer)
+    }
+    function peer(terminal: string): var {
+        return Mentions.peerTargets(root.chat.peers).find(target => target.id === terminal) || null
+    }
 
     objectName: "chat." + sessionId
     Accessible.role: Accessible.Pane
@@ -75,7 +85,7 @@ FocusScope {
             program: root.writer
 
             onTapped: root.focused()
-            onLinkActivated: link => root.chat.follow(link, root.otherComputer)
+            onLinkActivated: link => root.open(link)
         }
         ChatDock {
             id: dock
@@ -90,7 +100,34 @@ FocusScope {
             room: root.height
             onSent: thread.toEnd(true)
             onTerminalRequested: root.terminalRequested()
-            onLinkActivated: link => root.chat.follow(link, root.otherComputer)
+            onLinkActivated: link => root.open(link)
+        }
+    }
+    TerminalDropArea {
+        id: chatDrop
+
+        anchors.fill: parent
+        anchors.margins: 6
+        radius: KodosiTheme.radiusLg
+        enabled: root.chat.canWrite && root.chat.peers.length > 0
+        objectName: root.objectName + ".drop"
+
+        onEntered: drag => drag.accepted = root.peer(drag.getDataAsString("application/x-kodosi-terminal")) !== null
+        onTerminalDropped: (id, at) => {
+            dropMenu.target = root.peer(id)
+            if (dropMenu.target)
+                Qt.callLater(() => dropMenu.popup(chatDrop, at.x, at.y))
+        }
+    }
+    ChatPeerMenu {
+        id: dropMenu
+
+        titled: true
+        identifier: "chat.drop"
+        onMentionChosen: target => dock.mention(target)
+        onHandOffChosen: target => {
+            root.chat.handOff(target.id)
+            thread.toEnd(true)
         }
     }
 }

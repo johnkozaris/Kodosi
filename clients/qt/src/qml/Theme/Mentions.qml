@@ -5,6 +5,8 @@ import QtQuick
 import Kodosi.Models 1.0 as Models
 
 QtObject {
+    readonly property string terminalLink: "kodosi-mention://terminal/"
+
     function targets(members: var, sessionIds: var): var {
         const list = []
         for (const member of members) {
@@ -18,6 +20,16 @@ QtObject {
                 list.push({ id: id, name: session.name, detail: session.hostLabel || "", kind: "terminal", program: session.program || "" })
         }
         return list
+    }
+
+    function peerTargets(peers: var): var {
+        return peers.map(peer => ({ id: peer.terminal, name: peer.name, detail: peer.place, kind: "terminal", program: peer.agent }))
+    }
+
+    // A chip opens the terminal of a named agent only while the chat reaches that agent.
+    function mentionTargets(mentions: var, peers: var): var {
+        return mentions.map(mention => ({ id: (peers.find(peer => peer.name === mention.name) || { terminal: "" }).terminal,
+            name: mention.name, kind: "terminal", program: mention.agent }))
     }
 
     function wordCharacter(character: string): bool {
@@ -68,33 +80,47 @@ QtObject {
         return parts.some(segment => segment.target && segment.target.kind === "person" && segment.target.id === userId)
     }
 
-    function tint(target: var, selfId: string): color {
+    function tint(target: var, selfId: string, look: Look): color {
         if (target.kind === "person")
-            return target.id === selfId ? KodosiTheme.accentStrong : KodosiTheme.mix(Identity.personTint(target.id), KodosiTheme.ink, 0.25)
+            return target.id === selfId ? look.accentStrong : KodosiTheme.mix(Identity.personTint(target.id), look.ink, 0.25)
         const kind = Models.DesktopSettings.agentOf(target.program || "")
-        return kind === "shell" ? KodosiTheme.accentStrong : KodosiTheme.mix(Identity.kindTint(kind), KodosiTheme.ink, 0.2)
+        return kind === "shell" ? look.accentStrong : KodosiTheme.mix(Identity.kindTint(kind), look.ink, 0.2)
     }
 
-    function html(parts: var, selfId: string): string {
+    // `marked` words between the mentions are Markdown, as a terminal's chat shows a person's words.
+    function html(parts: var, selfId: string, look: Look, marked: bool): string {
         return "<span style=\"white-space:pre-wrap\">" + parts.map(segment => {
-            const body = Qt.escapeHtml(segment.text)
             if (!segment.target)
-                return body
-            const style = "color:" + tint(segment.target, selfId) + ";font-weight:600;text-decoration:none"
-            const word = body.replace(/ /g, "&nbsp;")
-            return segment.target.kind === "terminal"
-                ? "<a href=\"kodosi-mention://terminal/" + Qt.escapeHtml(segment.target.id) + "\" style=\"" + style + "\">" + word + "</a>"
+                return marked ? Models.Markdown.text(segment.text) : Qt.escapeHtml(segment.text)
+            const style = "color:" + tint(segment.target, selfId, look) + ";font-weight:600;text-decoration:none"
+            const word = Qt.escapeHtml(segment.text).replace(/ /g, "&nbsp;")
+            return segment.target.kind === "terminal" && segment.target.id
+                ? "<a style=\"" + style + "\" href=\"" + terminalLink + Qt.escapeHtml(segment.target.id) + "\">" + word + "</a>"
                 : "<span style=\"" + style + "\">" + word + "</span>"
         }).join("") + "</span>"
     }
 
-    function chips(parts: var, selfId: string): var {
+    function terminal(link: string): string {
+        return link.startsWith(terminalLink) ? link.substring(terminalLink.length) : ""
+    }
+
+    // Finds each mention in `shown`, the text as its field shows it, where Markdown can have
+    // removed characters before the mention.
+    function chips(parts: var, selfId: string, look: Look, shown: string): var {
         const result = []
-        let position = 0
+        let from = 0
         for (const segment of parts) {
-            if (segment.target)
-                result.push({ start: position, end: position + segment.text.length, color: tint(segment.target, selfId) })
-            position += segment.text.length
+            if (!segment.target)
+                continue
+            const word = segment.text.replace(/ /g, "\u00a0")
+            let start = shown.indexOf(word, from)
+            while (start >= 0 && ((start > 0 && wordCharacter(shown[start - 1]))
+                    || (start + word.length < shown.length && wordCharacter(shown[start + word.length]))))
+                start = shown.indexOf(word, start + 1)
+            if (start < 0)
+                break
+            result.push({ start: start, end: start + word.length, color: tint(segment.target, selfId, look) })
+            from = start + word.length
         }
         return result
     }
@@ -104,19 +130,24 @@ QtObject {
         if (at < 0 || (at > 0 && wordCharacter(text[at - 1])))
             return ""
         const fragment = text.substring(at + 1)
-        return fragment.length > 40 || fragment.indexOf("\n") >= 0 ? "" : "@" + fragment
+        return fragment.length > 40 || fragment.indexOf("\n") >= 0 || fragment.split(" ").length > 3 ? "" : "@" + fragment
     }
 
     function suggestions(query: string, targets: var, selfId: string): var {
         if (query.length === 0)
             return []
         const needle = query.substring(1).toLowerCase()
-        return targets.filter(target => {
-            if (target.id === selfId)
-                return false
-            const name = target.name.toLowerCase()
-            return name.startsWith(needle) || name.split(" ").some(word => needle.length > 0 && word.startsWith(needle))
-        }).slice(0, 6)
+        const candidates = targets.filter(target => target.id !== selfId)
+        const starting = candidates.filter(target => target.name.toLowerCase().startsWith(needle))
+        return starting.concat(candidates.filter(target => !target.name.toLowerCase().startsWith(needle)
+            && target.name.toLowerCase().includes(needle))).slice(0, 6)
+    }
+
+    // The text with an `@` at its end for a new mention, unless it ends with the start of one.
+    function start(text: string): string {
+        if (query(text).length > 0)
+            return text
+        return text + (text.length === 0 || text.endsWith(" ") || text.endsWith("\n") ? "@" : " @")
     }
 
     function complete(text: string, target: var): string {

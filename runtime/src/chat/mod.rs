@@ -25,11 +25,14 @@ mod http;
 #[cfg(feature = "host")]
 mod link;
 #[cfg(feature = "host")]
+mod mention;
+#[cfg(feature = "host")]
 mod room;
 #[cfg(feature = "host")]
 mod state;
 #[cfg(all(test, feature = "host"))]
 mod tests;
+mod transcript;
 
 #[cfg(all(feature = "host", unix))]
 pub(crate) use acp::{Choices as AcpChoices, run as run_acp};
@@ -40,7 +43,10 @@ pub(crate) use copilot::EXTENSION as COPILOT_EXTENSION;
 #[cfg(feature = "host")]
 pub(crate) use link::{Links, TerminalChat};
 #[cfg(feature = "host")]
+pub(crate) use mention::Peer;
+#[cfg(feature = "host")]
 pub(crate) use room::ChatHandle;
+pub(crate) use transcript::transcript;
 
 /// Env var with the Unix socket path where terminal agents report chat events.
 #[cfg(feature = "host")]
@@ -111,6 +117,8 @@ pub struct ChatSnapshot {
     pub commands: Vec<ChatCommand>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub settings: Vec<ChatSetting>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub peers: Vec<ChatPeer>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -152,6 +160,10 @@ pub enum ChatChange {
     Settings {
         settings: Vec<ChatSetting>,
     },
+    /// The agents that this terminal's agent can reach, whole.
+    Peers {
+        peers: Vec<ChatPeer>,
+    },
     Facts {
         facts: Box<ChatFacts>,
     },
@@ -161,7 +173,7 @@ pub enum ChatChange {
         now: Option<ChatNow>,
     },
     /// Clears `items`, `asks`, and `tasks` for a new conversation while keeping `queued`,
-    /// `commands`, `settings`, `facts`, and `state`.
+    /// `commands`, `settings`, `peers`, `facts`, and `state`.
     Reset,
 }
 
@@ -198,10 +210,17 @@ pub struct ChatItem {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ChatBody {
     Person {
+        /// The person's own words, without the lines that Kodosi added for the agent.
         text: String,
         /// Sender when submitted from chat; `None` if typed directly in the terminal.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         by: Option<ChatPerson>,
+        /// The agents of other terminals that the words name with `@`.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        mentions: Vec<ChatMention>,
+        /// The agent whose work the person handed to this one with this message.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        handoff: Option<ChatMention>,
     },
     Text {
         text: String,
@@ -468,7 +487,15 @@ pub enum ChatAnswer {
 #[serde(rename_all = "camelCase")]
 pub struct ChatQueued {
     pub id: String,
+    /// The person's own words.
     pub text: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mentions: Vec<ChatMention>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub handoff: Option<ChatMention>,
+    /// The whole message that the agent gets: the words and the lines that Kodosi adds.
+    #[serde(skip)]
+    pub said: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub by: Option<ChatPerson>,
     /// Error from the agent if delivery was refused. The message waits until the user sends
@@ -558,6 +585,31 @@ pub enum TaskState {
     Done,
 }
 
+/// The agent of another terminal that this terminal's agent can reach, which a person names with
+/// `@` or hands the work of to this agent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatPeer {
+    pub terminal: String,
+    pub name: String,
+    /// The agent's kind, such as `claude`.
+    pub agent: String,
+    /// Where it works: its computer when that is another one, else the name of its folder.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub place: String,
+}
+
+/// An agent of another terminal, as a message named it to this terminal's agent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatMention {
+    /// The name of its terminal.
+    pub name: String,
+    /// The agent's kind, such as `claude`, when Kodosi knows it.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub agent: String,
+}
+
 /// A chat participant, identified by account ID or (when unauthenticated) by viewer ID.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -629,9 +681,14 @@ pub enum ChatMode {
 #[serde(tag = "do", rename_all = "camelCase", deny_unknown_fields)]
 pub enum ChatRequest {
     /// Queues a message while the agent is busy. Oversized messages are truncated in the middle
-    /// so pasted logs keep both the start and the trailing prompt.
+    /// so pasted logs keep both the start and the trailing prompt. Each peer that the words name
+    /// with `@` gets a line after them that tells the agent who it is and how to message it.
     Send {
         text: String,
+    },
+    /// Hands this agent the work of a peer's agent, which gets no message.
+    HandOff {
+        terminal: String,
     },
     Unqueue {
         id: String,

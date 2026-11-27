@@ -28,6 +28,7 @@ private struct TerminalScreenContent: View {
     @Environment(\.theme) private var theme
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openRoute) private var openRoute
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     @State private var controller: TerminalController
@@ -228,6 +229,15 @@ private struct TerminalScreenContent: View {
         .sensoryFeedback(.warning, trigger: session?.needsUser == true) { old, new in !old && new }
     }
 
+    /// Opens the terminal of an agent that a message of the chat names.
+    private func open(_ terminal: String) {
+        if model.terminals.session(terminal) != nil {
+            openRoute(TerminalRoute(sessionId: terminal))
+        } else {
+            model.notices.show(String(localized: "This terminal is not available."))
+        }
+    }
+
     private func followCanvas() {
         guard let session = controller.session else { return }
         let store = model.terminals.canvas
@@ -336,6 +346,7 @@ private struct TerminalScreenContent: View {
                     TerminalChatView(chat: model.terminals.canvas.chat(session.id), agent: session.agent, me: model.terminals.userId,
                                      otherComputer: session.otherComputer,
                                      names: [session.name, session.projectName, session.folderName].compactMap(\.self),
+                                     openTerminal: open,
                                      goOn: session.offersContinue ? { model.terminals.continueTask(session) } : nil)
                     {
                         model.terminals.pick(.terminal, of: session.id, over: session.face)

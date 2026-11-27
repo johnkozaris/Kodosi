@@ -1010,6 +1010,24 @@
     </message>
 </context>
 <context>
+    <name>ChatHandOff</name>
+    <message>
+        <source>Hand-off from %1</source>
+        <translation>%1 からの引き継ぎ</translation>
+    </message>
+</context>
+<context>
+    <name>ChatPeerMenu</name>
+    <message>
+        <source>Mention</source>
+        <translation>メンション</translation>
+    </message>
+    <message>
+        <source>Hand off</source>
+        <translation>引き継ぎ</translation>
+    </message>
+</context>
+<context>
     <name>ChatSettings</name>
     <message>
         <source>Find a setting</source>

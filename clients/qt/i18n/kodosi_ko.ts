@@ -1010,6 +1010,24 @@
     </message>
 </context>
 <context>
+    <name>ChatHandOff</name>
+    <message>
+        <source>Hand-off from %1</source>
+        <translation>%1에서 인계</translation>
+    </message>
+</context>
+<context>
+    <name>ChatPeerMenu</name>
+    <message>
+        <source>Mention</source>
+        <translation>멘션</translation>
+    </message>
+    <message>
+        <source>Hand off</source>
+        <translation>인계</translation>
+    </message>
+</context>
+<context>
     <name>ChatSettings</name>
     <message>
         <source>Find a setting</source>

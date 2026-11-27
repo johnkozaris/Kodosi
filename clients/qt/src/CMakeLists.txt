@@ -331,6 +331,8 @@ qt_add_qml_module(kodosi-ui
         qml/Chat/ChatAskCard.qml
         qml/Chat/ChatDock.qml
         qml/Chat/ChatFacts.qml
+        qml/Chat/ChatHandOff.qml
+        qml/Chat/ChatPeerMenu.qml
         qml/Chat/ChatSettings.qml
         qml/Chat/ChatStep.qml
         qml/Chat/ChatThread.qml
@@ -345,6 +347,8 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/CopyKey.qml
         qml/Controls/DayDivider.qml
         qml/Controls/LatestKey.qml
+        qml/Controls/MentionList.qml
+        qml/Controls/MentionText.qml
         qml/Controls/PersonBubble.qml
         qml/Controls/Prose.qml
         qml/Controls/SendKey.qml

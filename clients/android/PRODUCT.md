@@ -42,7 +42,8 @@ scroll-wheel events when a program enables mouse reporting). Text selection, cop
 images), shared link rules, header renaming, live agent setting changes (with a notice when
 queued for the next turn), and Android's predictive back gesture are all supported. In the chat
 view, a long press on a message or a finished agent answer offers to copy it as written, to
-select part of it, or to read it aloud in the voice of its language.
+select part of it, or to read it aloud in the voice of its language. Typing `@` lists your other
+running agents to mention, and a long press on one hands its work over instead.
 
 In the chat view, the mic key beside Send lets you talk instead of typing. Your words appear as your
 next message while you speak, after any words you typed, and the message sends after a long pause,

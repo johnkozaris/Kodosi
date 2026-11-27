@@ -16,6 +16,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -42,13 +43,24 @@ import kotlinx.coroutines.launch
 /**
  * A terminal's chat, shown in place of its screen on the app's surface. The chat's pipe stays open
  * while the chat is visible, links in it follow the rules of the terminal's computer, and its rows
- * keep the name of the agent that wrote them after that agent ends.
+ * keep the name of the agent that wrote them after that agent ends. A terminal that a message names
+ * opens with [openTerminal].
  */
 @Composable
-fun TerminalChatView(model: AppModel, session: RuntimeSession, modifier: Modifier = Modifier) {
+fun TerminalChatView(
+    model: AppModel,
+    session: RuntimeSession,
+    openTerminal: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
     val chat = remember(session.id) { model.canvas.chat(session.id) }
     val view by chat.view.collectAsStateWithLifecycle()
     val account by model.account.state.collectAsStateWithLifecycle()
+    val catalog by model.terminals.state.collectAsStateWithLifecycle()
+    val opening by rememberUpdatedState(openTerminal)
+    val peerTerminals = view.peers.filter { peer -> catalog.sessions.any { it.id == peer.terminal } }
+        .distinctBy { it.name }.associate { it.name to it.terminal }
+    val terminals = remember(peerTerminals) { MentionTerminals(peerTerminals) { opening(it) } }
     val scope = rememberCoroutineScope()
     LifecycleResumeEffect(chat) {
         val watching = scope.launch { chat.watch() }
@@ -105,7 +117,15 @@ fun TerminalChatView(model: AppModel, session: RuntimeSession, modifier: Modifie
         Box(modifier, contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = 760.dp).fillMaxSize()) {
                 val writer = AgentKind.of(view.facts.agent).takeIf { it.isAgent } ?: session.agent
-                ChatThread(view, writer, account.userId, sent, hideKeyboard, Modifier.weight(1f).fillMaxWidth())
+                ChatThread(
+                    view,
+                    writer,
+                    account.userId,
+                    sent,
+                    terminals,
+                    hideKeyboard,
+                    Modifier.weight(1f).fillMaxWidth()
+                )
                 ChatDock(
                     chat,
                     view,
@@ -114,6 +134,14 @@ fun TerminalChatView(model: AppModel, session: RuntimeSession, modifier: Modifie
                     talk,
                     known,
                     send = { if (submit(draft.text.toString())) draft.clearText() },
+                    handOff = { peer ->
+                        chat.handOff(peer).also { handed ->
+                            if (handed) {
+                                sent++
+                                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                            }
+                        }
+                    },
                     showTerminal = {
                         hideKeyboard()
                         model.terminals.pick(TerminalFace.TERMINAL, session.id, session.face)

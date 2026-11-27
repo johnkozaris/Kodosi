@@ -438,7 +438,8 @@ private fun Home(model: AppModel) {
                                 ) ?: at ?: "browser"
                                 model.preferences.canvasPart(destination.id, canvasPart(selected), true)
                                 stack.add(Destination("canvas", destination.id, selected))
-                            }
+                            },
+                            terminal = terminal
                         )
 
                         "canvas" -> CanvasScreen(model, destination.id, back, ask = back, initialKey = destination.part)

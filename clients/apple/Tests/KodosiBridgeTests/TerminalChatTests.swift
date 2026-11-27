@@ -44,6 +44,36 @@ import Testing
 }
 
 @MainActor
+@Test func `a message keeps the agents that it names apart from its words, and a hand-off says whose work it hands over`() async throws {
+    let runtime = ChatRuntime()
+    let watching = Task { await runtime.chat.watch() }
+    defer { watching.cancel() }
+
+    try await runtime.open()
+    try runtime.send(#"""
+    {"snapshot":{"revision":1,"state":"idle","facts":{},"items":[
+      {"id":"i1","at":1,"body":{"kind":"person","text":"Ask @Timber Elk for the schema.","mentions":[{"name":"Timber Elk","agent":"copilot"}]}},
+      {"id":"i2","at":2,"body":{"kind":"person","text":"","handoff":{"name":"Timber Elk"}}}],
+     "queued":[{"id":"q1","text":"","handoff":{"name":"Timber Elk","agent":"copilot"}}],
+     "peers":[{"terminal":"t2","name":"Timber Elk","agent":"copilot","place":"site"}]}}
+    """#)
+
+    let said = runtime.chat.items.compactMap { item -> ChatSaid? in
+        if case let .person(said, _) = item.body {
+            return said
+        }
+        return nil
+    }
+    #expect(said.map(\.text) == ["Ask @Timber Elk for the schema.", ""])
+    #expect(said.map { $0.mentions.map(\.agent) } == [["copilot"], []])
+    #expect(said.map { $0.handoff?.name } == [nil, "Timber Elk"])
+    #expect(runtime.chat.queued.first?.said.handoff?.agent == "copilot")
+    #expect(runtime.chat.peers.map(\.place) == ["site"])
+    try runtime.send(#"{"update":{"revision":2,"changes":[{"change":"peers","peers":[]}]}}"#)
+    #expect(runtime.chat.peers.isEmpty)
+}
+
+@MainActor
 private final class ChatRuntime {
     let chat: TerminalChat
     private(set) var pipe: String?

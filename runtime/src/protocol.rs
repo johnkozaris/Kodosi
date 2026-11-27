@@ -37,7 +37,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 116;
+pub const VERSION: u32 = 117;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 /// The words that name a window for `kodosi show window`, at most.
@@ -443,6 +443,9 @@ pub enum Command {
         expected_runtime_incarnation_id: String,
         #[serde(default)]
         history: bool,
+        /// The agent's conversation as the terminal's chat shows it, in place of the screen.
+        #[serde(default)]
+        conversation: bool,
     },
     #[serde(rename = "session.show")]
     Show {
