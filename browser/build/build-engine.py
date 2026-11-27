@@ -127,6 +127,8 @@ def build(debug: bool) -> tuple[Path, Path]:
     """Builds the engine and returns its target folder and the CEF that it uses."""
     environment_of_build = environment()
     profile = [] if debug else ["--release"]
+    if not debug:
+        environment_of_build["CARGO_ENCODED_RUSTFLAGS"] = f"--remap-path-prefix={Path.home()}=~"
     manifest = ["--manifest-path", str(ENGINE / "Cargo.toml")]
     if platform.system() == "Windows":
         run("cargo", "rustc", "--locked", "--lib", "--crate-type", "cdylib", *profile, *manifest, env=environment_of_build)
