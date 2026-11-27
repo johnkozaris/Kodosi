@@ -419,33 +419,7 @@ impl Live {
                     self.update_capture();
                 }
             }
-            ToScreen::Input { input } => {
-                // Hovering, letting go and lifting a key follow what the viewer did before, so
-                // only acting takes the capture over, as in the shared browser.
-                let acts = !matches!(
-                    input,
-                    Input::Mouse {
-                        action: MouseAction::Move | MouseAction::Release,
-                        ..
-                    } | Input::Key {
-                        action: KeyAction::Up,
-                        ..
-                    }
-                );
-                if acts {
-                    self.take_control(viewer);
-                }
-                let Some(seat) = self.seats.get_mut(viewer) else {
-                    return;
-                };
-                let input = if cfg!(target_os = "macos") || !seat.command_key {
-                    input
-                } else {
-                    command_as_control(input)
-                };
-                seat.pressed.note(&input);
-                self.say(&ToHelper::Input { input });
-            }
+            ToScreen::Input { input } => self.input(viewer, input),
             ToScreen::Show { source } => {
                 if self.sources.size(source).is_some() {
                     self.chosen = true;
@@ -469,6 +443,35 @@ impl Live {
                 self.update_capture();
             }
         }
+    }
+
+    /// Passes a viewer's input on to the computer. Hovering, letting go and lifting a key follow
+    /// what the viewer did before, so only acting takes the capture over, as in the shared
+    /// browser.
+    fn input(&mut self, viewer: &str, input: Input) {
+        let acts = !matches!(
+            input,
+            Input::Mouse {
+                action: MouseAction::Move | MouseAction::Release,
+                ..
+            } | Input::Key {
+                action: KeyAction::Up,
+                ..
+            }
+        );
+        if acts {
+            self.take_control(viewer);
+        }
+        let Some(seat) = self.seats.get_mut(viewer) else {
+            return;
+        };
+        let input = if cfg!(target_os = "macos") || !seat.command_key {
+            input
+        } else {
+            command_as_control(input)
+        };
+        seat.pressed.note(&input);
+        self.say(&ToHelper::Input { input });
     }
 
     /// Looks were parts of the source that was shown, so each view starts whole on another one.
