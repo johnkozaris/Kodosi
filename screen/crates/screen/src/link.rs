@@ -12,7 +12,7 @@ use stream::{Codec, Encoded, Format, FrameKind, Pace, Region, viewer::Input};
 use tokio::io::{AsyncRead, AsyncReadExt as _};
 
 /// The helper ships inside the same app as the host, so both sides must match.
-pub const VERSION: u32 = 4;
+pub const VERSION: u32 = 5;
 /// The largest message either side takes.
 const MOST_MESSAGE: usize = 16 * 1024 * 1024;
 /// The most clipboard text that goes between a viewer and the computer.
