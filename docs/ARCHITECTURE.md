@@ -74,8 +74,10 @@ frames still missing before it. The host tells the stream of each frame that can
 stream repairs the picture at once, so no viewer waits for a frame that nobody sends again.
 SCReAMv2, a congestion controller made for interactive media, runs the QUIC connection: it keeps
 the queue that it builds short and tells each stream the bitrate that its share of the path
-carries. The bitrate does not rise while a still screen sends little, since nothing then shows what
-the path carries. The streams' JSON messages, and everything on the relay, stay in the channel.
+carries. Loss without a queue, from a radio or a policer, lowers the bitrate only beyond what
+parity and resends repair. The bitrate does not rise while a still screen sends little, since
+nothing then shows what the path carries. The streams' JSON messages, and everything on the relay,
+stay in the channel.
 
 If typing or another request goes unacknowledged for too long on a remote view, the viewer flags
 the terminal as stalled and displays a reconnecting state while letting the user keep typing. The
