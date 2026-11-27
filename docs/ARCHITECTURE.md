@@ -311,10 +311,12 @@ released one, serves every account.
 
 On Linux and Windows the helper ships beside the `kodosi` program and runs as the host's child: on
 Linux the desktop's screen sharing portal asks the person at the computer once and remembers the
-grant, and on Windows no permission is needed. The host starts the helper only while the person at
-the computer allows the sharing and when they turn it on or, on a Mac, off, which only the
-computer's own app does. While anyone watches, the helper shows which devices watch, in the menu bar
-or the tray, with a way to stop that turns the sharing off on every canvas.
+grant, while an X11 desktop, which has no such portal, lets the helper capture through the X server
+without asking, as Windows does. A Linux host offers the sharing only on X11 and where the portal
+shares the screen and takes input. The host starts the helper only while the person at the computer
+allows the sharing and when they turn it on or, on a Mac, off, which only the computer's own app
+does. While anyone watches, the helper shows which devices watch, in the menu bar or the tray, with
+a way to stop that turns the sharing off on every canvas.
 
 One capture serves every viewer of a computer. It shows a display or one window, sized to the view
 that the person opened or used last, with as many pixels as that view shows, fewer while a phone

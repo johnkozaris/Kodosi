@@ -229,8 +229,8 @@ Codex, Cursor, OpenCode(macOS 및 Linux)는 Kodosi로 시작했을 때 사용법
   - Mac에서는 이어서 macOS가 Kodosi에 화면 녹화와 제어를 허용할지 물어요. 이 권한은 Kodosi의 별도
     구성 요소만 가지므로 터미널의 프로그램은 갖지 않아요. macOS가 묻지 않으면 같은 설정의
     **허용…**에서 권한을 켜는 위치를 확인할 수 있어요.
-  - Linux에서는 Wayland 환경의 KDE Plasma 6과 GNOME에서 공유할 수 있어요. KDE에서는 공유를 켜기만
-    하면 되고, GNOME은 Kodosi가 화면을 공유해도 되는지 한 번 묻고 그 답을 기억해요.
+  - Linux에서는 Wayland 환경의 KDE Plasma 6과 GNOME, 그리고 Xfce처럼 X11에서 실행되는 모든 데스크톱(RDP나 VNC로 접속하는 데스크톱
+    포함)에서 공유할 수 있어요. KDE와 X11에서는 공유를 켜기만 하면 되고, GNOME은 Kodosi가 화면을 공유해도 되는지 한 번 묻고 그 답을 기억해요.
   - Windows에서는 권한이 필요 없어요. Kodosi는 관리자 권한으로 실행되는 프로그램을 제어할 수 없고,
     Windows가 관리자 승인을 요청하는 동안에는 화면이 잠긴 것으로 표시돼요. 누가 보고 있는지 알려
     주는 아이콘은 고정하기 전까지 작업 표시줄의 ^ 안에 숨겨져 있을 수 있어요.

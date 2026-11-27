@@ -271,9 +271,10 @@ Dès que le canvas contient un élément, l'en-tête du terminal ajoute les bout
     une partie distincte de Kodosi obtient ces autorisations, donc les programmes de vos terminaux
     ne les obtiennent pas. Si macOS ne vous le demande pas, **Autoriser…** dans ces mêmes réglages
     indique où les activer.
-  - Sous Linux, le partage fonctionne avec KDE Plasma 6 et GNOME sous Wayland. Sous KDE, il suffit
-    d'activer le partage ; GNOME demande une seule fois si Kodosi peut partager l'écran et retient
-    votre réponse.
+  - Sous Linux, le partage fonctionne avec KDE Plasma 6 et GNOME sous Wayland, ainsi qu'avec tout
+    bureau sous X11, comme Xfce, y compris un bureau auquel vous accédez par RDP ou VNC. Sous KDE et
+    sous X11, il suffit d'activer le partage ; GNOME demande une seule fois si Kodosi peut partager
+    l'écran et retient votre réponse.
   - Windows n'a besoin d'aucune autorisation. Kodosi ne peut pas contrôler les programmes exécutés
     en tant qu'administrateur, et l'écran apparaît comme verrouillé pendant que Windows demande
     l'approbation d'un administrateur. L'icône indiquant qui regarde peut se cacher derrière le ^ de

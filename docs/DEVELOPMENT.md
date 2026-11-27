@@ -159,9 +159,10 @@ with each desktop app, which builds it with `screen/build/build-helper.py`:
   app's build puts it, optimized even in a development build because it may encode video in
   software. The host runs it as its child. On Linux it shares the screen through the desktop's
   portal (remote desktop and screen cast, with the clipboard where the desktop offers it), PipeWire
-  and libei, so it needs a desktop whose portal offers remote desktop with libei input, such as
-  KDE Plasma 6. Building it needs PipeWire's headers and libclang (`libpipewire-0.3-dev` and
-  `libclang-dev` on Ubuntu), also for `just screen-check`.
+  and libei, so it needs a desktop whose portal offers remote desktop with libei input, such as KDE
+  Plasma 6. On X11 it uses the X server's shared memory, DAMAGE, XFIXES, XTEST and RandR instead.
+  Building it needs PipeWire's headers and libclang (`libpipewire-0.3-dev` and `libclang-dev` on
+  Ubuntu), also for `just screen-check`.
 
 A host that does not run from an app, such as `just rust-cli-build`, finds the helper through
 `KODOSI_SCREEN_HELPER`: the helper's `Kodosi.app` folder on a Mac, the program elsewhere.

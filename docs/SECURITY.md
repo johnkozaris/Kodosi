@@ -92,8 +92,10 @@ clipboard text travel end to end encrypted like the terminals themselves. A sepa
 does the capture and the input. On a Mac it holds the Screen Recording and Accessibility
 permissions that this takes, so the programs in your terminals do not gain them. On Linux the
 desktop grants the sharing to Kodosi through its screen sharing portal and shows its own notice
-while the screen is shared. While someone watches, the computer's menu bar or system tray says
-which devices watch; turning the sharing off, or **Stop sharing** there, ends every view.
+while the screen is shared. An X11 desktop has no such portal and lets every program of your session
+see and control the screen, so there turning the sharing on in Kodosi is all it takes. While someone
+watches, the computer's menu bar or system tray says which devices watch; turning the sharing off,
+or **Stop sharing** there, ends every view.
 
 On a Mac, this part of Kodosi also asks the person at the Mac in its own alert before it serves an
 account: once for each account, when the sharing is turned on. No program can make this alert

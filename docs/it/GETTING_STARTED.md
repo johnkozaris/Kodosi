@@ -262,7 +262,8 @@ Quando il canvas contiene qualcosa, nell'intestazione del terminale compaiono i 
     Solo una parte separata di Kodosi riceve queste autorizzazioni, quindi i programmi nei tuoi
     terminali non le ricevono. Se macOS non te lo chiede, **Consenti…** nelle stesse impostazioni ti
     mostra dove attivarle.
-  - Su Linux, la condivisione funziona con KDE Plasma 6 e GNOME su Wayland. Su KDE basta attivare la
+  - Su Linux, la condivisione funziona con KDE Plasma 6 e GNOME su Wayland, e con qualsiasi desktop
+    su X11, come Xfce, anche uno che raggiungi tramite RDP o VNC. Su KDE e su X11 basta attivare la
     condivisione; GNOME chiede una sola volta se Kodosi può condividere lo schermo e ricorda la tua
     risposta.
   - Windows non richiede alcuna autorizzazione. Kodosi non può controllare i programmi eseguiti come

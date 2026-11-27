@@ -1,7 +1,8 @@
 //! This computer's screen on a terminal's canvas, which its owner's devices watch and control
 //! once the person at the computer allowed it here. Kodosi Screen, a helper program of
 //! Kodosi's, does the capture, so that macOS grants Screen Recording and Accessibility to it
-//! alone and the desktop's portal on Linux asks in Kodosi's name.
+//! alone and the desktop's portal on Linux asks in Kodosi's name. On Linux, only an X11 desktop
+//! or a desktop whose portal shares the screen and takes input offers the sharing.
 
 mod helper;
 
@@ -59,8 +60,9 @@ impl ScreenHost {
         }))
     }
 
-    pub(crate) fn available(&self) -> bool {
-        self.0.screens.is_some()
+    /// Whether Kodosi Screen came with the app and the desktop lets it share the screen.
+    pub(crate) async fn available(&self) -> bool {
+        self.0.screens.is_some() && desktop_shares().await
     }
 
     pub(crate) fn allowed(&self) -> watch::Receiver<bool> {
@@ -93,12 +95,13 @@ impl ScreenHost {
 
     /// What Kodosi Screen may do, while the sharing is on.
     pub(crate) async fn access(&self) -> Option<ScreenAccess> {
-        self.screens().ok()?.access().await
+        self.screens().await.ok()?.access().await
     }
 
-    /// Refuses where Kodosi Screen did not come with the app, so the screen never shows.
-    pub(crate) fn offered(&self) -> Result<(), Text> {
-        if self.available() {
+    /// Refuses where Kodosi Screen did not come with the app or the desktop does not let it share
+    /// the screen, so the screen never shows.
+    pub(crate) async fn offered(&self) -> Result<(), Text> {
+        if self.available().await {
             Ok(())
         } else {
             Err(text!("This computer cannot share its screen."))
@@ -106,8 +109,8 @@ impl ScreenHost {
     }
 
     /// Refuses unless the person at the computer allowed the sharing.
-    pub(crate) fn check(&self) -> Result<(), Text> {
-        self.offered()?;
+    async fn check(&self) -> Result<(), Text> {
+        self.offered().await?;
         if *self.0.allowed.borrow() {
             Ok(())
         } else {
@@ -116,11 +119,11 @@ impl ScreenHost {
     }
 
     pub(crate) async fn watch(&self, viewer: Viewer) -> Result<PipeEnds, Text> {
-        self.screens()?.watch(viewer).await
+        self.screens().await?.watch(viewer).await
     }
 
     pub(crate) async fn show(&self, shown: ScreenShown) -> Result<(), Text> {
-        self.screens()?.show(shown).await;
+        self.screens().await?.show(shown).await;
         Ok(())
     }
 
@@ -132,8 +135,8 @@ impl ScreenHost {
         self.0.saver.saved().await;
     }
 
-    fn screens(&self) -> Result<Screens, Text> {
-        self.check()?;
+    async fn screens(&self) -> Result<Screens, Text> {
+        self.check().await?;
         self.0.screens.clone().ok_or_else(off)
     }
 }
@@ -200,6 +203,30 @@ pub(crate) fn question(account: &str, server: Option<&str>) -> screen::Question 
         allow: text!("Allow").in_language(language),
         refuse: text!("Don't Allow").in_language(language),
     }
+}
+
+/// Whether the desktop lets Kodosi Screen share the screen: the X server shares an X11 desktop, and
+/// the desktop's portal one on Wayland, where the portal may lack what Kodosi Screen needs. A portal
+/// that shared it once keeps doing so.
+#[cfg(target_os = "linux")]
+async fn desktop_shares() -> bool {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    static PORTAL_SHARES: AtomicBool = AtomicBool::new(false);
+    if ::screen::on_x11() || PORTAL_SHARES.load(Ordering::Relaxed) {
+        return true;
+    }
+    let shares = tokio::task::spawn_blocking(kodosi_os::screen::portal_shares)
+        .await
+        .unwrap_or(false);
+    PORTAL_SHARES.store(shares, Ordering::Relaxed);
+    shares
+}
+
+/// A Mac and Windows let Kodosi Screen share the screen, with what they grant it.
+#[cfg(not(target_os = "linux"))]
+fn desktop_shares() -> std::future::Ready<bool> {
+    std::future::ready(true)
 }
 
 fn off() -> Text {

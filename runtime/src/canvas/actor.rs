@@ -567,7 +567,9 @@ impl Actor {
                 from,
             } => {
                 self.files.restore(paths, &self.stamp);
-                self.screen_shown |= screen && self.screen.available();
+                if screen && self.screen.available().await {
+                    self.screen_shown = true;
+                }
                 let earlier = browser::own_profile(&self.data_root, from);
                 let profile = browser::own_profile(&self.data_root, self.id);
                 drop(
@@ -716,7 +718,7 @@ impl Actor {
                 drop(reply.send(Ok(CanvasAnswer::Done)));
             }
             CanvasRequest::ShowScreen => {
-                let answer = self.screen.offered().map(|()| CanvasAnswer::Done);
+                let answer = self.screen.offered().await.map(|()| CanvasAnswer::Done);
                 if answer.is_ok() {
                     self.screen_shown = true;
                     self.publish();
