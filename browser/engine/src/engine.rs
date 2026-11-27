@@ -1008,14 +1008,14 @@ fn capture(command: &ToEngine) {
     })
     .flatten();
     if let ToEngine::Capture { window, .. } | ToEngine::Stop { window } = *command {
-        pace(window);
+        draw_rate(window);
     }
     if let Some(host) = repaint_tab.and_then(|browser| browser.host()) {
         host.invalidate(PaintElementType::VIEW);
     }
 }
 
-fn pace(window: i64) {
+fn draw_rate(window: i64) {
     let Some((browsers, seen)) = with(|engine| {
         let shared = engine.shared_of(window)?;
         Some((engine.browsers_of(window), shared.seen()))
@@ -1055,7 +1055,7 @@ fn layer(window: i64, tab: Option<i64>) {
         engine.browser_of(tab?)
     })
     .flatten();
-    pace(window);
+    draw_rate(window);
     if let Some(host) = repaint_tab.and_then(|browser| browser.host()) {
         host.invalidate(PaintElementType::VIEW);
     }
@@ -1284,7 +1284,7 @@ pub(crate) fn after_created(browser: &mut Browser, origin: Origin) {
     let id = i64::from(browser.identifier());
     if let Origin::Tab { window, .. } = origin {
         show(with(|engine| engine.shown(window)).unwrap_or_default());
-        pace(window);
+        draw_rate(window);
     }
     let Some(host) = browser.host() else {
         return;
