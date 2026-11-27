@@ -1,5 +1,5 @@
 diff --git a/src/Surface.zig b/src/Surface.zig
-index dd72228b8..0675267ac 100644
+index bbc9e36eb..f2424a17a 100644
 --- a/src/Surface.zig
 +++ b/src/Surface.zig
 @@ -921,6 +921,9 @@ fn queueIo(
@@ -21,7 +21,7 @@ index dd72228b8..0675267ac 100644
                      .alloc = self.alloc,
                      .data = data,
                  },
-@@ -6648,7 +6651,7 @@ fn completeClipboardReadOSC52(
+@@ -6651,7 +6654,7 @@ fn completeClipboardReadOSC52(
      const encoded = enc.encode(buf[prefix.len..], data);
      assert(encoded.len == size);
  
@@ -30,7 +30,7 @@ index dd72228b8..0675267ac 100644
          .alloc = self.alloc,
          .data = buf,
      } }, .unlocked);
-@@ -6759,7 +6762,7 @@ fn kittyClipboardStatus(
+@@ -6762,7 +6765,7 @@ fn kittyClipboardStatus(
          .terminator = terminator,
      }).encode(&aw.writer);
  
@@ -39,7 +39,7 @@ index dd72228b8..0675267ac 100644
          .alloc = self.alloc,
          .data = try aw.toOwnedSlice(),
      } }, .unlocked);
-@@ -6815,7 +6818,7 @@ fn completeKittyClipboardRead(
+@@ -6818,7 +6821,7 @@ fn completeKittyClipboardRead(
          .terminator = req.terminator,
      }).encode(&aw.writer);
  

@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "ghosttyCommit": "108cacb17ed8990840cd14abfce43d8ed8503ca1",
+  "ghosttyCommit": "573c4a21e02311ae87844af26b6a7a179f82858e",
   "zig": {
     "version": "0.17.1",
-    "target": "aarch64-macos",
-    "sha256": "75f1bc7a1e9852f17ec9a0c1895f767c4ec56d46bc8a834920eece1d0359dd8d"
+    "target": "x86_64-linux",
+    "sha256": "3581863e3cbcfd0fce0efc682ce7e9e93da96668a977791d356a26d2a7e9b17a"
   },
   "artifacts": {
     "static": "Vendor/GhosttyVt/android-arm64/lib/libghostty-vt.a"
@@ -12,7 +12,7 @@
   "components": [
     {
       "id": "ghostty",
-      "identity": "commit 108cacb17ed8990840cd14abfce43d8ed8503ca1",
+      "identity": "commit 573c4a21e02311ae87844af26b6a7a179f82858e",
       "spdx": "MIT",
       "notices": ["LICENSE-GHOSTTY"]
     },
@@ -52,7 +52,7 @@
     },
     {
       "id": "zig-runtime",
-      "identity": "Zig 0.17.1 / 75f1bc7a1e9852f17ec9a0c1895f767c4ec56d46bc8a834920eece1d0359dd8d",
+      "identity": "Zig 0.17.1 / 3581863e3cbcfd0fce0efc682ce7e9e93da96668a977791d356a26d2a7e9b17a",
       "spdx": "MIT",
       "notices": ["zig-compiler-runtime.txt"]
     },

@@ -91,7 +91,7 @@ index 26dfd13da..41d56f996 100644
  } GhosttyTerminalOption;
  
 diff --git a/src/terminal/c/terminal.zig b/src/terminal/c/terminal.zig
-index d995b59f4..c28d1e98f 100644
+index a6c2ab817..cdd7806d9 100644
 --- a/src/terminal/c/terminal.zig
 +++ b/src/terminal/c/terminal.zig
 @@ -225,6 +225,19 @@ pub const ProgramStatus = extern struct {
@@ -340,10 +340,10 @@ index fba8383cc..6ed449ac3 100644
                      log.debug("unimplemented OSC callback: {}", .{cmd});
                  },
 diff --git a/src/terminal/stream_terminal.zig b/src/terminal/stream_terminal.zig
-index 4393aacee..8c596477d 100644
+index 2234777fa..39761f405 100644
 --- a/src/terminal/stream_terminal.zig
 +++ b/src/terminal/stream_terminal.zig
-@@ -239,6 +239,12 @@ pub const Handler = struct {
+@@ -245,6 +245,12 @@ pub const Handler = struct {
          /// They are dropped.
          program_status: ?*const fn (*Handler, osc.Command.ProgramStatus.Report) void,
  
@@ -356,7 +356,7 @@ index 4393aacee..8c596477d 100644
          /// Called when the shell reports a step of a command through
          /// shell integration: a prompt starts, input starts, output
          /// starts, or the command ends. See `SemanticPrompt` for the
-@@ -346,6 +352,7 @@ pub const Handler = struct {
+@@ -352,6 +358,7 @@ pub const Handler = struct {
              .enquiry = null,
              .progress_report = null,
              .program_status = null,
@@ -364,7 +364,7 @@ index 4393aacee..8c596477d 100644
              .reset = null,
              .semantic_prompt = null,
              .resize_window = null,
-@@ -796,6 +803,7 @@ pub const Handler = struct {
+@@ -810,6 +817,7 @@ pub const Handler = struct {
              .report_pwd => try self.reportPwd(value.url),
              .progress_report => self.progressReport(value),
              .program_status => self.programStatus(value),

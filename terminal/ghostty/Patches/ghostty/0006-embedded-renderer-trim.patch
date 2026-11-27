@@ -39,7 +39,7 @@ index 8c2dbb84c..1356b6924 100644
      step.addOption(bool, "i18n", self.i18n);
      step.addOption(ApprtRuntime, "app_runtime", self.app_runtime);
 diff --git a/src/build/SharedDeps.zig b/src/build/SharedDeps.zig
-index 77e9f5797..d9e3c066d 100644
+index f0a789b95..c74e60212 100644
 --- a/src/build/SharedDeps.zig
 +++ b/src/build/SharedDeps.zig
 @@ -361,44 +361,48 @@ pub fn add(

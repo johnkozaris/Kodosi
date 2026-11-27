@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "ghosttyCommit": "108cacb17ed8990840cd14abfce43d8ed8503ca1",
+  "ghosttyCommit": "573c4a21e02311ae87844af26b6a7a179f82858e",
   "zig": {
     "version": "0.17.1",
     "target": "x86_64-linux",
@@ -8,12 +8,12 @@
   },
   "artifacts": {
     "static": "Vendor/GhosttyVt/linux-x86_64/lib/libghostty-vt.a",
-    "shared": "Vendor/GhosttyVt/linux-x86_64/lib/libghostty-vt.so.1.0.1"
+    "shared": "Vendor/GhosttyVt/linux-x86_64/lib/libghostty-vt.so.1.0.2"
   },
   "components": [
     {
       "id": "ghostty",
-      "identity": "commit 108cacb17ed8990840cd14abfce43d8ed8503ca1",
+      "identity": "commit 573c4a21e02311ae87844af26b6a7a179f82858e",
       "spdx": "MIT",
       "notices": ["LICENSE-GHOSTTY"]
     },
