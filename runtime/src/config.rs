@@ -270,7 +270,8 @@ mod tests {
     #[test]
     fn an_account_of_a_server_that_is_not_kodosis_names_that_server() {
         let root = tempfile::tempdir().unwrap();
-        let mut config = Config::isolated(root.path()).unwrap();
+        let mut config =
+            Config::isolated(&kodosi_os::fs::canonicalize(root.path()).unwrap()).unwrap();
         config.oidc_issuer = "http://localhost:8284/realms/kodosi".to_owned();
         assert_eq!(config.foreign_server().as_deref(), Some("localhost:8284"));
         config.oidc_issuer = BUILT_IN_ISSUER.to_owned();
