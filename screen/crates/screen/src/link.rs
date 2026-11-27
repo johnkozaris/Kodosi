@@ -12,7 +12,7 @@ use stream::{Codec, Encoded, Format, FrameKind, Pace, Region, viewer::Input};
 use tokio::io::{AsyncRead, AsyncReadExt as _};
 
 /// The helper ships inside the same app as the host, so both sides must match.
-pub const VERSION: u32 = 3;
+pub const VERSION: u32 = 4;
 /// The largest message either side takes.
 const MOST_MESSAGE: usize = 16 * 1024 * 1024;
 /// The most clipboard text that goes between a viewer and the computer.
@@ -34,9 +34,11 @@ const REGION: u8 = 8;
 )]
 pub enum ToHelper {
     /// Starts or changes the capture: `region` of `source` in its points, scaled to
-    /// `width` × `height` pixels.
+    /// `width` × `height` pixels. `size` is the source's size in points that the helper told
+    /// last, which the region and the pixels fit.
     Capture {
         source: Source,
+        size: (f64, f64),
         region: Option<Region>,
         width: u32,
         height: u32,

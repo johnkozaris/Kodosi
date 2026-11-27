@@ -23,6 +23,7 @@ use super::{
     hand::Hand,
     keymap::{Keymap, Stroke},
     keys,
+    session::Event,
 };
 
 const LEFT_BUTTON: u32 = 0x110;
@@ -49,11 +50,17 @@ pub(super) struct Hands {
 }
 
 impl Hands {
-    pub(super) fn start(eis: OwnedFd, hand: Arc<Hand>) -> Self {
+    /// Plays input on the desktop's libei server, and tells the session where the server places
+    /// the displays, first and after each change of them.
+    pub(super) fn start(
+        eis: OwnedFd,
+        hand: Arc<Hand>,
+        session: mpsc::UnboundedSender<Event>,
+    ) -> Self {
         let (orders, taken) = mpsc::unbounded_channel();
         Self {
             orders,
-            task: tokio::task::spawn_local(run(eis, taken, hand)),
+            task: tokio::task::spawn_local(run(eis, taken, hand, session)),
         }
     }
 
@@ -86,6 +93,7 @@ async fn run(
     eis: OwnedFd,
     mut taken: mpsc::UnboundedReceiver<(Input, (f64, f64))>,
     hand: Arc<Hand>,
+    session: mpsc::UnboundedSender<Event>,
 ) {
     let Ok(context) = ei::Context::new(UnixStream::from(eis)) else {
         return;
@@ -105,7 +113,7 @@ async fn run(
     else {
         return;
     };
-    let mut hands = Played::new(connection, hand);
+    let mut hands = Played::new(connection, hand, session);
     loop {
         tokio::select! {
             event = events.next() => match event {
@@ -142,6 +150,7 @@ async fn sent(connection: &Connection, socket: &tokio::net::UnixStream) -> bool 
 struct Played {
     connection: Connection,
     hand: Arc<Hand>,
+    session: mpsc::UnboundedSender<Event>,
     sequence: u32,
     /// The devices that take input now.
     devices: Vec<Device>,
@@ -152,10 +161,11 @@ struct Played {
 }
 
 impl Played {
-    fn new(connection: Connection, hand: Arc<Hand>) -> Self {
+    fn new(connection: Connection, hand: Arc<Hand>, session: mpsc::UnboundedSender<Event>) -> Self {
         Self {
             connection,
             hand,
+            session,
             sequence: 0,
             devices: Vec::new(),
             keymap: None,
@@ -179,6 +189,14 @@ impl Played {
                     && let Some(keymap) = Keymap::read(&keymap.fd, keymap.size)
                 {
                     self.keymap = Some(keymap);
+                }
+                // A desktop lends a new absolute pointer when its displays change.
+                if added
+                    .device
+                    .has_capability(DeviceCapability::PointerAbsolute)
+                {
+                    let placed = added.device.regions().iter().map(Placed::of).collect();
+                    drop(self.session.send(Event::Placed(placed)));
                 }
             }
             EiEvent::DeviceResumed(resumed) => {
@@ -465,6 +483,28 @@ impl Played {
         }
         for key in lifted.iter().rev() {
             self.press(*key, true);
+        }
+    }
+}
+
+/// Where the desktop's libei server places a display, in logical pixels, and its pixels per point.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(super) struct Placed {
+    pub(super) x: f64,
+    pub(super) y: f64,
+    pub(super) width: f64,
+    pub(super) height: f64,
+    pub(super) scale: f64,
+}
+
+impl Placed {
+    fn of(region: &reis::event::Region) -> Self {
+        Self {
+            x: f64::from(region.x),
+            y: f64::from(region.y),
+            width: f64::from(region.width),
+            height: f64::from(region.height),
+            scale: f64::from(region.scale),
         }
     }
 }

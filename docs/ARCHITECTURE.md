@@ -300,10 +300,13 @@ stop that turns the sharing off on every canvas.
 
 One capture serves every viewer of a computer. It shows a display or one window, sized to the view
 that the person opened or used last, with as many pixels as that view shows, fewer while a phone
-runs hot, and no more than the source has. A zoomed view asks for only the part it shows, so the
-part stays sharp, and a device that does not control the screen shows that part too. The pointer
-travels apart from the video, as a position and a shape sent once, so viewers draw it, or use it
-as their own cursor, without waiting for frames.
+runs hot, and no more than the source has. When a display turns or takes another resolution or
+scale, the helper tells its new size. A capture that takes another shape starts again with a
+keyframe, and viewers learn the new size with that keyframe, so no picture shows in the other's
+shape. A zoomed view asks for only the part it shows, so the part stays sharp, and a device that
+does not control the screen shows that part too. The pointer travels apart from the video, as a
+position and a shape sent once, so viewers draw it, or use it as their own cursor, without waiting
+for frames.
 
 The helper handles what recovers by itself, so viewers see one state and words only when someone
 must act. It tells the host when the screen is locked, another account has the display, or the
