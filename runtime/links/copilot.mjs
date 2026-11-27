@@ -39,6 +39,7 @@ const READ = {
   'session.model_change': ['newModel', 'reasoningEffort'],
   'session.mode_changed': ['newMode'],
 }
+const QUOTA = ['remainingPercentage', 'isUnlimitedEntitlement', 'usageAllowedWithExhaustedQuota', 'resetDateEpochMs']
 
 // On Windows, Node's `http.request` connects to a named pipe (`KODOSI_AGENT_PIPE`)
 // rather than the Unix socket path in `KODOSI_AGENT_LINK`.
@@ -184,6 +185,7 @@ async function hello(early) {
   try {
     const current = await session.rpc.model.getCurrent()
     facts.model = current && current.modelId
+    facts.effort = current && current.reasoningEffort
   } catch (error) {
     facts.model = undefined
   }
@@ -192,6 +194,15 @@ async function hello(early) {
     facts.mode = typeof mode === 'string' ? mode : mode && mode.mode
   } catch (error) {
     facts.mode = undefined
+  }
+  // Copilot reports `session.usage_info` only with a model request, so the link reads the
+  // measure that /context shows.
+  try {
+    const measured = await session.rpc.metadata.contextInfo({ promptTokenLimit: 0, outputTokenLimit: 0, resolveOutputTokenLimit: false })
+    const context = measured && measured.contextInfo
+    if (context) facts.context = { currentTokens: context.totalTokens, tokenLimit: context.limit }
+  } catch (error) {
+    facts.context = undefined
   }
   let earlier = []
   try {
@@ -206,6 +217,22 @@ async function hello(early) {
   const known = new Set(earlier.map(event => event.id))
   for (const event of early.splice(0)) if (!known.has(event.id)) tell('event', event)
   await readTasks()
+  await readQuota()
+}
+
+// `session.quota.get` gives the quota that the session last received, without a network request.
+async function readQuota() {
+  let quota = null
+  try {
+    const known = await session.rpc.quota.get()
+    quota = known && known.snapshots && known.snapshots.premium_interactions
+  } catch (error) {
+    quota = null
+  }
+  if (!quota) return
+  const read = {}
+  for (const field of QUOTA) if (quota[field] !== undefined) read[field] = quota[field]
+  tell('quota', { quota: read })
 }
 
 async function run(command) {
@@ -336,7 +363,10 @@ if (socket && terminal) {
   let started = false
   session.on(event => {
     if (event && event.type === 'session.todos_changed' && started) readTasks()
-    if (event && event.type === 'session.idle') steered.clear()
+    if (event && event.type === 'session.idle') {
+      steered.clear()
+      if (started) readQuota()
+    }
     const shown = shaped(event)
     if (!shown) return
     if (started) tell('event', shown)

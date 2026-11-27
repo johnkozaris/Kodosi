@@ -23,7 +23,7 @@ pub(crate) use live::asks;
 pub(crate) use live::live_of;
 pub use live::{AgentLive, AgentSettings};
 #[cfg(feature = "host")]
-pub(crate) use usage::{claude_session, codex as codex_limits};
+pub(crate) use usage::{claude_session, codex as codex_limits, copilot_session};
 
 #[cfg(feature = "host")]
 use std::path::Path;

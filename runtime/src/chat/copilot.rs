@@ -132,8 +132,10 @@ impl Copilot {
                 agent: Some(Self::NAME.to_owned()),
                 version: words(event, "version").map(|version| start_of(&version, 32).to_owned()),
                 model: words(event, "model"),
+                effort: words(event, "effort"),
                 mode: mode(text(event, "mode")),
                 folder: words(event, "cwd"),
+                context: context(&event["context"]),
                 ..super::ChatFacts::default()
             };
         });
@@ -142,8 +144,15 @@ impl Copilot {
 
     /// Replays chunked pre-link session history. Copilot's history omits `session.idle`
     /// markers, so turns are closed at each subsequent `user.message` and on the final chunk.
+    /// The facts stay as the hello gave them, since the history's changes of them are older.
     fn history(&mut self, chat: &mut Chat, event: &Value) {
         for earlier in list(event, "events") {
+            if matches!(
+                text(earlier, "type"),
+                "session.model_change" | "session.mode_changed" | "session.usage_info"
+            ) {
+                continue;
+            }
             let at = earlier
                 .get("at")
                 .and_then(Value::as_u64)
@@ -222,18 +231,13 @@ impl Copilot {
             }
             "tool.execution_complete" => return self.complete(chat, data, at),
             "session.usage_info" => {
-                if let (Some(tokens), Some(window)) = (
-                    data.get("currentTokens").and_then(Value::as_u64),
-                    data.get("tokenLimit").and_then(Value::as_u64),
-                ) {
-                    chat.change_facts(|facts| {
-                        facts.context = Some(ChatContext { tokens, window });
-                    });
+                if let Some(context) = context(data) {
+                    chat.change_facts(|facts| facts.context = Some(context));
                 }
             }
             "session.model_change" => chat.change_facts(|facts| {
                 facts.model = words(data, "newModel").or_else(|| facts.model.take());
-                facts.effort = words(data, "reasoningEffort").or_else(|| facts.effort.take());
+                facts.effort = words(data, "reasoningEffort");
             }),
             "session.mode_changed" => {
                 chat.change_facts(|facts| facts.mode = mode(text(data, "newMode")));
@@ -838,6 +842,11 @@ impl Agent for Copilot {
                 self.did(chat, event);
                 Vec::new()
             }
+            "quota" => {
+                let limits = crate::agents::copilot_session(&event["quota"]);
+                chat.change_facts(|facts| facts.limits = limits);
+                Vec::new()
+            }
             "end" => return self.lost(chat),
             _ => Vec::new(),
         };
@@ -1063,6 +1072,13 @@ fn plan_choice(action: &str) -> Option<PlanChoice> {
 /// Only `plan` maps to a fixed `ChatMode`; Copilot's other modes follow its permission rules.
 fn mode(name: &str) -> Option<ChatMode> {
     (name == "plan").then_some(ChatMode::Plan)
+}
+
+fn context(usage: &Value) -> Option<ChatContext> {
+    Some(ChatContext {
+        tokens: usage.get("currentTokens")?.as_u64()?,
+        window: usage.get("tokenLimit")?.as_u64()?,
+    })
 }
 
 fn described(data: &Value, places: &Places) -> ChatTool {
