@@ -4,6 +4,7 @@ import com.kodosi.mobile.canvas.CanvasStore
 import com.kodosi.mobile.canvas.DocumentLink
 import com.kodosi.mobile.runtime.RuntimeJson
 import com.kodosi.mobile.runtime.fields
+import java.util.Base64
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,6 +55,11 @@ class TerminalChat internal constructor(
         field = MutableStateFlow(ChatView())
 
     var draft = ""
+
+    /** The pictures that go with the next message. */
+    val pictures: StateFlow<List<DraftPicture>>
+        field = MutableStateFlow(emptyList())
+
     private var link: DocumentLink? = null
     private var watchers = 0
 
@@ -108,15 +114,37 @@ class TerminalChat internal constructor(
         }
     }
 
-    // Submitting text while a prompt is pending denies it with the text as feedback instead.
+    /**
+     * Sends [text] with the pictures as the next message. While a prompt is pending, the text denies it
+     * as feedback instead, and the pictures wait for the next message.
+     */
     fun submit(text: String): Boolean {
         val words = text.trim()
         val current = view.value
-        if (words.isEmpty() || !current.canWrite) return false
+        if (!current.canWrite) return false
         val question = current.question
-        if (question != null) answer(question, ChatAnswer.Deny(words)) else request(ChatRequest.Send(words))
+        if (question != null) {
+            if (words.isEmpty()) return false
+            answer(question, ChatAnswer.Deny(words))
+            return true
+        }
+        val sent = pictures.value
+        if (words.isEmpty() && sent.isEmpty()) return false
+        request(ChatRequest.Send(words, sent.map { it.bytes }))
+        pictures.value = emptyList()
         return true
     }
+
+    /** Adds [picture] to the next message, unless the message has all the pictures that it takes. */
+    fun attach(picture: DraftPicture): Boolean {
+        val current = pictures.value
+        val bytes = current.sumOf { it.bytes.size } + picture.bytes.size
+        if (current.size >= ChatPictures.MOST || bytes > ChatPictures.MOST_BYTES) return false
+        pictures.value = current + picture
+        return true
+    }
+
+    fun detach(picture: DraftPicture) = pictures.update { attached -> attached.filterNot { it === picture } }
 
     fun answer(ask: ChatAsk, answer: ChatAnswer) {
         val current = view.value
@@ -272,7 +300,7 @@ internal fun ChatSnapshot.applying(update: ChatUpdate): ChatSnapshot {
 }
 
 internal sealed interface ChatRequest {
-    data class Send(val text: String) : ChatRequest
+    data class Send(val text: String, val pictures: List<ByteArray>) : ChatRequest
 
     data class HandOff(val terminal: String) : ChatRequest
 
@@ -287,12 +315,22 @@ internal sealed interface ChatRequest {
     data class Set(val key: String, val value: String) : ChatRequest
 
     fun json(): JsonObject = when (this) {
-        is Send -> fields("do" to "send", "text" to text)
+        is Send -> fields(
+            "do" to "send",
+            "text" to text,
+            "pictures" to pictures.map { Base64.getEncoder().encodeToString(it) }
+        )
+
         is HandOff -> fields("do" to "handOff", "terminal" to terminal)
+
         is Unqueue -> fields("do" to "unqueue", "id" to id)
+
         is Answer -> fields("do" to "answer", "ask" to ask, "answer" to answer.json())
+
         Stop -> fields("do" to "stop")
+
         Settings -> fields("do" to "settings")
+
         is Set -> fields("do" to "set", "key" to key, "value" to value)
     }
 }

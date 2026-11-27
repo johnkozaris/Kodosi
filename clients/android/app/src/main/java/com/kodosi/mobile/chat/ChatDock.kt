@@ -10,7 +10,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
@@ -187,15 +186,18 @@ internal fun ChatDock(
         talk.end()
     }
     val startTalk = rememberTalkStart(talk)
+    val pictures = rememberDockPictures(chat)
     val sendDraft = {
         val control = view.control(draft.text.toString())
         if (control != null && view.canWrite) {
             draft.clearText()
             open(control)
         } else {
+            pictures.refusal = null
             send()
         }
     }
+    val picturesSend = pictures.attached.isNotEmpty() && view.question == null
     val ask = view.asks.firstOrNull()
     val fading = fade<Float>()
     val rising = snappy<IntOffset>()
@@ -240,7 +242,7 @@ internal fun ChatDock(
             }
         },
         below = {
-            Unfolding(view.failure) { failure ->
+            Unfolding(view.failure ?: pictures.refusal) { failure ->
                 Row(
                     Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -288,7 +290,7 @@ internal fun ChatDock(
                             talk,
                             asking = view.question != null,
                             canWrite = view.canWrite,
-                            typed = draft.text.isNotBlank(),
+                            typed = draft.text.isNotBlank() || picturesSend,
                             stop = talk::end,
                             sendTyped = sendDraft
                         )
@@ -309,7 +311,8 @@ internal fun ChatDock(
                                 focus.clearFocus()
                                 keyboard?.hide()
                                 startTalk()
-                            }.takeIf { talk.recognizes }
+                            }.takeIf { talk.recognizes },
+                            pictures = pictures.composer(view.canWrite, picturesSend)
                         )
                         if (typing) {
                             LaunchedEffect(Unit) {
@@ -368,25 +371,28 @@ private fun Queued(chat: TerminalChat, queued: ChatQueued, agent: AgentKind, sho
         horizontalAlignment = Alignment.End
     ) {
         Row(Modifier.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (!queued.given) {
+            if (queued.given == null) {
                 ActionIcon(AppSymbol.CLOSE, R.string.remove, { chat.unqueue(queued) }, face = 24.dp)
             }
-            Row(
-                Modifier.weight(1f, fill = false).background(
-                    colors.accentSoft,
-                    RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomStart = 14.dp, bottomEnd = 4.dp)
-                ).padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                QueuedSign(queued, agent)
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    queued.handoff?.let { handOffWords(it.name) } ?: AnnotatedString(queued.text),
-                    style = KodosiType.footnote,
-                    color = colors.ink,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
-                )
+            Bubble(queued.text, colors.accentSoft, MineShape, hold = {}, Modifier.weight(1f, fill = false)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    QueuedSign(queued, agent)
+                    val handoff = queued.handoff
+                    if (handoff != null || queued.text.isNotEmpty()) {
+                        Text(
+                            handoff?.let { handOffWords(it.name) } ?: AnnotatedString(queued.text),
+                            style = KodosiType.footnote,
+                            color = colors.ink,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                    }
+                    if (queued.pictures.isNotEmpty()) PictureTiles(queued.pictures, colors.accentSoft)
+                }
             }
         }
         if (queued.terminal) {
@@ -416,12 +422,12 @@ private fun QueuedSign(queued: ChatQueued, agent: AgentKind) {
         )
 
         else -> AppIcon(
-            if (queued.given) AppSymbol.CHECK else AppSymbol.CLOCK,
+            if (queued.given != null) AppSymbol.CHECK else AppSymbol.CLOCK,
             Modifier.size(12.dp),
-            description = if (queued.given) {
-                stringResource(R.string.chat_reads_before_next_step, agentLabel(agent))
-            } else {
-                stringResource(R.string.chat_waiting_for, agentLabel(agent))
+            description = when (queued.given) {
+                ChatGiven.STEP -> stringResource(R.string.chat_reads_before_next_step, agentLabel(agent))
+                ChatGiven.TURN -> stringResource(R.string.chat_reads_after_turn, agentLabel(agent))
+                null -> stringResource(R.string.chat_waiting_for, agentLabel(agent))
             },
             tint = colors.inkFaint
         )

@@ -596,6 +596,11 @@
     </plurals>
     <string name="chat_recap">振り返り</string>
     <string name="chat_reads_before_next_step">%1$s は次のステップの前にこれを読みます。</string>
+    <string name="chat_reads_after_turn">%1$s は今のターンが終わるとこれを読みます。</string>
+    <string name="chat_add_picture">画像を追加</string>
+    <string name="chat_picture">画像</string>
+    <string name="chat_picture_unreadable">Kodosi はこの画像を読み込めません。</string>
+    <string name="chat_pictures_too_many">1 つのメッセージに添付できる画像は 8 枚、合計 32 MB までです。</string>
     <string name="chat_waiting_for">%1$s を待っています</string>
     <string name="chat_needs_terminal_view">ターミナル表示が必要なコマンド</string>
     <string name="chat_find_setting">設定を検索</string>

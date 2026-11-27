@@ -452,7 +452,7 @@ private fun AgentRow(row: ChatRow, hold: () -> Unit) {
 
 @Composable
 private fun Answer(text: String, live: Boolean, hold: () -> Unit) {
-    Bubble(text, KodosiTheme.colors.raised, TheirsShape, hold, live) { ChatProse(text, live) }
+    Bubble(text, KodosiTheme.colors.raised, TheirsShape, hold, live = live) { ChatProse(text, live) }
 }
 
 @Composable
@@ -504,11 +504,12 @@ private fun Theirs(entry: ThreadEntry.Person, terminals: MentionTerminals, hold:
  * without words, such as a hand-off, has nothing to copy.
  */
 @Composable
-private fun Bubble(
+internal fun Bubble(
     text: String,
     fill: Color,
     shape: Shape,
     hold: () -> Unit,
+    modifier: Modifier = Modifier,
     live: Boolean = false,
     content: @Composable () -> Unit
 ) {
@@ -535,7 +536,7 @@ private fun Bubble(
         selecting = false
     }
     Box(
-        Modifier.widthIn(max = 640.dp).background(fill, shape)
+        modifier.widthIn(max = 640.dp).background(fill, shape)
             .semantics(mergeDescendants = true) {
                 if (copies) {
                     customActions = listOf(

@@ -1,5 +1,6 @@
 package com.kodosi.mobile.ui
 
+import android.net.Uri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandHorizontally
@@ -9,10 +10,16 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.content.MediaType
+import androidx.compose.foundation.content.consume
+import androidx.compose.foundation.content.contentReceiver
+import androidx.compose.foundation.content.hasMediaType
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -35,6 +42,18 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.kodosi.mobile.R
 
+/**
+ * The pictures of a composer's next message: [key] adds them, [attached] shows them above the words,
+ * and [paste] takes the pictures that the person pastes into the field or that the keyboard gives it.
+ * With [sendable] pictures, Send sends the message without words.
+ */
+class ComposerPictures(
+    val sendable: Boolean,
+    val paste: (List<Uri>) -> Unit,
+    val key: @Composable () -> Unit,
+    val attached: @Composable () -> Unit
+)
+
 @Composable
 fun MessageComposer(
     draft: TextFieldState,
@@ -44,13 +63,14 @@ fun MessageComposer(
     focusRequester: FocusRequester? = null,
     placeholder: String = stringResource(R.string.write_message),
     stop: (() -> Unit)? = null,
-    talk: (() -> Unit)? = null
+    talk: (() -> Unit)? = null,
+    pictures: ComposerPictures? = null
 ) {
     val colors = KodosiTheme.colors
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val shape = RoundedCornerShape(20.dp)
-    Row(
+    Column(
         Modifier.fillMaxWidth().padding(10.dp)
             .raised(
                 colors,
@@ -58,54 +78,72 @@ fun MessageComposer(
                 fill = colors.lifted,
                 elevation = if (focused) Elevation.LIFTED else Elevation.RESTING
             )
-            .padding(5.dp),
-        verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+            .padding(5.dp)
     ) {
-        BasicTextField(
-            draft,
-            lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6),
-            interactionSource = interaction,
-            textStyle = KodosiType.body.copy(color = if (enabled) colors.ink else colors.inkFaint),
-            cursorBrush = SolidColor(colors.accent),
-            modifier = Modifier.weight(1f)
-                .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
-                .padding(horizontal = 12.dp, vertical = 11.dp).semantics { contentDescription = placeholder },
-            enabled = enabled,
-            decorator = { input ->
-                Box {
-                    if (draft.text.isEmpty()) Text(placeholder, style = KodosiType.body, color = colors.inkMuted)
-                    input()
+        pictures?.attached?.invoke()
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            pictures?.key?.invoke()
+            BasicTextField(
+                draft,
+                lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6),
+                interactionSource = interaction,
+                textStyle = KodosiType.body.copy(color = if (enabled) colors.ink else colors.inkFaint),
+                cursorBrush = SolidColor(colors.accent),
+                modifier = Modifier.weight(1f)
+                    .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+                    .then(if (pictures != null) Modifier.pastedPictures(pictures.paste) else Modifier)
+                    .padding(horizontal = 12.dp, vertical = 11.dp).semantics { contentDescription = placeholder },
+                enabled = enabled,
+                decorator = { input ->
+                    Box {
+                        if (draft.text.isEmpty()) Text(placeholder, style = KodosiType.body, color = colors.inkMuted)
+                        input()
+                    }
                 }
-            }
-        )
-        val fading = fade<Float>()
-        val popping = snappy<Float>()
-        val blank = draft.text.isBlank()
-        Row {
-            AnimatedVisibility(
-                talk != null,
-                enter = fadeIn(fading) + scaleIn(popping, initialScale = 0.9f) + expandHorizontally(fade()),
-                exit = fadeOut(fading) + scaleOut(popping, targetScale = 0.9f) + shrinkHorizontally(fade()),
-                label = "talk key"
-            ) { KodosiQuietKey(AppSymbol.MIC, stringResource(R.string.talk), { talk?.invoke() }, enabled) }
-            AnimatedContent(
-                if (stop != null && blank) TrailingKey.STOP else TrailingKey.SEND,
-                transitionSpec = {
-                    (fadeIn(fading) + scaleIn(popping, initialScale = 0.9f)) togetherWith
-                        (fadeOut(fading) + scaleOut(popping, targetScale = 0.9f))
-                },
-                label = "composer key"
-            ) { key ->
-                if (key == TrailingKey.STOP && stop != null) {
-                    KodosiStopKey(stop)
-                } else {
-                    KodosiSendKey(enabled && !busy && draft.text.isNotBlank(), busy, send)
+            )
+            val fading = fade<Float>()
+            val popping = snappy<Float>()
+            val empty = draft.text.isBlank() && pictures?.sendable != true
+            Row {
+                AnimatedVisibility(
+                    talk != null,
+                    enter = fadeIn(fading) + scaleIn(popping, initialScale = 0.9f) + expandHorizontally(fade()),
+                    exit = fadeOut(fading) + scaleOut(popping, targetScale = 0.9f) + shrinkHorizontally(fade()),
+                    label = "talk key"
+                ) {
+                    KodosiQuietKey(AppSymbol.MIC, stringResource(R.string.talk), { talk?.invoke() }, enabled = enabled)
+                }
+                AnimatedContent(
+                    if (stop != null && empty) TrailingKey.STOP else TrailingKey.SEND,
+                    transitionSpec = {
+                        (fadeIn(fading) + scaleIn(popping, initialScale = 0.9f)) togetherWith
+                            (fadeOut(fading) + scaleOut(popping, targetScale = 0.9f))
+                    },
+                    label = "composer key"
+                ) { key ->
+                    if (key == TrailingKey.STOP && stop != null) {
+                        KodosiStopKey(stop)
+                    } else {
+                        KodosiSendKey(enabled && !busy && !empty, busy, send)
+                    }
                 }
             }
         }
     }
 }
 
-/** The key after the talk key: the stop key while the agent works and nothing is typed, else Send. */
+/** The key after the talk key: the stop key while the agent works and the message is empty, else Send. */
 private enum class TrailingKey { SEND, STOP }
+
+@OptIn(ExperimentalFoundationApi::class)
+private fun Modifier.pastedPictures(paste: (List<Uri>) -> Unit): Modifier = contentReceiver { content ->
+    if (!content.hasMediaType(MediaType.Image)) return@contentReceiver content
+    val pictures = mutableListOf<Uri>()
+    val rest = content.consume { item ->
+        val uri = item.uri ?: return@consume false
+        pictures += uri
+        true
+    }
+    if (pictures.isNotEmpty()) paste(pictures)
+    rest
+}

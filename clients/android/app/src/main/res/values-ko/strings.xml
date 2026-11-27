@@ -596,6 +596,11 @@
     </plurals>
     <string name="chat_recap">요약</string>
     <string name="chat_reads_before_next_step">%1$s이(가) 다음 단계 전에 이 메시지를 읽어요.</string>
+    <string name="chat_reads_after_turn">%1$s이(가) 지금 차례가 끝나면 이 메시지를 읽어요.</string>
+    <string name="chat_add_picture">이미지 추가</string>
+    <string name="chat_picture">이미지</string>
+    <string name="chat_picture_unreadable">Kodosi가 이 이미지를 읽을 수 없어요.</string>
+    <string name="chat_pictures_too_many">한 메시지에는 이미지를 8개까지, 모두 합쳐 32MB까지 넣을 수 있어요.</string>
     <string name="chat_waiting_for">%1$s을(를) 기다리는 중</string>
     <string name="chat_needs_terminal_view">터미널 보기가 필요한 명령</string>
     <string name="chat_find_setting">설정 찾기</string>

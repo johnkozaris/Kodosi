@@ -308,16 +308,17 @@ internal fun handOffWords(name: String): AnnotatedString {
 // Holds the place of the name in the translated words, so that only the name takes the weight.
 private const val NAME_SLOT = "￼"
 
-/** The person's message as its bubble shows it: the line of a hand-off, then the words. */
+/** The person's message as its bubble shows it: the line of a hand-off, the words, then the pictures. */
 @Composable
 internal fun PersonSaid(person: ChatRow.Kind.Person, fill: Color, terminals: MentionTerminals) {
     val handoff = person.handoff
-    if (handoff == null) {
+    if (handoff == null && person.pictures.isEmpty()) {
         MentionedWords(person.text, person.mentions, fill, terminals)
         return
     }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        HandOffLine(handoff)
+        if (handoff != null) HandOffLine(handoff)
         if (person.text.isNotEmpty()) MentionedWords(person.text, person.mentions, fill, terminals)
+        if (person.pictures.isNotEmpty()) PictureTiles(person.pictures, fill)
     }
 }

@@ -27,7 +27,9 @@ and ergonomics:
 - Animations follow the system animator scale, and looping indicators stay still inside decorative
   illustrations and in battery-saver mode. Section selectors use a recessed track with a sliding
   raised thumb showing only the active label. Message composers lift on focus and keep their send
-  button inside the field.
+  button inside the field. The chat composer shows the pictures of the next message as thumbnails
+  above the words, each with a small raised remove key, and a message shows a small tile with a
+  picture glyph for each of its pictures.
 - Sign-in, file picking/saving, notification preferences, and biometric prompts delegate to native
   Android system UI. Error states show their explanation and recovery action inline.
 - Talking in a chat replaces the composer with a talk bar: bars that rise with your voice beside

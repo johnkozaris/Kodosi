@@ -258,9 +258,15 @@ fun KodosiStopKey(
 }
 
 @Composable
-fun KodosiQuietKey(symbol: AppSymbol, description: String, onClick: () -> Unit, enabled: Boolean = true) {
+fun KodosiQuietKey(
+    symbol: AppSymbol,
+    description: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
     val colors = KodosiTheme.colors
-    ComposerKey(onClick, enabled = enabled, fill = colors.lifted, quiet = true, ring = false) {
+    ComposerKey(onClick, enabled = enabled, fill = colors.lifted, quiet = true, ring = false, modifier = modifier) {
         AppIcon(
             symbol,
             Modifier.size(14.dp),
@@ -277,6 +283,7 @@ private fun ComposerKey(
     fill: Color,
     quiet: Boolean,
     ring: Boolean,
+    modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit
 ) {
     val colors = KodosiTheme.colors
@@ -289,7 +296,7 @@ private fun ComposerKey(
         label = "composer key press"
     )
     Box(
-        Modifier.size(48.dp).graphicsLayer {
+        modifier.size(48.dp).graphicsLayer {
             scaleX = scale
             scaleY = scale
         }

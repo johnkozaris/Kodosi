@@ -642,6 +642,11 @@
     </plurals>
     <string name="chat_recap">Récapitulatif</string>
     <string name="chat_reads_before_next_step">%1$s le lit avant sa prochaine étape.</string>
+    <string name="chat_reads_after_turn">%1$s le lit à la fin de son tour.</string>
+    <string name="chat_add_picture">Ajouter une image</string>
+    <string name="chat_picture">Image</string>
+    <string name="chat_picture_unreadable">Kodosi ne peut pas lire cette image.</string>
+    <string name="chat_pictures_too_many">Un message accepte jusqu’à 8 images, 32 Mo au total.</string>
     <string name="chat_waiting_for">En attente de %1$s</string>
     <string name="chat_needs_terminal_view">La commande demande la vue terminal</string>
     <string name="chat_find_setting">Trouver un réglage</string>
