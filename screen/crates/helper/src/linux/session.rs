@@ -71,8 +71,8 @@ pub(super) enum Event {
     Redraw,
     /// The lock or the account in front of the display changed.
     Changed,
-    /// The pixels of a display's stream, which tell its scale.
-    Sized { node: u32, width: u32, height: u32 },
+    /// The pixels of a display's stream, first and after each change of the display.
+    Sized { node: u32, pixels: (u32, u32) },
 }
 
 /// Serves the host on standard input and output until it quits or goes away.
@@ -100,6 +100,7 @@ pub(super) async fn serve(arguments: Arguments) {
         sharing: Sharing::Off,
         sources: Sources::default(),
         scales: HashMap::new(),
+        streamed: HashMap::new(),
         capture: None,
         frames: None,
         tray,
@@ -154,8 +155,11 @@ struct Session {
     watched: bool,
     sharing: Sharing,
     sources: Sources,
-    /// Pixels per point of the displays whose streams told them, by where they are.
+    /// Pixels per point of the displays whose streams told them, by where the portal placed
+    /// them, for the next portal session.
     scales: HashMap<Place, f64>,
+    /// What the streams of this portal session told of their displays, by node.
+    streamed: HashMap<u32, Streamed>,
     /// The captured display.
     capture: Option<u32>,
     /// The encoder, from the first capture until the host stops it.
@@ -248,6 +252,7 @@ impl Session {
         match said {
             ToHelper::Capture {
                 source,
+                size,
                 region,
                 width,
                 height,
@@ -260,7 +265,8 @@ impl Session {
                     bitrate,
                     pace,
                 };
-                if let Err(problem) = self.capture(source, region, width, height, settings).await {
+                let shown = self.capture(source, size, region, (width, height), settings);
+                if let Err(problem) = shown.await {
                     self.fail(problem).await;
                 }
             }
@@ -285,12 +291,15 @@ impl Session {
         true
     }
 
+    /// Captures `region` of a display whose size in points is `size`, scaled to `pixels`. The
+    /// host asked before it heard that the display took another size when `size` is not the
+    /// display's: it asks again for the new size.
     async fn capture(
         &mut self,
         source: Source,
+        size: (f64, f64),
         region: Option<Region>,
-        width: u32,
-        height: u32,
+        pixels: (u32, u32),
         settings: Settings,
     ) -> Result<(), String> {
         let Source::Display { id } = source else {
@@ -300,6 +309,10 @@ impl Session {
             return Err("the desktop does not share the screen yet".to_owned());
         };
         let shared = display(&linked.desktop, id).ok_or("the display is gone")?;
+        let known = self.known(&shared);
+        if !same_size(known.points, size) {
+            return Ok(());
+        }
         let frames =
             Arc::clone(self.frames.get_or_insert_with(|| {
                 Frames::new(settings, self.say.clone(), self.events.clone())
@@ -309,11 +322,12 @@ impl Session {
             linked.video.show(
                 Wanted {
                     node: shared.node,
-                    origin: (shared.x, shared.y),
-                    logical: (shared.width, shared.height),
+                    origin: known.origin,
+                    logical: known.points,
+                    stream: known.pixels,
                     region,
-                    width,
-                    height,
+                    width: pixels.0,
+                    height: pixels.1,
                 },
                 frames,
             );
@@ -370,7 +384,7 @@ impl Session {
             Input::Mouse { x, y, .. } => Some((x, y)),
             Input::Key { .. } | Input::Text { .. } => None,
         };
-        hands.play(input, (shared.x, shared.y));
+        hands.play(input, self.known(&shared).origin);
         if let Some(at) = pointed {
             self.pointed = Some((Instant::now() + POINTER_SHOWING, at));
         }
@@ -384,10 +398,11 @@ impl Session {
         let (Some(id), Some(linked)) = (self.capture, self.linked()) else {
             return;
         };
-        if let Some(shared) = display(&linked.desktop, id)
-            && !self.hand.showed((shared.x + at.0, shared.y + at.1))
-        {
-            linked.video.point(at);
+        if let Some(shared) = display(&linked.desktop, id) {
+            let origin = self.known(&shared).origin;
+            if !self.hand.showed((origin.0 + at.0, origin.1 + at.1)) {
+                linked.video.point(at);
+            }
         }
     }
 
@@ -539,6 +554,7 @@ impl Session {
                 drop(events.send(Event::Closed));
             }
         });
+        self.streamed.clear();
         self.sharing = Sharing::On(Linked {
             video,
             hands,
@@ -600,11 +616,7 @@ impl Session {
                 }
             }
             Event::Changed => self.look().await,
-            Event::Sized {
-                node,
-                width,
-                height,
-            } => self.sized(node, width, height).await,
+            Event::Sized { node, pixels } => self.sized(node, pixels).await,
         }
     }
 
@@ -641,8 +653,9 @@ impl Session {
         }
     }
 
-    /// A stream tells how many pixels its display has, so its points have their true scale.
-    async fn sized(&mut self, node: u32, width: u32, height: u32) {
+    /// A stream tells how many pixels its display has, first and after each change of the
+    /// display: its points follow at the display's scale, which the first size tells.
+    async fn sized(&mut self, node: u32, pixels: (u32, u32)) {
         let Some(shared) = self.linked().and_then(|linked| {
             linked
                 .desktop
@@ -653,12 +666,36 @@ impl Session {
         }) else {
             return;
         };
-        if shared.width <= 0.0 || shared.height <= 0.0 {
+        if pixels.0 == 0 || pixels.1 == 0 || shared.width <= 0.0 || shared.height <= 0.0 {
             return;
         }
-        let scale = (f64::from(width) / shared.width).max(f64::from(height) / shared.height);
-        self.scales.insert(place(&shared), scale);
+        let scale = if let Some(streamed) = self.streamed.get(&node) {
+            streamed.scale
+        } else {
+            let scale = scale((shared.width, shared.height), pixels);
+            self.scales.insert(place(&shared), scale);
+            scale
+        };
+        self.streamed.insert(node, Streamed { pixels, scale });
         self.tell_sources().await;
+    }
+
+    /// A display as the portal told it when its session started, with what its stream told
+    /// since.
+    fn known(&self, shared: &Shared) -> Known {
+        let streamed = self.streamed.get(&shared.node);
+        let scale = streamed
+            .map(|streamed| streamed.scale)
+            .or_else(|| self.scales.get(&place(shared)).copied())
+            .unwrap_or(1.0);
+        Known {
+            origin: (shared.x, shared.y),
+            points: streamed.map_or((shared.width, shared.height), |streamed| {
+                points(streamed.pixels, scale)
+            }),
+            scale,
+            pixels: streamed.map(|streamed| streamed.pixels),
+        }
     }
 
     async fn tell_sources(&mut self) {
@@ -667,11 +704,14 @@ impl Session {
         };
         let displays = (1..)
             .zip(&linked.desktop.displays)
-            .map(|(id, shared)| Display {
-                id,
-                width: shared.width,
-                height: shared.height,
-                scale: self.scales.get(&place(shared)).copied().unwrap_or(1.0),
+            .map(|(id, shared)| {
+                let known = self.known(shared);
+                Display {
+                    id,
+                    width: known.points.0,
+                    height: known.points.1,
+                    scale: known.scale,
+                }
             })
             .collect();
         let sources = Sources {
@@ -721,6 +761,50 @@ const fn lets_go(input: &Input) -> bool {
     )
 }
 
+/// What a display's stream told: its pixels, now, and its pixels per point, from its first size.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Streamed {
+    pixels: (u32, u32),
+    scale: f64,
+}
+
+/// A shared display as the helper knows it now.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Known {
+    /// Where its top left is on the desktop, in points.
+    origin: (f64, f64),
+    /// Its size in points.
+    points: (f64, f64),
+    /// Its pixels per point.
+    scale: f64,
+    /// Its stream's size in pixels, once the stream told it.
+    pixels: Option<(u32, u32)>,
+}
+
+/// A display's points follow its stream's pixels: the portal tells them only when its session
+/// starts, and its stream tells when the display turns or takes another resolution.
+fn points(pixels: (u32, u32), scale: f64) -> (f64, f64) {
+    (f64::from(pixels.0) / scale, f64::from(pixels.1) / scale)
+}
+
+/// Pixels per point of a display of `points` as the portal told them, whose stream has
+/// `pixels`. A display that turned since the portal told its points has them the other way.
+fn scale(points: (f64, f64), pixels: (u32, u32)) -> f64 {
+    let (width, height) = (f64::from(pixels.0), f64::from(pixels.1));
+    let (across, down) = if (points.0 >= points.1) == (width >= height) {
+        points
+    } else {
+        (points.1, points.0)
+    };
+    (width / across).max(height / down)
+}
+
+/// The host's sizes come back from its JSON, which may round a point's last bit.
+fn same_size(one: (f64, f64), other: (f64, f64)) -> bool {
+    const ROUNDING: f64 = 0.001;
+    (one.0 - other.0).abs() < ROUNDING && (one.1 - other.1).abs() < ROUNDING
+}
+
 /// Displays have the ids 1, 2, … in the portal's order.
 fn display(desktop: &Desktop, id: u32) -> Option<Shared> {
     let index = usize::try_from(id.checked_sub(1)?).ok()?;
@@ -738,4 +822,22 @@ fn place(shared: &Shared) -> Place {
         shared.width.round() as i64,
         shared.height.round() as i64,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_display_that_turns_or_takes_another_resolution_keeps_its_scale_and_its_shape() {
+        let wide = (2560, 1440);
+        let scale = scale((1707.0, 960.0), wide);
+        assert!((scale - 1.5).abs() < 1e-9, "{scale}");
+        assert!(same_size(
+            points((1440, 2560), scale),
+            (960.0, 2560.0 / 1.5)
+        ));
+        assert!(same_size(points((1920, 1200), scale), (1280.0, 800.0)));
+        assert!((self::scale((1920.0, 1080.0), (1080, 1920)) - 1.0).abs() < 1e-9);
+    }
 }

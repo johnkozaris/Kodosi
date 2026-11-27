@@ -63,6 +63,9 @@ pub(super) struct Wanted {
     pub(super) origin: (f64, f64),
     /// The display's size in points.
     pub(super) logical: (f64, f64),
+    /// The stream's size in pixels that `logical` and the host's order follow, or `None` before
+    /// the stream told it, when they follow its first size.
+    pub(super) stream: Option<(u32, u32)>,
     /// The part of the display to capture, in its points, or `None` for all of it.
     pub(super) region: Option<Region>,
     pub(super) width: u32,
@@ -351,6 +354,10 @@ struct Drawing {
     frames: Arc<Frames>,
     events: mpsc::UnboundedSender<Event>,
     format: Option<Format>,
+    /// The stream's first size in pixels.
+    first: Option<(u32, u32)>,
+    /// Pixels per point of the display, from the last format that the host's order follows.
+    scale: f64,
     /// The newest frame, which the stream lends until a newer one comes, so that a new size or
     /// region shows at once, even when the screen does not change.
     held: Option<NonNull<pw_sys::pw_buffer>>,
@@ -379,6 +386,8 @@ impl Drawing {
             frames,
             events,
             format: None,
+            first: None,
+            scale: 1.0,
             held: None,
             imported: HashMap::new(),
             unimportable: false,
@@ -435,12 +444,22 @@ impl Drawing {
             red_first,
             linear: modifier(param, &info) == Some(LINEAR),
         });
+        self.first.get_or_insert((size.width, size.height));
         self.fresh = true;
         drop(self.events.send(Event::Sized {
             node: self.wanted.node,
-            width: size.width,
-            height: size.height,
+            pixels: (size.width, size.height),
         }));
+    }
+
+    /// Whether the host's order follows the stream's size. A display that turns or takes
+    /// another resolution changes the size first, and its frames wait for the order that
+    /// follows: they would show in the old shape.
+    fn fits(&self, format: Format) -> bool {
+        let size = (format.width, format.height);
+        self.wanted
+            .stream
+            .map_or_else(|| self.first == Some(size), |stream| stream == size)
     }
 
     fn removed(&mut self, buffer: *mut pw_sys::pw_buffer) {
@@ -487,10 +506,11 @@ impl Drawing {
         self.draw(changed);
     }
 
-    fn pixels_per_point(&self) -> f64 {
-        self.format.map_or(1.0, |format| {
-            f64::from(format.width) / self.wanted.logical.0.max(1.0)
-        })
+    fn pixels_per_point(&mut self) -> f64 {
+        if let Some(format) = self.format.filter(|format| self.fits(*format)) {
+            self.scale = f64::from(format.width) / self.wanted.logical.0.max(1.0);
+        }
+        self.scale
     }
 
     /// Encodes the held frame as the host wants it.
@@ -498,6 +518,9 @@ impl Drawing {
         let (Some(held), Some(format)) = (self.held, self.format) else {
             return;
         };
+        if !self.fits(format) {
+            return;
+        }
         // SAFETY: the stream lent the held buffer until the helper gives it back.
         let lent = unsafe { Lent::of(held) };
         if let Some(buffer) = lent.dmabuf(format) {

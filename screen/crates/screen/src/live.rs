@@ -8,7 +8,7 @@ use std::{
 
 use bytes::Bytes;
 use stream::{
-    Ask, Codec, Decoder, Encoded, Flow, Format, Pacer, Region, Size, Viewing,
+    Ask, Codec, Decoder, Encoded, Flow, Format, FrameKind, Pacer, Region, Size, Viewing,
     viewer::{self, Frame, Input, KeyAction, MouseAction, MouseButton, Viewer},
 };
 use tokio::{
@@ -205,6 +205,8 @@ impl Seat {
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Capture {
     source: Source,
+    /// The source's size in points.
+    size: (f64, f64),
     region: Option<Region>,
     width: u32,
     height: u32,
@@ -244,6 +246,10 @@ pub(crate) struct Live {
     control: Option<String>,
     capture: Option<Capture>,
     capture_failed_at: Option<Instant>,
+    /// The size that viewers keep after the captured source took another shape, until the first
+    /// keyframe of the new shape, which goes right after the new size: so no picture shows in
+    /// the other's place.
+    resizing: Option<(f64, f64)>,
     next_frame: u32,
     dirty: bool,
     idle_since: Option<Instant>,
@@ -282,6 +288,7 @@ impl Live {
             control: None,
             capture: None,
             capture_failed_at: None,
+            resizing: None,
             next_frame: 0,
             dirty: false,
             idle_since: Some(now),
@@ -494,6 +501,7 @@ impl Live {
     fn show(&mut self, source: Option<Source>) {
         if source != self.source {
             self.source = source;
+            self.resizing = None;
             for seat in self.seats.values_mut() {
                 seat.look = None;
             }
@@ -529,11 +537,15 @@ impl Live {
             Message::Said(said) => match said {
                 FromHelper::Hello { .. } => {}
                 FromHelper::Sources { sources } => {
+                    let before = self.capture;
                     self.sources = sources;
                     for seat in self.seats.values_mut() {
                         seat.has_sources = false;
                     }
                     self.show(self.next_source());
+                    if self.resizing.is_none() && reshaped(before, self.capture) {
+                        self.resizing = before.map(|capture| capture.size);
+                    }
                 }
                 FromHelper::Access { access } => {
                     self.access = access;
@@ -637,6 +649,10 @@ impl Live {
     }
 
     fn frame(&mut self, picture: Encoded) {
+        if self.resizing.is_some() && picture.kind == FrameKind::Key {
+            self.resizing = None;
+            self.publish();
+        }
         let now = tokio_now();
         self.next_frame = self.next_frame.wrapping_add(1);
         let id = self.next_frame;
@@ -770,6 +786,7 @@ impl Live {
                 self.flow.keyframe_asked(tokio_now());
                 self.say(&ToHelper::Capture {
                     source: capture.source,
+                    size: capture.size,
                     region: capture.region,
                     width: capture.width,
                     height: capture.height,
@@ -820,6 +837,7 @@ impl Live {
         );
         Some(Capture {
             source,
+            size: (whole.width, whole.height),
             region,
             width,
             height,
@@ -832,10 +850,14 @@ impl Live {
 
     fn publish(&mut self) {
         self.dirty = false;
-        let (width, height) = self
-            .source
-            .and_then(|source| self.sources.size(source))
-            .map_or((0.0, 0.0), |(width, height, _)| (width, height));
+        if self.capture.is_none() {
+            self.resizing = None;
+        }
+        let (width, height) = self.resizing.unwrap_or_else(|| {
+            self.source
+                .and_then(|source| self.sources.size(source))
+                .map_or((0.0, 0.0), |(width, height, _)| (width, height))
+        });
         let control = self.control.as_deref();
         let mut copied = self
             .copied
@@ -933,6 +955,17 @@ fn command_as_control(input: Input) -> Input {
         },
         text @ Input::Text { .. } => text,
     }
+}
+
+/// Whether the captured source took another size, so that its pictures take another number of
+/// pixels, which the encoder starts with a keyframe.
+fn reshaped(before: Option<Capture>, after: Option<Capture>) -> bool {
+    let pixels = |capture: Capture| (capture.width, capture.height);
+    before.zip(after).is_some_and(|(before, after)| {
+        before.source == after.source
+            && before.size != after.size
+            && pixels(before) != pixels(after)
+    })
 }
 
 fn queued(seats: &HashMap<String, Seat>, viewer: &str) -> usize {
@@ -1180,7 +1213,7 @@ mod tests {
         computer.next(keyframe).await;
         let picture = Encoded {
             codec: Codec::Hevc,
-            kind: stream::FrameKind::Key,
+            kind: FrameKind::Key,
             mark: None,
             region: None,
             data: Bytes::from_static(&[0, 0, 0, 1, 0x26]),
@@ -1482,6 +1515,67 @@ mod tests {
                 windows,
             },
         }
+    }
+
+    #[tokio::test]
+    async fn a_display_that_turns_is_captured_in_its_new_shape_at_once_and_viewers_learn_it_with_its_first_keyframe()
+     {
+        let mut computer = Computer::start().await;
+        let (outgoing, mut frames) = mpsc::channel(64);
+        let laptop = computer
+            .watch_with("laptop", view(1440, 900, 2.0), Vec::new(), true, outgoing)
+            .await;
+        assert_eq!(computer.capture().await, (2772, 1800, Codec::H264));
+        let mut send = async |computer: &mut Computer, kind| {
+            let picture = Encoded {
+                codec: Codec::H264,
+                kind,
+                mark: None,
+                region: None,
+                data: Bytes::from_static(&[0, 0, 0, 1, 0x41]),
+            };
+            computer
+                .helper
+                .write_all(&link::frame(&picture))
+                .await
+                .unwrap();
+            frames.recv().await.unwrap();
+        };
+        send(&mut computer, FrameKind::Key).await;
+        let turned = Display {
+            id: 1,
+            width: 982.0,
+            height: 1512.0,
+            scale: 2.0,
+        };
+        computer
+            .tell(FromHelper::Sources {
+                sources: Sources {
+                    displays: vec![turned],
+                    windows: Vec::new(),
+                },
+            })
+            .await;
+        let order = computer
+            .next(|said| match said {
+                ToHelper::Capture {
+                    size,
+                    width,
+                    height,
+                    ..
+                } => Some((size, width, height)),
+                _ => None,
+            })
+            .await;
+        assert_eq!(order, ((982.0, 1512.0), 1170, 1800));
+        tokio::time::sleep(TICK * 2).await;
+        let told = |mailbox: &Mailbox| mailbox.take().map(|state| (state.width, state.height));
+        assert_eq!(told(&laptop), Some((1512.0, 982.0)));
+
+        send(&mut computer, FrameKind::Delta).await;
+        assert_ne!(told(&laptop), Some((982.0, 1512.0)));
+        send(&mut computer, FrameKind::Key).await;
+        assert_eq!(told(&laptop), Some((982.0, 1512.0)));
     }
 
     #[tokio::test]

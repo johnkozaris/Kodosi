@@ -181,6 +181,7 @@ impl Session {
                 format,
                 bitrate,
                 pace,
+                ..
             } => {
                 let wanted = Wanted {
                     source,
