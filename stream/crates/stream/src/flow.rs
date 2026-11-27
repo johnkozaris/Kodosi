@@ -323,7 +323,7 @@ pub struct Flow {
     seats: HashMap<String, Seat>,
     marks: VecDeque<MarkedFrame>,
     held: Vec<u64>,
-    /// True once the encoder emits marked frames, indicating anchor recovery is supported.
+    /// True once the encoder marks frames after the last keyframe, so that anchors can repair.
     anchors: bool,
     bitrate: u32,
     steered_at: Option<Instant>,
@@ -394,6 +394,7 @@ impl Flow {
         let mut delivery = Delivery::default();
         if kind == FrameKind::Key {
             self.marks.clear();
+            self.anchors = false;
             self.keyframe_at = Some(now);
         }
         for (viewer, seat) in &mut self.seats {
@@ -993,6 +994,20 @@ mod tests {
         assert_eq!(flow.held(), Vec::<u64>::new());
         assert_eq!(send(&mut flow, 3, FrameKind::Delta, now).to, ["b"]);
         assert_eq!(send(&mut flow, 4, FrameKind::Anchor, now).to, ["a", "b"]);
+    }
+
+    #[test]
+    fn a_viewer_that_misses_a_frame_after_an_unmarked_keyframe_waits_for_the_next_keyframe() {
+        let now = Instant::now();
+        let mut flow = flow_with(&["phone"], now);
+        flow.frame(1, FrameKind::Key, Some(10), 100, now, none);
+        flow.ack("phone", 1, after(now, 20));
+        send(&mut flow, 2, FrameKind::Key, after(now, 100));
+        flow.ack("phone", 2, after(now, 120));
+        send(&mut flow, 3, FrameKind::Delta, after(now, 130));
+        flow.lost("phone", 3, after(now, 140));
+        assert_eq!(flow.ask(after(now, 500), none), None);
+        assert_eq!(flow.ask(after(now, 1100), none), Some(Ask::Keyframe));
     }
 
     #[test]
