@@ -112,7 +112,7 @@ private struct ChatTalkBar: View {
 
     var body: some View {
         let heard = !talk.turn.words.isEmpty
-        let sendable = (heard || chat.typed) && chat.canWrite
+        let sendable = (heard || chat.unsent) && chat.canWrite
         HStack(spacing: 6) {
             HStack(spacing: 8) {
                 TalkLevel(level: talk.level, live: talk.phase == .listening)

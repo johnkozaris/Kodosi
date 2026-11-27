@@ -24,6 +24,7 @@ a terminal needs attention.
 ### Chat view
 Any terminal running a supported agent can also be viewed as a chat: your messages, the agent's
 replies and actions, the helpers working for it, and its prompts with clickable answer buttons.
+Pictures that you paste, drop or pick go with your message to the agents that take pictures.
 You can switch freely between the terminal screen and chat view, and anything you do in one shows
 up in the other. Typing `@` in a chat names another of your running agents so the two can talk, and
 you can hand an agent's work to the chat's agent, which reads the first agent's conversation and
@@ -100,9 +101,10 @@ session. Supported agents report activity through their native extension or serv
 messages, answers, and stops travel back the same way. Kodosi never scrapes the terminal screen or
 simulates keypresses for chat, so UI updates to an agent don't break it. Answering in chat answers
 the agent's real prompt, and permissions stay with the provider. A message sent while the agent
-works joins the running turn, as typing in the agent's terminal does, when the agent's interface
-takes it there; otherwise it waits in a queue for the next turn. Stopping a turn never drops a
-message that the agent hasn't read. Agents that don't report chat events simply use the normal
+works goes to the agent as early as its interface takes it, as typing in the agent's terminal
+does: into the running turn where the interface takes it there, else into the agent's own queue
+for its next turn, and otherwise it waits in Kodosi's queue. Stopping a turn never drops a message
+that the agent hasn't read. Agents that don't report chat events simply use the normal
 terminal view. Each terminal opens in whichever view its agent works in, across all devices.
 
 ### People and agents are equals in a project

@@ -24,10 +24,11 @@ only resizes a terminal while that terminal has focus.
 ### Screen and chat views
 Terminals with chat-capable agents can toggle between the terminal screen (with the accessory key
 row) and the chat view. Each terminal opens in whichever view its agent runs in, and you can
-switch views at any time. In the chat, a long press on a message or a finished answer copies it
-whole, as written, opens it to select part of it, or reads it aloud in the voice of its language.
-Typing `@` lists your other running agents to mention, and a long press on one hands its work over
-instead.
+switch views at any time. In the chat, a long press on a message, a finished answer, or a message
+that waits for the agent copies it whole, as written, opens it to select part of it, or reads it
+aloud in the voice of its language. Typing `@` lists your other running agents to mention, and a
+long press on one hands its work over instead. The picture key beside the mic adds pictures from
+the photo library to your next message; on an iPad you can also drop them on the chat.
 
 ### Talking in chat
 In the chat view, the mic key beside Send lets you talk instead of typing. Your words appear as your

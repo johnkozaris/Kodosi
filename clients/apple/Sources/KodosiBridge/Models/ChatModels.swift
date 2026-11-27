@@ -330,9 +330,8 @@ public struct ChatQueued: Decodable, Equatable, Identifiable, Sendable {
     /// The command needs the agent's terminal: the agent shows it there, where a person finishes
     /// it, or only the terminal has it.
     public let terminal: Bool
-    /// The agent has this message, so it can no longer be removed: the turn that runs reads it
-    /// before its next step, or the agent's terminal shows the command.
-    public let given: Bool
+    /// The agent has this message, so it can no longer be removed, and when it reads it.
+    public let given: ChatGiven?
 
     private enum Key: String, CodingKey {
         case id, refused, terminal, given
@@ -344,8 +343,16 @@ public struct ChatQueued: Decodable, Equatable, Identifiable, Sendable {
         said = try ChatSaid(from: decoder)
         refused = try fields.decodeIfPresent(String.self, forKey: .refused)
         terminal = try fields.decodeIfPresent(Bool.self, forKey: .terminal) ?? false
-        given = try fields.decodeIfPresent(Bool.self, forKey: .given) ?? false
+        given = try fields.decodeIfPresent(ChatGiven.self, forKey: .given)
     }
+}
+
+public enum ChatGiven: String, Decodable, Sendable {
+    /// The turn that runs reads it before its next step.
+    case step
+    /// The agent keeps it for its next turn, which starts when the one that runs ends, or its
+    /// terminal shows the command.
+    case turn
 }
 
 /// A slash command of the agent, as its own menu lists it.

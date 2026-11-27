@@ -31,7 +31,7 @@ struct ChatDock<ModelKey: View>: View {
     @State private var mentioning = ProjectMentionCompletion()
 
     private var stops: Bool {
-        chat.working && !chat.typed
+        chat.working && !chat.unsent
     }
 
     private var suggestions: [ChatCommand] {
@@ -76,12 +76,13 @@ struct ChatDock<ModelKey: View>: View {
                     .transition(AnyTransition.rise)
             }
             if let failure = chat.failure {
-                HStack(spacing: 7) {
-                    Circle().fill(theme.colors.caution).frame(width: 6, height: 6).accessibilityHidden(true)
-                    Text(failure).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).lineLimit(2)
-                }
-                .padding(.leading, 6)
-                .transition(.opacity)
+                ChatDockFailure(text: Text(failure))
+            }
+            if let refusal = chat.refusal {
+                ChatDockFailure(text: refusal == .full
+                    ? Text("A message takes up to 8 pictures, 32 MB in all.", bundle: .module)
+                    : Text("Kodosi cannot read this picture.", bundle: .module))
+                    .accessibilityIdentifier("chat.picture.refusal")
             }
             if away {
                 Text("No agent runs in this terminal", bundle: .module)
@@ -117,8 +118,10 @@ struct ChatDock<ModelKey: View>: View {
         .animation(theme.motion.spring, value: ask?.id)
         .animation(theme.motion.fade, value: chat.state)
         .animation(theme.motion.fade, value: chat.failure)
+        .animation(theme.motion.fade, value: chat.refusal)
+        .animation(theme.motion.snappy, value: chat.pictures.map(\.id))
         .animation(theme.motion.snappy, value: stops)
-        .animation(theme.motion.snappy, value: chat.typed)
+        .animation(theme.motion.snappy, value: chat.unsent)
         .animation(theme.motion.hover, value: focused.wrappedValue)
         .animation(theme.motion.snappy, value: suggestions.isEmpty)
         .animation(theme.motion.snappy, value: mentions.map(\.id))
@@ -142,6 +145,16 @@ struct ChatDock<ModelKey: View>: View {
     }
 
     private var composer: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if !chat.pictures.isEmpty {
+                ChatDraftPictures(chat: chat).transition(AnyTransition.rise)
+            }
+            field
+        }
+        .composerField(focused: focused.wrappedValue)
+    }
+
+    private var field: some View {
         HStack(alignment: .bottom, spacing: 6) {
             TextField(placeholder, text: $chat.draft, selection: $selection, axis: .vertical)
                 .textFieldStyle(.plain)
@@ -179,7 +192,13 @@ struct ChatDock<ModelKey: View>: View {
                     return .handled
                 }
                 .accessibilityIdentifier("chat.input")
+            #if os(macOS)
+                .modifier(ChatPicturePaste(chat: chat, focused: focused.wrappedValue))
+            #endif
             HStack(spacing: 6) {
+                #if os(iOS)
+                    ChatPictureKey(chat: chat)
+                #endif
                 if canTalk {
                     TalkKey(enabled: chat.canWrite, action: startTalking)
                         .transition(AnyTransition.pop)
@@ -190,7 +209,7 @@ struct ChatDock<ModelKey: View>: View {
                         .accessibilityIdentifier("chat.stop")
                         .transition(AnyTransition.pop)
                 } else {
-                    SendKey(enabled: chat.typed && chat.canWrite, action: send)
+                    SendKey(enabled: chat.unsent && chat.canWrite, action: send)
                         .tip(Text("Send", bundle: .module))
                         .accessibilityLabel(Text("Send", bundle: .module))
                         .accessibilityIdentifier("chat.send")
@@ -199,7 +218,6 @@ struct ChatDock<ModelKey: View>: View {
             }
             .padding(.bottom, max(0, (oneLine - composerKeySize) / 2))
         }
-        .composerField(focused: focused.wrappedValue)
     }
 
     /// Talking continues the words that the person typed, which go out with the first message.
@@ -238,7 +256,7 @@ struct ChatDock<ModelKey: View>: View {
     }
 
     private func send() {
-        guard chat.typed, chat.canWrite else { return }
+        guard chat.unsent, chat.canWrite else { return }
         if let control = chat.control(of: chat.draft) {
             chat.draft = ""
             open(control)
@@ -317,70 +335,18 @@ struct ChatDock<ModelKey: View>: View {
     }
 }
 
-private struct ChatQueuedRow: View {
+/// A line under the conversation that says what went wrong, by a caution dot.
+private struct ChatDockFailure: View {
     @Environment(\.theme) private var theme
-    let chat: TerminalChat
-    let queued: ChatQueued
-    let agent: AgentKind
-    let showTerminal: () -> Void
+    let text: Text
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 4) {
-            HStack(alignment: .center, spacing: 6) {
-                Spacer(minLength: 40)
-                if !queued.given {
-                    IconButton(title: "Remove", bundle: .module, symbol: "xmark",
-                               identifier: "chat.queued.remove.\(AccessibilityIdentifier.token(queued.id))", size: 22)
-                    {
-                        chat.unqueue(queued)
-                    }
-                }
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Image(systemName: sign)
-                        .font(mac: 9, ios: .caption2, weight: .semibold)
-                        .foregroundStyle(queued.refused != nil && !queued.terminal ? theme.colors.caution : theme.colors.inkFaint)
-                        .accessibilityLabel(status)
-                    if let handoff = queued.said.handoff {
-                        ChatHandOffLine(handoff: handoff, style: .footnote)
-                    } else {
-                        Text(queued.said.text).appTextStyle(.footnote).foregroundStyle(theme.colors.ink).lineLimit(2)
-                    }
-                }
-                .projectBubble()
-                .help(status)
-            }
-            if queued.terminal {
-                Button(action: showTerminal) {
-                    Tag(text: String(localized: "Command needs terminal view", bundle: .module), symbol: "apple.terminal", tone: .accent)
-                        .touchTarget(Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("chat.queued.terminal")
-            }
+        HStack(spacing: 7) {
+            Circle().fill(theme.colors.caution).frame(width: 6, height: 6).accessibilityHidden(true)
+            text.appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).lineLimit(2)
         }
-        .accessibilityElement(children: .contain)
-    }
-
-    private var sign: String {
-        if queued.terminal {
-            return "apple.terminal"
-        }
-        if queued.refused != nil {
-            return "exclamationmark.triangle"
-        }
-        return queued.given ? "checkmark" : "clock"
-    }
-
-    private var status: Text {
-        if queued.terminal {
-            return Text("Command needs terminal view", bundle: .module)
-        }
-        if let refused = queued.refused {
-            return Text(verbatim: refused)
-        }
-        return queued.given
-            ? Text("\(agent.label) reads this before its next step.", bundle: .module)
-            : Text("Waiting for \(agent.label)", bundle: .module)
+        .padding(.leading, 6)
+        .transition(.opacity)
     }
 }
 

@@ -52,6 +52,7 @@ public struct TerminalChatView<ModelKey: View>: View {
             .layoutPriority(1)
         }
         .background(theme.colors.chat)
+        .takesPictures(chat)
         .environment(\.proseFolder, chat.facts.folder)
         .environment(\.openURL, OpenURLAction { url in
             if let terminal = ProjectMentions.terminalId(in: url) {
