@@ -465,9 +465,24 @@ pub(crate) fn codex(result: &Value) -> Vec<UsageLimit> {
 }
 
 fn copilot(result: &Value) -> Vec<UsageLimit> {
-    let Some(quota) = result.pointer("/quotaSnapshots/premium_interactions") else {
-        return Vec::new();
-    };
+    result
+        .pointer("/quotaSnapshots/premium_interactions")
+        .map_or_default(|quota| {
+            let resets_at_ms = quota
+                .get("resetDate")
+                .and_then(Value::as_str)
+                .and_then(rfc3339_ms);
+            copilot_plan(quota, resets_at_ms)
+        })
+}
+
+/// Parses the plan quota reported live by a running Copilot CLI session.
+pub(crate) fn copilot_session(quota: &Value) -> Vec<UsageLimit> {
+    let resets_at_ms = quota.get("resetDateEpochMs").and_then(Value::as_u64);
+    upcoming(copilot_plan(quota, resets_at_ms), crate::identity::now_ms())
+}
+
+fn copilot_plan(quota: &Value, resets_at_ms: Option<u64>) -> Vec<UsageLimit> {
     let flag = |key: &str| quota.get(key).and_then(Value::as_bool) == Some(true);
     if flag("isUnlimitedEntitlement") {
         return Vec::new();
@@ -484,10 +499,7 @@ fn copilot(result: &Value) -> Vec<UsageLimit> {
             )
         })
         .map(|limit| UsageLimit {
-            resets_at_ms: quota
-                .get("resetDate")
-                .and_then(Value::as_str)
-                .and_then(rfc3339_ms),
+            resets_at_ms,
             ..limit
         })
         .into_iter()
