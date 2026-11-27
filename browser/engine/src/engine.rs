@@ -846,7 +846,8 @@ fn run(command: ToEngine) {
         | ToEngine::Keyframe { .. }
         | ToEngine::Recover { .. }
         | ToEngine::Held { .. }
-        | ToEngine::Bitrate { .. } => capture(&command),
+        | ToEngine::Bitrate { .. }
+        | ToEngine::Pace { .. } => capture(&command),
         ToEngine::Layer { window, tab } => layer(window, tab),
         ToEngine::Still { window } => still(window),
         ToEngine::Activate { tab } => activate(tab),
@@ -944,6 +945,7 @@ fn capture(command: &ToEngine) {
             tab,
             bitrate,
             format,
+            pace,
         } => {
             let shared = engine.shared_of(window)?;
             let pictures = Pictures {
@@ -951,7 +953,12 @@ fn capture(command: &ToEngine) {
                 still: false,
                 link: engine.link().clone(),
             };
-            let encoder = Encoder::new(Settings { format, bitrate }, Arc::new(pictures));
+            let settings = Settings {
+                format,
+                bitrate,
+                pace,
+            };
+            let encoder = Encoder::new(settings, Arc::new(pictures));
             *shared.capture.borrow_mut() = Some(Capture {
                 tab,
                 encoder,
@@ -1004,18 +1011,25 @@ fn capture(command: &ToEngine) {
             }
             None
         }
+        ToEngine::Pace { window, pace } => {
+            let shared = engine.shared_of(window)?;
+            if let Some(capture) = shared.capture.borrow_mut().as_mut() {
+                capture.encoder.set_pace(pace);
+            }
+            None
+        }
         _ => None,
     })
     .flatten();
     if let ToEngine::Capture { window, .. } | ToEngine::Stop { window } = *command {
-        pace(window);
+        draw_rate(window);
     }
     if let Some(host) = repaint_tab.and_then(|browser| browser.host()) {
         host.invalidate(PaintElementType::VIEW);
     }
 }
 
-fn pace(window: i64) {
+fn draw_rate(window: i64) {
     let Some((browsers, seen)) = with(|engine| {
         let shared = engine.shared_of(window)?;
         Some((engine.browsers_of(window), shared.seen()))
@@ -1055,7 +1069,7 @@ fn layer(window: i64, tab: Option<i64>) {
         engine.browser_of(tab?)
     })
     .flatten();
-    pace(window);
+    draw_rate(window);
     if let Some(host) = repaint_tab.and_then(|browser| browser.host()) {
         host.invalidate(PaintElementType::VIEW);
     }
@@ -1284,7 +1298,7 @@ pub(crate) fn after_created(browser: &mut Browser, origin: Origin) {
     let id = i64::from(browser.identifier());
     if let Origin::Tab { window, .. } = origin {
         show(with(|engine| engine.shown(window)).unwrap_or_default());
-        pace(window);
+        draw_rate(window);
     }
     let Some(host) = browser.host() else {
         return;

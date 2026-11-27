@@ -336,6 +336,11 @@ and AMD drivers tag the colours alike and tell decoders to show each frame as it
 that shows only a part of its source names that part, so a viewer places each frame right while
 the part changes.
 
+A stream codes new pictures at its full rate while a viewer acts on it, and at half that rate
+while people only watch. Watching then costs each device half the work and gives each frame twice
+the bits, and the first act brings the full rate back at once. The capture keeps its rate, since
+each encoder codes the newest picture when its time comes.
+
 Encoders sharpen a still picture on their own, with passes that encode it again. On the Mac and
 with VA-API the encoder sets each frame's quantizer instead of leaving it to the hardware's rate
 control, and lets frames run only a few frame times ahead of the bitrate that the link carries. A

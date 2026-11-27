@@ -3,7 +3,7 @@
 
 use std::time::Duration;
 
-use crate::FRAME_RATE;
+use crate::Pace;
 
 /// A picture that stays this long gets a pass every `PASS_EVERY`.
 pub(crate) const STILL: Duration = Duration::from_millis(250);
@@ -62,8 +62,9 @@ impl Convergence {
     }
 }
 
-pub(crate) fn frame_budget(bitrate: u32) -> usize {
-    usize::try_from(bitrate / 8 / FRAME_RATE).unwrap_or(usize::MAX)
+/// The bytes that `OpenH264` aims a frame at, at `pace`.
+pub(crate) fn frame_budget(bitrate: u32, pace: Pace) -> usize {
+    usize::try_from(bitrate / 8 / pace.frame_rate()).unwrap_or(usize::MAX)
 }
 
 #[cfg(test)]
@@ -89,7 +90,7 @@ mod tests {
 
     #[test]
     fn a_picture_is_clean_once_its_refinements_take_a_third_of_a_frame_at_most() {
-        let budget = frame_budget(8_000_000);
+        let budget = frame_budget(8_000_000, Pace::Acting);
         let mut sharpening = Convergence::default();
         let sizes = [70_874, 31_974, 6_676, 5_345, 5_157, 5_154];
         let clean = sizes.map(|bytes| sharpening.refined(bytes, budget));

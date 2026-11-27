@@ -18,7 +18,7 @@ use std::{
 use objc2_core_foundation::CFRetained;
 use objc2_core_video::{CVPixelBuffer, CVPixelBufferGetHeight, CVPixelBufferGetWidth};
 use objc2_io_surface::IOSurfaceRef;
-use stream::{Codec, Encoded, Format, FrameKind, Region};
+use stream::{Codec, Encoded, Format, FrameKind, Pace, Region};
 
 use self::{
     convert::Converter,
@@ -213,14 +213,19 @@ pub(crate) struct Encoder {
 
 impl Encoder {
     pub(crate) fn new(settings: Settings, output: Arc<dyn Output>) -> Self {
-        Self::start(settings.format, settings.bitrate, output, false)
+        Self::start(settings, output, false)
     }
 
     pub(crate) fn stills(format: Format, output: Arc<dyn Output>) -> Self {
-        Self::start(format, 0, output, true)
+        let settings = Settings {
+            format,
+            bitrate: 0,
+            pace: Pace::Acting,
+        };
+        Self::start(settings, output, true)
     }
 
-    fn start(format: Format, bitrate: u32, output: Arc<dyn Output>, stills: bool) -> Self {
+    fn start(settings: Settings, output: Arc<dyn Output>, stills: bool) -> Self {
         let now = Instant::now();
         let gate = Arc::new(Gate {
             slot: Mutex::new(Slot {
@@ -230,8 +235,8 @@ impl Encoder {
                 asked: VecDeque::new(),
                 repair: Repair::Key,
                 held: Vec::new(),
-                format,
-                rate: Rate::new(bitrate, now),
+                format: settings.format,
+                rate: Rate::new(settings.bitrate, settings.pace, now),
                 waiting: 0,
                 retry_at: None,
                 refusals: 0,
@@ -333,6 +338,10 @@ impl Encoder {
             .change(|slot| slot.rate.set_bitrate(bitrate, Instant::now()));
     }
 
+    pub(crate) fn set_pace(&self, pace: Pace) {
+        self.gate.change(|slot| slot.rate.set_pace(pace));
+    }
+
     pub(crate) fn set_format(&self, format: Format) {
         self.gate.change(|slot| {
             slot.format = format;
@@ -356,6 +365,13 @@ enum Job {
     Encode(Buffer),
     /// The last picture again, to repair the stream or to sharpen it.
     Again(Buffer),
+}
+
+/// What a frame makes of its picture.
+enum Making {
+    New,
+    Repair,
+    Pass,
 }
 
 struct Submission {
@@ -412,10 +428,10 @@ fn plan(
 ) -> Result<Submission, Option<Instant>> {
     let retry_due = slot.retry_at.is_some_and(|at| at <= now);
     let repair_due = retry_due || (slot.retry_at.is_none() && slot.repair != Repair::None);
-    let (buffer, changed) = match (&slot.picture, last) {
-        (Some(picture), _) => (picture.clone(), Some(slot.changed)),
-        (None, Some(last)) if repair_due => (last.clone(), Some(1.0)),
-        (None, Some(last)) if !stills && slot.retry_at.is_none() => (last.clone(), None),
+    let (buffer, making) = match (&slot.picture, last) {
+        (Some(picture), _) => (picture.clone(), Making::New),
+        (None, Some(last)) if repair_due => (last.clone(), Making::Repair),
+        (None, Some(last)) if !stills && slot.retry_at.is_none() => (last.clone(), Making::Pass),
         _ => return Err(slot.retry_at.filter(|at| *at > now)),
     };
     let (width, height) = (
@@ -430,14 +446,19 @@ fn plan(
         || (repair == Repair::Recover && !slot.format.anchors);
     let recover = !key && repair == Repair::Recover;
     let pixels = rate::pixels(width, height);
-    let choice = match changed {
+    let choice = match making {
         _ if stills => None,
-        Some(changed) => Some(
+        Making::New => Some(
             slot.rate
-                .picture(changed, key || recover, pixels, now)
+                .picture(slot.changed, key || recover, pixels, now)
                 .map_err(Some)?,
         ),
-        None => {
+        Making::Repair => Some(
+            slot.rate
+                .repair(key || recover, pixels, now)
+                .map_err(Some)?,
+        ),
+        Making::Pass => {
             let settled = slot.drawn_at + SETTLED;
             if slot.rate.sharp() {
                 return Err(None);
@@ -556,7 +577,7 @@ mod tests {
 
     use objc2_core_foundation::CFRetained;
     use objc2_core_video::{CVPixelBufferCreate, kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange};
-    use stream::{Codec, Encoded, Format, FrameKind, Region};
+    use stream::{Codec, Encoded, Format, FrameKind, Pace, Region};
 
     use super::Encoder;
     use crate::{Output, Picture, Settings};
@@ -617,7 +638,11 @@ mod tests {
     fn start(format: Format, bitrate: u32) -> (Arc<Frames>, Encoder) {
         let frames = Arc::new(Frames::default());
         let encoder = Encoder::new(
-            Settings { format, bitrate },
+            Settings {
+                format,
+                bitrate,
+                pace: Pace::Acting,
+            },
             Arc::clone(&frames) as Arc<dyn Output>,
         );
         (frames, encoder)
@@ -682,6 +707,7 @@ mod tests {
             Settings {
                 format: Format::default(),
                 bitrate: 4_000_000,
+                pace: Pace::Acting,
             },
             Arc::clone(&frames) as Arc<dyn Output>,
         );

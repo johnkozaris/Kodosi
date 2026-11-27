@@ -1054,6 +1054,9 @@ impl Frames {
         if settings.bitrate != encoding.settings.bitrate {
             encoding.encoder.set_bitrate(settings.bitrate);
         }
+        if settings.pace != encoding.settings.pace {
+            encoding.encoder.set_pace(settings.pace);
+        }
         encoding.settings = settings;
     }
 

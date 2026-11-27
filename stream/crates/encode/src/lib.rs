@@ -1,10 +1,14 @@
 //! Video encoders, chosen at run time from what the computer has: `VideoToolbox` on the Mac,
-//! VA-API on Linux graphics that encode H.264, `OpenH264` elsewhere. Each encoder sharpens a
-//! still picture on its own with passes that encode it again.
+//! VA-API on Linux graphics that encode H.264, `OpenH264` elsewhere. Each encoder codes new
+//! pictures at the stream's pace and sharpens a still picture on its own with passes that encode
+//! it again.
 
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
-pub use stream::{Codec, Encoded, Format, FrameKind, Region};
+pub use stream::{Codec, Encoded, Format, FrameKind, Pace, Region};
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 mod nal;
@@ -21,7 +25,8 @@ mod vaapi;
 #[cfg(target_os = "macos")]
 mod videotoolbox;
 
-const FRAME_RATE: u32 = 60;
+/// The highest pace, which the capture keeps and which decoders are told to expect.
+const FRAME_RATE: u32 = Pace::Acting.frame_rate();
 /// Delay before the last picture is encoded again after the encoder or its consumer dropped one,
 /// so viewers still get the latest state when the source goes idle.
 const RETRY: Duration = Duration::from_millis(100);
@@ -30,6 +35,25 @@ const RETRY: Duration = Duration::from_millis(100);
 /// that stays full, as on a busy computer, gets fewer of the keyframes it cannot take.
 fn retry_after(refusals: u32) -> Duration {
     RETRY * 2_u32.pow(refusals.clamp(1, 4) - 1)
+}
+
+/// Whether a new picture may be coded now, `last` being when the last new one was, or else when
+/// the one that waits is due. A capture keeps the highest pace, and its pictures come up to half
+/// of its frame time early or late: one that little early passes at once, and one that came
+/// sooner waits until that little after its frame time, so that a newer picture replaces it
+/// first. At a lower pace, every second picture of the capture passes as it comes, never every
+/// third.
+fn due(pace: Pace, last: Option<Instant>, now: Instant) -> Result<(), Instant> {
+    let Some(last) = last else {
+        return Ok(());
+    };
+    let slack = Pace::Acting.frame_time() / 2;
+    let frame = last + pace.frame_time();
+    if now + slack >= frame {
+        Ok(())
+    } else {
+        Err(frame + slack)
+    }
 }
 
 /// Where an encoder sends its frames.
@@ -60,6 +84,7 @@ pub enum Picture<'a> {
 pub struct Settings {
     pub format: Format,
     pub bitrate: u32,
+    pub pace: Pace,
 }
 
 pub struct Encoder(Backend);
@@ -117,7 +142,7 @@ impl Encoder {
             if vaapi::work(settings, output.as_ref(), shared) {
                 return;
             }
-            openh264::work(settings.bitrate, output.as_ref(), shared);
+            openh264::work(settings.bitrate, settings.pace, output.as_ref(), shared);
         })));
     }
 
@@ -178,6 +203,15 @@ impl Encoder {
             Backend::VideoToolbox(encoder) => encoder.set_bitrate(bitrate),
             #[cfg(not(target_os = "macos"))]
             Backend::Pixels(encoder) => encoder.set_bitrate(bitrate),
+        }
+    }
+
+    pub fn set_pace(&mut self, pace: Pace) {
+        match &mut self.0 {
+            #[cfg(target_os = "macos")]
+            Backend::VideoToolbox(encoder) => encoder.set_pace(pace),
+            #[cfg(not(target_os = "macos"))]
+            Backend::Pixels(encoder) => encoder.set_pace(pace),
         }
     }
 
