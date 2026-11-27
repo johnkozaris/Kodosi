@@ -28,12 +28,6 @@ const KEY_BYTES: usize = 16;
 const KEY_ROUNDS: u32 = 1003;
 #[cfg(all(unix, not(target_os = "macos")))]
 const KEY_ROUNDS: u32 = 1;
-/// KDE's Secret Service rejects ~1 in 256 DH sessions when `secret-service` strips a leading
-/// zero byte from the key (secret-service-rs#127); retrying generates a fresh key.
-#[cfg(all(unix, not(target_os = "macos")))]
-const SECRET_SERVICE_OPENINGS: usize = 3;
-#[cfg(all(unix, not(target_os = "macos")))]
-const REFUSED_ARGUMENTS: &str = "org.freedesktop.DBus.Error.InvalidArgs";
 const HOST_HASH_BYTES: usize = 32;
 /// Starting at cookie DB schema v24, decrypted values are prefixed with a 32-byte host SHA-256.
 const HASHED_FROM: i64 = 24;
@@ -263,21 +257,11 @@ fn opener_of(family: &Family, _folder: &Path) -> Result<Box<dyn Opener>, CopyErr
 
 #[cfg(all(unix, not(target_os = "macos")))]
 fn system_password(application: &str) -> Option<Vec<u8>> {
-    use secret_service::{EncryptionType, Error, SecretService};
+    use secret_service::{EncryptionType, SecretService};
 
     let runtime = tokio::runtime::Handle::try_current().ok()?;
     runtime.block_on(async {
-        let mut openings = 1;
-        let service = loop {
-            match SecretService::connect(EncryptionType::Dh).await {
-                Err(Error::Zbus(zbus::Error::MethodError(name, ..)))
-                    if openings < SECRET_SERVICE_OPENINGS && name == REFUSED_ARGUMENTS =>
-                {
-                    openings += 1;
-                }
-                connected => break connected.ok()?,
-            }
-        };
+        let service = SecretService::connect(EncryptionType::Dh).await.ok()?;
         let found = service
             .search_items(std::collections::HashMap::from([(
                 "application",
