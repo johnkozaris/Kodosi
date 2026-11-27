@@ -11,6 +11,16 @@ public enum VideoPicture: Sendable {
     case live
     /// Retains the last rendered frame while reconnecting until a fresh frame arrives.
     case kept
+
+    /// A live picture rests while it is not the stream's newest, and a kept one is live again once
+    /// it is.
+    func stale(_ stale: Bool) -> Self {
+        switch (self, stale) {
+        case (.live, true): .kept
+        case (.kept, false): .live
+        default: self
+        }
+    }
 }
 
 /// The one state that a view of a canvas video shows, on its picture. Kodosi handles what comes
@@ -64,10 +74,9 @@ public protocol VideoDisplay: Sendable {
     func stop()
 }
 
-/// A feed's pipe: JSON messages after a 0 byte, and video frames after a 1 byte. Frames are
-/// acknowledged, decoded and shown on the `VideoPipes` task so a busy main thread never triggers
-/// host backpressure; per-frame acks prevent queueing and let the host match quality to the link.
-/// Everything else reaches the feed in pipe order.
+/// A feed's pipe. The runtime hands its JSON messages and the frames that the decoder can take
+/// over on the pipe's own thread, in pipe order, so a busy main thread never holds them up; it
+/// acknowledges each frame once the display took it. Everything reaches the feed in pipe order.
 final class VideoChannel<Message: Decodable & Sendable>: Sendable {
     enum Heard: Sendable {
         case news(DocumentLink.News)
@@ -76,6 +85,9 @@ final class VideoChannel<Message: Decodable & Sendable>: Sendable {
         case shown(Int)
         /// The part of the source that the frames show from now on, or `nil` for all of it.
         case region(CGRect?)
+        /// True: the picture is not the stream's newest, so it is no longer live until it is again
+        /// or the next frame comes. False: it is the newest again.
+        case stale(Bool)
     }
 
     private struct State {
@@ -84,13 +96,12 @@ final class VideoChannel<Message: Decodable & Sendable>: Sendable {
         var display: any VideoDisplay?
         var surface = 0
         var shown = false
-        var samples = VideoSamples()
-        var lastFrame: UInt32 = 0
-        var holds = Holds.nothing
         var region: CGRect?
     }
 
     private let state = Mutex(State())
+    /// Only the pipe's thread builds and decodes samples, so the main thread never waits for one.
+    private let samples = Mutex(VideoSamples())
 
     /// Hears `link` until `stop`, unless another watch already does.
     func start(_ link: DocumentLink) -> AsyncStream<Heard>? {
@@ -102,11 +113,16 @@ final class VideoChannel<Message: Decodable & Sendable>: Sendable {
             return true
         }
         guard starts else { return nil }
-        link.onFrame = { [weak self] in self?.receive($0) }
         link.onNews = { [weak self] in self?.hear($0) }
+        link.video = VideoCalls(
+            frame: { [weak self] in self?.frame($0) ?? true },
+            message: { [weak self] in self?.receive($0) },
+            stale: { [weak self] in self?.stale($0) },
+        )
         return heard
     }
 
+    /// The runtime makes no call for the pipe once its link closed, so the display stops after it.
     func stop() {
         let (link, teller) = state.withLock { state in
             defer {
@@ -114,11 +130,11 @@ final class VideoChannel<Message: Decodable & Sendable>: Sendable {
                 state.teller = nil
                 state.shown = false
             }
-            state.display?.stop()
             return (state.link, state.teller)
         }
-        teller?.finish()
         link?.close()
+        state.withLock { $0.display }?.stop()
+        teller?.finish()
     }
 
     /// Hands frames to `display` from now on. A new surface number shows a frame before it counts
@@ -138,15 +154,9 @@ final class VideoChannel<Message: Decodable & Sendable>: Sendable {
         state.withLock { $0.display = nil }
     }
 
-    /// The decoder starts over, so it waits for the keyframe that it asks for.
+    /// The decoder starts over, so the runtime waits for a keyframe and asks for one.
     func restart() {
-        rejoin()
-        post(Keyframe())
-    }
-
-    /// A new watch starts with a keyframe.
-    func rejoin() {
-        state.withLock { $0.holds = .nothing }
+        state.withLock { $0.link }?.restartVideo()
     }
 
     /// The next frame counts as shown again, after a while without frames.
@@ -156,19 +166,12 @@ final class VideoChannel<Message: Decodable & Sendable>: Sendable {
 
     func post(_ message: some Encodable) {
         guard let body = try? JSONEncoder().encode(message) else { return }
-        state.withLock { $0.link }?.send(Data([Wire.messageTag]) + body)
+        state.withLock { $0.link }?.send(Data([0]) + body)
     }
 
-    private func receive(_ message: Data) {
-        switch message.first {
-        case Wire.frameTag:
-            frame(message)
-        case Wire.messageTag:
-            if let decoded = try? JSONDecoder().decode(Message.self, from: message.dropFirst()) {
-                tell(.message(decoded))
-            }
-        default:
-            break
+    private func receive(_ json: Data) {
+        if let decoded = try? JSONDecoder().decode(Message.self, from: json) {
+            tell(.message(decoded))
         }
     }
 
@@ -179,71 +182,44 @@ final class VideoChannel<Message: Decodable & Sendable>: Sendable {
         tell(.news(news))
     }
 
+    private func stale(_ stale: Bool) {
+        if stale {
+            state.withLock { $0.shown = false }
+        }
+        tell(.stale(stale))
+    }
+
     private func tell(_ heard: Heard) {
         state.withLock { $0.teller }?.yield(heard)
     }
 
-    /// The host intentionally skips frames for slow viewers and resumes on an anchor frame, so a
-    /// sequence gap only requires a keyframe request if the next frame is neither a keyframe nor
-    /// an anchor.
-    private func frame(_ message: Data) {
-        guard message.count > Wire.frameHeader else { return }
-        let header = [UInt8](message.prefix(Wire.frameHeader))
-        let id = header[1 ..< 5].reduce(UInt32(0)) { $0 << 8 | UInt32($1) }
-        let key = header[5] & Wire.keyFlag != 0
-        let anchor = header[5] & Wire.anchorFlag != 0
-        post(Ack(frame: id))
-        guard let codec = VideoCodec(rawValue: header[6]),
-              let (region, data) = Self.picture(message.dropFirst(Wire.frameHeader), regional: header[5] & Wire.regionFlag != 0)
-        else { return }
-        let (restarts, told) = state.withLock { state -> (Bool, [Heard]) in
-            // A frame still on its way when the watch stopped would start the stopped decoder again.
-            guard state.link != nil else { return (false, []) }
-            if state.holds == .stream, id != state.lastFrame &+ 1 {
-                state.holds = .gap
-            }
-            state.lastFrame = id
-            switch state.holds {
-            case .nothing where !key:
-                return (false, [])
-            case .gap where !key && !anchor:
-                return (true, [])
-            default:
-                break
-            }
-            guard let sample = state.samples.sample(of: data, codec: codec) else {
-                return (false, [])
-            }
-            state.holds = .stream
-            var told: [Heard] = []
-            if region != state.region {
-                state.region = region
-                told.append(.region(region))
-            }
-            let going = state.display?.enqueue(VideoSample(buffer: sample, region: region)) ?? true
-            if !state.shown {
-                state.shown = true
-                told.append(.shown(state.surface))
-            }
-            return (!going, told)
+    /// Returns `false` when the decoder cannot go on. The display decodes outside the state's lock,
+    /// so the main thread that sends input never waits for it.
+    private func frame(_ frame: VideoFrame) -> Bool {
+        let (display, surface) = state.withLock { ($0.display, $0.surface) }
+        let decoded = samples.withLock { samples -> Bool? in
+            guard let sample = samples.sample(of: frame.bytes, codec: frame.codec) else { return nil }
+            return display?.enqueue(VideoSample(buffer: sample, region: frame.region)) ?? true
         }
-        if restarts {
-            restart()
+        guard let going = decoded else { return false }
+        let told = state.withLock { state -> [Heard] in
+            // A frame still on its way when the watch stopped tells nobody.
+            guard state.link != nil else { return [] }
+            var told: [Heard] = []
+            if frame.region != state.region {
+                state.region = frame.region
+                told.append(.region(frame.region))
+            }
+            if going, !state.shown, state.surface == surface {
+                state.shown = true
+                told.append(.shown(surface))
+            }
+            return told
         }
         for heard in told {
             tell(heard)
         }
-    }
-
-    /// Splits a frame's body into the region that it shows, four big-endian 32-bit floats (x, y,
-    /// width and height) when it has one, and its Annex B data.
-    private static func picture(_ body: Data, regional: Bool) -> (CGRect?, Data)? {
-        guard regional else { return (nil, body) }
-        guard body.count > Wire.regionBytes else { return nil }
-        let values = stride(from: body.startIndex, to: body.startIndex + Wire.regionBytes, by: 4).map { start in
-            CGFloat(Float(bitPattern: body[start ..< start + 4].reduce(UInt32(0)) { $0 << 8 | UInt32($1) }))
-        }
-        return (CGRect(x: values[0], y: values[1], width: values[2], height: values[3]), body.dropFirst(Wire.regionBytes))
+        return going
     }
 }
 
@@ -270,34 +246,4 @@ struct VideoSize: Encodable, Equatable {
         height = Int(size.height)
         self.scale = Double(hot ? max(1, scale / 2) : scale)
     }
-}
-
-/// A frame is a tag byte, its number, its flags and its codec, then the region it shows when its
-/// flags say so, then its Annex B data.
-private enum Wire {
-    static let frameHeader = 7
-    static let regionBytes = 16
-    static let messageTag: UInt8 = 0
-    static let frameTag: UInt8 = 1
-    static let keyFlag: UInt8 = 1
-    static let anchorFlag: UInt8 = 2
-    static let regionFlag: UInt8 = 4
-}
-
-private struct Ack: Encodable {
-    let type = "ack"
-    let frame: UInt32
-}
-
-private struct Keyframe: Encodable {
-    let type = "keyframe"
-}
-
-private enum Holds {
-    /// Decoder has no reference state yet and must wait for a keyframe.
-    case nothing
-    /// Decoder is receiving contiguous frames since the last keyframe or anchor.
-    case stream
-    /// A sequence gap occurred; the next frame must be a keyframe or anchor.
-    case gap
 }

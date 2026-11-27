@@ -4,8 +4,10 @@
 
 #include <QByteArray>
 #include <QByteArrayView>
+#include <QHash>
 #include <QJsonObject>
 #include <QObject>
+#include <QRectF>
 #include <QString>
 
 #include <atomic>
@@ -15,6 +17,8 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+
+struct kodosi_video_frame_t;
 
 namespace kodosi {
 
@@ -39,14 +43,38 @@ public:
     [[nodiscard]] virtual Result send(QByteArrayView json) = 0;
 };
 
-// Delivers events for a pipe directly to its reader's thread in runtime order, bypassing the GUI
-// thread. `afterDrop` is true if events were dropped since the previous delivery.
-class PipeRouter {
+// The decoder of a video pipe that the app watches. The runtime calls it on a thread of the pipe,
+// one call at a time and in pipe order, so it never waits for the GUI thread.
+class VideoSink {
 public:
-    using Read = std::function<void(const QByteArray& event, bool afterDrop)>;
-    virtual ~PipeRouter() = default;
-    virtual void route(const QString& pipe, QObject& reader, Read read) = 0;
-    virtual void unroute(const QString& pipe) = 0;
+    struct Frame {
+        // KODOSI_VIDEO_H264 or KODOSI_VIDEO_HEVC.
+        std::uint8_t codec = 0;
+        bool key = false;
+        // The part of the source that the frame shows, in the source's points, when only a part.
+        std::optional<QRectF> region;
+        // The Annex B picture, valid only during the call.
+        QByteArrayView data;
+    };
+    virtual ~VideoSink() = default;
+    // Whether the decoder took the frame: false only when it cannot go on, so the runtime waits for
+    // a keyframe and asks for one.
+    [[nodiscard]] virtual bool take(const Frame& frame) noexcept = 0;
+    // A JSON message of the stream, valid only during the call.
+    virtual void hand(QByteArrayView message) noexcept = 0;
+    // True when the picture is not the stream's newest any more, so it rests until the next frame;
+    // false when it is the newest again.
+    virtual void stale(bool stale) noexcept = 0;
+};
+
+// Hands the frames and messages of the video pipes that the app opened to their sinks.
+class VideoWatcher {
+public:
+    virtual ~VideoWatcher() = default;
+    // From now on until `unwatch` or the pipe's close.
+    virtual void watch(const QString& pipe, std::shared_ptr<VideoSink> sink) = 0;
+    // Returns once no call of the pipe's sink runs and none will come.
+    virtual void unwatch(const QString& pipe) = 0;
 };
 
 [[nodiscard]] inline QJsonObject lostAnswer(const QString& operation, const QString& requestId, const QString& message)
@@ -106,11 +134,11 @@ public:
     [[nodiscard]] virtual bool installCheckpoint(TerminalCheckpoint checkpoint) noexcept = 0;
 };
 
-class RuntimeBridge : public QObject, public TerminalCommandDispatcher, public PipeRouter {
+class RuntimeBridge : public QObject, public TerminalCommandDispatcher, public VideoWatcher {
     Q_OBJECT
 public:
     using Result = CommandDispatcher::Result;
-    static constexpr std::uint32_t protocolVersion = 117;
+    static constexpr std::uint32_t protocolVersion = 118;
 
     explicit RuntimeBridge(QObject* parent = nullptr);
     RuntimeBridge(TerminalEventSink& terminalSink, QObject* parent = nullptr);
@@ -128,8 +156,8 @@ public:
     // Thread-safe. Runtime callbacks hold an internal runtime lock and may fire synchronously on
     // the calling thread, so never hold any callback-acquired mutex across `send()`.
     [[nodiscard]] Result send(QByteArrayView json) override;
-    void route(const QString& pipe, QObject& reader, Read read) override;
-    void unroute(const QString& pipe) override;
+    void watch(const QString& pipe, std::shared_ptr<VideoSink> sink) override;
+    void unwatch(const QString& pipe) override;
     [[nodiscard]] Result connectTerminal(const TerminalSubscription& subscription) override;
     [[nodiscard]] Result refreshTerminal(const TerminalSubscription& subscription) override;
     [[nodiscard]] Result disconnectTerminal(const TerminalSubscription& subscription) override;
@@ -157,12 +185,6 @@ private:
         std::uint64_t dropGeneration = 0;
         QByteArray payload;
     };
-    struct Route {
-        QByteArray field;
-        QObject* reader = nullptr;
-        Read read;
-        std::uint64_t dropGeneration = 0;
-    };
     std::shared_ptr<CallbackContext> m_callbacks = std::make_shared<CallbackContext>();
     bool m_starting = false;
     bool m_catchUpAfterStart = false;
@@ -179,17 +201,14 @@ private:
     std::mutex m_accountMutex;
     QString m_accountUserId;
     std::uint64_t m_accountEpoch = 0;
-    std::mutex m_routesMutex;
-    QList<Route> m_routes;
+    std::mutex m_videosMutex;
+    QHash<QByteArray, std::shared_ptr<VideoSink>> m_videos;
     RuntimeEventFaults m_faults;
     [[nodiscard]] Result requireRunning() const;
     [[nodiscard]] Result terminalOperationResult(std::int32_t result, QString operation) const;
     [[nodiscard]] Result subscriptionCommand(const TerminalSubscription& subscription,
         std::int32_t (*command)(void*, const char*, const char*, std::uint64_t), QString operation) const;
-    class Waiting;
     void queueEvent(const std::uint8_t* json, std::uintptr_t length);
-    [[nodiscard]] bool routeEvent(std::uint64_t generation, const QueuedEvent& event);
-    [[nodiscard]] bool claimed(const QByteArray& field, const QObject* reader);
     [[nodiscard]] bool dequeue(std::uint64_t generation, const QueuedEvent& event);
     void forgetQueue();
     void receiveQueued(std::uint64_t generation, const QueuedEvent& event);
@@ -204,6 +223,10 @@ private:
     static void terminalConnectResult(const char*, const char*, std::uint64_t, std::int32_t, void*) noexcept;
     static std::int32_t terminalCheckpoint(const char*, const char*, std::uint64_t, std::uint64_t,
         std::uint16_t, std::uint16_t, bool, const std::uint8_t*, std::uintptr_t, void*) noexcept;
+    static std::shared_ptr<VideoSink> videoSink(const char* pipe, void* userdata) noexcept;
+    static std::int32_t videoFrame(const char*, const kodosi_video_frame_t*, void*) noexcept;
+    static void videoMessage(const char*, const std::uint8_t*, std::uintptr_t, void*) noexcept;
+    static void videoStale(const char*, bool, void*) noexcept;
 };
 
 }

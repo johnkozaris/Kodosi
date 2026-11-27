@@ -155,6 +155,9 @@ async fn serve_connection(
         }
         return Ok(());
     }
+    if let Some(pipe) = hello.pipe {
+        return serve_video(stream, &runtime, pipe, cancel).await;
+    }
     let Some(session) = hello.session_id else {
         return serve_commands(
             stream,
@@ -293,6 +296,54 @@ async fn serve_commands(
         }
     }
 }
+/// Carries a video pipe's frames and messages to the app that watches it, and its decoder's
+/// answers back.
+async fn serve_video(
+    mut stream: kodosi_os::ipc::Stream,
+    runtime: &RuntimeHandle,
+    pipe: Uuid,
+    cancel: CancellationToken,
+) -> Result<()> {
+    let watch = match runtime.watch_video(pipe).await {
+        Ok(watch) => watch,
+        Err(error) => {
+            let refusal = Welcome {
+                version: VERSION,
+                error: Some(error.to_string()),
+                refusal: Refusal::of(&error),
+                ..Welcome::default()
+            };
+            return write_json(&mut stream, &refusal).await;
+        }
+    };
+    write_json(
+        &mut stream,
+        &Welcome {
+            version: VERSION,
+            ..Welcome::default()
+        },
+    )
+    .await?;
+    let crate::video::VideoWatch { mut shown, took } = watch;
+    let (reader, mut writer) = stream.into_split();
+    let mut reader = FrameReader::new(reader);
+    loop {
+        tokio::select! {
+            biased;
+            () = cancel.cancelled() => return Ok(()),
+            answer = read_took(&mut reader) => {
+                if took.send(answer?).await.is_err() {
+                    return Ok(());
+                }
+            }
+            next = shown.recv() => match next {
+                Some(next) => write_shown(&mut writer, &next).await?,
+                None => return Ok(()),
+            },
+        }
+    }
+}
+
 async fn write_event<W: AsyncWrite + Unpin + Send>(writer: &mut W, event: &Event) -> Result<()> {
     write_json(writer, &json!({"kind":"event","event":event})).await
 }

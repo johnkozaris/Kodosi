@@ -170,6 +170,10 @@ enum Request {
         session: Uuid,
         connection: Uuid,
     },
+    WatchVideo {
+        pipe: Uuid,
+        reply: oneshot::Sender<Result<crate::video::VideoWatch>>,
+    },
     Input {
         session: Uuid,
         incarnation: Uuid,
@@ -354,6 +358,13 @@ impl RuntimeHandle {
             session: session_id,
             reply,
         })?;
+        response.await.map_err(|_| Error::Stopped)?
+    }
+
+    /// The frames and messages of a video pipe that the app opened, for its decoder.
+    pub async fn watch_video(&self, pipe: Uuid) -> Result<crate::video::VideoWatch> {
+        let (reply, response) = oneshot::channel();
+        self.send(Request::WatchVideo { pipe, reply })?;
         response.await.map_err(|_| Error::Stopped)?
     }
 
@@ -3141,6 +3152,7 @@ impl Runtime {
                     target.unsubscribe(connection);
                 }
             }
+            Request::WatchVideo { pipe, reply } => self.watch_video(pipe, reply),
             Request::Input {
                 session,
                 incarnation,

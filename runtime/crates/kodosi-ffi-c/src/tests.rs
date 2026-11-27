@@ -17,6 +17,9 @@ fn start_rejects_missing_or_wrong_callback_table() {
         on_terminal_control: None,
         on_terminal_connect_result: None,
         on_terminal_checkpoint: None,
+        on_video_frame: None,
+        on_video_message: None,
+        on_video_stale: None,
     };
     assert!(
         unsafe {
@@ -96,8 +99,20 @@ fn callbacks() -> KodosiCallbacks {
         on_terminal_control: Some(ignore_control),
         on_terminal_connect_result: Some(ignore_result),
         on_terminal_checkpoint: Some(accept_checkpoint),
+        on_video_frame: Some(take_frame),
+        on_video_message: Some(ignore_message),
+        on_video_stale: Some(ignore_stale),
     }
 }
+unsafe extern "C" fn take_frame(
+    _: *const c_char,
+    _: *const KodosiVideoFrame,
+    _: *mut c_void,
+) -> i32 {
+    KODOSI_VIDEO_TAKEN
+}
+unsafe extern "C" fn ignore_message(_: *const c_char, _: *const u8, _: usize, _: *mut c_void) {}
+unsafe extern "C" fn ignore_stale(_: *const c_char, _: bool, _: *mut c_void) {}
 fn state() -> State {
     State {
         callbacks: callbacks(),
@@ -106,6 +121,7 @@ fn state() -> State {
         serial: Mutex::new(()),
         cancel: CancellationToken::new(),
         subscriptions: Mutex::new(Subscriptions::default()),
+        watches: Mutex::new(HashMap::new()),
     }
 }
 fn subscription(session: Uuid, generation: u64) -> Arc<SubscriptionState> {
@@ -199,4 +215,182 @@ fn a_callback_of_one_gate_does_not_excuse_waiting_for_another() {
     }
     assert!(!CallbackScope::within(&activation));
     assert!(!CallbackScope::within(&runtime));
+}
+
+struct HeldCalls {
+    entered: std::sync::mpsc::Sender<()>,
+    release: Mutex<std::sync::mpsc::Receiver<()>>,
+    count: AtomicUsize,
+}
+unsafe extern "C" fn held_frame(
+    _: *const c_char,
+    _: *const KodosiVideoFrame,
+    userdata: *mut c_void,
+) -> i32 {
+    let calls = unsafe { &*userdata.cast::<HeldCalls>() };
+    calls.count.fetch_add(1, Ordering::SeqCst);
+    let _ = calls.entered.send(());
+    let _ = lock(&calls.release).recv();
+    KODOSI_VIDEO_TAKEN
+}
+#[test]
+fn no_video_call_runs_once_the_app_ended_its_watch() {
+    use kodosi_runtime::video::{Codec, Frame, FrameKind, Shown, Took};
+    let executor = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1)
+        .enable_all()
+        .build()
+        .unwrap();
+    let (entered, calls_entered) = std::sync::mpsc::channel();
+    let (release, released) = std::sync::mpsc::channel();
+    let calls = HeldCalls {
+        entered,
+        release: Mutex::new(released),
+        count: AtomicUsize::new(0),
+    };
+    let mut state = state();
+    state.callbacks.on_video_frame = Some(held_frame);
+    state.userdata = UserData(std::ptr::from_ref(&calls).cast_mut().cast());
+    let state = Arc::new(state);
+    let watch = Arc::new(video::Watch::new(
+        CString::new(Uuid::now_v7().to_string()).unwrap(),
+        CancellationToken::new(),
+    ));
+    let (shown, watched) = tokio::sync::mpsc::channel(4);
+    let (took, mut answers) = tokio::sync::mpsc::channel(4);
+    executor.spawn(video::serve(
+        Arc::clone(&state),
+        Arc::clone(&watch),
+        watched,
+        took,
+    ));
+    let frame = Frame {
+        id: 1,
+        codec: Codec::H264,
+        kind: FrameKind::Key,
+        region: None,
+        data: Bytes::from_static(&[0, 0, 0, 1, 0x65]),
+    }
+    .encode();
+    shown.blocking_send(Shown::Frame(frame.clone())).unwrap();
+    calls_entered.recv().unwrap();
+    let ending = {
+        let watch = Arc::clone(&watch);
+        std::thread::spawn(move || watch.end())
+    };
+    while !watch.cancel.is_cancelled() {
+        std::thread::yield_now();
+    }
+    std::thread::sleep(Duration::from_millis(50));
+    assert!(
+        !ending.is_finished(),
+        "the watch ends only once the app's call returned, so the app may free its decoder then"
+    );
+    release.send(()).unwrap();
+    ending.join().unwrap();
+    assert_eq!(answers.blocking_recv(), Some(Took::Taken));
+    drop(shown.try_send(Shown::Frame(frame)));
+    std::thread::sleep(Duration::from_millis(50));
+    assert_eq!(
+        calls.count.load(Ordering::SeqCst),
+        1,
+        "no call after the end"
+    );
+    drop(state);
+    executor.shutdown_timeout(Duration::from_secs(1));
+}
+
+unsafe extern "C" fn counted_frame(
+    _: *const c_char,
+    _: *const KodosiVideoFrame,
+    userdata: *mut c_void,
+) -> i32 {
+    let count = unsafe { &*userdata.cast::<AtomicUsize>() };
+    count.fetch_add(1, Ordering::SeqCst);
+    KODOSI_VIDEO_TAKEN
+}
+#[test]
+fn a_watch_goes_on_with_its_next_connection_after_one_ends() {
+    use kodosi_runtime::video::{Codec, Frame, FrameKind, Shown, Took};
+    let executor = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1)
+        .enable_all()
+        .build()
+        .unwrap();
+    let count = AtomicUsize::new(0);
+    let mut state = state();
+    state.callbacks.on_video_frame = Some(counted_frame);
+    state.userdata = UserData(std::ptr::from_ref(&count).cast_mut().cast());
+    let state = Arc::new(state);
+    let watch = Arc::new(video::Watch::new(
+        CString::new(Uuid::now_v7().to_string()).unwrap(),
+        CancellationToken::new(),
+    ));
+    let frame = Frame {
+        id: 1,
+        codec: Codec::H264,
+        kind: FrameKind::Key,
+        region: None,
+        data: Bytes::from_static(&[0, 0, 0, 1, 0x65]),
+    }
+    .encode();
+    for connection in 1..=2 {
+        let (shown, watched) = tokio::sync::mpsc::channel(4);
+        let (took, mut answers) = tokio::sync::mpsc::channel(4);
+        let serving = executor.spawn(video::serve(
+            Arc::clone(&state),
+            Arc::clone(&watch),
+            watched,
+            took,
+        ));
+        shown.blocking_send(Shown::Frame(frame.clone())).unwrap();
+        assert_eq!(
+            answers.blocking_recv(),
+            Some(Took::Taken),
+            "connection {connection} reaches the app"
+        );
+        drop(shown);
+        executor.block_on(serving).unwrap();
+    }
+    assert_eq!(count.load(Ordering::SeqCst), 2);
+    executor.shutdown_timeout(Duration::from_secs(1));
+}
+
+unsafe extern "C" fn heard_stale(_: *const c_char, stale: bool, userdata: *mut c_void) {
+    let heard = unsafe { &*userdata.cast::<Mutex<Vec<bool>>>() };
+    lock(heard).push(stale);
+}
+#[test]
+fn the_app_hears_in_order_whether_its_picture_is_the_streams_newest() {
+    use kodosi_runtime::video::Shown;
+    let executor = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1)
+        .enable_all()
+        .build()
+        .unwrap();
+    let heard = Mutex::new(Vec::<bool>::new());
+    let mut state = state();
+    state.callbacks.on_video_stale = Some(heard_stale);
+    state.userdata = UserData(std::ptr::from_ref(&heard).cast_mut().cast());
+    let state = Arc::new(state);
+    let watch = Arc::new(video::Watch::new(
+        CString::new(Uuid::now_v7().to_string()).unwrap(),
+        CancellationToken::new(),
+    ));
+    let (shown, watched) = tokio::sync::mpsc::channel(4);
+    let (took, _answers) = tokio::sync::mpsc::channel(4);
+    let serving = executor.spawn(video::serve(
+        Arc::clone(&state),
+        Arc::clone(&watch),
+        watched,
+        took,
+    ));
+    for stale in [true, false, true] {
+        shown.blocking_send(Shown::Stale(stale)).unwrap();
+    }
+    drop(shown);
+    executor.block_on(serving).unwrap();
+    assert_eq!(*lock(&heard), [true, false, true]);
+    drop(state);
+    executor.shutdown_timeout(Duration::from_secs(1));
 }

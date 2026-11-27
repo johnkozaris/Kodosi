@@ -8,6 +8,7 @@
 #include <QObject>
 #include <QString>
 
+#include <memory>
 #include <optional>
 
 namespace kodosi {
@@ -38,22 +39,21 @@ private:
 [[nodiscard]] bool sendPipeFrame(CommandDispatcher& commands, const QString& pipe, const QString& frame);
 
 // Manages document pipes for views; the runtime reopens them automatically after disconnects until
-// they are closed.
+// they are closed. A video pipe's frames and messages go to its sink from the answer to each open
+// until the pipe closes or opens anew.
 class CanvasDocuments final : public QObject {
     Q_OBJECT
 
 public:
     CanvasDocuments(
-        CommandDispatcher& commands, PipeRouter& router, SessionCatalogModel& sessions, QObject* parent = nullptr);
+        CommandDispatcher& commands, VideoWatcher& videos, SessionCatalogModel& sessions, QObject* parent = nullptr);
     ~CanvasDocuments() override;
 
     Q_INVOKABLE [[nodiscard]] QString open(const QString& sessionId, const QString& key);
-    [[nodiscard]] QString openReader(
-        const QString& sessionId, const QString& key, QObject& reader, PipeRouter::Read read);
+    [[nodiscard]] QString openVideo(const QString& sessionId, const QString& key, std::shared_ptr<VideoSink> sink);
     [[nodiscard]] CommandDispatcher& commands() const { return m_commands; }
     Q_INVOKABLE void send(const QString& pipe, const QString& frame);
     Q_INVOKABLE void close(const QString& pipe);
-    void forget(const QString& pipe);
     void renew(const QString& pipe);
     void apply(const QJsonObject& event);
     void renewPipes();
@@ -72,18 +72,20 @@ private:
         QString sessionId;
         QString key;
         PipeParts parts;
-        bool routed = false;
+        std::shared_ptr<VideoSink> video;
+        bool watched = false;
         bool registered = false;
     };
 
-    QString openPipe(const QString& pipe, const QString& sessionId, const QString& key, bool routed);
+    QString openPipe(const QString& sessionId, const QString& key, std::shared_ptr<VideoSink> video);
     bool command(const QString& type, QJsonObject fields, const QString& requestId = {});
     void registerPipe(const QString& pipe, Pipe& open);
+    void unwatch(const QString& pipe, Pipe& open);
     void remove(const QString& pipe);
     void observe();
 
     CommandDispatcher& m_commands;
-    PipeRouter& m_router;
+    VideoWatcher& m_videos;
     SessionCatalogModel& m_sessions;
     QHash<QString, Pipe> m_pipes;
     QHash<QString, QString> m_opening;

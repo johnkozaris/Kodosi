@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define KODOSI_FFI_ABI_VERSION 11
+#define KODOSI_FFI_ABI_VERSION 12
 
 #define KODOSI_MAX_FRAME_BYTES 8388608
 
@@ -86,6 +86,20 @@
 
 #define KODOSI_LOG_ERROR 2
 
+#define KODOSI_VIDEO_TAKEN 0
+
+#define KODOSI_VIDEO_FAILED 1
+
+#define KODOSI_VIDEO_H264 0
+
+#define KODOSI_VIDEO_HEVC 1
+
+#define KODOSI_VIDEO_DELTA 0
+
+#define KODOSI_VIDEO_KEY 1
+
+#define KODOSI_VIDEO_ANCHOR 2
+
 typedef struct kodosi_start_failure_t {
   int32_t code;
   int32_t host_kind;
@@ -130,12 +144,36 @@ typedef int32_t (*kodosi_terminal_checkpoint_cb_t)(const char*,
                                                    uintptr_t,
                                                    void*);
 
+typedef struct kodosi_video_region_t {
+  float x;
+  float y;
+  float width;
+  float height;
+} kodosi_video_region_t;
+
+typedef struct kodosi_video_frame_t {
+  uint8_t codec;
+  uint8_t kind;
+  const struct kodosi_video_region_t *region;
+  const uint8_t *data;
+  uintptr_t length;
+} kodosi_video_frame_t;
+
+typedef int32_t (*kodosi_video_frame_cb_t)(const char*, const struct kodosi_video_frame_t*, void*);
+
+typedef void (*kodosi_video_message_cb_t)(const char*, const uint8_t*, uintptr_t, void*);
+
+typedef void (*kodosi_video_stale_cb_t)(const char*, bool, void*);
+
 typedef struct kodosi_callbacks_t {
   kodosi_event_cb_t on_event;
   kodosi_terminal_data_cb_t on_terminal_data;
   kodosi_terminal_control_cb_t on_terminal_control;
   kodosi_terminal_connect_result_cb_t on_terminal_connect_result;
   kodosi_terminal_checkpoint_cb_t on_terminal_checkpoint;
+  kodosi_video_frame_cb_t on_video_frame;
+  kodosi_video_message_cb_t on_video_message;
+  kodosi_video_stale_cb_t on_video_stale;
 } kodosi_callbacks_t;
 
 #ifdef __cplusplus
@@ -219,6 +257,12 @@ int32_t kodosi_terminal_disconnect(void *handle,
                                    const char *subscription_id,
                                    uint64_t generation)
 ;
+
+ int32_t kodosi_video_watch(void *handle, const char *pipe) ;
+
+ int32_t kodosi_video_restart(void *handle, const char *pipe) ;
+
+ int32_t kodosi_video_unwatch(void *handle, const char *pipe) ;
 
 #ifdef __cplusplus
 }

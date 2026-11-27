@@ -5,6 +5,7 @@ import android.media.MediaFormat
 import androidx.compose.ui.unit.IntSize
 import com.kodosi.mobile.runtime.fields
 import java.io.ByteArrayOutputStream
+import java.nio.ByteBuffer
 import kotlinx.serialization.json.JsonObject
 
 // The codec byte of a frame's header, and the codec's name in the browser's messages.
@@ -12,10 +13,10 @@ internal enum class VideoCodec(val wire: Int, val mime: String) {
     H264(0, MediaFormat.MIMETYPE_VIDEO_AVC),
     HEVC(1, MediaFormat.MIMETYPE_VIDEO_HEVC);
 
-    // The size of the pictures from a keyframe's sequence parameter set.
-    fun pictureSize(frame: ByteArray): IntSize? {
-        var index = 3
-        while (index < frame.size) {
+    // The size of the pictures from a keyframe's sequence parameter set, between the frame's position and limit.
+    fun pictureSize(frame: ByteBuffer): IntSize? {
+        var index = frame.position() + 3
+        while (index < frame.limit()) {
             if (frame[index - 1] == 1.toByte() && frame[index - 2] == 0.toByte() && frame[index - 3] == 0.toByte()) {
                 val header = frame[index].toInt()
                 val size = when {
@@ -59,10 +60,10 @@ private const val GENERAL_PROFILE_TIER_LEVEL = 96
 private const val SUB_LAYER_PROFILE = 88
 private val profilesWithChromaFormat = setOf(100, 110, 122, 244, 44, 83, 86, 118, 128, 138, 139, 134, 135)
 
-private fun payload(frame: ByteArray, from: Int): ByteArray {
+private fun payload(frame: ByteBuffer, from: Int): ByteArray {
     val payload = ByteArrayOutputStream()
     var zeros = 0
-    for (index in from until frame.size) {
+    for (index in from until frame.limit()) {
         val byte = frame[index].toInt() and 0xff
         if (zeros >= 2 && byte < 3) break
         if (zeros < 2 || byte != 3) payload.write(byte)

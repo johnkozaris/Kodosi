@@ -28,6 +28,7 @@ mod link;
 mod links;
 mod subscriptions;
 mod terminal_bridge;
+mod video;
 
 pub use app::{kodosi_close_app, kodosi_forward_activation, kodosi_log, kodosi_prepare};
 pub use instance::kodosi_start;
@@ -36,8 +37,9 @@ use callbacks::{CallbackScope, Gate, State, UserData, lock};
 use instance::{Instance, caught, code, handles, instance, payload, text};
 use subscriptions::{SubscriptionState, Subscriptions};
 pub use terminal_bridge::*;
+pub use video::{kodosi_video_restart, kodosi_video_unwatch, kodosi_video_watch};
 
-pub const KODOSI_FFI_ABI_VERSION: u32 = 11;
+pub const KODOSI_FFI_ABI_VERSION: u32 = 12;
 pub const KODOSI_MAX_FRAME_BYTES: usize = 8_388_608;
 pub const KODOSI_TERMINAL_SNAPSHOT_MAX_BYTES: usize = 281_018_368;
 pub const KODOSI_TERMINAL_IMAGE_STORAGE_MAX_BYTES: u64 = 67_108_864;
@@ -76,12 +78,24 @@ pub const KODOSI_ACTIVATION_MAX_BYTES: usize = 16_384;
 pub const KODOSI_LOG_INFO: i32 = 0;
 pub const KODOSI_LOG_WARNING: i32 = 1;
 pub const KODOSI_LOG_ERROR: i32 = 2;
+/// What `on_video_frame` returns: the decoder took the frame, or it cannot go on.
+pub const KODOSI_VIDEO_TAKEN: i32 = 0;
+pub const KODOSI_VIDEO_FAILED: i32 = 1;
+pub const KODOSI_VIDEO_H264: u8 = 0;
+pub const KODOSI_VIDEO_HEVC: u8 = 1;
+pub const KODOSI_VIDEO_DELTA: u8 = 0;
+pub const KODOSI_VIDEO_KEY: u8 = 1;
+pub const KODOSI_VIDEO_ANCHOR: u8 = 2;
 
 #[cfg(feature = "host")]
 const _: () = assert!(KODOSI_ACTIVATION_MAX_BYTES == local_host::MAX_ACTIVATION_BYTES);
 const _: () = assert!(KODOSI_TERMINAL_SNAPSHOT_MAX_BYTES == terminal::TERMINAL_SNAPSHOT_MAX_BYTES);
 const _: () =
     assert!(KODOSI_TERMINAL_IMAGE_STORAGE_MAX_BYTES == terminal::TERMINAL_IMAGE_STORAGE_MAX_BYTES);
+const _: () = assert!(
+    KODOSI_VIDEO_H264 == kodosi_runtime::video::Codec::H264.wire()
+        && KODOSI_VIDEO_HEVC == kodosi_runtime::video::Codec::Hevc.wire()
+);
 
 const MAX_SUBSCRIPTIONS: usize = 4_096;
 const STOP_BUDGET: Duration = Duration::from_secs(10);
@@ -111,6 +125,31 @@ type TerminalCheckpointCb = Option<
         *mut c_void,
     ) -> i32,
 >;
+type VideoFrameCb =
+    Option<unsafe extern "C" fn(*const c_char, *const KodosiVideoFrame, *mut c_void) -> i32>;
+type VideoMessageCb = Option<unsafe extern "C" fn(*const c_char, *const u8, usize, *mut c_void)>;
+type VideoStaleCb = Option<unsafe extern "C" fn(*const c_char, bool, *mut c_void)>;
+
+/// The part of a stream's source that a frame shows, in the source's points.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct KodosiVideoRegion {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+}
+
+/// A frame for the app's decoder, valid during the call: `region` is null when the frame shows
+/// the whole source, and `data` is its Annex B picture.
+#[repr(C)]
+pub struct KodosiVideoFrame {
+    pub codec: u8,
+    pub kind: u8,
+    pub region: *const KodosiVideoRegion,
+    pub data: *const u8,
+    pub length: usize,
+}
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -120,6 +159,9 @@ pub struct KodosiCallbacks {
     pub on_terminal_control: TerminalControlCb,
     pub on_terminal_connect_result: TerminalConnectResultCb,
     pub on_terminal_checkpoint: TerminalCheckpointCb,
+    pub on_video_frame: VideoFrameCb,
+    pub on_video_message: VideoMessageCb,
+    pub on_video_stale: VideoStaleCb,
 }
 
 #[repr(C)]

@@ -258,7 +258,6 @@ public final class BrowserFeed {
     private func join() {
         failure = nil
         joined = true
-        channel.rejoin()
         let size = currentSize
         sentSize = size
         channel.post(ToBrowserWindow.watch(size, decoders: DeviceDecoder.here, opened: opened, layer: Self.hostsLayer))
@@ -307,6 +306,11 @@ public final class BrowserFeed {
             if number == surfaces {
                 picture = .live
                 still = nil
+            }
+        case let .stale(stale):
+            // A browser that renders as a layer here is live without frames.
+            if window.layer == nil {
+                picture = picture.stale(stale)
             }
         case .news(.open), .news(.closed), .region:
             break

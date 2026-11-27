@@ -640,6 +640,11 @@ impl Live {
             self.dirty = true;
         }
         let seats = &self.seats;
+        for viewer in self.flow.unchanged(now, |viewer| queued(seats, viewer)) {
+            if let Some(seat) = seats.get(&viewer) {
+                drop(seat.outgoing.try_send(viewer::unchanged()));
+            }
+        }
         if self.capturing.is_some()
             && let Some(ask) = self.flow.ask(now, |viewer| queued(seats, viewer))
         {

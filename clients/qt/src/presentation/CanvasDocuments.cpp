@@ -67,10 +67,10 @@ bool sendPipeFrame(CommandDispatcher& commands, const QString& pipe, const QStri
 }
 
 CanvasDocuments::CanvasDocuments(
-    CommandDispatcher& commands, PipeRouter& router, SessionCatalogModel& sessions, QObject* parent)
+    CommandDispatcher& commands, VideoWatcher& videos, SessionCatalogModel& sessions, QObject* parent)
     : QObject(parent)
     , m_commands(commands)
-    , m_router(router)
+    , m_videos(videos)
     , m_sessions(sessions)
 {
     connect(&sessions, &SessionCatalogModel::authoritativeSnapshotApplied, this, &CanvasDocuments::observe);
@@ -78,10 +78,8 @@ CanvasDocuments::CanvasDocuments(
 
 CanvasDocuments::~CanvasDocuments()
 {
-    for (const auto& [pipe, open] : m_pipes.asKeyValueRange()) {
-        if (open.routed)
-            m_router.unroute(pipe);
-    }
+    for (auto open = m_pipes.begin(); open != m_pipes.end(); ++open)
+        unwatch(open.key(), *open);
 }
 
 bool CanvasDocuments::command(const QString& type, QJsonObject fields, const QString& requestId)
@@ -93,31 +91,29 @@ bool CanvasDocuments::command(const QString& type, QJsonObject fields, const QSt
 
 QString CanvasDocuments::open(const QString& sessionId, const QString& key)
 {
-    return openPipe(newId(), sessionId, key, false);
+    return openPipe(sessionId, key, {});
 }
 
 // Each terminal browser allows only one active viewer pipe per client, so two overlapping pipes
 // would repeatedly evict each other. QML Loaders destroy the previous item asynchronously, so
-// close any existing routed pipe when a new reader opens.
-QString CanvasDocuments::openReader(
-    const QString& sessionId, const QString& key, QObject& reader, PipeRouter::Read read)
+// close any existing video pipe when a new view opens.
+QString CanvasDocuments::openVideo(const QString& sessionId, const QString& key, std::shared_ptr<VideoSink> sink)
 {
     const auto held = std::find_if(m_pipes.cbegin(), m_pipes.cend(),
-        [&](const Pipe& open) { return open.routed && open.sessionId == sessionId && open.key == key; });
+        [&](const Pipe& open) { return open.video && open.sessionId == sessionId && open.key == key; });
     if (held != m_pipes.cend()) {
         const auto taken = held.key();
         close(taken);
         emit closed(taken, {});
     }
-    const auto pipe = newId();
-    m_router.route(pipe, reader, std::move(read));
-    return openPipe(pipe, sessionId, key, true);
+    return openPipe(sessionId, key, std::move(sink));
 }
 
-QString CanvasDocuments::openPipe(const QString& pipe, const QString& sessionId, const QString& key, bool routed)
+QString CanvasDocuments::openPipe(const QString& sessionId, const QString& key, std::shared_ptr<VideoSink> video)
 {
-    auto& open = *m_pipes.insert(
-        pipe, { .sessionId = sessionId, .key = key, .parts = {}, .routed = routed, .registered = false });
+    const auto pipe = newId();
+    auto& open = *m_pipes.insert(pipe,
+        { .sessionId = sessionId, .key = key, .parts = {}, .video = std::move(video), .watched = false, .registered = false });
     registerPipe(pipe, open);
     if (open.registered)
         return pipe;
@@ -125,8 +121,10 @@ QString CanvasDocuments::openPipe(const QString& pipe, const QString& sessionId,
     return {};
 }
 
+// Only the answer to the newest open of a pipe counts.
 void CanvasDocuments::registerPipe(const QString& pipe, Pipe& open)
 {
+    m_opening.removeIf([&pipe](QHash<QString, QString>::iterator asked) { return asked.value() == pipe; });
     const auto request = newId();
     const QJsonObject fields { { QStringLiteral("sessionId"), open.sessionId }, { QStringLiteral("pipe"), pipe },
         { QStringLiteral("key"), open.key } };
@@ -150,10 +148,10 @@ void CanvasDocuments::close(const QString& pipe)
     command(QStringLiteral("document.close"), { { QStringLiteral("pipe"), pipe } });
 }
 
-// Remove local state for a reader pipe already closed by the host.
-void CanvasDocuments::forget(const QString& pipe)
+void CanvasDocuments::unwatch(const QString& pipe, Pipe& open)
 {
-    remove(pipe);
+    if (std::exchange(open.watched, false))
+        m_videos.unwatch(pipe);
 }
 
 void CanvasDocuments::remove(const QString& pipe)
@@ -161,8 +159,7 @@ void CanvasDocuments::remove(const QString& pipe)
     const auto found = m_pipes.find(pipe);
     if (found == m_pipes.end())
         return;
-    if (found->routed)
-        m_router.unroute(pipe);
+    unwatch(pipe, *found);
     m_pipes.erase(found);
 }
 
@@ -171,15 +168,20 @@ void CanvasDocuments::apply(const QJsonObject& event)
     const auto type = event.value(QStringLiteral("type")).toString();
     if (type == QStringLiteral("document.result") || type == QStringLiteral("document.error")) {
         const auto pipe = m_opening.take(event.value(QStringLiteral("requestId")).toString());
-        if (type == QStringLiteral("document.error") && m_pipes.contains(pipe)) {
+        const auto found = m_pipes.find(pipe);
+        if (found == m_pipes.end())
+            return;
+        if (type == QStringLiteral("document.error")) {
             remove(pipe);
             emit closed(pipe, event.value(QStringLiteral("message")).toString());
+        } else if (found->video && !std::exchange(found->watched, true)) {
+            m_videos.watch(pipe, found->video);
         }
         return;
     }
     const auto pipe = event.value(QStringLiteral("pipe")).toString();
     const auto found = m_pipes.find(pipe);
-    if (found == m_pipes.end() || found->routed)
+    if (found == m_pipes.end())
         return;
     if (type == QStringLiteral("document.opened")) {
         found->parts.open();
@@ -192,7 +194,7 @@ void CanvasDocuments::apply(const QJsonObject& event)
         return;
     }
     if (type == QStringLiteral("document.closed")) {
-        m_pipes.erase(found);
+        remove(pipe);
         emit closed(pipe, {});
         return;
     }
@@ -210,9 +212,10 @@ void CanvasDocuments::apply(const QJsonObject& event)
 void CanvasDocuments::reset()
 {
     m_opening.clear();
-    for (auto& open : m_pipes) {
-        open.parts.close();
-        open.registered = false;
+    for (auto open = m_pipes.begin(); open != m_pipes.end(); ++open) {
+        unwatch(open.key(), *open);
+        open->parts.close();
+        open->registered = false;
     }
     const auto pipes = m_pipes.keys();
     for (const auto& pipe : pipes)
@@ -222,20 +225,20 @@ void CanvasDocuments::reset()
 // Dropped runtime events may include pipe chunks or open replies, so reopen registered pipes.
 void CanvasDocuments::renewPipes()
 {
-    m_opening.clear();
     for (const auto& [pipe, open] : m_pipes.asKeyValueRange()) {
         if (open.registered)
             renew(pipe);
     }
 }
 
-// A missing chunk corrupts framing, so close and reopen the pipe; in-flight chunks are ignored
+// What the pipe carried lost a part, so close and reopen it; parts still on their way are ignored
 // until the reopened pipe arrives.
 void CanvasDocuments::renew(const QString& pipe)
 {
     const auto found = m_pipes.find(pipe);
     if (found == m_pipes.end())
         return;
+    unwatch(pipe, *found);
     command(QStringLiteral("document.close"), { { QStringLiteral("pipe"), pipe } });
     registerPipe(pipe, *found);
 }

@@ -13,11 +13,45 @@ import Testing
     let pipe = try await runtime.open()
 
     let part = CGRect(x: 100, y: 50, width: 320, height: 180)
-    try runtime.send(FeedRuntime.keyFrame, on: pipe)
-    try runtime.send(FeedRuntime.frame(2, region: part), on: pipe)
-    #expect(try await runtime.messages(2) == ["ack", "ack"])
-    await eventually { shown.count == 2 }
+    runtime.send(FeedRuntime.keyFrame, on: pipe)
+    runtime.send(FeedRuntime.frame(region: part), on: pipe)
     #expect(shown.regions == [nil, part])
+}
+
+@MainActor
+@Test func `a picture that is not the stream's newest rests until it is again or the next frame comes`() async throws {
+    let runtime = FeedRuntime()
+    runtime.screen.show(on: NSObject(), Shown())
+    let watching = Task { await runtime.screen.watch() }
+    defer { watching.cancel() }
+    let pipe = try await runtime.open()
+    runtime.send(FeedRuntime.keyFrame, on: pipe)
+    await eventually { runtime.screen.showing == .live }
+
+    runtime.stale(pipe, true)
+    await eventually { runtime.screen.showing == .resting }
+    #expect(runtime.screen.showing == .resting)
+    runtime.stale(pipe, false)
+    await eventually { runtime.screen.showing == .live }
+    #expect(runtime.screen.showing == .live)
+
+    runtime.stale(pipe, true)
+    await eventually { runtime.screen.showing == .resting }
+    runtime.send(FeedRuntime.frame(), on: pipe)
+    await eventually { runtime.screen.showing == .live }
+    #expect(runtime.screen.showing == .live)
+}
+
+@MainActor
+@Test func `a new surface asks the runtime for a keyframe`() async throws {
+    let runtime = FeedRuntime()
+    let watching = Task { await runtime.screen.watch() }
+    defer { watching.cancel() }
+    _ = try await runtime.open()
+    #expect(runtime.watches.restarts == 0)
+
+    runtime.screen.show(on: NSObject(), Shown())
+    #expect(runtime.watches.restarts == 1)
 }
 
 @MainActor
@@ -72,7 +106,7 @@ import Testing
     var watching = Task { await runtime.screen.watch() }
     defer { watching.cancel() }
     var pipe = try await runtime.open()
-    try runtime.send(FeedRuntime.keyFrame, on: pipe)
+    runtime.send(FeedRuntime.keyFrame, on: pipe)
     await eventually { runtime.screen.picture == .live }
 
     try await runtime.leave(watching)
@@ -80,7 +114,7 @@ import Testing
 
     watching = Task { await runtime.screen.watch() }
     pipe = try await runtime.open()
-    try runtime.send(FeedRuntime.keyFrame, on: pipe)
+    runtime.send(FeedRuntime.keyFrame, on: pipe)
     await eventually { runtime.screen.picture == .live }
     #expect(runtime.screen.picture == .live)
 }
@@ -94,7 +128,7 @@ import Testing
     defer { watching.cancel() }
     let pipe = try await runtime.open()
     #expect(runtime.screen.showing == .opening)
-    try runtime.send(FeedRuntime.keyFrame, on: pipe)
+    runtime.send(FeedRuntime.keyFrame, on: pipe)
     await eventually { runtime.screen.showing == .live }
 
     try runtime.lose(pipe, saying: "The screen stopped.")

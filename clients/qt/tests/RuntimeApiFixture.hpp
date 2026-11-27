@@ -1,6 +1,7 @@
 #pragma once
 #include "runtime/RuntimeBridge.hpp"
 #include <QByteArray>
+#include <QStringList>
 #include <kodosi_runtime.h>
 #include <optional>
 
@@ -11,6 +12,8 @@ inline QByteArray lastCommand;
 inline bool allowStart = false;
 inline std::optional<kodosi_start_failure_t> startFailure;
 inline int hostStops = 0;
+// "watch <pipe>" and "unwatch <pipe>", in the order that the app called them.
+inline QStringList videoCalls;
 inline void sendEvent(const QByteArray& event)
 {
     if (callbacks.on_event)
@@ -25,5 +28,6 @@ inline void reset()
     allowStart = false;
     startFailure.reset();
     hostStops = 0;
+    videoCalls.clear();
 }
 }

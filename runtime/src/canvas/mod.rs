@@ -29,7 +29,6 @@ pub(crate) use browser::{answer_alone, answers_alone};
 pub const MOST_ITEMS: usize = 20;
 pub const MOST_FILE_BYTES: u64 = 32 * 1024 * 1024;
 pub const PART_BYTES: usize = 256 * 1024;
-#[cfg(feature = "host")]
 pub(crate) const BROWSER_PIPE: &str = "browser";
 /// The key of this computer's screen on the canvas, and of a pipe to it.
 pub(crate) const SCREEN_PIPE: &str = "screen";

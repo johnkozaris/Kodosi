@@ -45,6 +45,7 @@ pub mod protocol;
 pub mod provider;
 mod runtime;
 pub mod terminal;
+pub mod video;
 mod wake;
 mod worktree;
 

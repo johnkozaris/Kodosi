@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/prctl.h>
 
 #include "kodosi_runtime.h"
 
@@ -14,6 +15,9 @@ static jmethodID on_terminal_data;
 static jmethodID on_terminal_control;
 static jmethodID on_terminal_connect_result;
 static jmethodID on_terminal_checkpoint;
+static jmethodID on_video_frame;
+static jmethodID on_video_message;
+static jmethodID on_video_stale;
 static jobject receiver;
 static uint8_t empty_payload;
 
@@ -22,13 +26,17 @@ static void detach(void *attached) {
     (*java)->DetachCurrentThread(java);
 }
 
-// Runtime callbacks run on Rust worker threads; keep each thread attached until it exits.
+// Runtime callbacks run on Rust threads, each watched video pipe's own among them; keep each thread attached until it
+// exits, under the name that the runtime gave it, which Android otherwise replaces with Thread-N.
 static JNIEnv *attach(void) {
     JNIEnv *env = NULL;
     if ((*java)->GetEnv(java, (void **)&env, JNI_VERSION_1_6) == JNI_OK) {
         return env;
     }
-    if ((*java)->AttachCurrentThreadAsDaemon(java, &env, NULL) != JNI_OK) {
+    char name[16] = {0};
+    prctl(PR_GET_NAME, name);
+    JavaVMAttachArgs arguments = {.version = JNI_VERSION_1_6, .name = name[0] == '\0' ? NULL : name, .group = NULL};
+    if ((*java)->AttachCurrentThreadAsDaemon(java, &env, &arguments) != JNI_OK) {
         return NULL;
     }
     pthread_setspecific(attachment, env);
@@ -141,6 +149,58 @@ static int32_t checkpoint_callback(const char *session, const char *subscription
     return result;
 }
 
+static int32_t video_frame_callback(const char *pipe, const kodosi_video_frame_t *frame, void *userdata) {
+    JNIEnv *env = attach();
+    if (env == NULL || (*env)->PushLocalFrame(env, 4) != JNI_OK) {
+        return KODOSI_VIDEO_FAILED;
+    }
+    jint answer = KODOSI_VIDEO_FAILED;
+    jstring pipe_id = (*env)->NewStringUTF(env, pipe);
+    jobject buffer = borrowed(env, frame->data, frame->length);
+    jfloatArray region = NULL;
+    if (frame->region != NULL) {
+        const jfloat part[4] = {frame->region->x, frame->region->y, frame->region->width, frame->region->height};
+        region = (*env)->NewFloatArray(env, 4);
+        if (region != NULL) {
+            (*env)->SetFloatArrayRegion(env, region, 0, 4, part);
+        }
+    }
+    if (pipe_id != NULL && buffer != NULL && (frame->region == NULL || region != NULL)) {
+        answer = (*env)->CallIntMethod(env, (jobject)userdata, on_video_frame, pipe_id, (jint)frame->codec,
+                                       (jint)frame->kind, region, buffer);
+    }
+    int32_t result = settle(env) && answer == KODOSI_VIDEO_TAKEN ? KODOSI_VIDEO_TAKEN : KODOSI_VIDEO_FAILED;
+    (*env)->PopLocalFrame(env, NULL);
+    return result;
+}
+
+static void video_message_callback(const char *pipe, const uint8_t *json, uintptr_t length, void *userdata) {
+    JNIEnv *env = attach();
+    if (env == NULL || (*env)->PushLocalFrame(env, 4) != JNI_OK) {
+        return;
+    }
+    jstring pipe_id = (*env)->NewStringUTF(env, pipe);
+    jbyteArray array = byte_array(env, json, length);
+    if (pipe_id != NULL && array != NULL) {
+        (*env)->CallVoidMethod(env, (jobject)userdata, on_video_message, pipe_id, array);
+    }
+    settle(env);
+    (*env)->PopLocalFrame(env, NULL);
+}
+
+static void video_stale_callback(const char *pipe, bool stale, void *userdata) {
+    JNIEnv *env = attach();
+    if (env == NULL || (*env)->PushLocalFrame(env, 2) != JNI_OK) {
+        return;
+    }
+    jstring pipe_id = (*env)->NewStringUTF(env, pipe);
+    if (pipe_id != NULL) {
+        (*env)->CallVoidMethod(env, (jobject)userdata, on_video_stale, pipe_id, (jboolean)stale);
+    }
+    settle(env);
+    (*env)->PopLocalFrame(env, NULL);
+}
+
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     (void)reserved;
     java = vm;
@@ -161,9 +221,14 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
         (*env)->GetMethodID(env, callbacks, "onTerminalConnectResult", "(Ljava/lang/String;Ljava/lang/String;JI)V");
     on_terminal_checkpoint = (*env)->GetMethodID(env, callbacks, "onTerminalCheckpoint",
                                                  "(Ljava/lang/String;Ljava/lang/String;JJIIZLjava/nio/ByteBuffer;)I");
+    on_video_frame =
+        (*env)->GetMethodID(env, callbacks, "onVideoFrame", "(Ljava/lang/String;II[FLjava/nio/ByteBuffer;)I");
+    on_video_message = (*env)->GetMethodID(env, callbacks, "onVideoMessage", "(Ljava/lang/String;[B)V");
+    on_video_stale = (*env)->GetMethodID(env, callbacks, "onVideoStale", "(Ljava/lang/String;Z)V");
     (*env)->DeleteLocalRef(env, callbacks);
     if (on_event == NULL || on_terminal_data == NULL || on_terminal_control == NULL ||
-        on_terminal_connect_result == NULL || on_terminal_checkpoint == NULL) {
+        on_terminal_connect_result == NULL || on_terminal_checkpoint == NULL || on_video_frame == NULL ||
+        on_video_message == NULL || on_video_stale == NULL) {
         return JNI_ERR;
     }
     return JNI_VERSION_1_6;
@@ -235,6 +300,9 @@ JNIEXPORT jlong JNICALL Java_com_kodosi_mobile_runtime_NativeRuntime_start(JNIEn
         .on_terminal_control = control_callback,
         .on_terminal_connect_result = connect_result_callback,
         .on_terminal_checkpoint = checkpoint_callback,
+        .on_video_frame = video_frame_callback,
+        .on_video_message = video_message_callback,
+        .on_video_stale = video_stale_callback,
     };
     void *handle = kodosi_start(&table, sizeof(table), receiver);
     if (handle == NULL) {
@@ -398,4 +466,34 @@ JNIEXPORT jint JNICALL Java_com_kodosi_mobile_runtime_NativeRuntime_terminalInpu
         (*env)->ReleaseStringUTFChars(env, session, session_id);
     }
     return result;
+}
+
+typedef int32_t (*video_call)(void *, const char *);
+
+static jint call_video(JNIEnv *env, video_call call, jlong handle, jstring pipe) {
+    const char *pipe_id = (*env)->GetStringUTFChars(env, pipe, NULL);
+    if (pipe_id == NULL) {
+        return KODOSI_FFI_DESER_FAILED;
+    }
+    jint result = call((void *)(intptr_t)handle, pipe_id);
+    (*env)->ReleaseStringUTFChars(env, pipe, pipe_id);
+    return result;
+}
+
+JNIEXPORT jint JNICALL Java_com_kodosi_mobile_runtime_NativeRuntime_videoWatch(JNIEnv *env, jclass type, jlong handle,
+                                                                               jstring pipe) {
+    (void)type;
+    return call_video(env, kodosi_video_watch, handle, pipe);
+}
+
+JNIEXPORT jint JNICALL Java_com_kodosi_mobile_runtime_NativeRuntime_videoRestart(JNIEnv *env, jclass type,
+                                                                                 jlong handle, jstring pipe) {
+    (void)type;
+    return call_video(env, kodosi_video_restart, handle, pipe);
+}
+
+JNIEXPORT jint JNICALL Java_com_kodosi_mobile_runtime_NativeRuntime_videoUnwatch(JNIEnv *env, jclass type,
+                                                                                 jlong handle, jstring pipe) {
+    (void)type;
+    return call_video(env, kodosi_video_unwatch, handle, pipe);
 }

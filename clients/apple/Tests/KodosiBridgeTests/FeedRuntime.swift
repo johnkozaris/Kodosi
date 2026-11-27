@@ -5,35 +5,59 @@ import KodosiKit
 import Synchronization
 import Testing
 
+/// A frame as the runtime hands it to a feed: its codec number, the part of the source that it
+/// shows, and its Annex B picture.
+struct TestFrame {
+    let codec: UInt8
+    let region: CGRect?
+    let picture: Data
+}
+
+/// The runtime's side of the app's watches, which counts the keyframes that the feeds ask for.
+final class Watches: VideoWatching {
+    private let state = Mutex<(watched: Set<String>, restarts: Int)>(([], 0))
+
+    var restarts: Int {
+        state.withLock { $0.restarts }
+    }
+
+    func watches(_ pipe: String) -> Bool {
+        state.withLock { $0.watched.contains(pipe) }
+    }
+
+    func watch(_ pipe: String) {
+        state.withLock { _ = $0.watched.insert(pipe) }
+    }
+
+    func restart(_: String) {
+        state.withLock { $0.restarts += 1 }
+    }
+
+    func unwatch(_ pipe: String) {
+        state.withLock { _ = $0.watched.remove(pipe) }
+    }
+}
+
 /// A runtime that a feed's pipe talks to: it opens the pipe, hands it frames and messages, and
 /// keeps what the feed sends.
 @MainActor
 final class FeedRuntime {
-    static let keyFrame: Data = {
+    static let keyFrame: TestFrame = {
         let start: [UInt8] = [0, 0, 0, 1]
-        let header: [UInt8] = [1, 0, 0, 0, 1, 1, 0]
         let sequenceParameters: [UInt8] = [0x27, 0x42, 0x00, 0x0B, 0xAB, 0x41, 0x86, 0xF0, 0x2C, 0xC1, 0x4A]
         let pictureParameters: [UInt8] = [0x28, 0xCE, 0x3C, 0x80]
         let keyPicture: [UInt8] = [0x25, 0x88, 0x84]
-        return Data(header + start + sequenceParameters + start + pictureParameters + start + keyPicture)
+        return TestFrame(codec: 0, region: nil,
+                         picture: Data(start + sequenceParameters + start + pictureParameters + start + keyPicture))
     }()
 
     /// A delta frame, which shows only `region` of the source when it has one.
-    static func frame(_ id: UInt32, anchor: Bool = false, region: CGRect? = nil) -> Data {
-        let start: [UInt8] = [0, 0, 0, 1]
-        let number = withUnsafeBytes(of: id.bigEndian, Array.init)
-        let header: [UInt8] = [1] + number + [(anchor ? 2 : 0) | (region == nil ? 0 : 4), 0]
-        let part = region.map { region in
-            [region.minX, region.minY, region.width, region.height].flatMap { value in
-                withUnsafeBytes(of: Float(value).bitPattern.bigEndian, Array.init)
-            }
-        } ?? []
-        let picture: [UInt8] = [0x21, 0xE0, 0x84]
-        return Data(header + part + start + picture)
+    static func frame(region: CGRect? = nil) -> TestFrame {
+        TestFrame(codec: 0, region: region, picture: Data([0, 0, 0, 1, 0x21, 0xE0, 0x84]))
     }
 
     /// The parameter sets and picture of a 64x64 HEVC keyframe from VideoToolbox.
-    static func hevcKeyFrame(_ id: UInt32) -> Data {
+    static let hevcKeyFrame: TestFrame = {
         let start: [UInt8] = [0, 0, 0, 1]
         let videoParameters: [UInt8] = [
             0x40, 0x01, 0x0C, 0x03, 0xFF, 0xFF, 0x01, 0x60, 0x00, 0x00, 0x03, 0x00, 0xB0, 0x00, 0x00, 0x03, 0x00, 0x00, 0x03,
@@ -48,16 +72,12 @@ final class FeedRuntime {
         ]
         let pictureParameters: [UInt8] = [0x44, 0x01, 0xC0, 0x72, 0xF0, 0x5B, 0x24]
         let keyPicture: [UInt8] = [0x28, 0x01, 0xAF, 0x0A, 0xDA, 0x34, 0x70, 0x41]
-        let header: [UInt8] = [1] + withUnsafeBytes(of: id.bigEndian, Array.init) + [1, 1]
-        return Data(
-            header + start + videoParameters + start + sequenceParameters + start + pictureParameters + start + keyPicture,
-        )
-    }
+        return TestFrame(codec: 1, region: nil, picture: Data(
+            start + videoParameters + start + sequenceParameters + start + pictureParameters + start + keyPicture,
+        ))
+    }()
 
-    static func hevcFrame(_ id: UInt32) -> Data {
-        let header: [UInt8] = [1] + withUnsafeBytes(of: id.bigEndian, Array.init) + [0, 1]
-        return Data(header + [0, 0, 0, 1, 0x02, 0x01, 0xD0, 0x01, 0x83, 0x10])
-    }
+    static let hevcFrame = TestFrame(codec: 1, region: nil, picture: Data([0, 0, 0, 1, 0x02, 0x01, 0xD0, 0x01, 0x83, 0x10]))
 
     static let terminalId = "01992e43-53db-7040-8e02-f6ebf4149b28"
 
@@ -84,12 +104,12 @@ final class FeedRuntime {
     let feed: BrowserFeed
     let screen: ScreenFeed
     let store: CanvasStore
+    let watches = Watches()
     private(set) var opened: Bool?
     private var pipe: String?
     private let commands = CommandSink()
     private let pipes = VideoPipes()
     private let log = ProjectCommandLog()
-    private var sequences: [String: UInt64] = [:]
 
     init() {
         let log = log
@@ -99,6 +119,7 @@ final class FeedRuntime {
             return Int32(KODOSI_FFI_OK)
         }
         commands.setAccount(userId: "user-1", epoch: 1)
+        pipes.attach(watches)
         store = CanvasStore(commands: commands, videoPipes: pipes)
         feed = store.feed(Self.terminalId)
         screen = store.screenFeed(Self.terminalId)
@@ -112,7 +133,11 @@ final class FeedRuntime {
             pipe = try #require(opening["pipe"] as? String)
         }
         let pipe = try #require(pipe)
-        sequences[pipe] = 0
+        let deadline = ContinuousClock.now + .seconds(2)
+        while !watches.watches(pipe), ContinuousClock.now < deadline {
+            await Task.yield()
+        }
+        #expect(watches.watches(pipe), "a video pipe is watched once it opened")
         try deliver("document.opened", ["pipe": pipe])
         opened = try await watched()
         return pipe
@@ -133,14 +158,22 @@ final class FeedRuntime {
         pipe = nil
     }
 
-    func send(_ frame: Data, on pipe: String) throws {
-        let sequence = sequences[pipe, default: 0]
-        sequences[pipe] = sequence + 1
-        try deliver("document.frame", ["pipe": pipe, "sequence": sequence, "more": false, "data": frame.base64EncodedString()])
+    /// Hands `frame` to the feed as the runtime's thread of the pipe does, and returns whether its
+    /// decoder took it.
+    @discardableResult
+    func send(_ frame: TestFrame, on pipe: String) -> Bool {
+        frame.picture.withUnsafeBytes { bytes in
+            VideoFrame(codec: frame.codec, region: frame.region, bytes: bytes).map { pipes.frame(pipe, $0) }
+                ?? false
+        }
     }
 
     func say(_ message: [String: Any], on pipe: String) throws {
-        try send(Data([0]) + JSONSerialization.data(withJSONObject: message), on: pipe)
+        try pipes.message(pipe, JSONSerialization.data(withJSONObject: message))
+    }
+
+    func stale(_ pipe: String, _ stale: Bool) {
+        pipes.stale(pipe, stale)
     }
 
     /// The fields of the next message that the feed sends of `type`.
@@ -197,17 +230,8 @@ final class FeedRuntime {
         return messages
     }
 
-    /// Awaits `count` outbound messages emitted asynchronously by the pipe task.
-    func messages(_ count: Int) async throws -> [String?] {
-        var messages: [String?] = []
-        while messages.count < count {
-            try await messages.append(Self.message(log.next("document.send")))
-        }
-        return messages
-    }
-
     private func deliver(_ type: String, _ fields: [String: Any]) throws {
-        #expect(try pipes.take(Self.data(type, fields)))
+        try store.receive(Self.event(type, fields))
     }
 
     private static func data(_ type: String, _ fields: [String: Any]) throws -> Data {

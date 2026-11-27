@@ -3,9 +3,11 @@ package com.kodosi.mobile.canvas
 import android.os.PowerManager
 import com.kodosi.mobile.runtime.CommandSink
 import com.kodosi.mobile.runtime.RuntimeEvent
-import com.kodosi.mobile.runtime.RuntimeEventFaults
-import com.kodosi.mobile.runtime.RuntimeEventInbox
+import com.kodosi.mobile.runtime.VideoRuntime
+import com.kodosi.mobile.runtime.VideoSink
 import com.kodosi.mobile.terminals.RuntimeSession
+import java.nio.ByteBuffer
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import kotlin.time.Duration.Companion.seconds
@@ -18,23 +20,27 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.yield
 
-// Video pipes (the shared browser's and the screen's) run on a dedicated single thread so frame
-// reassembly, acks, and decoder handoff never block on the main thread (late acks cause the host to
-// lower bitrate).
+// The video pipes (the shared browser's and the screen's) that this app watches. The runtime hands each watched pipe's
+// messages and frames over on a thread of that pipe, so they never wait for the main thread; the feeds' own state stays
+// on this executor's single thread.
 class VideoPipes(
     private val commands: CommandSink,
     thread: Executor = Executors.newSingleThreadExecutor { Thread(it, "Kodosi video") },
     private val wifi: StreamingWifi? = null,
     power: PowerManager? = null,
     private val time: TimeSource = TimeSource.Monotonic
-) : Executor by thread {
+) : Executor by thread,
+    VideoSink {
     val dispatcher: CoroutineDispatcher = thread.asCoroutineDispatcher()
+
+    @Volatile
+    var runtime: VideoRuntime? = null
 
     private val work = CoroutineScope(SupervisorJob() + dispatcher)
     private val links = mutableListOf<DocumentLink>()
     private val feeds = mutableListOf<VideoFeed>()
+    private val watched = ConcurrentHashMap<String, VideoFeed>()
 
     // Each terminal's screen and browser feed lasts while the terminal's canvas holds it, so that its
     // still, zoom and sources wait for the next view. On the main thread.
@@ -51,17 +57,23 @@ class VideoPipes(
     internal var heat = PowerManager.THERMAL_STATUS_NONE
         private set
 
-    @Volatile
-    private var claimed = emptyList<ByteArray>()
-
     init {
         power?.addThermalStatusListener { status -> execute { heated(status) } }
     }
 
-    // Called on runtime threads to route pipe events off the main queue without parsing JSON.
-    // Matching raw `"pipe":"<id>"` bytes is safe because quotes inside JSON string values are
-    // escaped and only pipe events have a "pipe" key.
-    fun claims(json: ByteArray): Boolean = claimed.any(json::holds)
+    override fun frame(pipe: String, codec: Int, key: Boolean, region: FloatArray?, bytes: ByteBuffer): Boolean {
+        val feed = watched[pipe] ?: return true
+        val type = VideoCodec.of(codec) ?: return false
+        return feed.frame(type, key, region?.let { FrameRegion(it[0], it[1], it[2], it[3]) }, bytes)
+    }
+
+    override fun message(pipe: String, json: ByteArray) {
+        watched[pipe]?.message(json)
+    }
+
+    override fun stale(pipe: String, stale: Boolean) {
+        watched[pipe]?.stale(stale)
+    }
 
     // Called on this executor's thread whenever a feed starts or stops decoding onto a surface.
     internal fun shows(feed: VideoFeed, on: Boolean) {
@@ -107,30 +119,34 @@ class VideoPipes(
     }
 
     // Methods on the returned link must only be called on this executor's thread.
-    fun link(session: String, key: String): DocumentLink = DocumentLink(commands, session, key, ::claim) {
-        links.remove(it)
-        claim()
-    }.also { link -> execute { links.add(link) } }
-
-    suspend fun consume(inbox: RuntimeEventInbox) {
-        val faults = RuntimeEventFaults()
-        while (true) {
-            when (val arrival = inbox.next() ?: return) {
-                is RuntimeEventInbox.Arrival.Event -> receive(arrival.event)
-
-                is RuntimeEventInbox.Arrival.Unreadable -> faults.unreadable(null, arrival.reason)
-
-                is RuntimeEventInbox.Arrival.Behind -> {
-                    faults.videoBehind(arrival.events, arrival.bytes)
-                    links.toList().forEach(DocumentLink::renewAfterLoss)
-                }
+    internal fun link(feed: VideoFeed, key: String): DocumentLink {
+        val watch = object : DocumentLink.Watch {
+            override fun watch(pipe: String) {
+                watched[pipe] = feed
+                runtime?.watchVideo(pipe)
             }
-            // Yield between events so UI actions queued on this executor are not starved.
-            yield()
+
+            override fun unwatch(pipe: String) {
+                watched.remove(pipe)
+                runtime?.unwatchVideo(pipe)
+            }
         }
+        return DocumentLink(commands, feed.session, key, watch) { links.remove(it) }
+            .also { link -> execute { links.add(link) } }
     }
 
-    fun receive(event: RuntimeEvent) = links.toList().forEach { it.receive(event) }
+    // The decoder of the pipe started over, so the runtime waits for a keyframe and asks for one.
+    internal fun restart(pipe: String) {
+        runtime?.restartVideo(pipe)
+    }
+
+    // The opens, losses and closes of the pipes, which come on the main thread.
+    fun receive(event: RuntimeEvent) {
+        if (event.type !in LIFECYCLE) return
+        execute { links.toList().forEach { it.receive(event) } }
+    }
+
+    fun renewPipes() = execute { links.toList().forEach(DocumentLink::renewAfterLoss) }
 
     // Mark that the user explicitly opened the browser or the screen here so its size follows this
     // device (immediately if watching, or on the next watch). Returning from background or
@@ -187,24 +203,10 @@ class VideoPipes(
         }
     }
 
-    private fun claim() {
-        claimed = links.mapNotNull { link -> link.pipe?.let { "\"pipe\":\"$it\"".encodeToByteArray() } }
-    }
-
     private companion object {
         val QUIET = 5.seconds
         const val SCREEN = "screen"
         const val BROWSER = "browser"
+        val LIFECYCLE = setOf("document.opened", "document.lost", "document.closed")
     }
-}
-
-private fun ByteArray.holds(part: ByteArray): Boolean {
-    var start = 0
-    while (start <= size - part.size) {
-        var at = 0
-        while (at < part.size && this[start + at] == part[at]) at++
-        if (at == part.size) return true
-        start++
-    }
-    return false
 }

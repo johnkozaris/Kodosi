@@ -17,12 +17,13 @@ use super::{
     KODOSI_FFI_DESER_FAILED, KODOSI_FFI_OK, KODOSI_FFI_PAYLOAD_TOO_LARGE,
     KODOSI_FFI_RUNTIME_STOPPED, KODOSI_FFI_SESSION_NOT_FOUND,
     KODOSI_FFI_TERMINAL_CHECKPOINT_REJECTED, KodosiStartFailure, Mutex, Ordering, State,
-    SubscriptionState, Uuid, code, lock, start_error, terminal,
+    SubscriptionState, Uuid, code, lock, start_error, terminal, video,
 };
 
 const COMMAND_QUEUE: usize = 128;
 const MAX_PENDING: usize = 256;
 const TERMINAL_QUEUE: usize = 64;
+const VIDEO_QUEUE: usize = 4;
 const RECONNECT_FIRST: Duration = Duration::from_millis(250);
 const RECONNECT_LAST: Duration = Duration::from_secs(30);
 const SWEEP: Duration = Duration::from_secs(1);
@@ -255,6 +256,26 @@ impl Link {
             subscription.retire();
             lock(&subscription.connected).take();
             state.remove(session, &subscription);
+        })
+    }
+}
+
+impl Link {
+    pub(super) fn watch_video(
+        &self,
+        instance: &Instance,
+        pipe: Uuid,
+        watch: Arc<video::Watch>,
+    ) -> bool {
+        let root = self.root.clone();
+        let state = Arc::clone(&instance.state);
+        instance.spawn(async move {
+            tokio::select! {
+                biased;
+                () = watch.cancel.cancelled() => {}
+                () = keep_video(&root, &state, pipe, &watch) => {}
+            }
+            watch.retire();
         })
     }
 }
@@ -600,6 +621,65 @@ async fn write_frames<W: tokio::io::AsyncWrite + Unpin>(
     }
 }
 
+/// A video connection that ends while the app still watches, as when the host restarts or gave up
+/// on a write, connects again; the host holds the pipe's messages meanwhile. A pipe that the host
+/// no longer has ends the watch.
+async fn keep_video(root: &Path, state: &Arc<State>, pipe: Uuid, watch: &Arc<video::Watch>) {
+    let mut delay = RECONNECT_FIRST;
+    loop {
+        match local_host::VideoClient::connect(root, pipe).await {
+            Ok(client) => {
+                delay = RECONNECT_FIRST;
+                stream_video(client, Arc::clone(state), watch).await;
+                tracing::info!(%pipe, "the video connection ended, so the app connects again");
+            }
+            Err(Error::NotFound) => return,
+            Err(error) => tracing::info!(%pipe, %error, "the app could not watch a video"),
+        }
+        tokio::time::sleep(delay).await;
+        delay = (delay * 2).min(RECONNECT_LAST);
+    }
+}
+
+async fn stream_video(
+    client: local_host::VideoClient,
+    state: Arc<State>,
+    watch: &Arc<video::Watch>,
+) {
+    let local_host::VideoClient {
+        mut reader,
+        mut writer,
+    } = client;
+    let (arrived, shown) = mpsc::channel(VIDEO_QUEUE);
+    let (took, mut answers) = mpsc::channel(VIDEO_QUEUE);
+    let reading = async move {
+        while let Ok(next) = local_host::read_shown(&mut reader).await {
+            if arrived.send(next).await.is_err() {
+                return;
+            }
+        }
+    };
+    let writing = async move {
+        while let Some(answer) = answers.recv().await {
+            if local_host::write_took(&mut writer, answer).await.is_err() {
+                return;
+            }
+        }
+    };
+    // A broken connection ends `reading`, which ends what `serve` gets, so `serve` returns only
+    // after the pipe's thread made its last call.
+    let carrying = async move {
+        tokio::select! {
+            () = reading => {}
+            () = writing => {}
+        }
+    };
+    tokio::join!(
+        video::serve(state, Arc::clone(watch), shown, took),
+        carrying
+    );
+}
+
 fn restore(
     state: &State,
     token: &SubscriptionState,
@@ -639,12 +719,16 @@ mod tests {
                 on_terminal_control: None,
                 on_terminal_connect_result: None,
                 on_terminal_checkpoint: None,
+                on_video_frame: None,
+                on_video_message: None,
+                on_video_stale: None,
             },
             userdata: UserData(std::ptr::from_ref(events).cast_mut().cast()),
             gate: Gate::default(),
             serial: Mutex::new(()),
             cancel: CancellationToken::new(),
             subscriptions: Mutex::new(Subscriptions::default()),
+            watches: Mutex::new(HashMap::new()),
         }
     }
 

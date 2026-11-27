@@ -1,8 +1,8 @@
 //! Messages between a stream and a viewer.
 //!
-//! Each message starts with a tag byte: JSON control messages, or a frame with a 7-byte header
-//! (tag, id, flags, codec), then the region it shows as four 32-bit floats when its flags say so,
-//! then its Annex B data.
+//! Each message starts with a tag byte: JSON control messages, a frame with a 7-byte header (tag,
+//! id, flags, codec), then the region it shows as four 32-bit floats when its flags say so, then
+//! its Annex B data, or the tag alone that says the stream has nothing new.
 
 use bytes::{BufMut, Bytes, BytesMut};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -11,6 +11,9 @@ use crate::{Codec, FrameKind, Region};
 
 pub const JSON: u8 = 0;
 pub const FRAME: u8 = 1;
+/// Tells a viewer that has each frame the stream sent it that nothing came since: its picture is
+/// the stream's newest.
+pub const UNCHANGED: u8 = 2;
 const FRAME_HEADER: usize = 1 + 4 + 1 + 1;
 pub(crate) const KEY: u8 = 1;
 pub(crate) const ANCHOR: u8 = 2;
@@ -74,6 +77,57 @@ impl Frame {
         message.put_slice(&self.data);
         message.freeze()
     }
+
+    /// Reads a frame as `encode` writes it, or `None` when its header is broken or it carries no
+    /// picture. The picture shares the message's bytes.
+    pub fn decode(message: &Bytes) -> Option<Self> {
+        let header = message.get(..FRAME_HEADER)?;
+        if header[0] != FRAME {
+            return None;
+        }
+        let id = u32::from_be_bytes([header[1], header[2], header[3], header[4]]);
+        let flags = header[5];
+        let codec = Codec::from_wire(header[6])?;
+        let kind = if flags & KEY != 0 {
+            FrameKind::Key
+        } else if flags & ANCHOR != 0 {
+            FrameKind::Anchor
+        } else {
+            FrameKind::Delta
+        };
+        let (region, start) = if flags & REGION == 0 {
+            (None, FRAME_HEADER)
+        } else {
+            let values = message.get(FRAME_HEADER..FRAME_HEADER + REGION_BYTES)?;
+            let value = |index: usize| {
+                let at = index * 4;
+                f64::from(f32::from_be_bytes([
+                    values[at],
+                    values[at + 1],
+                    values[at + 2],
+                    values[at + 3],
+                ]))
+            };
+            let region = Region {
+                x: value(0),
+                y: value(1),
+                width: value(2),
+                height: value(3),
+            };
+            (Some(region), FRAME_HEADER + REGION_BYTES)
+        };
+        (message.len() > start).then(|| Self {
+            id,
+            codec,
+            kind,
+            region,
+            data: message.slice(start..),
+        })
+    }
+}
+
+pub const fn unchanged() -> Bytes {
+    Bytes::from_static(&[UNCHANGED])
 }
 
 pub fn json(value: &impl Serialize) -> Bytes {
@@ -200,5 +254,54 @@ mod tests {
                 0, 0, 0, 0, 0, 1, 0x41
             ][..]
         );
+    }
+
+    #[test]
+    fn a_frame_reads_back_as_it_was_written_and_a_broken_one_not_at_all() {
+        let picture = Bytes::from_static(&[0, 0, 0, 1, 0x65]);
+        for (kind, codec, region) in [
+            (FrameKind::Key, Codec::H264, None),
+            (FrameKind::Anchor, Codec::Hevc, None),
+            (
+                FrameKind::Delta,
+                Codec::H264,
+                Some(Region {
+                    x: 1.0,
+                    y: 2.0,
+                    width: 0.5,
+                    height: -2.0,
+                }),
+            ),
+        ] {
+            let frame = Frame {
+                id: u32::MAX,
+                codec,
+                kind,
+                region,
+                data: picture.clone(),
+            };
+            assert_eq!(Frame::decode(&frame.encode()), Some(frame));
+        }
+        let regional = Frame {
+            id: 7,
+            codec: Codec::H264,
+            kind: FrameKind::Delta,
+            region: Some(Region {
+                x: 0.0,
+                y: 0.0,
+                width: 1.0,
+                height: 1.0,
+            }),
+            data: picture,
+        }
+        .encode();
+        for broken in [
+            regional.slice(..FRAME_HEADER + REGION_BYTES),
+            regional.slice(..FRAME_HEADER + 3),
+            Bytes::from_static(&[FRAME, 0, 0, 0, 7, 1, 9, 0, 0, 0, 1, 0x65]),
+            Bytes::from_static(&[JSON, b'{', b'}', 0, 0, 0, 0, 0]),
+        ] {
+            assert_eq!(Frame::decode(&broken), None);
+        }
     }
 }

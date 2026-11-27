@@ -15,27 +15,18 @@
 #include <QQuickWindow>
 #include <QThreadPool>
 #include <QTimer>
-#include <QtEndian>
 
 #include <algorithm>
-#include <array>
 #include <atomic>
-#include <bit>
 #include <chrono>
 #include <mutex>
 #include <utility>
 
 namespace kodosi {
 namespace {
+static_assert(static_cast<int>(VideoCodec::H264) == KODOSI_VIDEO_H264
+    && static_cast<int>(VideoCodec::Hevc) == KODOSI_VIDEO_HEVC);
 constexpr char messageTag = 0;
-constexpr char frameTag = 1;
-// A frame is a tag byte, its number, its flags and its codec, then the region it shows when its flags
-// say so, then its Annex B data.
-constexpr qsizetype frameHeader = 7;
-constexpr qsizetype regionBytes = 16;
-constexpr char keyFlag = 1;
-constexpr char anchorFlag = 2;
-constexpr char regionFlag = 4;
 // Finding the GPU opens its driver. The first stream waits this long for it, and one that opens
 // before the search ends offers software decoding, so a driver that hangs costs one wait in all.
 constexpr std::chrono::milliseconds gpuWait { 500 };
@@ -84,72 +75,92 @@ struct Picture {
     std::optional<QRectF> region;
 };
 
-// Reads and decodes a video pipe on a dedicated thread. Frames depend on prior frames, so every
-// frame is decoded, and a new pipe or a broken frame waits for a keyframe.
-class VideoStream final : public QObject {
+// What a stream showed since the view looked last.
+struct Shown {
+    Picture picture;
+    // Whether the newest picture is not the stream's newest any more, as the stream said after it.
+    std::optional<bool> stale;
+};
+
+// Decodes a watched video pipe on the runtime's thread of the pipe, which hands over only the frames
+// that the decoder can take. The GUI thread lets the decoder go only while the pipe is not watched.
+class VideoStream final : public QObject, public VideoSink {
     Q_OBJECT
 
 public:
-    void read(const QByteArray& payload, bool afterDrop, CommandDispatcher& commands)
+    bool take(const Frame& frame) noexcept override
     {
-        const auto event = QJsonDocument::fromJson(payload).object();
-        const auto pipe = event.value(QStringLiteral("pipe")).toString();
-        if (pipe.isEmpty())
-            return;
-        if (pipe != m_pipe) {
-            m_pipe = pipe;
-            m_parts.close();
-            reset();
+        auto* decoder = decoderFor(frame.codec, frame.key);
+        auto decoded = decoder != nullptr ? decoder->decode(frame.data)
+                                          : std::expected<std::shared_ptr<VideoFrame>, int>(std::unexpect, 0);
+        if (!decoded) {
+            // A keyframe needs no earlier frame, so a GPU that cannot decode one cannot decode the stream.
+            if (frame.key && decoder != nullptr && decoder->onGpu()) {
+                if (const auto gpu = videoGpu(); gpu && !gpu->failed.exchange(true))
+                    qCWarning(kodosiVideo) << "This GPU cannot decode the stream, so video decodes in software";
+            }
+            m_decoder.reset();
+            return false;
         }
-        if (afterDrop)
-            m_parts.close();
-        const auto type = event.value(QStringLiteral("type")).toString();
-        if (type == QStringLiteral("document.opened")) {
-            m_parts.open();
-            m_holds = Holds::Nothing;
-            m_broken = false;
-            m_statesDropped = false;
-            emit opened(pipe);
-        } else if (type == QStringLiteral("document.lost")) {
-            m_parts.lose();
-            emit lost(pipe, event.value(QStringLiteral("message")).toString());
-        } else if (type == QStringLiteral("document.closed")) {
-            m_parts.close();
-            emit closed(pipe);
-        } else if (type == QStringLiteral("document.frame")) {
-            const auto taken = m_parts.take(event);
-            if (taken.broken)
-                breakPipe();
-            else if (taken.frame && taken.frame->startsWith(frameTag))
-                frame(*taken.frame, commands);
-            else if (taken.frame && taken.frame->startsWith(messageTag))
-                hand(*taken.frame);
-        }
+        if (*decoded)
+            show({ std::move(*decoded), frame.region });
+        return true;
     }
 
-    // Thread-safe: the runtime expects all chunks of a pipe frame to be sent contiguously.
-    bool post(CommandDispatcher& commands, const QString& pipe, const QJsonObject& message)
+    // Bound the states that wait for a busy GUI thread. Past that, drop them until the view opens the
+    // pipe again, which brings the whole state.
+    void hand(QByteArrayView message) noexcept override
     {
-        QByteArray bytes(1, messageTag);
-        bytes += QJsonDocument(message).toJson(QJsonDocument::Compact);
-        std::lock_guard lock(m_sending);
-        return sendPipeFrame(commands, pipe, QString::fromLatin1(bytes.toBase64()));
+        if (m_behind.load())
+            return;
+        if (const auto waiting = m_waitingStates.load(); waiting >= mostWaitingStates
+            || (waiting > 0 && m_waitingStateBytes.load() > mostWaitingStateBytes - message.size())) {
+            m_behind = true;
+            m_stateGeneration.fetch_add(1);
+            emit fellBehind();
+            return;
+        }
+        m_waitingStates.fetch_add(1);
+        m_waitingStateBytes.fetch_add(message.size());
+        emit received(m_stateGeneration.load(), message.toByteArray());
+    }
+
+    void stale(bool stale) noexcept override
+    {
+        bool waking = false;
+        {
+            std::lock_guard lock(m_showing);
+            // A decoder may take frames before it shows a picture, and until then the view shows an
+            // earlier one.
+            if (!stale && !m_pictured)
+                return;
+            waking = !m_shown.picture.frame && !m_shown.stale;
+            m_shown.stale = stale;
+        }
+        if (waking)
+            emit pictureReady();
     }
 
     // Coalesce decoded frames so a busy GUI thread always picks up only the latest picture.
-    std::pair<QString, Picture> takePicture()
+    Shown takeShown()
     {
         std::lock_guard lock(m_showing);
-        return { std::exchange(m_picturePipe, {}), std::exchange(m_picture, {}) };
+        return std::exchange(m_shown, {});
     }
 
-    // Nobody watches until a new pipe comes, which starts a decoder of its own.
-    void forgetDecoder()
+    // Nothing of the pipe that went is shown, and a new pipe starts a decoder of its own.
+    void forget()
     {
         m_decoder.reset();
+        m_stateGeneration.fetch_add(1);
+        m_behind = false;
         std::lock_guard lock(m_showing);
-        m_picture = {};
+        m_shown = {};
+        m_pictured = false;
     }
+
+    // The pipe opens again, with the whole state.
+    void caughtUp() { m_behind = false; }
 
     bool tookState(quint64 generation, qsizetype bytes)
     {
@@ -159,70 +170,11 @@ public:
     }
 
 signals:
-    void opened(const QString& pipe);
-    void received(const QString& pipe, quint64 generation, const QByteArray& message);
+    void received(quint64 generation, const QByteArray& message);
     void pictureReady();
-    void lost(const QString& pipe, const QString& reason);
-    void closed(const QString& pipe);
-    void broke(const QString& pipe);
+    void fellBehind();
 
 private:
-    // What the stream waits for: a keyframe at first, or a keyframe or an anchor after a gap.
-    enum class Holds { Nothing, Stream, Gap };
-
-    // The host skips frames for a viewer that falls behind and resumes it on an anchor, so a gap in the
-    // numbers asks for a keyframe only when the next frame is neither a keyframe nor an anchor.
-    void frame(const QByteArray& message, CommandDispatcher& commands)
-    {
-        if (message.size() <= frameHeader)
-            return;
-        const auto id = qFromBigEndian<quint32>(message.constData() + 1);
-        const auto flags = message.at(5);
-        const bool key = (flags & keyFlag) != 0;
-        if (m_holds == Holds::Stream && id != m_lastFrame + 1)
-            m_holds = Holds::Gap;
-        m_lastFrame = id;
-        if (!key && (m_holds == Holds::Nothing || (m_holds == Holds::Gap && (flags & anchorFlag) == 0))) {
-            ack(commands, id);
-            if (m_holds == Holds::Gap)
-                restart(commands);
-            return;
-        }
-        auto body = QByteArrayView(message).sliced(frameHeader);
-        std::optional<QRectF> region;
-        if ((flags & regionFlag) != 0) {
-            if (body.size() <= regionBytes) {
-                ack(commands, id);
-                return;
-            }
-            // Four big-endian 32-bit floats: x, y, width and height.
-            std::array<float, 4> values {};
-            for (std::size_t index = 0; index < values.size(); ++index) {
-                const auto bits = qFromBigEndian<quint32>(body.data() + static_cast<qsizetype>(index) * 4);
-                values.at(index) = std::bit_cast<float>(bits);
-            }
-            region = QRectF(values.at(0), values.at(1), values.at(2), values.at(3));
-            body = body.sliced(regionBytes);
-        }
-        auto* decoder = decoderFor(static_cast<quint8>(message.at(6)), key);
-        auto decoded = decoder != nullptr ? decoder->decode(body)
-                                          : std::expected<std::shared_ptr<VideoFrame>, int>(std::unexpect, 0);
-        ack(commands, id);
-        if (!decoded) {
-            // A keyframe needs no earlier frame, so a GPU that cannot decode one cannot decode the stream.
-            if (key && decoder != nullptr && decoder->onGpu()) {
-                if (const auto gpu = videoGpu(); gpu && !gpu->failed.exchange(true))
-                    qCWarning(kodosiVideo) << "This GPU cannot decode the stream, so video decodes in software";
-            }
-            m_decoder.reset();
-            restart(commands);
-            return;
-        }
-        m_holds = Holds::Stream;
-        if (*decoded)
-            show({ std::move(*decoded), region });
-    }
-
     // A keyframe starts a decoder for its codec, on the GPU once the search found one that has not failed.
     VideoDecoder* decoderFor(quint8 wire, bool key)
     {
@@ -239,80 +191,25 @@ private:
         return m_decoder.get();
     }
 
-    // Waits for a keyframe, which the host sends at most once a second.
-    void restart(CommandDispatcher& commands)
-    {
-        m_holds = Holds::Nothing;
-        askKeyframe(commands);
-    }
-
-    // The host rate-limits keyframes to one per second because each is broadcast to all viewers.
-    void askKeyframe(CommandDispatcher& commands)
-    {
-        if (!post(commands, m_pipe, { { QStringLiteral("type"), QStringLiteral("keyframe") } }))
-            breakPipe();
-    }
-
-    void ack(CommandDispatcher& commands, quint32 frame)
-    {
-        if (!post(commands, m_pipe,
-                { { QStringLiteral("type"), QStringLiteral("ack") },
-                    { QStringLiteral("frame"), static_cast<qint64>(frame) } }))
-            breakPipe();
-    }
-
     void show(Picture picture)
     {
         bool waking = false;
         {
             std::lock_guard lock(m_showing);
-            waking = !m_picture.frame;
-            m_picture = std::move(picture);
-            m_picturePipe = m_pipe;
+            waking = !m_shown.picture.frame && !m_shown.stale;
+            m_shown = { .picture = std::move(picture), .stale = std::nullopt };
+            m_pictured = true;
         }
         if (waking)
             emit pictureReady();
     }
 
-    // Bound queued state messages for a busy GUI thread. Once exceeded, drop further messages and
-    // reset the pipe so reopening delivers a fresh full state snapshot.
-    void hand(const QByteArray& message)
-    {
-        if (m_statesDropped)
-            return;
-        if (const auto waiting = m_waitingStates.load(); waiting >= mostWaitingStates
-            || (waiting > 0 && m_waitingStateBytes.load() > mostWaitingStateBytes - message.size())) {
-            m_statesDropped = true;
-            m_stateGeneration.fetch_add(1);
-            breakPipe();
-            return;
-        }
-        m_waitingStates.fetch_add(1);
-        m_waitingStateBytes.fetch_add(message.size());
-        emit received(m_pipe, m_stateGeneration.load(), message);
-    }
-
-    // Missing or unsent chunks corrupt the stream, so close and reopen the pipe to resync.
-    void breakPipe()
-    {
-        m_parts.close();
-        if (!std::exchange(m_broken, true))
-            emit broke(m_pipe);
-    }
-
-    void reset() { m_decoder.reset(); }
-
-    QString m_pipe;
-    PipeParts m_parts;
     std::unique_ptr<VideoDecoder> m_decoder;
-    quint32 m_lastFrame = 0;
-    Holds m_holds = Holds::Nothing;
-    bool m_broken = false;
-    bool m_statesDropped = false;
-    std::mutex m_sending;
     std::mutex m_showing;
-    QString m_picturePipe;
-    Picture m_picture;
+    Shown m_shown;
+    // The decoder showed a picture of this pipe.
+    bool m_pictured = false;
+    std::atomic<bool> m_behind { false };
     std::atomic<int> m_waitingStates { 0 };
     std::atomic<qsizetype> m_waitingStateBytes { 0 };
     std::atomic<quint64> m_stateGeneration { 0 };
@@ -413,18 +310,12 @@ StreamVideo::StreamVideo(const QString& key, QQuickItem* parent)
     : QQuickItem(parent)
     , m_key(key)
     , m_lastShowing(QStringLiteral("waiting"))
-    , m_stream(new VideoStream)
+    , m_stream(std::make_shared<VideoStream>())
 {
     setFlag(ItemHasContents);
-    m_stream->moveToThread(&m_decoding);
-    connect(&m_decoding, &QThread::finished, m_stream, &QObject::deleteLater);
-    connect(m_stream, &VideoStream::opened, this, &StreamVideo::opened);
-    connect(m_stream, &VideoStream::received, this, &StreamVideo::received);
-    connect(m_stream, &VideoStream::pictureReady, this, &StreamVideo::showPicture);
-    connect(m_stream, &VideoStream::lost, this, &StreamVideo::lost);
-    connect(m_stream, &VideoStream::closed, this, [this](const QString& pipe) { closed(pipe, {}); });
-    connect(m_stream, &VideoStream::broke, this, &StreamVideo::broke);
-    m_decoding.start();
+    connect(m_stream.get(), &VideoStream::received, this, &StreamVideo::received, Qt::QueuedConnection);
+    connect(m_stream.get(), &VideoStream::pictureReady, this, &StreamVideo::showPicture, Qt::QueuedConnection);
+    connect(m_stream.get(), &VideoStream::fellBehind, this, &StreamVideo::fellBehind, Qt::QueuedConnection);
     videoGpu();
     m_settle.setSingleShot(true);
     m_settle.setInterval(settleWait);
@@ -440,8 +331,6 @@ StreamVideo::~StreamVideo()
     keep();
     if (m_documents && !m_pipe.isEmpty())
         m_documents->close(m_pipe);
-    m_decoding.quit();
-    m_decoding.wait();
 }
 
 QObject* StreamVideo::documents() const
@@ -454,6 +343,7 @@ void StreamVideo::setDocuments(QObject* documents)
     m_documents = qobject_cast<CanvasDocuments*>(documents);
     if (!m_documents)
         return;
+    connect(m_documents, &CanvasDocuments::opened, this, &StreamVideo::opened);
     connect(m_documents, &CanvasDocuments::lost, this, &StreamVideo::lost);
     connect(m_documents, &CanvasDocuments::closed, this, &StreamVideo::closed);
     join();
@@ -565,10 +455,7 @@ void StreamVideo::join()
     if (!m_active || !watchable() || !m_documents || m_sessionId.isEmpty() || !m_pipe.isEmpty()
         || !isComponentComplete())
         return;
-    auto* stream = m_stream;
-    auto& commands = m_documents->commands();
-    m_pipe = m_documents->openReader(m_sessionId, m_key, *m_stream,
-        [stream, &commands](const QByteArray& event, bool afterDrop) { stream->read(event, afterDrop, commands); });
+    m_pipe = m_documents->openVideo(m_sessionId, m_key, m_stream);
     if (!m_pipe.isEmpty())
         setProblem({});
 }
@@ -577,6 +464,7 @@ void StreamVideo::leave()
 {
     if (m_documents && !m_pipe.isEmpty())
         m_documents->close(m_pipe);
+    m_stream->forget();
     m_pipe.clear();
     m_watching = false;
     m_live = false;
@@ -586,7 +474,6 @@ void StreamVideo::leave()
 void StreamVideo::pause()
 {
     leave();
-    QMetaObject::invokeMethod(m_stream, [stream = m_stream] { stream->forgetDecoder(); });
     if (m_frame && m_frame->onGpu()) {
         copyIntoMemory(m_frame, *this, [this](const auto& picture, const auto& copy) {
             if (m_frame == picture && copy) {
@@ -632,25 +519,27 @@ void StreamVideo::watch()
         { QStringLiteral("opened"), m_canvas && m_canvas->takeChoice(m_sessionId, m_key) } });
 }
 
-void StreamVideo::received(const QString& pipe, quint64 generation, const QByteArray& message)
+void StreamVideo::received(quint64 generation, const QByteArray& message)
 {
-    if (!m_stream->tookState(generation, message.size()) || pipe != m_pipe)
-        return;
-    take(QJsonDocument::fromJson(message.mid(1)).object());
+    if (m_stream->tookState(generation, message.size()))
+        take(QJsonDocument::fromJson(message).object());
 }
 
+// What the stream said after its newest picture rests that picture or makes it live again.
 void StreamVideo::showPicture()
 {
-    auto [pipe, picture] = m_stream->takePicture();
-    if (pipe != m_pipe || !picture.frame)
-        return;
-    const bool moved = picture.region != m_region;
-    m_frame = std::move(picture.frame);
-    m_region = picture.region;
-    m_live = true;
-    update();
-    if (moved)
-        this->moved();
+    auto [picture, stale] = m_stream->takeShown();
+    if (picture.frame) {
+        const bool moved = picture.region != m_region;
+        m_frame = std::move(picture.frame);
+        m_region = picture.region;
+        m_live = true;
+        update();
+        if (moved)
+            this->moved();
+    }
+    if (stale)
+        m_live = !*stale;
     restate();
 }
 
@@ -669,8 +558,7 @@ void StreamVideo::closed(const QString& pipe, const QString& reason)
 {
     if (pipe != m_pipe)
         return;
-    if (m_documents)
-        m_documents->forget(pipe);
+    m_stream->forget();
     m_pipe.clear();
     m_watching = false;
     m_live = false;
@@ -685,12 +573,14 @@ void StreamVideo::retry()
     join();
 }
 
-void StreamVideo::broke(const QString& pipe)
+// The view dropped states of the stream, so the pipe opens again with the whole state.
+void StreamVideo::fellBehind()
 {
-    if (pipe != m_pipe || !m_documents)
-        return;
-    m_watching = false;
-    m_documents->renew(pipe);
+    if (m_documents && !m_pipe.isEmpty()) {
+        m_watching = false;
+        m_documents->renew(m_pipe);
+    }
+    m_stream->caughtUp();
 }
 
 QString StreamVideo::showing() const
@@ -741,7 +631,9 @@ void StreamVideo::post(const QJsonObject& message)
 {
     if (!m_documents || m_pipe.isEmpty())
         return;
-    if (!m_stream->post(m_documents->commands(), m_pipe, message)) {
+    QByteArray bytes(1, messageTag);
+    bytes += QJsonDocument(message).toJson(QJsonDocument::Compact);
+    if (!sendPipeFrame(m_documents->commands(), m_pipe, QString::fromLatin1(bytes.toBase64()))) {
         m_watching = false;
         m_documents->renew(m_pipe);
     }

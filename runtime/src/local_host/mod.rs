@@ -39,6 +39,8 @@ struct Hello {
     version: u32,
     root: String,
     session_id: Option<Uuid>,
+    /// The video pipe whose frames and messages this connection carries to the app.
+    pipe: Option<Uuid>,
     /// A client of another version may not say what it is, and still learns which version this
     /// host speaks. Without a word it counts as a command, which answers no questions.
     #[serde(default = "a_command")]
@@ -165,14 +167,17 @@ mod server;
 pub use app::{
     AppClaim, Forwarded, MAX_ACTIVATION_BYTES, claim_app, forward_activation, serve_activations,
 };
-pub use client::{Client, Commands, Events, TerminalClient, connect_or_start, stop_other_host};
+pub use client::{
+    Client, Commands, Events, TerminalClient, VideoClient, connect_or_start, stop_other_host,
+};
 use framing::{
-    CONTROL, DATA, INPUT, REFRESH, RESIZE, TERMINAL_FRAME_MAX, checkpoint_frame, control_frame,
-    read_frame, read_json, resize_frame, write_frame, write_json,
+    CONTROL, DATA, INPUT, REFRESH, RESIZE, TERMINAL_FRAME_MAX, VIDEO_FRAME_MAX, checkpoint_frame,
+    control_frame, read_frame, read_json, read_took, resize_frame, write_frame, write_json,
+    write_shown,
 };
 pub use framing::{
-    FrameReader, TerminalFrame, input_ack_frame, read_terminal, write_control, write_input,
-    write_refresh, write_resize,
+    FrameReader, TerminalFrame, input_ack_frame, read_shown, read_terminal, write_control,
+    write_input, write_refresh, write_resize, write_took,
 };
 pub use server::{LocalServer, serve};
 use server::{endpoint, local_error, lock_root, role_endpoint, root_identity};

@@ -22,6 +22,9 @@ const STEADY: Duration = Duration::from_secs(10);
 const MOST_FALLS: u32 = 3;
 /// Inactivity timeout before evicting a viewer that stops acking frames.
 pub const HOPELESS: Duration = Duration::from_secs(15);
+/// How often a viewer with the newest picture hears that nothing changed. A viewer rests its
+/// picture after several periods without a frame or this word, so one lost word does not dim it.
+const UNCHANGED_EVERY: Duration = Duration::from_millis(250);
 /// Queuing delay threshold indicating the link is slower than the current bitrate.
 const QUEUE_LIMIT: Duration = Duration::from_millis(40);
 const STEER_EVERY: Duration = Duration::from_millis(250);
@@ -92,6 +95,8 @@ struct Seat {
     /// The bitrate that the transport's congestion control finds for this viewer, when its frames
     /// go as datagrams.
     transported: Option<u32>,
+    /// When the viewer was last sent a frame or told that nothing changed.
+    said_at: Instant,
 }
 
 impl Seat {
@@ -115,6 +120,7 @@ impl Seat {
             window_least: None,
             window_at: now,
             transported: None,
+            said_at: now,
         }
     }
 
@@ -170,6 +176,7 @@ impl Seat {
             self.heard_at = now;
         }
         self.due_at = self.due_at.max(now) + crossing(bytes, bitrate);
+        self.said_at = now;
         self.waiting += bytes;
         self.sent.push_back(Sent {
             id,
@@ -560,6 +567,26 @@ impl Flow {
             self.leave(viewer);
         }
         gone
+    }
+
+    /// Names each viewer to tell now that nothing changed: one that holds the stream, has
+    /// acknowledged each frame that it was sent, got neither a frame nor this word for
+    /// `UNCHANGED_EVERY`, and has nothing waiting on its way. A viewer with a frame in flight or a
+    /// gap hears nothing, since its picture is not the newest.
+    pub fn unchanged(&mut self, now: Instant, queued: impl Fn(&str) -> usize) -> Vec<String> {
+        self.seats
+            .iter_mut()
+            .filter(|(viewer, seat)| {
+                seat.holds == Holds::Stream
+                    && seat.sent.is_empty()
+                    && now.duration_since(seat.said_at) >= UNCHANGED_EVERY
+                    && queued(viewer) == 0
+            })
+            .map(|(viewer, seat)| {
+                seat.said_at = now;
+                viewer.clone()
+            })
+            .collect()
     }
 
     fn forget(&mut self, viewer: &str) {
@@ -1072,6 +1099,38 @@ mod tests {
             send(&mut flow, 2, FrameKind::Delta, now + HOPELESS).to,
             ["here"]
         );
+    }
+
+    #[test]
+    fn only_a_viewer_with_the_newest_picture_hears_once_a_period_that_nothing_changed() {
+        let now = Instant::now();
+        let mut flow = flow_with(&["current", "in flight", "gap"], now);
+        send(&mut flow, 1, FrameKind::Key, now);
+        send(&mut flow, 2, FrameKind::Delta, after(now, 100));
+        flow.lost("gap", 2, after(now, 100));
+        for viewer in ["current", "gap"] {
+            flow.ack(viewer, 1, after(now, 110));
+        }
+        flow.ack("current", 2, after(now, 110));
+        let mut told = |at, queued: &dyn Fn(&str) -> usize| flow.unchanged(after(now, at), queued);
+        assert_eq!(told(349, &none), Vec::<String>::new());
+        assert_eq!(told(350, &none), ["current"]);
+        assert_eq!(told(599, &none), Vec::<String>::new(), "once a period");
+        assert_eq!(told(600, &none), ["current"]);
+        assert_eq!(
+            told(850, &|viewer| usize::from(viewer == "current")),
+            Vec::<String>::new(),
+            "an earlier word still waits on its way"
+        );
+        assert_eq!(told(900, &none), ["current"]);
+        send(&mut flow, 3, FrameKind::Delta, after(now, 1000));
+        flow.ack("current", 3, after(now, 1010));
+        assert_eq!(
+            flow.unchanged(after(now, 1249), none),
+            Vec::<String>::new(),
+            "a frame starts the period again"
+        );
+        assert_eq!(flow.unchanged(after(now, 1250), none), ["current"]);
     }
 
     #[test]

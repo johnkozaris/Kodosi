@@ -85,3 +85,19 @@ fn the_header_states_the_terminal_limits_of_the_contract() {
         define("KODOSI_TERMINAL_IMAGE_STORAGE_MAX_BYTES")
     );
 }
+
+#[test]
+fn the_header_states_the_video_numbers_of_the_contract() {
+    let video = &contract()["video"];
+    for (number, name) in [
+        (&video["codecs"]["h264"], "KODOSI_VIDEO_H264"),
+        (&video["codecs"]["hevc"], "KODOSI_VIDEO_HEVC"),
+        (&video["kinds"]["delta"], "KODOSI_VIDEO_DELTA"),
+        (&video["kinds"]["key"], "KODOSI_VIDEO_KEY"),
+        (&video["kinds"]["anchor"], "KODOSI_VIDEO_ANCHOR"),
+        (&video["results"]["taken"], "KODOSI_VIDEO_TAKEN"),
+        (&video["results"]["failed"], "KODOSI_VIDEO_FAILED"),
+    ] {
+        assert_eq!(*number, define(name), "{name}");
+    }
+}

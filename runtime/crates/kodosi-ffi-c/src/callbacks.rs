@@ -1,11 +1,12 @@
 use std::cell::RefCell;
 
 use super::{
-    Arc, CancellationToken, Condvar, KODOSI_FFI_OK, KODOSI_MAX_FRAME_BYTES,
+    Arc, CancellationToken, Condvar, HashMap, KODOSI_FFI_OK, KODOSI_MAX_FRAME_BYTES,
     KODOSI_TERMINAL_CONTROL_MAX_BYTES, KODOSI_TERMINAL_SNAPSHOT_MAX_BYTES, KodosiCallbacks, Mutex,
     MutexGuard, Uuid, c_void,
     subscriptions::{SubscriptionState, Subscriptions},
     terminal,
+    video::Watch,
 };
 
 thread_local! {
@@ -59,6 +60,11 @@ impl Gate {
     pub(super) fn close(&self) {
         lock(&self.state).closed = true;
     }
+    /// Closed, and no call runs any more.
+    pub(super) fn is_done(&self) -> bool {
+        let state = lock(&self.state);
+        state.closed && state.active == 0
+    }
     pub(super) fn wait(&self) {
         let mut state = lock(&self.state);
         while state.active != 0 {
@@ -102,6 +108,7 @@ pub(super) struct State {
     pub(super) serial: Mutex<()>,
     pub(super) cancel: CancellationToken,
     pub(super) subscriptions: Mutex<Subscriptions>,
+    pub(super) watches: Mutex<HashMap<Uuid, Arc<Watch>>>,
 }
 impl State {
     pub(super) fn catalog(&self, snapshot: &serde_json::Value) {
@@ -286,6 +293,9 @@ impl State {
             .collect();
         for entry in entries {
             entry.retire();
+        }
+        for (_, watch) in lock(&self.watches).drain() {
+            watch.retire();
         }
     }
 }

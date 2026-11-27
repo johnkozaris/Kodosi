@@ -3,17 +3,18 @@ package com.kodosi.mobile.canvas
 import android.graphics.ImageFormat
 import android.hardware.HardwareBuffer
 import android.media.ImageReader
+import android.media.MediaFormat
 import android.os.Handler
 import android.os.HandlerThread
 import androidx.compose.ui.unit.IntSize
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import java.nio.ByteBuffer
 import java.util.Base64
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -46,6 +47,31 @@ class VideoDecoderTest {
     }
 
     @Test
+    fun aDecoderThatFailsWithTheFullSpeedRequestShowsItsPictureWithoutItAndIsNotAskedAgain() {
+        val asked = LinkedBlockingQueue<String>()
+        // A width that the decoder does not support, so it fails before its first picture.
+        val refusedRequest = { decoder: String ->
+            asked.add(decoder)
+            mapOf(MediaFormat.KEY_WIDTH to 100_000)
+        }
+        repeat(2) {
+            pictures.clear()
+            VideoDecoder(
+                reader.surface,
+                {},
+                rendered = {},
+                refused = {},
+                lost = {},
+                decoders = { _, _ -> listOf(SOFTWARE_H264) },
+                fullSpeed = refusedRequest
+            ).use { decoder ->
+                assertEquals(IntSize(160, 96), stream(decoder, SMALLER, IntSize(160, 96)))
+            }
+        }
+        assertEquals(listOf(SOFTWARE_H264), asked.toList())
+    }
+
+    @Test
     fun anHevcKeyframeShowsItsPicture() {
         VideoDecoder(reader.surface, {}, rendered = {}, refused = {}, lost = {}).use { decoder ->
             assertEquals(IntSize(160, 96), stream(decoder, HEVC, IntSize(160, 96), VideoCodec.HEVC))
@@ -63,7 +89,7 @@ class VideoDecoderTest {
             lost = {},
             decoders = { _, _ -> listOf("c2.kodosi.missing.decoder") }
         ).use { decoder ->
-            assertTrue(decoder.frame(Base64.getDecoder().decode(SMALLER), key = true, VideoCodec.H264))
+            decoder.frame(frame(SMALLER), key = true, VideoCodec.H264)
             assertEquals(decoder, refusals.poll(5, TimeUnit.SECONDS))
             assertNull(refusals.poll(1, TimeUnit.SECONDS))
         }
@@ -73,20 +99,32 @@ class VideoDecoderTest {
     // keyframe until a decoded frame of the expected size arrives.
     private fun stream(
         decoder: VideoDecoder,
-        frame: String,
+        keyframe: String,
         size: IntSize,
         codec: VideoCodec = VideoCodec.H264
     ): IntSize? {
-        val bytes = Base64.getDecoder().decode(frame)
         val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
         while (System.nanoTime() < end) {
-            decoder.frame(bytes, key = true, codec)
+            decoder.frame(frame(keyframe), key = true, codec)
             if (pictures.poll(100, TimeUnit.MILLISECONDS) == size) return size
         }
         return null
     }
 
+    // A frame in memory outside the Java heap, as the runtime lends it.
+    private fun frame(base64: String): ByteBuffer {
+        val bytes = Base64.getDecoder().decode(base64)
+        return ByteBuffer.allocateDirect(bytes.size).apply {
+            put(bytes)
+            flip()
+        }
+    }
+
     private companion object {
+        // Every Android device has it. The app never asks it for full speed, so what the app remembers of it here
+        // changes no other test.
+        const val SOFTWARE_H264 = "c2.android.avc.decoder"
+
         const val SMALLER =
             "AAAAASdCwAyJigiGG8I83AgICB4QCEIwAAAAASjOPIAAAAABJbgAQACX///giigAfHAAEAuOAATn1/ffffffffPBm44Y++aDJf11" +
                 "11111110wZ11BlXXXXXXXXXTBnXUGVdddddddddMGddQZV111111110wZ11BlXXXXXXXXXTBnXg="

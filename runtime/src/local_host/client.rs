@@ -10,7 +10,7 @@ pub struct Commands(kodosi_os::ipc::WriteHalf);
 
 impl Client {
     pub async fn connect(root: &Path, client: ClientKind) -> Result<Self> {
-        let (stream, mut welcome) = connect(root, None, client).await?;
+        let (stream, mut welcome) = connect(root, None, None, client).await?;
         let language = crate::text::language();
         for event in &mut welcome.events {
             crate::text::render(event, language);
@@ -51,7 +51,7 @@ impl Commands {
 }
 
 pub async fn stop_other_host(root: &Path, force: bool, update: bool) -> Result<()> {
-    let (mut stream, welcome) = handshake(root, None, ClientKind::Command).await?;
+    let (mut stream, welcome) = handshake(root, None, None, ClientKind::Command).await?;
     if welcome.version == VERSION
         && let Some(error) = welcome.error
     {
@@ -99,7 +99,7 @@ pub struct TerminalClient {
 }
 impl TerminalClient {
     pub async fn connect(root: &Path, session: Uuid, client: ClientKind) -> Result<Self> {
-        let (stream, welcome) = connect(root, Some(session), client).await?;
+        let (stream, welcome) = connect(root, Some(session), None, client).await?;
         let terminal = welcome
             .terminal
             .ok_or_else(|| Error::Invalid("the host did not name the terminal".into()))?;
@@ -114,12 +114,28 @@ impl TerminalClient {
     }
 }
 
+/// The frames and messages of one video pipe that the app watches.
+pub struct VideoClient {
+    pub reader: FrameReader<kodosi_os::ipc::ReadHalf>,
+    pub writer: kodosi_os::ipc::WriteHalf,
+}
+impl VideoClient {
+    pub async fn connect(root: &Path, pipe: Uuid) -> Result<Self> {
+        let (stream, _) = connect(root, None, Some(pipe), ClientKind::App).await?;
+        let (reader, writer) = stream.into_split();
+        let mut reader = FrameReader::new(reader);
+        reader.maximum = VIDEO_FRAME_MAX;
+        Ok(Self { reader, writer })
+    }
+}
+
 async fn connect(
     root: &Path,
     session_id: Option<Uuid>,
+    pipe: Option<Uuid>,
     client: ClientKind,
 ) -> Result<(kodosi_os::ipc::Stream, Welcome)> {
-    let (stream, welcome) = handshake(root, session_id, client).await?;
+    let (stream, welcome) = handshake(root, session_id, pipe, client).await?;
     if welcome.version < VERSION {
         let host = welcome
             .host
@@ -147,6 +163,7 @@ async fn connect(
 async fn handshake(
     root: &Path,
     session_id: Option<Uuid>,
+    pipe: Option<Uuid>,
     client: ClientKind,
 ) -> Result<(kodosi_os::ipc::Stream, Welcome)> {
     let root = kodosi_os::fs::canonicalize(root)?;
@@ -167,6 +184,7 @@ async fn handshake(
             version: VERSION,
             root: root_identity(&root),
             session_id,
+            pipe,
             client,
         },
     )

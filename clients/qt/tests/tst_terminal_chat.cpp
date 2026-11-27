@@ -9,7 +9,7 @@
 #include <QtTest/QTest>
 
 namespace {
-class Commands final : public kodosi::CommandDispatcher, public kodosi::PipeRouter {
+class Commands final : public kodosi::CommandDispatcher, public kodosi::VideoWatcher {
 public:
     QList<QJsonObject> values;
     Result send(QByteArrayView bytes) override
@@ -17,8 +17,8 @@ public:
         values.append(QJsonDocument::fromJson(bytes.toByteArray()).object());
         return {};
     }
-    void route(const QString&, QObject&, Read) override { }
-    void unroute(const QString&) override { }
+    void watch(const QString&, std::shared_ptr<kodosi::VideoSink>) override { }
+    void unwatch(const QString&) override { }
     [[nodiscard]] QList<QJsonObject> of(const QString& type) const
     {
         QList<QJsonObject> found;

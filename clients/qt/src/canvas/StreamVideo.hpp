@@ -3,7 +3,6 @@
 #include <QJsonObject>
 #include <QPointer>
 #include <QQuickItem>
-#include <QThread>
 #include <QTimer>
 #include <QVariantMap>
 
@@ -16,10 +15,10 @@ class VideoStream;
 class CanvasDocuments;
 class CanvasModel;
 
-// A view of a video pipe: the shared browser's or the screen's. Decodes and acknowledges frames on a
-// dedicated thread so a busy GUI thread does not build up a frame queue or stall the feedback the
-// host uses to keep the picture as sharp as this device and the link allow. The last picture of a
-// view stays for the next view of the same feed, which shows it resting until the stream is live.
+// A view of a video pipe: the shared browser's or the screen's. Its frames are decoded on the
+// runtime's thread of the pipe, so a busy GUI thread does not hold up the feedback that the host
+// uses to keep the picture as sharp as this device and the link allow. The last picture of a view
+// stays for the next view of the same feed, which shows it resting until the stream is live.
 class StreamVideo : public QQuickItem {
     Q_OBJECT
     Q_PROPERTY(QObject* documents READ documents WRITE setDocuments FINAL)
@@ -126,11 +125,11 @@ private:
     void chosen(const QString& sessionId, const QString& section);
     void opened(const QString& pipe);
     void watch();
-    void received(const QString& pipe, quint64 generation, const QByteArray& message);
+    void received(quint64 generation, const QByteArray& message);
     void showPicture();
     void lost(const QString& pipe, const QString& reason);
     void closed(const QString& pipe, const QString& reason);
-    void broke(const QString& pipe);
+    void fellBehind();
     void setProblem(const QString& problem);
     void input(const QJsonObject& event);
     void sendSize();
@@ -158,7 +157,6 @@ private:
     qreal m_rest = 0;
     QJsonObject m_sentSize;
     bool m_holding = false;
-    QThread m_decoding;
-    VideoStream* m_stream = nullptr;
+    std::shared_ptr<VideoStream> m_stream;
 };
 }

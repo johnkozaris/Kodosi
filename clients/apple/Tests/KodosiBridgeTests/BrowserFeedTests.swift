@@ -4,24 +4,6 @@ import KodosiKit
 import Testing
 
 @MainActor
-@Test func `a view that the host skipped goes on at an anchor, and one that lost a frame asks for a key frame`() async throws {
-    let runtime = FeedRuntime()
-    let shown = Shown()
-    runtime.feed.show(on: NSObject(), shown)
-    let watching = Task { await runtime.feed.watch() }
-    defer { watching.cancel() }
-
-    let pipe = try await runtime.open()
-    try runtime.send(FeedRuntime.keyFrame, on: pipe)
-    try runtime.send(FeedRuntime.frame(4, anchor: true), on: pipe)
-    try runtime.send(FeedRuntime.frame(5), on: pipe)
-    try runtime.send(FeedRuntime.frame(7), on: pipe)
-    try runtime.send(FeedRuntime.frame(9, anchor: true), on: pipe)
-    #expect(try await runtime.messages(6) == ["ack", "ack", "ack", "ack", "keyframe", "ack"])
-    #expect(shown.count == 3)
-}
-
-@MainActor
 @Test func `a stream that moves to HEVC at a key frame goes on showing`() async throws {
     let runtime = FeedRuntime()
     let shown = Shown()
@@ -30,32 +12,9 @@ import Testing
     defer { watching.cancel() }
 
     let pipe = try await runtime.open()
-    try runtime.send(FeedRuntime.keyFrame, on: pipe)
-    try runtime.send(FeedRuntime.hevcKeyFrame(2), on: pipe)
-    try runtime.send(FeedRuntime.hevcFrame(3), on: pipe)
-    #expect(try await runtime.messages(3) == ["ack", "ack", "ack"])
+    let taken = [FeedRuntime.keyFrame, FeedRuntime.hevcKeyFrame, FeedRuntime.hevcFrame].map { runtime.send($0, on: pipe) }
+    #expect(taken == [true, true, true])
     #expect(shown.count == 3)
-}
-
-@MainActor
-@Test func `a frame is acknowledged and shown while the main actor is busy`() async throws {
-    let runtime = FeedRuntime()
-    let shown = Shown()
-    runtime.feed.show(on: NSObject(), shown)
-    let watching = Task { await runtime.feed.watch() }
-    defer { watching.cancel() }
-    let pipe = try await runtime.open()
-
-    try runtime.send(FeedRuntime.keyFrame, on: pipe)
-    var sent: [String?] = []
-    let deadline = ContinuousClock.now + .seconds(2)
-    while sent.isEmpty || shown.count == 0, ContinuousClock.now < deadline {
-        sent += runtime.messages()
-        usleep(500)
-    }
-
-    #expect(sent == ["ack"])
-    #expect(shown.count == 1)
 }
 
 @MainActor

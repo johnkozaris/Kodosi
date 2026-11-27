@@ -879,6 +879,10 @@ fn as_client(runtime: &Runtime, command: Command) -> CommandEnvelope {
 }
 
 fn open_document(runtime: &mut Runtime, session: Uuid) -> OpenDocument {
+    open_pipe(runtime, session, "notes.md")
+}
+
+fn open_pipe(runtime: &mut Runtime, session: Uuid, key: &str) -> OpenDocument {
     let (consumer, lifetime) = (Uuid::now_v7(), CancellationToken::new());
     let (own, events) = mpsc::channel(64);
     runtime.direct.insert(consumer, own);
@@ -887,7 +891,7 @@ fn open_document(runtime: &mut Runtime, session: Uuid) -> OpenDocument {
         request_id: Uuid::now_v7().to_string(),
         session_id: session.to_string(),
         pipe: pipe.to_string(),
-        key: "browser".to_owned(),
+        key: key.to_owned(),
     };
     runtime.command(
         &as_client(runtime, open),
@@ -1107,6 +1111,209 @@ async fn a_document_that_its_client_closed_while_it_opened_closes_when_it_opens(
     ));
     assert!(runtime.pipes.is_empty());
     assert!(document.events.try_recv().is_err());
+}
+
+async fn watched(runtime: &mut Runtime, document: &OpenDocument) -> crate::video::VideoWatch {
+    let (reply, watch) = oneshot::channel();
+    runtime.watch_video(document.pipe, reply);
+    watch.await.unwrap().unwrap()
+}
+
+fn picture(id: u32, kind: stream::FrameKind) -> Vec<u8> {
+    stream::viewer::Frame {
+        id,
+        codec: stream::Codec::H264,
+        kind,
+        region: None,
+        data: Bytes::from_static(&[0, 0, 0, 1, 0x65]),
+    }
+    .encode()
+    .to_vec()
+}
+
+/// The next message that the viewer sent the stream on its own.
+async fn said(requests: &mut mpsc::Receiver<crate::network::TestRemoteRequest>) -> Value {
+    let part = pipe_part(requests).await;
+    serde_json::from_slice(&part[1..]).unwrap()
+}
+
+fn acknowledged(id: u32) -> Value {
+    serde_json::json!({ "type": "ack", "frame": id })
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_watched_video_acknowledges_each_frame_in_order_and_one_that_the_app_has_once_it_took_it()
+{
+    use crate::video::{Shown, Took};
+    use stream::FrameKind::{Anchor, Delta, Key};
+    let (mut runtime, _root) = registry_fixture();
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let (_view, mut requests, _updates) = open_view(&mut runtime, &remote).await;
+    let mut video = open_pipe(&mut runtime, remote.id, "browser");
+    let mut watch = watched(&mut runtime, &video).await;
+    attempt_finished(&mut runtime).await;
+    let frames = pipe_opened(&mut requests).await;
+    assert_eq!(heard(&mut video).await.event.kind(), "document.opened");
+    let state = b"\0{\"tabs\":[]}".to_vec();
+    for message in [
+        picture(1, Key),
+        picture(2, Delta),
+        picture(4, Delta),
+        state.clone(),
+        picture(5, Anchor),
+    ] {
+        frames.send(message).await.unwrap();
+    }
+    assert_eq!(
+        watch.shown.recv().await,
+        Some(Shown::Frame(picture(1, Key).into()))
+    );
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert!(
+        std::iter::from_fn(|| requests.try_recv().ok())
+            .all(|request| !matches!(request, crate::network::TestRemoteRequest::PipeData { .. })),
+        "a frame that the app has is acknowledged only once its decoder took it"
+    );
+    watch.took.send(Took::Taken).await.unwrap();
+    assert_eq!(said(&mut requests).await, acknowledged(1));
+    assert_eq!(
+        watch.shown.recv().await,
+        Some(Shown::Frame(picture(2, Delta).into()))
+    );
+    watch.took.send(Took::Taken).await.unwrap();
+    assert_eq!(watch.shown.recv().await, Some(Shown::Message(state.into())));
+    assert_eq!(
+        watch.shown.recv().await,
+        Some(Shown::Frame(picture(5, Anchor).into())),
+        "after the gap the anchor goes on, and the delta that the decoder cannot take does not"
+    );
+    watch.took.send(Took::Failed).await.unwrap();
+    let mut told = Vec::new();
+    for _ in 0..4 {
+        told.push(said(&mut requests).await);
+    }
+    assert_eq!(
+        told,
+        [
+            acknowledged(2),
+            acknowledged(4),
+            acknowledged(5),
+            serde_json::json!({ "type": "keyframe" })
+        ],
+        "a decoder that cannot go on asks for a keyframe at once"
+    );
+    drop(frames);
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_video_keeps_each_acknowledgement_while_the_way_to_the_stream_is_full() {
+    let (mut runtime, _root) = registry_fixture();
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let (_view, mut requests, _updates) = open_view(&mut runtime, &remote).await;
+    let video = open_pipe(&mut runtime, remote.id, "browser");
+    let _watch = watched(&mut runtime, &video).await;
+    attempt_finished(&mut runtime).await;
+    let frames = pipe_opened(&mut requests).await;
+    let count: u32 = 400;
+    let sending = tokio::spawn(async move {
+        for id in 1..=count {
+            frames
+                .send(picture(id, stream::FrameKind::Delta))
+                .await
+                .unwrap();
+        }
+        frames
+    });
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let mut acknowledged = Vec::new();
+    while acknowledged.last() != Some(&u64::from(count)) {
+        let message = said(&mut requests).await;
+        if message["type"] == "ack" {
+            acknowledged.push(message["frame"].as_u64().unwrap());
+        }
+    }
+    assert_eq!(
+        acknowledged,
+        (1..=u64::from(count)).collect::<Vec<_>>(),
+        "a frame without an acknowledgement would be a loss to the host"
+    );
+    drop(sending.await);
+}
+
+#[tokio::test(start_paused = true)]
+async fn an_answer_from_before_a_video_opened_again_acknowledges_nothing() {
+    use crate::video::{Shown, Took};
+    let (mut runtime, _root) = registry_fixture();
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let (_view, mut requests, _updates) = open_view(&mut runtime, &remote).await;
+    let video = open_pipe(&mut runtime, remote.id, "browser");
+    let mut watch = watched(&mut runtime, &video).await;
+    attempt_finished(&mut runtime).await;
+    let first = pipe_opened(&mut requests).await;
+    first
+        .send(picture(7, stream::FrameKind::Key))
+        .await
+        .unwrap();
+    assert!(matches!(watch.shown.recv().await, Some(Shown::Frame(_))));
+    runtime.reopen_pipes();
+    runtime.keep_pipes();
+    attempt_finished(&mut runtime).await;
+    let frames = pipe_opened(&mut requests).await;
+    watch.took.send(Took::Taken).await.unwrap();
+    frames
+        .send(picture(1, stream::FrameKind::Key))
+        .await
+        .unwrap();
+    assert_eq!(
+        watch.shown.recv().await,
+        Some(Shown::Frame(picture(1, stream::FrameKind::Key).into()))
+    );
+    watch.took.send(Took::Taken).await.unwrap();
+    assert_eq!(
+        said(&mut requests).await,
+        acknowledged(1),
+        "the new seat hears only of its own frames"
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_watched_video_rests_once_its_stream_went_silent_until_the_stream_says_nothing_changed() {
+    use crate::video::{SILENCE, Shown, Took};
+    let (mut runtime, _root) = registry_fixture();
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let (_view, mut requests, _updates) = open_view(&mut runtime, &remote).await;
+    let video = open_pipe(&mut runtime, remote.id, "browser");
+    let mut watch = watched(&mut runtime, &video).await;
+    attempt_finished(&mut runtime).await;
+    let frames = pipe_opened(&mut requests).await;
+    frames
+        .send(picture(1, stream::FrameKind::Key))
+        .await
+        .unwrap();
+    assert!(matches!(watch.shown.recv().await, Some(Shown::Frame(_))));
+    watch.took.send(Took::Taken).await.unwrap();
+    let unchanged = || stream::viewer::unchanged().to_vec();
+    for _ in 0..8 {
+        tokio::time::sleep(SILENCE / 4).await;
+        frames.send(unchanged()).await.unwrap();
+    }
+    tokio::time::sleep(SILENCE / 4).await;
+    assert!(
+        watch.shown.try_recv().is_err(),
+        "a still stream that says so stays live"
+    );
+    let silent_since = Instant::now() - SILENCE / 4;
+    assert_eq!(
+        timeout(SILENCE * 2, watch.shown.recv()).await,
+        Ok(Some(Shown::Stale(true)))
+    );
+    assert!(Instant::now() >= silent_since + SILENCE);
+    frames.send(unchanged()).await.unwrap();
+    assert_eq!(
+        timeout(SILENCE * 2, watch.shown.recv()).await,
+        Ok(Some(Shown::Stale(false))),
+        "the word makes the picture the newest again without a frame"
+    );
 }
 
 #[tokio::test]

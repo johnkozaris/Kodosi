@@ -8,8 +8,8 @@ import VideoToolbox
 
 /// Decodes a feed's samples with VideoToolbox and draws each picture with Metal as soon as it
 /// arrives, a frame sooner than `AVSampleBufferDisplayLayer` shows it. Samples come on the
-/// `VideoPipes` task and layout on the main thread, so drawing runs on its own queue and always
-/// takes the newest picture.
+/// runtime's thread of the video pipe and layout on the main thread, so drawing runs on its own
+/// queue and always takes the newest picture.
 final class VideoPlayer: VideoDisplay, @unchecked Sendable {
     /// CAMetalLayer hands out drawables on any thread; the views change its other properties on the
     /// main thread only.

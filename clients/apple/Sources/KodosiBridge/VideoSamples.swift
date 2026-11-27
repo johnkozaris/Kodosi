@@ -14,12 +14,10 @@ enum VideoCodec: UInt8, Sendable {
         }
     }
 
-    fileprivate func type(of unit: Data) -> UInt8? {
-        unit.first.map { header in
-            switch self {
-            case .h264: header & 0x1F
-            case .hevc: (header >> 1) & 0x3F
-            }
+    fileprivate func type(of header: UInt8) -> UInt8 {
+        switch self {
+        case .h264: header & 0x1F
+        case .hevc: (header >> 1) & 0x3F
         }
     }
 
@@ -37,19 +35,20 @@ struct VideoSamples {
     private var codec: VideoCodec?
     private var format: CMVideoFormatDescription?
 
-    mutating func sample(of data: Data, codec: VideoCodec) -> CMSampleBuffer? {
+    /// Copies the picture once, into the sample's block buffer, so `bytes` may go after the call.
+    mutating func sample(of bytes: UnsafeRawBufferPointer, codec: VideoCodec) -> CMSampleBuffer? {
         if codec != self.codec {
             self.codec = codec
             format = nil
         }
         var sets: [UInt8: Data] = [:]
-        var slices: [Data] = []
-        for unit in Self.units(of: data) {
-            guard let type = codec.type(of: unit) else { continue }
+        var slices: [UnsafeRawBufferPointer] = []
+        for unit in Self.units(of: bytes) where !unit.isEmpty {
+            let type = codec.type(of: bytes[unit.lowerBound])
             if codec.parameterSets.contains(type) {
-                sets[type] = unit
+                sets[type] = Data(bytes[unit])
             } else if codec.isPicture(type) {
-                slices.append(unit)
+                slices.append(UnsafeRawBufferPointer(rebasing: bytes[unit]))
             }
         }
         let units = codec.parameterSets.compactMap { sets[$0] }
@@ -60,32 +59,29 @@ struct VideoSamples {
         return Self.sample(slices, format)
     }
 
-    static func units(of data: Data) -> [Data] {
-        let ranges = data.withUnsafeBytes { bytes in
-            var starts: [Int] = []
-            var at = 0
-            while at + 2 < bytes.count {
-                let third = bytes[at + 2]
-                if third > 1 {
-                    at += 3
-                } else if third == 1 {
-                    if bytes[at] == 0, bytes[at + 1] == 0 {
-                        starts.append(at + 3)
-                    }
-                    at += 3
-                } else {
-                    at += 1
+    static func units(of bytes: UnsafeRawBufferPointer) -> [Range<Int>] {
+        var starts: [Int] = []
+        var at = 0
+        while at + 2 < bytes.count {
+            let third = bytes[at + 2]
+            if third > 1 {
+                at += 3
+            } else if third == 1 {
+                if bytes[at] == 0, bytes[at + 1] == 0 {
+                    starts.append(at + 3)
                 }
-            }
-            return starts.enumerated().map { index, start in
-                var end = index + 1 < starts.count ? starts[index + 1] - 3 : bytes.count
-                while end > start, index + 1 < starts.count, bytes[end - 1] == 0 {
-                    end -= 1
-                }
-                return start ..< end
+                at += 3
+            } else {
+                at += 1
             }
         }
-        return ranges.map { data[data.startIndex + $0.lowerBound ..< data.startIndex + $0.upperBound] }
+        return starts.enumerated().map { index, start in
+            var end = index + 1 < starts.count ? starts[index + 1] - 3 : bytes.count
+            while end > start, index + 1 < starts.count, bytes[end - 1] == 0 {
+                end -= 1
+            }
+            return start ..< end
+        }
     }
 
     private static func format(_ codec: VideoCodec, _ units: [Data]) -> CMVideoFormatDescription? {
@@ -111,7 +107,7 @@ struct VideoSamples {
         }
     }
 
-    private static func sample(_ slices: [Data], _ format: CMVideoFormatDescription) -> CMSampleBuffer? {
+    private static func sample(_ slices: [UnsafeRawBufferPointer], _ format: CMVideoFormatDescription) -> CMSampleBuffer? {
         var size = slices.reduce(0) { $0 + 4 + $1.count }
         var block: CMBlockBuffer?
         var status = CMBlockBufferCreateWithMemoryBlock(
@@ -125,10 +121,10 @@ struct VideoSamples {
             status = withUnsafeBytes(of: UInt32(slice.count).bigEndian) { length in
                 CMBlockBufferReplaceDataBytes(with: length.baseAddress!, blockBuffer: block, offsetIntoDestination: offset, dataLength: 4)
             }
-            guard status == noErr else { return nil }
-            status = slice.withUnsafeBytes { bytes in
-                CMBlockBufferReplaceDataBytes(with: bytes.baseAddress!, blockBuffer: block, offsetIntoDestination: offset + 4, dataLength: slice.count)
-            }
+            guard status == noErr, let start = slice.baseAddress else { return nil }
+            status = CMBlockBufferReplaceDataBytes(
+                with: start, blockBuffer: block, offsetIntoDestination: offset + 4, dataLength: slice.count,
+            )
             guard status == noErr else { return nil }
             offset += 4 + slice.count
         }

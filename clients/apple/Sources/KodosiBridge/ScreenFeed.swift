@@ -301,7 +301,6 @@ public final class ScreenFeed {
     private func join() {
         failure = nil
         joined = true
-        channel.rejoin()
         let size = currentSize
         sentSize = size
         channel.post(ToScreen.watch(size, decoders: DeviceDecoder.here, opened: opened, commandKey: true))
@@ -369,6 +368,8 @@ public final class ScreenFeed {
             }
         case let .region(region):
             followed = region
+        case let .stale(stale):
+            picture = picture.stale(stale)
         case .news(.open), .news(.closed):
             break
         }

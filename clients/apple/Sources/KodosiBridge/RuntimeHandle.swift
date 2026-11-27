@@ -15,6 +15,7 @@ public final class RuntimeHandle: Sendable {
 
     public init(inbox: RuntimeEventInbox) {
         self.inbox = inbox
+        videoPipes.attach(self)
     }
 
     public var isRunning: Bool {
@@ -36,9 +37,9 @@ public final class RuntimeHandle: Sendable {
         return body(snapshot.pointer)
     }
 
-    public static let expectedFFIABIVersion: Int32 = 11
+    public static let expectedFFIABIVersion: Int32 = 12
 
-    public static let expectedProtocolVersion: UInt32 = 117
+    public static let expectedProtocolVersion: UInt32 = 118
 
     public enum StartOutcome: Equatable {
         case started
@@ -72,6 +73,9 @@ public final class RuntimeHandle: Sendable {
                 on_terminal_control: Self.onTerminalControl,
                 on_terminal_connect_result: Self.onTerminalConnectResult,
                 on_terminal_checkpoint: Self.onTerminalCheckpoint,
+                on_video_frame: Self.onVideoFrame,
+                on_video_message: Self.onVideoMessage,
+                on_video_stale: Self.onVideoStale,
             )
             let handle = withUnsafePointer(to: &callbacks) {
                 kodosi_start($0, UInt(MemoryLayout<kodosi_callbacks_t>.size), retained.toOpaque())
@@ -261,7 +265,7 @@ public final class RuntimeHandle: Sendable {
         completion(succeeded, failureMessage)
     }
 
-    private static func resolve(_ ud: UnsafeMutableRawPointer?) -> RuntimeHandle? {
+    static func resolve(_ ud: UnsafeMutableRawPointer?) -> RuntimeHandle? {
         guard let ud else { return nil }
         return Unmanaged<RuntimeHandle>.fromOpaque(ud).takeUnretainedValue()
     }
@@ -271,10 +275,7 @@ public final class RuntimeHandle: Sendable {
     private static let onEvent: kodosi_event_cb_t = { json, len, ud in
         autoreleasepool {
             guard len <= KODOSI_MAX_FRAME_BYTES, let json, let runtime = resolve(ud) else { return }
-            let event = Data(bytes: json, count: Int(len))
-            if !runtime.videoPipes.take(event) {
-                runtime.inbox.push(event)
-            }
+            runtime.inbox.push(Data(bytes: json, count: Int(len)))
         }
     }
 
