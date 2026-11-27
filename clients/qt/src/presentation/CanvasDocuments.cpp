@@ -121,8 +121,10 @@ QString CanvasDocuments::openPipe(const QString& sessionId, const QString& key, 
     return {};
 }
 
+// Only the answer to the newest open of a pipe counts.
 void CanvasDocuments::registerPipe(const QString& pipe, Pipe& open)
 {
+    m_opening.removeIf([&pipe](QHash<QString, QString>::iterator asked) { return asked.value() == pipe; });
     const auto request = newId();
     const QJsonObject fields { { QStringLiteral("sessionId"), open.sessionId }, { QStringLiteral("pipe"), pipe },
         { QStringLiteral("key"), open.key } };
@@ -223,7 +225,6 @@ void CanvasDocuments::reset()
 // Dropped runtime events may include pipe chunks or open replies, so reopen registered pipes.
 void CanvasDocuments::renewPipes()
 {
-    m_opening.clear();
     for (const auto& [pipe, open] : m_pipes.asKeyValueRange()) {
         if (open.registered)
             renew(pipe);

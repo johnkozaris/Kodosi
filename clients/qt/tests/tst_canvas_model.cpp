@@ -258,6 +258,32 @@ private slots:
         QCOMPARE(QSet<QString>(commands.watched.keyBegin(), commands.watched.keyEnd()), (QSet<QString> { elsewhere, second }));
     }
 
+    void aVideoPipeThatOpensAnewGoesToItsDecoderOnlyOnceTheNewOpenIsAnswered()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasDocuments documents(commands, commands, sessions);
+        const auto decoder = std::make_shared<Decoder>();
+        const auto pipe = documents.openVideo(test::id(1), QStringLiteral("screen"), decoder);
+        const auto earlier = commands.last(QStringLiteral("document.open"));
+        QVERIFY(commands.watched.isEmpty());
+        documents.renew(pipe);
+        QCOMPARE(commands.values.at(commands.values.size() - 2).value(QStringLiteral("type")).toString(), QStringLiteral("document.close"));
+        documents.apply({ { QStringLiteral("type"), QStringLiteral("document.result") },
+            { QStringLiteral("requestId"), earlier.value(QStringLiteral("requestId")) },
+            { QStringLiteral("operation"), QStringLiteral("document.open") } });
+        QVERIFY(commands.watched.isEmpty());
+        QCOMPARE(commands.answerOpen(documents), pipe);
+        QVERIFY(commands.watched.value(pipe) == decoder);
+
+        documents.renewPipes();
+        QVERIFY(commands.watched.isEmpty());
+        commands.answerOpen(documents);
+        QVERIFY(commands.watched.value(pipe) == decoder);
+        documents.close(pipe);
+        QVERIFY(commands.watched.isEmpty());
+    }
+
     void eachPipeOpensAgainAfterTheAppFellBehindAndAnEarlierAnswerClosesNothing()
     {
         Commands commands;
