@@ -60,19 +60,21 @@ impl Flow {
     }
 
     /// Takes a viewer message to send as datagrams, or returns it to go in the channel: JSON
-    /// messages always do, and frames do until the viewer's first report arrives and after the
+    /// messages always do, and frames do until the viewer's first report arrives and once the
     /// flow ended.
     pub(crate) fn take(&self, message: Vec<u8>) -> Result<(), Vec<u8>> {
         if !self.ready.load(Ordering::Acquire) || message.first() != Some(&viewer::FRAME) {
             return Err(message);
         }
         let id = media::frame_id(&message);
-        if self.frames.try_send(Bytes::from(message)).is_err()
-            && let Some(id) = id
-        {
-            let _told = self.unsent.send(id);
+        match self.frames.try_send(Bytes::from(message)) {
+            Ok(()) => Ok(()),
+            Err(mpsc::error::TrySendError::Full(frame)) => match id {
+                Some(id) if self.unsent.send(id).is_err() => Err(frame.into()),
+                _ => Ok(()),
+            },
+            Err(mpsc::error::TrySendError::Closed(frame)) => Err(frame.into()),
         }
-        Ok(())
     }
 }
 
@@ -106,9 +108,16 @@ async fn send(media: Media, number: u16, mut pipes: Pipes, ready: Arc<AtomicBool
     // without the word it would wait for the frame for good.
     let mut owed = VecDeque::new();
     send_frames(&media, &mut packer, &mut pipes, &mut owed, &ready).await;
+    // From here on frames go in the channel; those that the flow took cannot arrive: no report
+    // comes any more for the frames that the viewer did not report on, and those that wait were
+    // never sent.
     ready.store(false, Ordering::Release);
-    // No report can come any more for the frames that the viewer did not report on.
+    pipes.frames.close();
+    pipes.dropped.close();
     owed.extend(packer.end());
+    while let Ok(frame) = pipes.frames.try_recv() {
+        owed.extend(media::frame_id(&frame));
+    }
     while let Ok(id) = pipes.dropped.try_recv() {
         owed.push_back(id);
     }
