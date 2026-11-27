@@ -25,6 +25,9 @@ pub const HOPELESS: Duration = Duration::from_secs(15);
 /// How often a viewer with the newest picture hears that nothing changed. A viewer rests its
 /// picture after several periods without a frame or this word, so one lost word does not dim it.
 const UNCHANGED_EVERY: Duration = Duration::from_millis(250);
+/// A pause between calls of `unchanged` that means the host stood still: longer than the hosts'
+/// tick, and shorter than the silence after which a viewer rests its picture.
+const STOOD_STILL: Duration = Duration::from_millis(500);
 /// Queuing delay threshold indicating the link is slower than the current bitrate.
 const QUEUE_LIMIT: Duration = Duration::from_millis(40);
 const STEER_EVERY: Duration = Duration::from_millis(250);
@@ -327,6 +330,7 @@ pub struct Flow {
     cut_at: Option<Instant>,
     keyframe_at: Option<Instant>,
     recovered_at: Option<Instant>,
+    unchanged_at: Option<Instant>,
 }
 
 impl Default for Flow {
@@ -347,6 +351,7 @@ impl Flow {
             cut_at: None,
             keyframe_at: None,
             recovered_at: None,
+            unchanged_at: None,
         }
     }
 
@@ -570,8 +575,16 @@ impl Flow {
     /// Names each viewer to tell now that nothing changed: one that holds the stream, has
     /// acknowledged each frame that it was sent, got neither a frame nor this word for
     /// `UNCHANGED_EVERY`, and has nothing waiting on its way. A viewer with a frame in flight or a
-    /// gap hears nothing, since its picture is not the newest.
+    /// gap hears nothing, since its picture is not the newest. A host that stood still names
+    /// nobody at first, since frames may wait for it to handle them.
     pub fn unchanged(&mut self, now: Instant, queued: impl Fn(&str) -> usize) -> Vec<String> {
+        let stood_still = self
+            .unchanged_at
+            .replace(now)
+            .is_some_and(|at| now.saturating_duration_since(at) >= STOOD_STILL);
+        if stood_still {
+            return Vec::new();
+        }
         self.seats
             .iter_mut()
             .filter(|(viewer, seat)| {
@@ -1129,6 +1142,21 @@ mod tests {
             "a frame starts the period again"
         );
         assert_eq!(flow.unchanged(after(now, 1250), none), ["current"]);
+    }
+
+    #[test]
+    fn a_host_that_stood_still_names_nobody_at_once_and_the_viewer_on_its_next_tick() {
+        let now = Instant::now();
+        let mut flow = flow_with(&["current"], now);
+        send(&mut flow, 1, FrameKind::Key, now);
+        flow.ack("current", 1, after(now, 10));
+        assert_eq!(flow.unchanged(after(now, 300), none), ["current"]);
+        let back = after(now, 300) + STOOD_STILL;
+        assert_eq!(flow.unchanged(back, none), Vec::<String>::new());
+        assert_eq!(
+            flow.unchanged(back + Duration::from_millis(100), none),
+            ["current"]
+        );
     }
 
     #[test]
