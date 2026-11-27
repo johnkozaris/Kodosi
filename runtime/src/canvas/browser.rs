@@ -45,6 +45,7 @@ const NOT_HERE: &[&str] = &[
     "--session-name",
     "--profile",
     "--executable-path",
+    "--engine",
     "--config",
     "--auto-connect",
     "--namespace",
