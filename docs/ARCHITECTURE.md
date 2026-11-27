@@ -361,6 +361,13 @@ encoder also marks long-term references, and a viewer that missed frames recover
 a small frame that references only marks every viewer acknowledged. Some hardware decoders freeze
 on long-term references, so a stream with any viewer that does not declare them has none.
 
+The viewer's runtime keeps the rule for frames, once for every app. It reads each frame's header,
+hands the app only a frame that its decoder can take, acknowledges each frame, and asks again for a
+keyframe while it waits for one. The apps only decode and draw: each gets a stream's frames as
+bytes, on a thread of that stream. When a picture waits for a repair for longer than a moment, the
+runtime tells the app, which rests on the last picture until the next frame, so a picture that
+stands still never looks live.
+
 ## Localization
 
 Each component localizes its own strings. Client apps bundle their own UI translations, while the
