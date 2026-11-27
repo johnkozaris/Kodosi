@@ -39,6 +39,16 @@ impl PictureFormat {
             Self::Webp => "webp",
         }
     }
+
+    #[cfg(feature = "host")]
+    pub(crate) const fn media_type(self) -> &'static str {
+        match self {
+            Self::Png => "image/png",
+            Self::Jpeg => "image/jpeg",
+            Self::Gif => "image/gif",
+            Self::Webp => "image/webp",
+        }
+    }
 }
 
 #[derive(Clone)]

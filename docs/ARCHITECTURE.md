@@ -214,9 +214,10 @@ prompt into its own queue while it works, which its terminal shows, and gives th
 the model when the turn ends, while a prompt typed in its terminal joins the turn at the next step.
 
 The pictures of a message come with it from the app, and the terminal's computer keeps them as
-files for as long as its host runs. Codex and Copilot CLI get the files as their own picture input.
-Claude Code takes only text from a plugin, so the message names each file in a line from Kodosi,
-and Claude Code reads the picture with its Read tool.
+files for as long as its host runs. Codex and Copilot CLI get the files as their own picture input,
+and Antigravity CLI gets the pictures in the prompt where its ACP server takes images. Claude Code
+takes only text from a plugin, so the message names each file in a line from Kodosi, and Claude
+Code reads the picture with its Read tool.
 
 Each chat also lists the agents of the other terminals that its agent can reach, as its host's
 terminal list has them. A message that names one with `@` reaches the agent as the person wrote it,

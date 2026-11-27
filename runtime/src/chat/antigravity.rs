@@ -8,20 +8,23 @@
 
 use std::collections::{HashMap, VecDeque};
 
+use base64::Engine as _;
 use serde_json::{Value, json};
 
 use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
-    ChatOption, ChatPerson, ChatQuestion, ChatTask, ChatTool, MOST_OPTIONS, MOST_OUTPUT,
-    MOST_QUESTIONS, MOST_TARGET, MOST_TEXT, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
+    ChatOption, ChatPerson, ChatPicture, ChatQuestion, ChatTask, ChatTool, MOST_OPTIONS,
+    MOST_OUTPUT, MOST_QUESTIONS, MOST_TARGET, MOST_TEXT, TaskState, ToolDetail, ToolKind,
+    ToolState, TurnEnd,
     agent::{
-        Agent, Places, Stop, answer, list, open_items, person, remember, show_state, stop_open,
+        Agent, Places, Stop, answer, list, open_items, pictured, remember, show_state, stop_open,
         text, words,
     },
     diff,
+    mention::{picture, with_pictures},
     state::{Chat, ends_of, start_of},
 };
-use crate::terminal::TerminalFace;
+use crate::terminal::{Picture, TerminalFace};
 
 /// ACP JSON-RPC error code for "Authentication required".
 const SIGNED_OUT: i64 = -32000;
@@ -62,6 +65,8 @@ pub(super) struct Antigravity {
 struct Offers {
     loads: bool,
     unrestricted: bool,
+    /// The agent takes pictures in a prompt.
+    pictures: bool,
 }
 
 struct Turn {
@@ -74,6 +79,7 @@ struct Handed {
     queued: Option<String>,
     text: String,
     by: Option<ChatPerson>,
+    pictures: Vec<ChatPicture>,
 }
 
 struct Asked {
@@ -112,6 +118,10 @@ impl Antigravity {
                 loads: capabilities.get("loadSession").and_then(Value::as_bool) == Some(true),
                 unrestricted: list(event, "arguments")
                     .any(|argument| argument == "--dangerously-skip-permissions"),
+                pictures: capabilities
+                    .pointer("/promptCapabilities/image")
+                    .and_then(Value::as_bool)
+                    == Some(true),
             },
             folder: text(event, "folder").to_owned(),
             start: event.get("start").cloned().unwrap_or(Value::Null),
@@ -320,7 +330,7 @@ impl Antigravity {
         }
         self.told = None;
         self.answer_questions(chat, &handed.text);
-        chat.push(at, person(&handed.text, handed.by));
+        chat.push(at, pictured(&handed.text, handed.by, handed.pictures));
     }
 
     fn cancel(&mut self) -> Option<Value> {
@@ -332,6 +342,26 @@ impl Antigravity {
             "p": {"sessionId": session},
             "notify": true,
         }))
+    }
+
+    /// The prompt of a message, with what the chat shows of it: the words and an image of each
+    /// picture where the agent takes pictures, else the words and a line that names each file.
+    fn prompt(&self, said: String, files: &[String]) -> (String, Vec<Value>, Vec<ChatPicture>) {
+        if !self.offers.pictures {
+            let text = with_pictures(&said, files);
+            let prompt = vec![json!({"type": "text", "text": text})];
+            return (text, prompt, Vec::new());
+        }
+        let (pictures, images): (Vec<_>, Vec<_>) = files
+            .iter()
+            .filter_map(|file| Some((picture(file), image(file)?)))
+            .unzip();
+        let prompt = (!said.is_empty() || images.is_empty())
+            .then(|| json!({"type": "text", "text": said}))
+            .into_iter()
+            .chain(images)
+            .collect();
+        (said, prompt, pictures)
     }
 
     fn note(&mut self, chat: &mut Chat, event: &Value, at: u64) -> Vec<String> {
@@ -379,23 +409,33 @@ impl Antigravity {
         Vec::new()
     }
 
-    /// Appends `user_message_chunk` history during session load. Ignored during an active turn
-    /// because `begin()` already recorded the outgoing user message.
+    /// Appends `user_message_chunk` history during session load: the person's words, and a picture
+    /// for each image. Ignored during an active turn because `begin()` already recorded the outgoing
+    /// user message.
     fn told(&mut self, chat: &mut Chat, update: &Value, at: u64) {
         if self.turn.is_some() {
             return;
         }
-        let Some(more) = content_text(update) else {
-            return;
+        let content = update.get("content").unwrap_or(&Value::Null);
+        let (more, image) = match text(content, "type") {
+            "text" => (text(content, "text"), None),
+            "image" => (
+                "",
+                Some(ChatPicture {
+                    name: String::new(),
+                }),
+            ),
+            _ => return,
         };
         self.finish_writing(chat);
         if let Some(item) = self.told.clone()
-            && let Some(ChatBody::Person { text, .. }) = chat.body(&item)
+            && let Some(ChatBody::Person { text, pictures, .. }) = chat.body(&item)
         {
             let words = format!("{text}{more}");
-            chat.put(&item, person(&words, None));
+            let pictures = pictures.iter().cloned().chain(image).collect();
+            chat.put(&item, pictured(&words, None, pictures));
         } else {
-            self.told = Some(chat.push(at, person(more, None)));
+            self.told = Some(chat.push(at, pictured(more, None, image.into_iter().collect())));
         }
     }
 
@@ -851,28 +891,35 @@ impl Agent for Antigravity {
         let next = self
             .said
             .take()
-            .map(|(said, by)| (None, said, by))
+            .map(|(said, by)| (None, said, Vec::new(), by))
             .or_else(|| {
                 let queued = chat.queued().first()?;
                 Some((
                     Some(queued.id.clone()),
                     queued.said.clone(),
+                    queued.files.clone(),
                     queued.by.clone(),
                 ))
             });
-        let Some((queued, text, by)) = next else {
+        let Some((queued, said, files, by)) = next else {
             return commands;
         };
+        let (text, prompt, pictures) = self.prompt(said, &files);
         self.sent += 1;
         commands.push(json!({
             "tag": format!("prompt:{}", self.sent),
             "m": "session/prompt",
-            "p": {"sessionId": session, "prompt": [{"type": "text", "text": text}]},
+            "p": {"sessionId": session, "prompt": prompt},
         }));
         self.turn = Some(Turn {
             at: crate::identity::now_ms(),
             stopped: false,
-            handed: Some(Handed { queued, text, by }),
+            handed: Some(Handed {
+                queued,
+                text,
+                by,
+                pictures,
+            }),
         });
         commands
     }
@@ -973,6 +1020,16 @@ fn command_output(printed: &str) -> String {
         .split_once("\nCommand output:\n")
         .map_or(printed, |(_, output)| output);
     printed.replace("\r\n", "\n").trim_end().to_owned()
+}
+
+/// A picture file as an image of a prompt, which carries the picture itself.
+fn image(file: &str) -> Option<Value> {
+    let picture = Picture::new(std::fs::read(file).ok()?.into()).ok()?;
+    Some(json!({
+        "type": "image",
+        "mimeType": picture.format.media_type(),
+        "data": base64::engine::general_purpose::STANDARD.encode(&picture.bytes),
+    }))
 }
 
 fn content_text(update: &Value) -> Option<&str> {

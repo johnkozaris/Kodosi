@@ -793,6 +793,71 @@ fn a_picture_reaches_codex_and_copilot_as_their_own_and_shows_with_the_words() {
     assert_eq!(pictures, &shown);
 }
 
+#[test]
+fn a_picture_reaches_antigravity_as_its_own_and_shows_with_the_words() {
+    use base64::Engine as _;
+
+    let folder = tempfile::tempdir().expect("a folder");
+    let bytes = b"\x89PNG\r\n\x1a\nstripes".to_vec();
+    let file = folder.path().join("picture-0a1b2c3d4e5f6a7b.png");
+    std::fs::write(&file, &bytes).expect("the picture");
+    let mut play = Play::antigravity(
+        antigravity!("allow"),
+        &[ChatAnswer::Allow, ChatAnswer::Allow],
+    );
+
+    play.chat.queue(
+        "What is on it?".to_owned(),
+        Some(sam()),
+        vec![file.to_string_lossy().into_owned()],
+    );
+    let commands = play.agent.commands(&mut play.chat);
+    let prompt = commands
+        .iter()
+        .find(|command| command["m"] == "session/prompt")
+        .expect("a prompt");
+    assert_eq!(
+        prompt["p"]["prompt"],
+        json!([
+            {"type": "text", "text": "What is on it?"},
+            {
+                "type": "image",
+                "mimeType": "image/png",
+                "data": base64::engine::general_purpose::STANDARD.encode(&bytes),
+            },
+        ])
+    );
+    play.take(&json!({
+        "k": "note",
+        "m": "session/update",
+        "p": {
+            "sessionId": "ab05ead0-ed08-43b7-b547-d2d6bc449422",
+            "update": {
+                "sessionUpdate": "agent_message_chunk",
+                "content": {"type": "text", "text": "Stripes."},
+            },
+        },
+    }));
+    let person = play
+        .view
+        .items
+        .iter()
+        .rev()
+        .find_map(|item| match &item.body {
+            ChatBody::Person { text, pictures, .. } => Some((text.as_str(), pictures.as_slice())),
+            _ => None,
+        });
+    assert_eq!(
+        person,
+        Some((
+            "What is on it?",
+            &[ChatPicture {
+                name: "picture-0a1b2c3d4e5f6a7b.png".to_owned(),
+            }][..]
+        ))
+    );
+}
+
 fn events(record: &str) -> Vec<Value> {
     record
         .lines()
