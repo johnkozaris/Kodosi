@@ -191,9 +191,12 @@ impl Offer {
         let mut port = 0;
         // SAFETY: `link` is an open file and `port` is valid to write.
         let made = unsafe { fileport_makeport(link.as_raw_fd(), &raw mut port) };
+        let problem = (made != 0).then(io::Error::last_os_error);
         drop(link);
-        if made != 0 {
-            return Err(io::Error::last_os_error());
+        if let Some(problem) = problem {
+            // SAFETY: this task holds the right to answer, which it no longer uses.
+            unsafe { mach_port_deallocate(task(), answer) };
+            return Err(problem);
         }
         let mut handed = Handed {
             header: Header {
@@ -295,13 +298,14 @@ pub fn take(name: &str, limit: Duration) -> io::Result<(OwnedFd, AuditToken)> {
     }
     let port = message.link.name;
     // SAFETY: the message carried a send right to `port`, which this task then lets go.
-    let fd = unsafe {
+    let (fd, problem) = unsafe {
         let fd = fileport_makefd(port);
+        let problem = (fd < 0).then(io::Error::last_os_error);
         mach_port_deallocate(task(), port);
-        fd
+        (fd, problem)
     };
-    if fd < 0 {
-        return Err(io::Error::last_os_error());
+    if let Some(problem) = problem {
+        return Err(problem);
     }
     // SAFETY: `fileport_makefd` opened `fd` for this task alone.
     let link = unsafe { OwnedFd::from_raw_fd(fd) };
