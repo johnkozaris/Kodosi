@@ -106,6 +106,13 @@ propio aviso cuando la pantalla se está compartiendo. Mientras alguien mira, la
 bandeja del sistema del ordenador indica qué dispositivos están mirando; desactivar la función, o
 pulsar **Dejar de compartir** allí, termina todas las vistas.
 
+En un Mac, Kodosi Screen además pregunta a quien está frente al Mac, en un aviso propio, antes de
+atender una cuenta: una vez por cada cuenta, cuando se activa la función. El aviso nombra la cuenta,
+y su servidor cuando no es el de Kodosi, así que un programa del Mac que inicie su propio Kodosi con
+otra cuenta no obtiene nada salvo que esa persona permita esa cuenta. Solo Kodosi Screen puede leer
+o cambiar las respuestas, que se quedan en ese Mac, y desactivar la función, o pulsar **Dejar de
+compartir**, las retira todas.
+
 Mientras un dispositivo controla la pantalla, el texto que se copia en el ordenador va a ese
 dispositivo, y al pegar en él, el ordenador recibe el texto de ese dispositivo. El texto que un
 gestor de contraseñas marca como privado se queda en el ordenador. Cuando la persona que está frente

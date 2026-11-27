@@ -109,6 +109,13 @@ notification pendant que l'écran est partagé. Tant que quelqu'un regarde, la b
 zone de notification de l'ordinateur indique quels appareils regardent ; désactiver le partage, ou
 cliquer sur **Arrêter le partage** à cet endroit, met fin à chaque affichage.
 
+Sur un Mac, Kodosi Screen demande en outre à la personne devant le Mac, dans sa propre alerte, avant
+de servir un compte : une fois pour chaque compte, quand le partage est activé. L'alerte nomme le
+compte, et son serveur quand ce n'est pas celui de Kodosi : un programme du Mac qui lance son propre
+Kodosi avec un autre compte n'obtient donc rien tant que cette personne n'autorise pas ce compte.
+Seul Kodosi Screen peut lire ou modifier les réponses, qui restent sur ce Mac, et désactiver le
+partage, ou **Arrêter le partage**, les retire toutes.
+
 Pendant qu'un appareil contrôle l'écran, le texte copié sur l'ordinateur va vers cet appareil, et un
 collage sur celui-ci donne à l'ordinateur le texte de cet appareil. Le texte qu'un gestionnaire de
 mots de passe marque comme privé reste sur l'ordinateur. Lorsque la personne devant l'ordinateur

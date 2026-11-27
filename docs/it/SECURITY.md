@@ -105,6 +105,13 @@ condiviso. Mentre qualcuno guarda, la barra dei menu o l'area di notifica del co
 dispositivi stanno guardando; disattivare la condivisione, o premere lì **Interrompi la
 condivisione**, chiude ogni visualizzazione.
 
+Su un Mac, inoltre, Kodosi Screen chiede alla persona davanti al Mac, in un suo avviso, prima di
+servire un account: una volta per ogni account, quando la condivisione viene attivata. L'avviso
+nomina l'account, e il suo server quando non è quello di Kodosi, così un programma del Mac che avvia
+un proprio Kodosi con un altro account non ottiene nulla se la persona lì non consente quell'account.
+Solo Kodosi Screen può leggere o cambiare le risposte, che restano su quel Mac, e disattivare la
+condivisione, o **Interrompi la condivisione**, le ritira tutte.
+
 Mentre un dispositivo controlla lo schermo, il testo copiato sul computer va a quel dispositivo, e
 incollare su di esso dà al computer il testo di quel dispositivo. Il testo che un gestore di
 password contrassegna come privato resta sul computer. Finché la persona davanti al computer usa il
