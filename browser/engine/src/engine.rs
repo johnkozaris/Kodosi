@@ -846,7 +846,8 @@ fn run(command: ToEngine) {
         | ToEngine::Keyframe { .. }
         | ToEngine::Recover { .. }
         | ToEngine::Held { .. }
-        | ToEngine::Bitrate { .. } => capture(&command),
+        | ToEngine::Bitrate { .. }
+        | ToEngine::Pace { .. } => capture(&command),
         ToEngine::Layer { window, tab } => layer(window, tab),
         ToEngine::Still { window } => still(window),
         ToEngine::Activate { tab } => activate(tab),
@@ -944,6 +945,7 @@ fn capture(command: &ToEngine) {
             tab,
             bitrate,
             format,
+            pace,
         } => {
             let shared = engine.shared_of(window)?;
             let pictures = Pictures {
@@ -951,7 +953,12 @@ fn capture(command: &ToEngine) {
                 still: false,
                 link: engine.link().clone(),
             };
-            let encoder = Encoder::new(Settings { format, bitrate }, Arc::new(pictures));
+            let settings = Settings {
+                format,
+                bitrate,
+                pace,
+            };
+            let encoder = Encoder::new(settings, Arc::new(pictures));
             *shared.capture.borrow_mut() = Some(Capture {
                 tab,
                 encoder,
@@ -1001,6 +1008,13 @@ fn capture(command: &ToEngine) {
             let shared = engine.shared_of(window)?;
             if let Some(capture) = shared.capture.borrow_mut().as_mut() {
                 capture.encoder.set_bitrate(bitrate);
+            }
+            None
+        }
+        ToEngine::Pace { window, pace } => {
+            let shared = engine.shared_of(window)?;
+            if let Some(capture) = shared.capture.borrow_mut().as_mut() {
+                capture.encoder.set_pace(pace);
             }
             None
         }

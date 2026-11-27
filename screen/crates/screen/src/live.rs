@@ -8,7 +8,7 @@ use std::{
 
 use bytes::Bytes;
 use stream::{
-    Ask, Codec, Decoder, Encoded, Flow, Format, Region, Size, Viewing,
+    Ask, Codec, Decoder, Encoded, Flow, Format, Pacer, Region, Size, Viewing,
     viewer::{Frame, Input, KeyAction, MouseAction, MouseButton, Viewer},
 };
 use tokio::{
@@ -37,6 +37,11 @@ const SMALLEST_REGION: f64 = 32.0;
 /// Modifier bits of viewer input.
 const CONTROL: u8 = 2;
 const META: u8 = 4;
+
+/// Tokio's clock, which a test can stop and move on.
+fn tokio_now() -> Instant {
+    tokio::time::Instant::now().into_std()
+}
 
 pub(crate) enum Event {
     Join {
@@ -224,6 +229,7 @@ pub(crate) struct Live {
     away: Option<Away>,
     calls: Calls,
     flow: Flow,
+    pacer: Pacer,
     seats: HashMap<String, Seat>,
     sources: Sources,
     source: Option<Source>,
@@ -254,6 +260,7 @@ impl Live {
                 }
             }
         });
+        let now = tokio_now();
         let live = Self {
             helper,
             child: started.child,
@@ -263,6 +270,7 @@ impl Live {
             away: started.away,
             calls,
             flow: Flow::new(),
+            pacer: Pacer::new(now),
             seats: HashMap::new(),
             sources: Sources::default(),
             source: None,
@@ -276,7 +284,7 @@ impl Live {
             capture_failed_at: None,
             next_frame: 0,
             dirty: false,
-            idle_since: Some(Instant::now()),
+            idle_since: Some(now),
         };
         (live, started.reader)
     }
@@ -368,7 +376,7 @@ impl Live {
     }
 
     fn message(&mut self, viewer: &str, message: ToScreen) {
-        let now = Instant::now();
+        let now = tokio_now();
         match message {
             ToScreen::Watch {
                 size,
@@ -389,6 +397,9 @@ impl Live {
                 seat.shapes.clear();
                 let local = seat.viewer.local;
                 self.flow.seat(viewer, anchors, local, now);
+                if opened {
+                    self.raise_pace(now);
+                }
                 if opened || self.control.is_none() {
                     self.control = Some(viewer.to_owned());
                 }
@@ -419,9 +430,13 @@ impl Live {
                     self.update_capture();
                 }
             }
-            ToScreen::Input { input } => self.input(viewer, input),
+            ToScreen::Input { input } => {
+                self.raise_pace(now);
+                self.input(viewer, input);
+            }
             ToScreen::Show { source } => {
                 if self.sources.size(source).is_some() {
+                    self.raise_pace(now);
                     self.chosen = true;
                     self.show(Some(source));
                 }
@@ -435,6 +450,7 @@ impl Live {
                 if self.source != Some(source) {
                     return;
                 }
+                self.raise_pace(now);
                 let look = region.and_then(|region| self.within(region));
                 if let Some(seat) = self.seats.get_mut(viewer) {
                     seat.look = look;
@@ -484,6 +500,12 @@ impl Live {
         }
         self.update_capture();
         self.dirty = true;
+    }
+
+    fn raise_pace(&mut self, now: Instant) {
+        if let Some(pace) = self.pacer.acted(now) {
+            self.say(&ToHelper::Pace { pace });
+        }
     }
 
     fn let_go(&self, pressed: Pressed) {
@@ -545,7 +567,7 @@ impl Live {
                 }
                 FromHelper::Failed { .. } => {
                     self.capture = None;
-                    self.capture_failed_at = Some(Instant::now());
+                    self.capture_failed_at = Some(tokio_now());
                 }
             },
         }
@@ -554,7 +576,7 @@ impl Live {
 
     /// Returns false when the screen ends.
     fn tick(&mut self) -> bool {
-        let now = Instant::now();
+        let now = tokio_now();
         if self
             .capture_failed_at
             .is_some_and(|at| now.duration_since(at) >= RETRY_CAPTURE)
@@ -564,6 +586,9 @@ impl Live {
         }
         if let Some(bitrate) = self.flow.steer(self.control.as_deref(), now) {
             self.say(&ToHelper::Bitrate { bitrate });
+        }
+        if let Some(pace) = self.pacer.settle(now) {
+            self.say(&ToHelper::Pace { pace });
         }
         let hopeless = self.flow.hopeless(now);
         if !hopeless.is_empty() {
@@ -607,7 +632,7 @@ impl Live {
     }
 
     fn frame(&mut self, picture: Encoded) {
-        let now = Instant::now();
+        let now = tokio_now();
         self.next_frame = self.next_frame.wrapping_add(1);
         let id = self.next_frame;
         let seats = &self.seats;
@@ -737,7 +762,7 @@ impl Live {
         self.capture = wanted;
         match wanted {
             Some(capture) => {
-                self.flow.keyframe_asked(Instant::now());
+                self.flow.keyframe_asked(tokio_now());
                 self.say(&ToHelper::Capture {
                     source: capture.source,
                     region: capture.region,
@@ -745,6 +770,7 @@ impl Live {
                     height: capture.height,
                     format: capture.format,
                     bitrate: self.flow.bitrate(),
+                    pace: self.pacer.pace(),
                 });
             }
             None => self.say(&ToHelper::Stop),
@@ -948,7 +974,10 @@ fn even(pixels: f64) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use stream::viewer::{Input, KeyAction, MouseAction, MouseButton};
+    use stream::{
+        Pace,
+        viewer::{Input, KeyAction, MouseAction, MouseButton},
+    };
     use tokio::io::DuplexStream;
 
     use super::*;
@@ -1102,6 +1131,25 @@ mod tests {
             .await
         }
 
+        /// The next pace that the helper hears, within the hold after the last change.
+        async fn pace(&mut self) -> Pace {
+            let pace = self.next(|said| match said {
+                ToHelper::Pace { pace } => Some(pace),
+                _ => None,
+            });
+            tokio::time::timeout(Pacer::HOLD * 2, pace)
+                .await
+                .expect("the helper heard no pace")
+        }
+
+        async fn captured_pace(&mut self) -> Pace {
+            self.next(|said| match said {
+                ToHelper::Capture { pace, .. } => Some(pace),
+                _ => None,
+            })
+            .await
+        }
+
         async fn capture(&mut self) -> (u32, u32, Codec) {
             self.next(|said| match said {
                 ToHelper::Capture {
@@ -1186,6 +1234,76 @@ mod tests {
             })
             .await;
         assert_eq!(input, click);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn an_act_on_a_watched_screen_brings_the_higher_pace_before_its_input_and_the_lower_after_the_hold()
+     {
+        let mut computer = Computer::start().await;
+        computer
+            .watch("phone", view(390, 844, 3.0), vec![HEVC], true)
+            .await;
+        assert_eq!(computer.captured_pace().await, Pace::Acting);
+        assert_eq!(computer.pace().await, Pace::Watching);
+        computer
+            .say(
+                "phone",
+                ToScreen::Size {
+                    size: view(844, 390, 3.0),
+                },
+            )
+            .await;
+        assert_eq!(computer.captured_pace().await, Pace::Watching);
+
+        let hover = Input::Mouse {
+            action: MouseAction::Move,
+            x: 10.0,
+            y: 20.0,
+            button: MouseButton::None,
+            clicks: 0,
+            delta_x: 0.0,
+            delta_y: 0.0,
+            modifiers: 0,
+        };
+        let acted = tokio::time::Instant::now();
+        computer
+            .say(
+                "phone",
+                ToScreen::Input {
+                    input: hover.clone(),
+                },
+            )
+            .await;
+        let hearing = async {
+            let mut heard = Vec::new();
+            while heard.len() < 2 {
+                heard.push(
+                    computer
+                        .next(|said| {
+                            matches!(said, ToHelper::Pace { .. } | ToHelper::Input { .. })
+                                .then_some(said)
+                        })
+                        .await,
+                );
+            }
+            heard
+        };
+        let heard = tokio::time::timeout(TICK, hearing)
+            .await
+            .expect("the helper heard no higher pace");
+        assert_eq!(
+            heard,
+            [
+                ToHelper::Pace { pace: Pace::Acting },
+                ToHelper::Input { input: hover }
+            ]
+        );
+        assert_eq!(computer.pace().await, Pace::Watching);
+        let held = acted.elapsed();
+        assert!(
+            (Pacer::HOLD..Pacer::HOLD + TICK * 2).contains(&held),
+            "{held:?}"
+        );
     }
 
     #[tokio::test]

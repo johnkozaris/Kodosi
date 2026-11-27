@@ -10,7 +10,7 @@ use std::{
 
 use stream::{Format, Region};
 
-use crate::Picture;
+use crate::{Pace, Picture};
 
 pub(crate) struct Pixels {
     pub(crate) bgra: Vec<u8>,
@@ -29,6 +29,7 @@ pub(crate) struct Slot {
     /// A new format for the stream, which `OpenH264` encodes as H.264 all the same.
     pub(crate) format: Option<Format>,
     pub(crate) bitrate: Option<u32>,
+    pub(crate) pace: Option<Pace>,
     pub(crate) stop: bool,
 }
 
@@ -92,6 +93,10 @@ impl Encoder {
 
     pub(crate) fn set_bitrate(&self, bitrate: u32) {
         self.change(|slot| slot.bitrate = Some(bitrate));
+    }
+
+    pub(crate) fn set_pace(&self, pace: Pace) {
+        self.change(|slot| slot.pace = Some(pace));
     }
 
     /// Copies outside the lock so the worker is not blocked while the rows are cloned.

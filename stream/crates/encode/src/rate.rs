@@ -1,7 +1,8 @@
-//! Rate control for encoders that take a quantizer for each frame. Frames may run a few frame
-//! times ahead of the link: a new screen shows coarse within a few frames instead of sharp a
-//! second later, passes then sharpen it while the link has room, and typing never waits long
-//! behind them.
+//! Rate control for encoders that take a quantizer for each frame. New pictures come at the
+//! stream's pace, and frames may run a few hundredths of a second ahead of the link: a new screen
+//! shows coarse at once instead of sharp a second later, passes then sharpen it while the link has
+//! room, and typing never waits long behind them. A frame's own share of the link is its frame
+//! time, so at a slower pace each frame gets more bits and nothing waits longer.
 //!
 //! A model tracks the quantizer each share of the picture was last coded at. Coding a frame at a
 //! finer quantizer also sharpens everything coded coarser, which the model counts as the cost
@@ -9,7 +10,7 @@
 
 use std::time::{Duration, Instant};
 
-use crate::FRAME_RATE;
+use crate::{Pace, due};
 
 /// A picture that stays this long gets passes that sharpen it; motion changes it sooner.
 pub(crate) const SETTLED: Duration = Duration::from_millis(50);
@@ -21,16 +22,16 @@ const LEVELS: usize = COARSEST as usize + 1;
 /// Quantizer steps that halve a frame. Camera video halves every 6 steps, but text keeps its
 /// sharp edges, so screens halve more slowly.
 const HALVING: f64 = 8.0;
-/// Frame times of link that a new picture may fill.
-const BURST: f64 = 4.0;
-/// Frame times of link that a pass may leave queued, which is the longest a new picture waits
-/// behind one.
-const PASS: f64 = 2.0;
+/// The link's time that a new picture may fill.
+const BURST: Duration = Duration::from_millis(67);
+/// The link's time that a pass may leave queued, which is the longest a new picture waits behind
+/// one.
+const PASS: Duration = Duration::from_millis(33);
 /// Changes this close together are motion, which costs less than new detail because the
 /// encoder predicts it from the last picture.
 const MOTION: Duration = Duration::from_millis(50);
-/// A pass that costs more than `PASS` frame times even in its smallest step waits until the
-/// picture has stayed this long, so typing rarely waits behind one.
+/// A pass that costs more than `PASS` of link even in its smallest step waits until the picture
+/// has stayed this long, so typing rarely waits behind one.
 const QUIET: Duration = Duration::from_millis(250);
 /// Bytes per pixel at quantizer 0 in the model for detail that the encoder has not seen. Text on
 /// a screen measures about half of it, so a new screen errs towards a small frame however cheap
@@ -68,7 +69,10 @@ pub(crate) struct Choice {
 
 pub(crate) struct Rate {
     /// Bytes per second that the link carries.
-    pace: f64,
+    speed: f64,
+    pace: Pace,
+    /// When the last new picture was coded.
+    pictured_at: Option<Instant>,
     /// Bytes sent ahead of the link, as of `at`.
     queued: f64,
     at: Instant,
@@ -89,15 +93,17 @@ fn scale(quantizer: u8) -> f64 {
     (-f64::from(quantizer) / HALVING).exp2()
 }
 
-/// A floor of 8 kbit/s keeps the link's pace above zero.
-fn pace(bitrate: u32) -> f64 {
+/// A floor of 8 kbit/s keeps the link's speed above zero.
+fn speed(bitrate: u32) -> f64 {
     f64::from(bitrate.max(8_000)) / 8.0
 }
 
 impl Rate {
-    pub(crate) fn new(bitrate: u32, now: Instant) -> Self {
+    pub(crate) fn new(bitrate: u32, pace: Pace, now: Instant) -> Self {
         Self {
-            pace: pace(bitrate),
+            speed: speed(bitrate),
+            pace,
+            pictured_at: None,
             queued: 0.0,
             at: now,
             detail: UNSEEN,
@@ -109,7 +115,11 @@ impl Rate {
 
     pub(crate) fn set_bitrate(&mut self, bitrate: u32, now: Instant) {
         self.drain(now);
-        self.pace = pace(bitrate);
+        self.speed = speed(bitrate);
+    }
+
+    pub(crate) fn set_pace(&mut self, pace: Pace) {
+        self.pace = pace;
     }
 
     /// Whether every share of the picture is sharp.
@@ -117,8 +127,9 @@ impl Rate {
         self.coarsest().is_none()
     }
 
-    /// Chooses the quantizer for a picture of which `changed` is new, or for one that codes all
-    /// of it again, like a keyframe; or tells when the link will have room for it.
+    /// Chooses the quantizer for a new picture of which `changed` is new, or which `whole` codes
+    /// all of again, like a keyframe; or tells when its frame time comes or when the link will
+    /// have room for it.
     pub(crate) fn picture(
         &mut self,
         changed: f64,
@@ -126,11 +137,36 @@ impl Rate {
         pixels: f64,
         now: Instant,
     ) -> Result<Choice, Instant> {
+        due(self.pace, self.pictured_at, now)?;
+        let choice = self.choose(changed, whole, pixels, now)?;
+        self.pictured_at = Some(now);
+        Ok(choice)
+    }
+
+    /// Chooses the quantizer for the last picture again, all of it new, to repair the stream;
+    /// or tells when the link will have room for it.
+    pub(crate) fn repair(
+        &mut self,
+        whole: bool,
+        pixels: f64,
+        now: Instant,
+    ) -> Result<Choice, Instant> {
+        self.choose(1.0, whole, pixels, now)
+    }
+
+    fn choose(
+        &mut self,
+        changed: f64,
+        whole: bool,
+        pixels: f64,
+        now: Instant,
+    ) -> Result<Choice, Instant> {
         self.drain(now);
-        let budget = self.budget();
-        let room = BURST.mul_add(budget, -self.queued);
-        if room < budget {
-            return Err(self.after(budget - room));
+        let share = self.carried(self.pace.frame_time());
+        let burst = self.carried(BURST);
+        let room = burst - self.queued;
+        if room < share {
+            return Err(self.after(share - room));
         }
         let fresh = if whole { 1.0 } else { changed.clamp(0.0, 1.0) };
         let moving = !whole
@@ -155,7 +191,7 @@ impl Rate {
                 pixels * self.detail * moved * self.refining(quantizer),
             )
         };
-        let target = room.min(budget * (BURST - 1.0).mul_add(fresh, 1.0));
+        let target = room.min((burst - share).mul_add(fresh, share));
         let quantizer = (SHARP..=COARSEST)
             .find(|quantizer| {
                 let (new, refined) = costs(*quantizer);
@@ -183,7 +219,7 @@ impl Rate {
     pub(crate) fn pass(&mut self, pixels: f64, now: Instant) -> Option<Result<Choice, Instant>> {
         let coarsest = self.coarsest()?;
         self.drain(now);
-        let limit = PASS * self.budget();
+        let limit = self.carried(PASS);
         let room = limit - self.queued;
         let cost = |quantizer: u8| pixels * self.detail * self.refining(quantizer);
         let quantizer = (SHARP..coarsest)
@@ -229,19 +265,20 @@ impl Rate {
         }
     }
 
-    fn budget(&self) -> f64 {
-        self.pace / f64::from(FRAME_RATE)
+    /// The bytes that the link carries in `time`.
+    fn carried(&self, time: Duration) -> f64 {
+        self.speed * time.as_secs_f64()
     }
 
     fn drain(&mut self, now: Instant) {
-        let carried = self.pace * now.saturating_duration_since(self.at).as_secs_f64();
+        let carried = self.carried(now.saturating_duration_since(self.at));
         self.queued = (self.queued - carried).max(0.0);
         self.at = self.at.max(now);
     }
 
     /// When the link will have carried `excess` more bytes.
     fn after(&self, excess: f64) -> Instant {
-        self.at + Duration::from_secs_f64((excess / self.pace).clamp(SHORTEST_WAIT, LONGEST_WAIT))
+        self.at + Duration::from_secs_f64((excess / self.speed).clamp(SHORTEST_WAIT, LONGEST_WAIT))
     }
 
     fn coarsest(&self) -> Option<u8> {
@@ -295,66 +332,100 @@ mod tests {
             as usize
     }
 
-    fn frames(rate: &Rate) -> f64 {
-        rate.queued / rate.budget()
+    /// The link's time that the bytes sent ahead of it take.
+    fn queued(rate: &Rate) -> Duration {
+        Duration::from_secs_f64(rate.queued / rate.speed)
+    }
+
+    fn share(rate: &Rate) -> f64 {
+        rate.carried(rate.pace.frame_time())
     }
 
     #[test]
     fn a_new_screen_shows_within_a_burst_then_sharpens_in_passes_that_typing_need_not_wait_for() {
-        for complexity in [TEXT, 4.0 * TEXT] {
-            let start = Instant::now();
-            let mut rate = Rate::new(10_000_000, start);
-            let before = rate.coded;
-            let first = rate.picture(1.0, true, PIXELS, start).unwrap();
-            rate.coded(first, real(&before, first.quantizer, 1.0, complexity));
-            if complexity == TEXT {
-                assert!(frames(&rate) <= BURST, "{}", frames(&rate));
-            }
-            let mut now = start;
-            let mut passes = 0;
-            while !rate.sharp() {
-                now += FRAME;
+        for pace in [Pace::Acting, Pace::Watching] {
+            for complexity in [TEXT, 4.0 * TEXT] {
+                let start = Instant::now();
+                let mut rate = Rate::new(10_000_000, pace, start);
                 let before = rate.coded;
-                match rate.pass(PIXELS, now) {
-                    Some(Ok(choice)) => {
-                        let bytes = real(&before, choice.quantizer, 0.0, complexity);
-                        rate.coded(choice, bytes);
-                        passes += 1;
-                        let step = f64::from(u32::try_from(bytes).unwrap()) / rate.budget();
-                        if passes > 3 {
-                            assert!(frames(&rate) <= PASS.max(step) + 0.5, "{}", frames(&rate));
-                        }
-                    }
-                    Some(Err(at)) => assert!(at > now),
-                    None => {}
+                let first = rate.picture(1.0, true, PIXELS, start).unwrap();
+                rate.coded(first, real(&before, first.quantizer, 1.0, complexity));
+                if complexity == TEXT {
+                    assert!(queued(&rate) <= BURST, "{pace:?}: {:?}", queued(&rate));
                 }
-                assert!(
-                    now - start < Duration::from_secs(3),
-                    "{complexity} never sharp"
-                );
+                let mut now = start;
+                let mut passes = 0;
+                while !rate.sharp() {
+                    now += FRAME;
+                    let before = rate.coded;
+                    match rate.pass(PIXELS, now) {
+                        Some(Ok(choice)) => {
+                            let bytes = real(&before, choice.quantizer, 0.0, complexity);
+                            rate.coded(choice, bytes);
+                            passes += 1;
+                            let step = Duration::from_secs_f64(
+                                f64::from(u32::try_from(bytes).unwrap()) / rate.speed,
+                            );
+                            if passes > 3 {
+                                assert!(
+                                    queued(&rate) <= PASS.max(step) + FRAME / 2,
+                                    "{pace:?}: {:?}",
+                                    queued(&rate)
+                                );
+                            }
+                        }
+                        Some(Err(at)) => assert!(at > now),
+                        None => {}
+                    }
+                    assert!(
+                        now - start < Duration::from_secs(3),
+                        "{complexity} never sharp"
+                    );
+                }
+                let typed = rate
+                    .picture(0.001, false, PIXELS, now + 10 * FRAME)
+                    .unwrap();
+                assert_eq!(typed.quantizer, SHARP);
+                assert!(typed.expected <= share(&rate));
             }
-            let typed = rate
-                .picture(0.001, false, PIXELS, now + 10 * FRAME)
-                .unwrap();
-            assert_eq!(typed.quantizer, SHARP);
-            assert!(typed.expected <= rate.budget());
         }
     }
 
     #[test]
     fn typing_on_a_coarse_screen_shows_at_once_and_sharpens_it_a_little_on_the_way() {
         let start = Instant::now();
-        let mut rate = Rate::new(10_000_000, start);
+        let mut rate = Rate::new(10_000_000, Pace::Acting, start);
         rate.code(45, 0.0, 1.0);
         let typed = rate.picture(0.001, false, PIXELS, start).unwrap();
         assert!(typed.quantizer < 45, "{}", typed.quantizer);
-        assert!(typed.expected <= rate.budget());
+        assert!(typed.expected <= share(&rate));
+    }
+
+    #[test]
+    fn a_small_change_while_people_watch_may_cost_twice_what_it_may_while_a_viewer_acts() {
+        let typed = |pace| {
+            let start = Instant::now();
+            let mut rate = Rate::new(10_000_000, pace, start);
+            (
+                rate.picture(0.031, false, PIXELS, start).unwrap(),
+                share(&rate),
+            )
+        };
+        let (acting, share) = typed(Pace::Acting);
+        let (watching, _) = typed(Pace::Watching);
+        assert!(acting.quantizer > SHARP, "{}", acting.quantizer);
+        assert_eq!(watching.quantizer, SHARP);
+        assert!(
+            (share..=2.0 * share).contains(&watching.expected),
+            "{} of {share}",
+            watching.expected
+        );
     }
 
     #[test]
     fn motion_beyond_the_link_skips_pictures_rather_than_queue_them() {
         let start = Instant::now();
-        let mut rate = Rate::new(2_000_000, start);
+        let mut rate = Rate::new(2_000_000, Pace::Acting, start);
         let (mut sent, mut largest, mut shown) = (0, 0, 0);
         let mut now = start;
         for _ in 0..600 {
@@ -366,9 +437,73 @@ mod tests {
                 (sent, largest, shown) = (sent + bytes, largest.max(bytes), shown + 1);
             }
         }
-        let carried = rate.pace * (now - start).as_secs_f64();
+        let carried = rate.carried(now - start);
         let excess = f64::from(u32::try_from(sent - largest).unwrap()) - carried;
-        assert!(excess <= BURST * rate.budget(), "{excess}");
+        assert!(excess <= rate.carried(BURST), "{excess}");
         assert!((10..600).contains(&shown), "{shown}");
+    }
+
+    /// Offers each picture when `offers` says, as a capture does, and leaves it waiting in the
+    /// slot until the controller takes it or a newer one replaces it, as an encoder's worker
+    /// does. Returns which pictures the controller took, and when.
+    fn worker(rate: &mut Rate, offers: &[Instant]) -> Vec<(usize, Instant)> {
+        let mut taken = Vec::new();
+        let mut waiting: Option<(usize, Instant)> = None;
+        let mut next = 0;
+        loop {
+            let offer = offers.get(next).copied();
+            let (picture, now) = match waiting {
+                Some((picture, due)) if offer.is_none_or(|at| due < at) => (picture, due),
+                _ => {
+                    let Some(at) = offer else {
+                        return taken;
+                    };
+                    next += 1;
+                    (next - 1, at)
+                }
+            };
+            waiting = match rate.picture(0.01, false, PIXELS, now) {
+                Ok(choice) => {
+                    rate.coded(choice, 0);
+                    taken.push((picture, now));
+                    None
+                }
+                Err(due) => Some((picture, due)),
+            };
+        }
+    }
+
+    #[test]
+    fn while_people_watch_every_second_picture_of_a_capture_passes_as_it_comes_and_the_last_one_after_it()
+     {
+        let start = Instant::now();
+        let offers: Vec<Instant> = (0..60_u64)
+            .map(|index| {
+                let late = [12_000, 10_000, 8_000, 10_000][usize::try_from(index % 4).unwrap()];
+                start + Duration::from_micros(late + 16_667 * index)
+            })
+            .collect();
+
+        let mut rate = Rate::new(100_000_000, Pace::Acting, start);
+        let all: Vec<(usize, Instant)> = offers.iter().copied().enumerate().collect();
+        assert_eq!(worker(&mut rate, &offers), all);
+
+        let mut rate = Rate::new(100_000_000, Pace::Watching, start);
+        let taken = worker(&mut rate, &offers);
+        let (last, shown) = *taken.last().unwrap();
+        let second: Vec<(usize, Instant)> = all.iter().copied().step_by(2).collect();
+        assert_eq!(taken[..taken.len() - 1], second);
+        assert_eq!(last, offers.len() - 1);
+        let before = taken[taken.len() - 2].1;
+        assert!(
+            shown >= before + Pace::Watching.frame_time(),
+            "{:?}",
+            shown - before
+        );
+        assert!(
+            shown < offers[last] + FRAME * 2,
+            "{:?}",
+            shown - offers[last]
+        );
     }
 }

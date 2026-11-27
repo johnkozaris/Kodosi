@@ -5,7 +5,7 @@
 
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
-use stream::{Codec, Encoded, Format, FrameKind, Size};
+use stream::{Codec, Encoded, Format, FrameKind, Pace, Size};
 
 use crate::message::{Dialog, MenuItem};
 
@@ -19,7 +19,7 @@ pub const MOST_ICON: usize = 12 * 1024;
 /// Wire protocol version between host and engine; both sides must match.
 ///
 /// Bump on any breaking change to `ToEngine`, `FromEngine`, or the binary frame header.
-pub const VERSION: u32 = 3;
+pub const VERSION: u32 = 4;
 
 /// Binary frame header layout: window (8 bytes), flags (1 byte), codec (1 byte), mark (8 bytes).
 const FRAME_HEADER: usize = 8 + 1 + 1 + 8;
@@ -64,6 +64,7 @@ pub enum ToEngine {
         tab: i64,
         bitrate: u32,
         format: Format,
+        pace: Pace,
     },
     /// Restarts the window's encoder in a format that every viewer decodes.
     Format {
@@ -88,6 +89,10 @@ pub enum ToEngine {
     Bitrate {
         window: i64,
         bitrate: u32,
+    },
+    Pace {
+        window: i64,
+        pace: Pace,
     },
     /// Tab rendered into the window's Core Animation layer, or `None` to hold the last frame.
     Layer {

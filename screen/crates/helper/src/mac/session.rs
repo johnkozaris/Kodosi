@@ -185,6 +185,7 @@ impl Session {
                 height,
                 format,
                 bitrate,
+                pace,
             } => {
                 let wanted = Wanted {
                     source,
@@ -192,7 +193,12 @@ impl Session {
                     width,
                     height,
                 };
-                if let Err(problem) = self.capture(wanted, Settings { format, bitrate }).await {
+                let settings = Settings {
+                    format,
+                    bitrate,
+                    pace,
+                };
+                if let Err(problem) = self.capture(wanted, settings).await {
                     self.fail(problem).await;
                 }
             }
@@ -201,6 +207,7 @@ impl Session {
             ToHelper::Recover => self.encoder(Encoder::recover),
             ToHelper::Held { marks } => self.encoder(|encoder| encoder.held(&marks)),
             ToHelper::Bitrate { bitrate } => self.encoder(|encoder| encoder.set_bitrate(bitrate)),
+            ToHelper::Pace { pace } => self.encoder(|encoder| encoder.set_pace(pace)),
             ToHelper::Input { input } => self.play(&input).await,
             ToHelper::Notice { notice } => {
                 let first = notice.is_some() && !self.watched;

@@ -1,5 +1,6 @@
 //! `OpenH264` in software, for computers whose GPU does not encode. Its worker sharpens a
-//! picture that stays with passes that encode it again.
+//! picture that stays with passes that encode it again. Its own rate control gives each frame
+//! the bitrate's share for the frame rate that it is told, so it is told the stream's pace.
 
 use std::{mem::MaybeUninit, os::raw::c_int, time::Instant};
 
@@ -13,14 +14,14 @@ use openh264::{
     formats::YUVSlices,
 };
 use openh264_sys2::{
-    ENCODER_OPTION, ENCODER_OPTION_BITRATE, ENCODER_OPTION_MAX_BITRATE,
+    ENCODER_OPTION, ENCODER_OPTION_BITRATE, ENCODER_OPTION_FRAME_RATE, ENCODER_OPTION_MAX_BITRATE,
     ENCODER_OPTION_SVC_ENCODE_PARAM_EXT, LAYER_NUM, SBitrateInfo, SEncParamExt, SPATIAL_LAYER_0,
     SPATIAL_LAYER_ALL, cmResultSuccess,
 };
 use stream::{Codec, Encoded, FrameKind, Region};
 
 use crate::{
-    FRAME_RATE, Output, RETRY,
+    FRAME_RATE, Output, Pace, RETRY, due,
     pixels::{self, Pixels, Shared},
     refine::{Cleanup, Convergence, PASS_EVERY, STILL, frame_budget},
     retry_after,
@@ -96,14 +97,19 @@ fn clamp(value: i32) -> u8 {
 struct Running {
     encoder: H264,
     planes: Planes,
+    /// The pace whose frame rate the encoder was told.
+    pace: Pace,
 }
 
+fn hertz(frame_rate: u32) -> f32 {
+    f32::from(u16::try_from(frame_rate).unwrap_or(u16::MAX))
+}
+
+/// Starts at the highest frame rate, which sets the stream's level, and is told the pace later.
 fn start(width: usize, height: usize, bitrate: u32) -> Option<Running> {
     let config = EncoderConfig::new()
         .bitrate(BitRate::from_bps(bitrate))
-        .max_frame_rate(FrameRate::from_hz(f32::from(
-            u16::try_from(FRAME_RATE).ok()?,
-        )))
+        .max_frame_rate(FrameRate::from_hz(hertz(FRAME_RATE)))
         .usage_type(UsageType::ScreenContentRealTime)
         .rate_control_mode(RateControlMode::Bitrate)
         // In screen-content mode, OpenH264 overrides min QP 0 to 26..35 (capping static text
@@ -115,6 +121,7 @@ fn start(width: usize, height: usize, bitrate: u32) -> Option<Running> {
     Some(Running {
         encoder,
         planes: Planes::new(width, height),
+        pace: Pace::Acting,
     })
 }
 
@@ -163,6 +170,17 @@ fn set_bitrate(encoder: &mut H264, from: u32, to: u32) -> bool {
         .all(|(option, layer)| set_option(encoder, option, layer, to))
 }
 
+fn set_frame_rate(encoder: &mut H264, pace: Pace) -> bool {
+    let mut rate = hertz(pace.frame_rate());
+    // SAFETY: the option takes a float, which lives for the call.
+    unsafe {
+        encoder
+            .raw_api()
+            .set_option(ENCODER_OPTION_FRAME_RATE, (&raw mut rate).cast())
+            == cmResultSuccess
+    }
+}
+
 fn set_option(encoder: &mut H264, option: ENCODER_OPTION, layer: LAYER_NUM, bitrate: u32) -> bool {
     let mut info = SBitrateInfo {
         iLayer: layer,
@@ -172,11 +190,13 @@ fn set_option(encoder: &mut H264, option: ENCODER_OPTION, layer: LAYER_NUM, bitr
     unsafe { encoder.raw_api().set_option(option, (&raw mut info).cast()) == cmResultSuccess }
 }
 
-pub(crate) fn work(bitrate: u32, output: &dyn Output, shared: &Shared) {
+pub(crate) fn work(bitrate: u32, pace: Pace, output: &dyn Output, shared: &Shared) {
     let mut worker = Worker {
         output,
         shared,
         bitrate,
+        pace,
+        pictured_at: None,
         running: None,
         region: None,
         lost: false,
@@ -208,6 +228,9 @@ struct Worker<'a> {
     output: &'a dyn Output,
     shared: &'a Shared,
     bitrate: u32,
+    pace: Pace,
+    /// When the encoder last took a new picture.
+    pictured_at: Option<Instant>,
     running: Option<Running>,
     /// What the picture in the encoder shows of the source.
     region: Option<Region>,
@@ -222,7 +245,8 @@ struct Worker<'a> {
 }
 
 impl Worker<'_> {
-    /// Waits for a picture, a keyframe asked for while the picture is still, a retry or a pass.
+    /// Waits for a new picture at its frame time, or while none waits, for a keyframe asked for
+    /// while the picture is still, a retry or a pass.
     fn next(&mut self) -> Option<Work> {
         let shared = self.shared;
         let mut slot = pixels::lock(shared);
@@ -230,17 +254,32 @@ impl Worker<'_> {
             if slot.stop {
                 return None;
             }
-            if slot.picture.is_some() || (slot.key && self.running.is_some()) {
-                break;
+            if let Some(pace) = slot.pace.take() {
+                self.pace = pace;
             }
-            let wake = self.again.into_iter().chain(self.pass_at).min();
-            if wake.is_some_and(|at| at <= Instant::now()) {
-                break;
-            }
+            let now = Instant::now();
+            let wake = if slot.picture.is_some() {
+                match due(self.pace, self.pictured_at, now) {
+                    Ok(()) => break,
+                    Err(at) => Some(at),
+                }
+            } else {
+                if slot.key && self.running.is_some() {
+                    break;
+                }
+                let wake = self.again.into_iter().chain(self.pass_at).min();
+                if wake.is_some_and(|at| at <= now) {
+                    break;
+                }
+                wake
+            };
             slot = pixels::wait(shared, slot, wake);
         }
         let now = Instant::now();
         let picture = slot.picture.take();
+        if picture.is_some() {
+            self.pictured_at = Some(now);
+        }
         let again = self.again.is_some_and(|at| at <= now);
         if again || picture.is_some() {
             self.again = None;
@@ -278,6 +317,11 @@ impl Worker<'_> {
         let Some(running) = self.running.as_mut() else {
             return true;
         };
+        // The encoder starts with its first picture and takes options only after it, so a new
+        // one codes that picture at the highest frame rate.
+        if running.pace != self.pace && set_frame_rate(&mut running.encoder, self.pace) {
+            running.pace = self.pace;
+        }
         if key {
             running.encoder.force_intra_frame();
         }
@@ -363,7 +407,9 @@ impl Worker<'_> {
             self.missing = false;
         }
         if pass {
-            let clean = self.sharpening.refined(size, frame_budget(self.bitrate));
+            let clean = self
+                .sharpening
+                .refined(size, frame_budget(self.bitrate, self.pace));
             self.passed(clean);
         }
     }

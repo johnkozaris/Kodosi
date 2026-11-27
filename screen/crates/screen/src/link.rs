@@ -8,11 +8,11 @@ use std::io;
 
 use bytes::{BufMut, Bytes, BytesMut};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use stream::{Codec, Encoded, Format, FrameKind, Region, viewer::Input};
+use stream::{Codec, Encoded, Format, FrameKind, Pace, Region, viewer::Input};
 use tokio::io::{AsyncRead, AsyncReadExt as _};
 
 /// The helper ships inside the same app as the host, so both sides must match.
-pub const VERSION: u32 = 2;
+pub const VERSION: u32 = 3;
 /// The largest message either side takes.
 const MOST_MESSAGE: usize = 16 * 1024 * 1024;
 /// The most clipboard text that goes between a viewer and the computer.
@@ -42,6 +42,7 @@ pub enum ToHelper {
         height: u32,
         format: Format,
         bitrate: u32,
+        pace: Pace,
     },
     Stop,
     Keyframe,
@@ -51,6 +52,9 @@ pub enum ToHelper {
     },
     Bitrate {
         bitrate: u32,
+    },
+    Pace {
+        pace: Pace,
     },
     /// Pointer coordinates are in the shown source's points.
     Input {

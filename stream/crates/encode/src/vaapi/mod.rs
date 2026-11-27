@@ -15,7 +15,7 @@ use stream::{Codec, Encoded, FrameKind};
 
 use self::{session::Session, va::Display};
 use crate::{
-    Output, Settings,
+    Output, Pace, Settings,
     pixels::{self, Pixels, Shared, Slot},
     rate::{self, Choice, Rate, SETTLED},
     retry_after,
@@ -91,7 +91,8 @@ pub(crate) fn work(settings: Settings, output: &dyn Output, shared: &Shared) -> 
         session: None,
         last: None,
         bitrate: settings.bitrate,
-        rate: Rate::new(settings.bitrate, now),
+        pace: settings.pace,
+        rate: Rate::new(settings.bitrate, settings.pace, now),
         drawn_at: now,
         repair: false,
         retry_at: None,
@@ -99,7 +100,7 @@ pub(crate) fn work(settings: Settings, output: &dyn Output, shared: &Shared) -> 
     };
     while let Some(job) = worker.next() {
         if worker.code(job).is_err() {
-            give_back(shared, worker.last.take(), worker.bitrate);
+            give_back(shared, worker.last.take(), worker.bitrate, worker.pace);
             return false;
         }
     }
@@ -107,8 +108,8 @@ pub(crate) fn work(settings: Settings, output: &dyn Output, shared: &Shared) -> 
 }
 
 /// Leaves the slot as software needs it to take over: with the newest picture, as all new, and
-/// with the bitrate.
-fn give_back(shared: &Shared, picture: Option<Pixels>, bitrate: u32) {
+/// with the bitrate and the pace.
+fn give_back(shared: &Shared, picture: Option<Pixels>, bitrate: u32, pace: Pace) {
     let mut slot = pixels::lock(shared);
     if let Some(picture) = picture
         && slot.picture.is_none()
@@ -117,6 +118,7 @@ fn give_back(shared: &Shared, picture: Option<Pixels>, bitrate: u32) {
     }
     slot.changed = 1.0;
     slot.bitrate.get_or_insert(bitrate);
+    slot.pace.get_or_insert(pace);
 }
 
 struct Job {
@@ -138,6 +140,7 @@ struct Worker<'a> {
     /// again when it restarts in another codec.
     last: Option<Pixels>,
     bitrate: u32,
+    pace: Pace,
     rate: Rate,
     drawn_at: Instant,
     /// Set when the next frame must be a keyframe.
@@ -158,6 +161,10 @@ impl Worker<'_> {
             if let Some(bitrate) = slot.bitrate.take() {
                 self.bitrate = bitrate;
                 self.rate.set_bitrate(bitrate, now);
+            }
+            if let Some(pace) = slot.pace.take() {
+                self.pace = pace;
+                self.rate.set_pace(pace);
             }
             self.repair |= std::mem::take(&mut slot.key);
             if let Some(format) = slot.format.take() {
@@ -189,7 +196,7 @@ impl Worker<'_> {
         let choice = if slot.picture.is_some() {
             self.rate.picture(slot.changed, key, pixels, now)
         } else if repair_due {
-            self.rate.picture(1.0, true, pixels, now)
+            self.rate.repair(true, pixels, now)
         } else if self.retry_at.is_some() {
             return Err(self.retry_at);
         } else {

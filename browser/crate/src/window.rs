@@ -11,7 +11,7 @@ use std::{
 use bytes::Bytes;
 use serde_json::json;
 use stream::{
-    Ask, Decoder, Encoded, Flow, Format, FrameKind, HOPELESS, Size, Viewing,
+    Ask, Decoder, Encoded, Flow, Format, FrameKind, HOPELESS, Pacer, Size, Viewing,
     viewer::{self, Frame, KeyAction, MouseAction, MouseButton},
 };
 use tokio::sync::{Notify, mpsc, oneshot, watch};
@@ -467,6 +467,7 @@ struct Live {
     id: i64,
     folder: PathBuf,
     flow: Flow,
+    pacer: Pacer,
     seats: HashMap<String, Seat>,
     state: State,
     published: watch::Sender<State>,
@@ -519,11 +520,13 @@ impl Live {
         events: mpsc::WeakSender<Event>,
     ) -> Self {
         let state = published.borrow().clone();
+        let now = Instant::now();
         Self {
             engine,
             id,
             folder,
             flow: Flow::new(),
+            pacer: Pacer::new(now),
             seats: HashMap::new(),
             state,
             published,
@@ -538,7 +541,7 @@ impl Live {
             layering: None,
             layer: Layer::Coming,
             next_frame: 0,
-            used_at: Instant::now(),
+            used_at: now,
             control: None,
             actor: Actor::Person,
             answer: None,
@@ -609,6 +612,12 @@ impl Live {
             self.engine.command(ToEngine::Bitrate {
                 window: self.id,
                 bitrate,
+            });
+        }
+        if let Some(pace) = self.pacer.settle(now) {
+            self.engine.command(ToEngine::Pace {
+                window: self.id,
+                pace,
             });
         }
         let mut hopeless = self.flow.hopeless(now);
@@ -854,6 +863,7 @@ impl Live {
                 }
                 self.used_at = now;
                 if opened {
+                    self.raise_pace(now);
                     self.opened(viewer);
                 }
                 self.control.get_or_insert_with(|| Control::of(viewer));
@@ -894,7 +904,19 @@ impl Live {
                 }
             }
             ToWindow::Size { size } => self.keep_size(viewer, size),
-            ToWindow::Input { input } => self.input(viewer, input),
+            ToWindow::Input { input } => {
+                self.raise_pace(now);
+                self.input(viewer, input);
+            }
+        }
+    }
+
+    fn raise_pace(&mut self, now: Instant) {
+        if let Some(pace) = self.pacer.acted(now) {
+            self.engine.command(ToEngine::Pace {
+                window: self.id,
+                pace,
+            });
         }
     }
 
@@ -1074,6 +1096,7 @@ impl Live {
             tab,
             bitrate: self.flow.bitrate(),
             format: self.format,
+            pace: self.pacer.pace(),
         });
     }
 

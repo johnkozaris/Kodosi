@@ -251,8 +251,13 @@ impl Session {
                 height,
                 format,
                 bitrate,
+                pace,
             } => {
-                let settings = Settings { format, bitrate };
+                let settings = Settings {
+                    format,
+                    bitrate,
+                    pace,
+                };
                 if let Err(problem) = self.capture(source, region, width, height, settings).await {
                     self.fail(problem).await;
                 }
@@ -262,6 +267,7 @@ impl Session {
             ToHelper::Recover => self.encoder(Encoder::recover),
             ToHelper::Held { marks } => self.encoder(|encoder| encoder.held(&marks)),
             ToHelper::Bitrate { bitrate } => self.encoder(|encoder| encoder.set_bitrate(bitrate)),
+            ToHelper::Pace { pace } => self.encoder(|encoder| encoder.set_pace(pace)),
             ToHelper::Input { input } => self.play(input),
             ToHelper::Notice { notice } => self.notice(notice).await,
             ToHelper::Clipboard { text } => {
