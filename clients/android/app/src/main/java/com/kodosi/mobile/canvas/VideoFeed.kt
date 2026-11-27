@@ -355,8 +355,16 @@ abstract class VideoFeed(
         }
     }
 
-    // On the pipe's thread: the picture waits for a repair, which the next frame brings.
-    internal fun repair() = execute { if (streaming) stale() }
+    // On the pipe's thread: whether the picture is not the stream's newest any more. A rest ends with the next frame, or
+    // with false when the picture is the newest again.
+    internal fun stale(stale: Boolean) = execute {
+        if (!streaming) return@execute
+        if (stale) {
+            stale()
+        } else if (picture.value && decoder != null) {
+            live.value = true
+        }
+    }
 
     // The decoder starts over, so the runtime waits for a keyframe and asks for one.
     private fun restart() {

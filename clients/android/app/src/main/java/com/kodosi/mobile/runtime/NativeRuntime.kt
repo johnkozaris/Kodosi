@@ -36,7 +36,8 @@ interface RuntimeCallbacks {
 
     fun onVideoMessage(pipe: String, json: ByteArray)
 
-    fun onVideoRepair(pipe: String)
+    /** True when the pipe's picture is not the stream's newest any more, false when it is again. */
+    fun onVideoStale(pipe: String, stale: Boolean)
 }
 
 internal object NativeRuntime {

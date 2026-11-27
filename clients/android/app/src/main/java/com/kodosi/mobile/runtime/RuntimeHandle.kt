@@ -39,7 +39,8 @@ interface VideoSink {
 
     fun message(pipe: String, json: ByteArray)
 
-    fun repair(pipe: String)
+    // True when the picture is not the stream's newest any more, false when it is again.
+    fun stale(pipe: String, stale: Boolean)
 }
 
 // The app watches each video pipe (the shared browser's or the screen's) that it opened, until before it closes it.
@@ -173,7 +174,7 @@ class RuntimeHandle(private val video: VideoSink) :
 
     override fun onVideoMessage(pipe: String, json: ByteArray) = video.message(pipe, json)
 
-    override fun onVideoRepair(pipe: String) = video.repair(pipe)
+    override fun onVideoStale(pipe: String, stale: Boolean) = video.stale(pipe, stale)
 
     companion object {
         fun setLanguage(language: String) = NativeRuntime.setLanguage(language)

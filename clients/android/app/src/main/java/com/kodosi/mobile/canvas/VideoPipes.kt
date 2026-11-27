@@ -71,8 +71,8 @@ class VideoPipes(
         watched[pipe]?.message(json)
     }
 
-    override fun repair(pipe: String) {
-        watched[pipe]?.repair()
+    override fun stale(pipe: String, stale: Boolean) {
+        watched[pipe]?.stale(stale)
     }
 
     // Called on this executor's thread whenever a feed starts or stops decoding onto a surface.

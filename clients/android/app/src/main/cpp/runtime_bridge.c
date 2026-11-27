@@ -16,7 +16,7 @@ static jmethodID on_terminal_connect_result;
 static jmethodID on_terminal_checkpoint;
 static jmethodID on_video_frame;
 static jmethodID on_video_message;
-static jmethodID on_video_repair;
+static jmethodID on_video_stale;
 static jobject receiver;
 static uint8_t empty_payload;
 
@@ -184,14 +184,14 @@ static void video_message_callback(const char *pipe, const uint8_t *json, uintpt
     (*env)->PopLocalFrame(env, NULL);
 }
 
-static void video_repair_callback(const char *pipe, void *userdata) {
+static void video_stale_callback(const char *pipe, bool stale, void *userdata) {
     JNIEnv *env = attach();
     if (env == NULL || (*env)->PushLocalFrame(env, 2) != JNI_OK) {
         return;
     }
     jstring pipe_id = (*env)->NewStringUTF(env, pipe);
     if (pipe_id != NULL) {
-        (*env)->CallVoidMethod(env, (jobject)userdata, on_video_repair, pipe_id);
+        (*env)->CallVoidMethod(env, (jobject)userdata, on_video_stale, pipe_id, (jboolean)stale);
     }
     settle(env);
     (*env)->PopLocalFrame(env, NULL);
@@ -220,11 +220,11 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     on_video_frame =
         (*env)->GetMethodID(env, callbacks, "onVideoFrame", "(Ljava/lang/String;II[FLjava/nio/ByteBuffer;)I");
     on_video_message = (*env)->GetMethodID(env, callbacks, "onVideoMessage", "(Ljava/lang/String;[B)V");
-    on_video_repair = (*env)->GetMethodID(env, callbacks, "onVideoRepair", "(Ljava/lang/String;)V");
+    on_video_stale = (*env)->GetMethodID(env, callbacks, "onVideoStale", "(Ljava/lang/String;Z)V");
     (*env)->DeleteLocalRef(env, callbacks);
     if (on_event == NULL || on_terminal_data == NULL || on_terminal_control == NULL ||
         on_terminal_connect_result == NULL || on_terminal_checkpoint == NULL || on_video_frame == NULL ||
-        on_video_message == NULL || on_video_repair == NULL) {
+        on_video_message == NULL || on_video_stale == NULL) {
         return JNI_ERR;
     }
     return JNI_VERSION_1_6;
@@ -298,7 +298,7 @@ JNIEXPORT jlong JNICALL Java_com_kodosi_mobile_runtime_NativeRuntime_start(JNIEn
         .on_terminal_checkpoint = checkpoint_callback,
         .on_video_frame = video_frame_callback,
         .on_video_message = video_message_callback,
-        .on_video_repair = video_repair_callback,
+        .on_video_stale = video_stale_callback,
     };
     void *handle = kodosi_start(&table, sizeof(table), receiver);
     if (handle == NULL) {
