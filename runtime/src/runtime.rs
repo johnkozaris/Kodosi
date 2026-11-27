@@ -2064,7 +2064,10 @@ impl Runtime {
             Some(identity) => self
                 .network
                 .ready_event(&identity.user_id, identity.enrolled),
-            None => json!({"type":"auth.required", "reason":"signedOut"}),
+            None => self
+                .network
+                .restoring_event()
+                .unwrap_or_else(|| json!({"type":"auth.required", "reason":"signedOut"})),
         }
     }
 

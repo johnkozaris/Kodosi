@@ -672,6 +672,23 @@ async fn start_loop(
 }
 
 #[tokio::test]
+async fn an_app_hears_a_saved_sign_in_that_no_server_answers_as_restoring() {
+    let (runtime, root) = registry_fixture();
+    kodosi_os::fs::write_private(
+        &root.path().join("core/secrets/kodosi.tokens"),
+        br#"{"access_token":"access","refresh_token":"refresh","expires_at":0}"#,
+    )
+    .unwrap();
+    drop(runtime.network.initialize().await);
+    let told = runtime.auth_event();
+    assert_eq!(
+        (told["type"].as_str(), told["reason"].as_str()),
+        (Some("auth.restoring"), Some("offline")),
+        "{told}"
+    );
+}
+
+#[tokio::test]
 async fn a_terminal_started_on_another_computer_is_answered_when_it_shows_here() {
     let (mut runtime, _root) = registry_fixture();
     let mut events = runtime.events.subscribe();

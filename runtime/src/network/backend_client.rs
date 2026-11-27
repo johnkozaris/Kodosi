@@ -475,6 +475,7 @@ impl BackendClient {
             Err(Error::SignedOut) => "expired",
             result => return result,
         };
+        tracing::warn!(reason, "the sign-in ended");
         if reason == "accountDeleted" {
             self.forget_deleted_account().await?;
         } else {
