@@ -274,14 +274,15 @@ an isolated, ephemeral profile tied to the terminal's lifetime.
 program, captures the screen and plays viewers' input, and the host links to it with the same
 messages on every system. On a Mac it is an app inside Kodosi's bundle that the host opens through
 Launch Services, so that macOS grants Screen Recording and Accessibility to it alone and the
-programs in terminals, which inherit Kodosi's permissions, do not get them. It serves only a program
-signed by its own team, which the kernel names on the Mach message that hands it the link, so a
-program in a terminal that starts it gets nothing. On Linux and Windows it ships beside the `kodosi`
-program and runs as the host's child: on Linux the desktop's screen sharing portal asks the person
-at the computer once and remembers the grant, and on Windows no permission is needed. The host
-starts the helper only while the person at the computer allows the sharing, which only the
-computer's own app changes. While anyone watches, the helper shows which devices watch, in the menu
-bar or the tray, with a way to stop that turns the sharing off on every canvas.
+programs in terminals, which inherit Kodosi's permissions, do not get them. The host and the helper
+link only with a program signed by their own team, which the kernel names on each Mach message of
+the handover, so a program in a terminal that starts the helper or asks for the host's link gets
+nothing. On Linux and Windows the helper ships beside the `kodosi` program and runs as the host's
+child: on Linux the desktop's screen sharing portal asks the person at the computer once and
+remembers the grant, and on Windows no permission is needed. The host starts the helper only while
+the person at the computer allows the sharing, which only the computer's own app changes. While
+anyone watches, the helper shows which devices watch, in the menu bar or the tray, with a way to
+stop that turns the sharing off on every canvas.
 
 One capture serves every viewer of a computer. It shows a display or one window, sized to the view
 that the person opened or used last, with as many pixels as that view shows, fewer while a phone

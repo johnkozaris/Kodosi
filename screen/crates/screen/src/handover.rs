@@ -1,9 +1,9 @@
 //! On a Mac the host hands the helper its end of the link in a Mach message.
 //!
 //! The kernel stamps each Mach message with the audit token of the program that sent it, so the
-//! helper learns which program it serves. A Unix socket cannot say who holds it: its peer is the
-//! process that last used it, which may since have run another program while a child that it
-//! started keeps the socket.
+//! host learns which program asks and the helper learns which program answers. A Unix socket
+//! cannot say who holds it: its peer is the process that last used it, which may since have run
+//! another program while a child that it started keeps the socket.
 
 use std::{
     ffi::{CString, c_char, c_int},
@@ -13,6 +13,8 @@ use std::{
 };
 #[cfg(feature = "host")]
 use std::{os::fd::AsRawFd as _, time::Instant};
+
+use crate::signature::Signer;
 
 type Port = u32;
 
@@ -69,7 +71,7 @@ unsafe extern "C" {
 /// The program that sent a Mach message, as the kernel saw it then; it stays valid only while
 /// that program runs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct AuditToken(pub [u32; 8]);
+pub(crate) struct AuditToken(pub(crate) [u32; 8]);
 
 #[repr(C)]
 #[derive(Default)]
@@ -143,6 +145,23 @@ impl Drop for Receiver {
 #[cfg(feature = "host")]
 pub(crate) struct Offer(Receiver);
 
+/// A program that asked for the link, and the right to answer it once, which goes with it.
+#[cfg(feature = "host")]
+struct Ask {
+    answer: Port,
+    asker: AuditToken,
+}
+
+#[cfg(feature = "host")]
+impl Drop for Ask {
+    fn drop(&mut self) {
+        if self.answer != 0 {
+            // SAFETY: this task holds the right to answer.
+            unsafe { mach_port_deallocate(task(), self.answer) };
+        }
+    }
+}
+
 #[cfg(feature = "host")]
 impl Offer {
     pub(crate) fn new(name: &str) -> io::Result<Self> {
@@ -155,17 +174,27 @@ impl Offer {
         Ok(Self(Receiver(port)))
     }
 
-    /// Waits for the first helper that asks, and hands it `link`.
-    pub(crate) fn hand(self, link: OwnedFd, limit: Duration) -> io::Result<()> {
+    /// Hands `link` to the first program that asks and that `signer` trusts. The others hear
+    /// nothing, and the link waits until `limit` for one.
+    pub(crate) fn hand(self, link: OwnedFd, limit: Duration, signer: &Signer) -> io::Result<()> {
         let deadline = Instant::now() + limit;
-        let answer = loop {
+        loop {
+            let ask = self.next_ask(deadline)?;
+            if signer.trusts(&ask.asker) {
+                return answer(ask, link);
+            }
+        }
+    }
+
+    fn next_ask(&self, deadline: Instant) -> io::Result<Ask> {
+        loop {
             let mut asked = Received::<Header>::default();
             // SAFETY: the buffer holds `receive_size` bytes, and a message that does not fit is
             // dropped.
             let heard = unsafe {
                 mach_msg(
                     &raw mut asked.message,
-                    RECEIVE | RECEIVE_TIMEOUT,
+                    RECEIVE | RECEIVE_TIMEOUT | WITH_AUDIT_TOKEN,
                     0,
                     size::<Received<Header>>(),
                     (self.0).0,
@@ -182,63 +211,84 @@ impl Offer {
                 problem => return Err(failed(problem, "hear the helper")),
             }
             let header = &asked.message;
-            if header.bits & COMPLEX == 0 && header.bits & 0x1f == PORT_SEND_ONCE {
-                break header.remote;
+            let whole = header.bits & COMPLEX == 0
+                && header.bits & 0x1f == PORT_SEND_ONCE
+                && header.size == size::<Header>()
+                && asked.trailer.size >= size::<AuditTrailer>();
+            if whole {
+                return Ok(Ask {
+                    answer: header.remote,
+                    asker: AuditToken(asked.trailer.audit),
+                });
             }
             // SAFETY: a message that this task received, which nothing uses afterwards.
             unsafe { mach_msg_destroy(&raw mut asked.message) };
-        };
-        let mut port = 0;
-        // SAFETY: `link` is an open file and `port` is valid to write.
-        let made = unsafe { fileport_makeport(link.as_raw_fd(), &raw mut port) };
-        let problem = (made != 0).then(io::Error::last_os_error);
-        drop(link);
-        if let Some(problem) = problem {
-            // SAFETY: this task holds the right to answer, which it no longer uses.
-            unsafe { mach_port_deallocate(task(), answer) };
-            return Err(problem);
         }
-        let mut handed = Handed {
-            header: Header {
-                bits: MOVE_SEND_ONCE | COMPLEX,
-                size: size::<Handed>(),
-                remote: answer,
-                ..Header::default()
-            },
-            descriptors: 1,
-            link: PortDescriptor {
-                name: port,
-                disposition: MOVE_SEND,
-                kind: PORT_DESCRIPTOR,
-                ..PortDescriptor::default()
-            },
-        };
-        // SAFETY: `handed` is a whole message of `send_size` bytes.
-        let sent = unsafe {
-            mach_msg(
-                &raw mut handed.header,
-                SEND | SEND_TIMEOUT,
-                handed.header.size,
-                0,
-                0,
-                0,
-                0,
-            )
-        };
-        if sent != SUCCESS {
-            // SAFETY: the message did not go, so this task still holds both rights.
-            unsafe {
-                mach_port_deallocate(task(), port);
-                mach_port_deallocate(task(), answer);
-            }
-        }
-        checked(sent, "hand over the link")
     }
 }
 
-/// Asks the host that registered `name` for its end of the link, and returns it with the token of
-/// the program that handed it over.
-pub fn take(name: &str, limit: Duration) -> io::Result<(OwnedFd, AuditToken)> {
+#[cfg(feature = "host")]
+fn answer(mut ask: Ask, link: OwnedFd) -> io::Result<()> {
+    let mut port = 0;
+    // SAFETY: `link` is an open file and `port` is valid to write.
+    let made = unsafe { fileport_makeport(link.as_raw_fd(), &raw mut port) };
+    let problem = (made != 0).then(io::Error::last_os_error);
+    drop(link);
+    if let Some(problem) = problem {
+        return Err(problem);
+    }
+    let mut handed = Handed {
+        header: Header {
+            bits: MOVE_SEND_ONCE | COMPLEX,
+            size: size::<Handed>(),
+            remote: std::mem::take(&mut ask.answer),
+            ..Header::default()
+        },
+        descriptors: 1,
+        link: PortDescriptor {
+            name: port,
+            disposition: MOVE_SEND,
+            kind: PORT_DESCRIPTOR,
+            ..PortDescriptor::default()
+        },
+    };
+    // SAFETY: `handed` is a whole message of `send_size` bytes.
+    let sent = unsafe {
+        mach_msg(
+            &raw mut handed.header,
+            SEND | SEND_TIMEOUT,
+            handed.header.size,
+            0,
+            0,
+            0,
+            0,
+        )
+    };
+    if sent != SUCCESS {
+        // SAFETY: the message did not go, so this task still holds both rights.
+        unsafe {
+            mach_port_deallocate(task(), port);
+            mach_port_deallocate(task(), handed.header.remote);
+        }
+    }
+    checked(sent, "hand over the link")
+}
+
+/// Asks the host that registered `name` for its end of the link, and takes it when `signer`
+/// trusts the program that hands it over.
+pub fn take(name: &str, limit: Duration, signer: &Signer) -> io::Result<OwnedFd> {
+    let (link, sender) = taken(name, limit)?;
+    if signer.trusts(&sender) {
+        Ok(link)
+    } else {
+        Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "another program handed over the link",
+        ))
+    }
+}
+
+fn taken(name: &str, limit: Duration) -> io::Result<(OwnedFd, AuditToken)> {
     let name = CString::new(name).map_err(io::Error::other)?;
     let mut service = 0;
     // SAFETY: `name` is a C string and `service` is valid to write.
@@ -350,18 +400,59 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn a_helper_takes_the_hosts_end_of_the_link_with_the_hosts_audit_token() {
-        let name = format!("com.kodosi.screen.test.{}", std::process::id());
+    /// A team that did not sign these tests, which run as development builds.
+    const TEAM: &str = "ABCDE12345";
+
+    fn offer(test: &str) -> (String, Offer) {
+        let name = format!("com.kodosi.screen.test.{}.{test}", std::process::id());
         let offer = Offer::new(&name).unwrap();
+        (name, offer)
+    }
+
+    #[test]
+    fn each_end_of_the_handover_learns_which_program_is_at_the_other() {
+        let (name, offer) = offer("tokens");
         let (mut host, helper) = UnixStream::pair().unwrap();
-        let handing = std::thread::spawn(move || offer.hand(helper.into(), Duration::from_secs(5)));
-        let (link, token) = take(&name, Duration::from_secs(5)).unwrap();
-        handing.join().unwrap().unwrap();
-        assert_eq!(token.0[5], std::process::id());
+        let handing = std::thread::spawn(move || {
+            let ask = offer.next_ask(Instant::now() + Duration::from_secs(5))?;
+            let asker = ask.asker;
+            answer(ask, helper.into()).map(|()| asker)
+        });
+        let (link, sender) = taken(&name, Duration::from_secs(5)).unwrap();
+        let asker = handing.join().unwrap().unwrap();
+        assert_eq!(asker.0[5], std::process::id());
+        assert_eq!(sender.0[5], std::process::id());
         host.write_all(b"hello").unwrap();
         let mut heard = [0; 5];
         UnixStream::from(link).read_exact(&mut heard).unwrap();
         assert_eq!(&heard, b"hello");
+    }
+
+    #[test]
+    fn a_host_of_a_team_hands_its_link_to_no_program_that_the_team_did_not_sign() {
+        let (name, offer) = offer("host");
+        let (_host, helper) = UnixStream::pair().unwrap();
+        let team = Signer::Team(TEAM.to_owned());
+        let handing =
+            std::thread::spawn(move || offer.hand(helper.into(), Duration::from_secs(1), &team));
+        assert!(take(&name, Duration::from_secs(5), &Signer::NoTeam).is_err());
+        let handed = handing.join().unwrap();
+        assert_eq!(handed.unwrap_err().kind(), io::ErrorKind::TimedOut);
+    }
+
+    #[test]
+    fn a_helper_of_a_team_takes_no_link_that_the_team_did_not_sign() {
+        let (name, offer) = offer("helper");
+        let (_host, helper) = UnixStream::pair().unwrap();
+        let handing = std::thread::spawn(move || {
+            offer.hand(helper.into(), Duration::from_secs(5), &Signer::NoTeam)
+        });
+        let taken = take(
+            &name,
+            Duration::from_secs(5),
+            &Signer::Team(TEAM.to_owned()),
+        );
+        assert_eq!(taken.unwrap_err().kind(), io::ErrorKind::PermissionDenied);
+        handing.join().unwrap().unwrap();
     }
 }

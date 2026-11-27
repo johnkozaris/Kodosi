@@ -1058,6 +1058,8 @@ version = "0.1.0"
 dependencies = [
  "bytes",
  "getrandom",
+ "objc2-core-foundation",
+ "objc2-security",
  "serde",
  "serde_json",
  "stream",
@@ -1084,7 +1086,6 @@ dependencies = [
  "objc2-core-video",
  "objc2-foundation",
  "objc2-screen-capture-kit",
- "objc2-security",
  "pipewire",
  "png",
  "reis",

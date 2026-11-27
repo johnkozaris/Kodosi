@@ -22,7 +22,7 @@ use tokio::{
 };
 
 #[cfg(target_os = "macos")]
-use crate::handover;
+use crate::{handover, signature::Signer};
 use crate::{
     link::{self, Access, Away, FromHelper, Message, Notice, VERSION},
     live::{Calls, Event, Live, Mailbox, Wanted},
@@ -208,6 +208,8 @@ pub(crate) struct Started {
 #[cfg(target_os = "macos")]
 async fn start(settings: &Settings) -> Result<Started, Error> {
     let token = token()?;
+    let signer = Signer::own()
+        .ok_or_else(|| Error::Helper("the host cannot tell who signed it".to_owned()))?;
     let name = format!("com.kodosi.screen.{}", &token[..12]);
     let offer = handover::Offer::new(&name)?;
     let (link, helper_end) = std::os::unix::net::UnixStream::pair()?;
@@ -225,7 +227,7 @@ async fn start(settings: &Settings) -> Result<Started, Error> {
     if !opened.success() {
         return Err(Error::Helper(format!("it did not open: {opened}")));
     }
-    tokio::task::spawn_blocking(move || offer.hand(helper_end.into(), CONNECT_LIMIT))
+    tokio::task::spawn_blocking(move || offer.hand(helper_end.into(), CONNECT_LIMIT, &signer))
         .await
         .map_err(|_| Error::Stopped)?
         .map_err(|error| {

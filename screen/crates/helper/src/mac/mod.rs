@@ -18,7 +18,6 @@ mod power;
 mod raise;
 mod session;
 mod sources;
-mod trust;
 
 use std::{
     ffi::OsString,

@@ -4,6 +4,8 @@
 #[cfg(target_os = "macos")]
 pub mod handover;
 pub mod link;
+#[cfg(target_os = "macos")]
+pub mod signature;
 
 #[cfg(feature = "host")]
 mod host;

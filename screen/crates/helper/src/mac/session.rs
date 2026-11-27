@@ -12,6 +12,7 @@ use objc2_core_graphics::{
 use screen::{
     handover,
     link::{self, Access, Away, FromHelper, Message, Source, Sources, ToHelper, VERSION},
+    signature::Signer,
 };
 use stream::viewer::{Input, KeyAction, MouseAction};
 use stream_encode::{Encoder, Settings};
@@ -33,7 +34,6 @@ use super::{
     power::{self, Power},
     raise,
     sources::{self, Content},
-    trust,
 };
 
 /// Messages on their way to the host: frames, the pointer and what the helper says.
@@ -69,12 +69,12 @@ pub(super) fn serve(
     events: mpsc::UnboundedSender<Event>,
     hearing: mpsc::UnboundedReceiver<Event>,
 ) {
-    let Ok((link, host)) = handover::take(link, HANDOVER_LIMIT) else {
+    let Some(signer) = Signer::own() else {
         return;
     };
-    if !trust::serves(&host) {
+    let Ok(link) = handover::take(link, HANDOVER_LIMIT, &signer) else {
         return;
-    }
+    };
     let Ok(runtime) = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
