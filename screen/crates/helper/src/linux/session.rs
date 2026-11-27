@@ -15,7 +15,7 @@ use stream::{
 };
 use stream_encode::{Encoder, Settings};
 use tokio::{io::AsyncWriteExt as _, sync::mpsc, time::Instant};
-use zbus::zvariant::OwnedObjectPath;
+use zbus::OwnedObjectPath;
 
 use super::{
     Arguments,

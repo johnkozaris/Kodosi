@@ -12,10 +12,8 @@ use tokio::{
     sync::{mpsc, oneshot},
 };
 use zbus::{
-    MatchRule, MessageStream,
-    message::Type as MessageType,
-    names::MemberName,
-    zvariant::{self, DeserializeDict, OwnedObjectPath, Type, Value},
+    DeserializeDict, DynamicType, MatchRule, MessageStream, OwnedObjectPath, Type, Variant,
+    message::Type as MessageType, names::MemberName,
 };
 
 use super::{
@@ -52,12 +50,10 @@ impl Clipboard {
         let rule = MatchRule::builder()
             .msg_type(MessageType::Signal)
             .sender(DESKTOP)
-            .ok()?
             .path(DESKTOP_PATH)
-            .ok()?
             .interface(CLIPBOARD)
-            .ok()?
-            .build();
+            .build()
+            .ok()?;
         let signals = MessageStream::for_match_rule(rule, desktop.bus(), None)
             .await
             .ok()?;
@@ -93,7 +89,7 @@ struct Session {
 }
 
 #[derive(Debug, Default, DeserializeDict, Type)]
-#[zvariant(signature = "a{sv}", crate = "zbus::zvariant")]
+#[zbus(signature = "a{sv}")]
 struct Owner {
     mime_types: Option<Vec<String>>,
     session_is_owner: Option<bool>,
@@ -175,8 +171,8 @@ impl Session {
     }
 
     async fn offer(&self) -> bool {
-        let options: HashMap<&str, Value<'_>> =
-            HashMap::from([("mime_types", Value::from(TEXT.to_vec()))]);
+        let options: HashMap<&str, Variant<'_>> =
+            HashMap::from([("mime_types", Variant::from(TEXT.to_vec()))]);
         self.call("SetSelection", &(&self.session, options))
             .await
             .is_ok()
@@ -187,7 +183,7 @@ impl Session {
             .call("SelectionRead", &(&self.session, kind))
             .await
             .ok()?;
-        let source: OwnedFd = reply.body().deserialize::<zvariant::OwnedFd>().ok()?.into();
+        let source: OwnedFd = reply.body().deserialize::<zbus::OwnedFd>().ok()?.into();
         let source = pipe::Receiver::from_owned_fd(source).ok()?;
         let mut bytes = Vec::new();
         let most = u64::try_from(MOST_CLIPBOARD).unwrap_or(u64::MAX) + 1;
@@ -216,7 +212,7 @@ impl Session {
             .call("SelectionWrite", &(&self.session, serial))
             .await
             .ok()?;
-        let target: OwnedFd = reply.body().deserialize::<zvariant::OwnedFd>().ok()?.into();
+        let target: OwnedFd = reply.body().deserialize::<zbus::OwnedFd>().ok()?.into();
         let mut target = pipe::Sender::from_owned_fd(target).ok()?;
         tokio::time::timeout(TRANSFER_LIMIT, target.write_all(text.as_bytes()))
             .await
@@ -226,7 +222,7 @@ impl Session {
 
     async fn call<B>(&self, method: &'static str, body: &B) -> Result<zbus::Message, Problem>
     where
-        B: serde::Serialize + zvariant::DynamicType + Sync,
+        B: serde::Serialize + DynamicType + Sync,
     {
         Ok(self
             .bus
