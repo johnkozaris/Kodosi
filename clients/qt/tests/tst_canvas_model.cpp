@@ -123,7 +123,7 @@ class Decoder final : public kodosi::VideoSink {
 public:
     bool take(const Frame&) noexcept override { return true; }
     void hand(QByteArrayView) noexcept override { }
-    void repair() noexcept override { }
+    void stale(bool) noexcept override { }
 };
 
 QJsonObject part(const QString& key, int revision, qsizetype offset, qsizetype total, const QByteArray& data)

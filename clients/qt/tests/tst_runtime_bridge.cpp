@@ -28,7 +28,7 @@ public:
         return takes;
     }
     void hand(QByteArrayView message) noexcept override { heard.append(QString::fromUtf8(message.toByteArray())); }
-    void repair() noexcept override { heard.append(QStringLiteral("repair")); }
+    void stale(bool stale) noexcept override { heard.append(stale ? QStringLiteral("stale") : QStringLiteral("newest")); }
 
     QStringList heard;
     bool takes = true;
@@ -155,18 +155,19 @@ private slots:
             decoder->takes = false;
             answers.append(callbacks.on_video_frame(id.constData(), &delta, userdata));
             answers.append(callbacks.on_video_frame(other.constData(), &delta, userdata));
-            callbacks.on_video_repair(id.constData(), userdata);
+            callbacks.on_video_stale(id.constData(), true, userdata);
+            callbacks.on_video_stale(id.constData(), false, userdata);
         });
         runtime.join();
         QCOMPARE(answers, (QList<std::int32_t> { KODOSI_VIDEO_TAKEN, KODOSI_VIDEO_FAILED, KODOSI_VIDEO_TAKEN }));
         QCOMPARE(decoder->heard,
             (QStringList { QStringLiteral("hevc key picture of 1,2 3x4"), QString::fromLatin1(state),
-                QStringLiteral("hevc delta picture"), QStringLiteral("repair") }));
+                QStringLiteral("hevc delta picture"), QStringLiteral("stale"), QStringLiteral("newest") }));
 
         bridge.unwatch(pipe);
         QCOMPARE(runtime_fixture::videoCalls.last(), QStringLiteral("unwatch ") + pipe);
         QCOMPARE(callbacks.on_video_frame(id.constData(), &key, userdata), KODOSI_VIDEO_TAKEN);
-        QCOMPARE(decoder->heard.size(), 4);
+        QCOMPARE(decoder->heard.size(), 5);
     }
     void anOutdatedHostRefusesTheStartWithItsFacts()
     {

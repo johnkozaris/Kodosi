@@ -62,8 +62,9 @@ public:
     [[nodiscard]] virtual bool take(const Frame& frame) noexcept = 0;
     // A JSON message of the stream, valid only during the call.
     virtual void hand(QByteArrayView message) noexcept = 0;
-    // The picture waits for a repair, so it rests until the next frame.
-    virtual void repair() noexcept = 0;
+    // True when the picture is not the stream's newest any more, so it rests until the next frame;
+    // false when it is the newest again.
+    virtual void stale(bool stale) noexcept = 0;
 };
 
 // Hands the frames and messages of the video pipes that the app opened to their sinks.
@@ -225,7 +226,7 @@ private:
     static std::shared_ptr<VideoSink> videoSink(const char* pipe, void* userdata) noexcept;
     static std::int32_t videoFrame(const char*, const kodosi_video_frame_t*, void*) noexcept;
     static void videoMessage(const char*, const std::uint8_t*, std::uintptr_t, void*) noexcept;
-    static void videoRepair(const char*, void*) noexcept;
+    static void videoStale(const char*, bool, void*) noexcept;
 };
 
 }

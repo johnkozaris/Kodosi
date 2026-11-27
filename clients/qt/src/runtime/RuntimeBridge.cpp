@@ -105,7 +105,7 @@ void RuntimeBridge::startAsync(std::function<void(Result)> completion)
     std::thread([context = m_callbacks, generation, completion = std::move(completion)]() mutable {
         const kodosi_callbacks_t callbacks { &RuntimeBridge::event, &RuntimeBridge::terminalData,
             &RuntimeBridge::terminalControl, &RuntimeBridge::terminalConnectResult, &RuntimeBridge::terminalCheckpoint,
-            &RuntimeBridge::videoFrame, &RuntimeBridge::videoMessage, &RuntimeBridge::videoRepair };
+            &RuntimeBridge::videoFrame, &RuntimeBridge::videoMessage, &RuntimeBridge::videoStale };
         auto* handle = kodosi_start(&callbacks, sizeof(callbacks), context.get());
         auto refusal = handle ? RuntimeFailure {} : startFailure();
         auto pending = std::shared_ptr<void*>(new void*(handle), [context](void** value) {
@@ -533,10 +533,10 @@ void RuntimeBridge::videoMessage(const char* pipe, const std::uint8_t* json, std
     if (const auto sink = videoSink(pipe, userdata); sink && json)
         sink->hand(QByteArrayView(json, static_cast<qsizetype>(length)));
 }
-void RuntimeBridge::videoRepair(const char* pipe, void* userdata) noexcept
+void RuntimeBridge::videoStale(const char* pipe, bool stale, void* userdata) noexcept
 {
     if (const auto sink = videoSink(pipe, userdata))
-        sink->repair();
+        sink->stale(stale);
 }
 
 }

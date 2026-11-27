@@ -78,8 +78,8 @@ struct Picture {
 // What a stream showed since the view looked last.
 struct Shown {
     Picture picture;
-    // Whether the picture waits for a repair, which came after the newest picture.
-    bool resting = false;
+    // Whether the newest picture is not the stream's newest any more, as the stream said after it.
+    std::optional<bool> stale;
 };
 
 // Decodes a watched video pipe on the runtime's thread of the pipe, which hands over only the frames
@@ -125,13 +125,17 @@ public:
         emit received(m_stateGeneration.load(), message.toByteArray());
     }
 
-    void repair() noexcept override
+    void stale(bool stale) noexcept override
     {
         bool waking = false;
         {
             std::lock_guard lock(m_showing);
-            waking = !m_shown.picture.frame && !m_shown.resting;
-            m_shown.resting = true;
+            // A decoder may take frames before it shows a picture, and until then the view shows an
+            // earlier one.
+            if (!stale && !m_pictured)
+                return;
+            waking = !m_shown.picture.frame && !m_shown.stale;
+            m_shown.stale = stale;
         }
         if (waking)
             emit pictureReady();
@@ -152,6 +156,7 @@ public:
         m_behind = false;
         std::lock_guard lock(m_showing);
         m_shown = {};
+        m_pictured = false;
     }
 
     // The pipe opens again, with the whole state.
@@ -191,8 +196,9 @@ private:
         bool waking = false;
         {
             std::lock_guard lock(m_showing);
-            waking = !m_shown.picture.frame && !m_shown.resting;
-            m_shown = { .picture = std::move(picture), .resting = false };
+            waking = !m_shown.picture.frame && !m_shown.stale;
+            m_shown = { .picture = std::move(picture), .stale = std::nullopt };
+            m_pictured = true;
         }
         if (waking)
             emit pictureReady();
@@ -201,6 +207,8 @@ private:
     std::unique_ptr<VideoDecoder> m_decoder;
     std::mutex m_showing;
     Shown m_shown;
+    // The decoder showed a picture of this pipe.
+    bool m_pictured = false;
     std::atomic<bool> m_behind { false };
     std::atomic<int> m_waitingStates { 0 };
     std::atomic<qsizetype> m_waitingStateBytes { 0 };
@@ -517,10 +525,10 @@ void StreamVideo::received(quint64 generation, const QByteArray& message)
         take(QJsonDocument::fromJson(message).object());
 }
 
-// A repair that came after the newest picture rests it.
+// What the stream said after its newest picture rests that picture or makes it live again.
 void StreamVideo::showPicture()
 {
-    auto [picture, resting] = m_stream->takeShown();
+    auto [picture, stale] = m_stream->takeShown();
     if (picture.frame) {
         const bool moved = picture.region != m_region;
         m_frame = std::move(picture.frame);
@@ -530,8 +538,8 @@ void StreamVideo::showPicture()
         if (moved)
             this->moved();
     }
-    if (resting)
-        m_live = false;
+    if (stale)
+        m_live = !*stale;
     restate();
 }
 
