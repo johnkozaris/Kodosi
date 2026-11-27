@@ -700,12 +700,16 @@ void StreamVideo::pointer(const QString& action, qreal x, qreal y, int button, i
         { QStringLiteral("modifiers"), viewerModifiers(modifiers) } });
 }
 
-void StreamVideo::wheel(qreal x, qreal y, QPoint pixels, QPoint angle, int modifiers)
+// A mouse wheel's notch comes with an angle and without a phase, as Qt's own views tell it from a
+// touchpad's scroll, and scrolls by its angle: on Wayland it also carries a few pixels, far less than
+// a notch scrolls a page. A touchpad's scroll comes in phases and moves by its pixels.
+void StreamVideo::wheel(qreal x, qreal y, QPoint pixels, QPoint angle, int phase, int modifiers)
 {
     const auto at = streamPoint(QPointF(x, y), false);
     if (!at)
         return;
-    const auto delta = pixels.isNull() ? angle * 100 / 120 : pixels;
+    const bool notch = phase == Qt::NoScrollPhase && !angle.isNull();
+    const auto delta = notch || pixels.isNull() ? angle * 100 / 120 : pixels;
     input({ { QStringLiteral("kind"), QStringLiteral("mouse") }, { QStringLiteral("action"), QStringLiteral("wheel") },
         { QStringLiteral("x"), at->x() }, { QStringLiteral("y"), at->y() }, { QStringLiteral("deltaX"), -delta.x() },
         { QStringLiteral("deltaY"), -delta.y() }, { QStringLiteral("modifiers"), viewerModifiers(modifiers) } });

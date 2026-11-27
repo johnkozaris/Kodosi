@@ -468,7 +468,7 @@ Item {
                 }
                 onWheel: wheel => {
                     pointer.shown = null;
-                    video.wheel(wheel.x, wheel.y, wheel.pixelDelta, wheel.angleDelta, wheel.modifiers);
+                    video.wheel(wheel.x, wheel.y, wheel.pixelDelta, wheel.angleDelta, wheel.phase, wheel.modifiers);
                 }
             }
             Item {

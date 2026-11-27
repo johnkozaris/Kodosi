@@ -532,6 +532,29 @@ private slots:
             QVERIFY(cursor.hotspot.y() >= 0 && cursor.hotspot.y() < cursor.pixels.height() / cursor.scale);
         }
     }
+
+    void aWheelsNotchScrollsByItsAngleAndATouchpadByItsPixels()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasDocuments documents(commands, commands, sessions);
+        kodosi::ScreenVideo video;
+        video.setSize(QSizeF(800, 500));
+        video.setDocuments(&documents);
+        video.setSessionId(test::id(1));
+        video.setActive(true);
+        commands.say(commands.answerOpen(documents), screen({}));
+        QTRY_VERIFY(!video.source().isEmpty());
+        const auto scrolled = [&](QPoint pixels, QPoint angle, Qt::ScrollPhase phase) {
+            video.wheel(600, 120, pixels, angle, phase, 0);
+            return commands.told(QStringLiteral("input")).value(QStringLiteral("input")).toObject().value(QStringLiteral("deltaY")).toDouble();
+        };
+
+        // A notch down on Wayland: an angle of 120 and 15 pixels.
+        QCOMPARE(scrolled(QPoint(0, -15), QPoint(0, -120), Qt::NoScrollPhase), 100.0);
+        QCOMPARE(scrolled(QPoint(), QPoint(0, 120), Qt::NoScrollPhase), -100.0);
+        QCOMPARE(scrolled(QPoint(0, -7), QPoint(0, -84), Qt::ScrollUpdate), 7.0);
+    }
 };
 
 QTEST_MAIN(CanvasModelTest)
