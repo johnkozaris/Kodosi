@@ -1,10 +1,13 @@
 #include "canvas/ScreenVideo.hpp"
 
+#include <QBuffer>
 #include <QClipboard>
 #include <QCursor>
 #include <QGuiApplication>
+#include <QImageReader>
 #include <QJsonArray>
 #include <QPixmap>
+#include <QQuickWindow>
 
 #include <algorithm>
 #include <cmath>
@@ -18,6 +21,12 @@ constexpr int lookEvery = 200;
 constexpr qreal closest = 4;
 // The smallest pointer, in view points per source point.
 constexpr qreal smallestPointer = 0.6;
+// The largest pointer picture, in pixels and in points, as Kodosi Screen sends it at most.
+constexpr int largestPointer = 256;
+// The pointer pictures that a view keeps at most.
+constexpr qsizetype mostShapes = 256;
+// The most pixels per point that a cursor takes on this device.
+constexpr int mostCursorScale = 4;
 constexpr qsizetype mostClipboardBytes = 1024 * 1024;
 // How long a state that the screen sent before it heard this view act may come after the act.
 constexpr qint64 claimWait = 1000;
@@ -28,11 +37,28 @@ QString shapeKey(const QVariant& id)
     return QString::number(id.toDouble(), 'g', 17);
 }
 
+// A size that the computer tells, which a view places only when both sides are numbers above nothing.
+QSizeF measured(qreal width, qreal height)
+{
+    return std::isfinite(width) && std::isfinite(height) && width > 0 && height > 0 ? QSizeF(width, height) : QSizeF();
+}
+
 QString awayReason(const QString& away)
 {
     static const QStringList reasons { QStringLiteral("locked"), QStringLiteral("anotherAccount"), QStringLiteral("asleep") };
     return reasons.contains(away) ? away : QString();
 }
+}
+
+CursorPicture cursorPicture(QSizeF points, QPointF hotspot, qreal deviceScale)
+{
+    const auto whole = [](qreal value, qreal least, qreal most) {
+        return std::isfinite(value) ? static_cast<int>(std::clamp(std::round(value), least, most)) : static_cast<int>(least);
+    };
+    const auto scale = whole(std::ceil(deviceScale), 1, mostCursorScale);
+    const QSize size(whole(points.width(), 1, largestPointer), whole(points.height(), 1, largestPointer));
+    return { size * scale, scale,
+        QPoint(whole(hotspot.x(), 0, size.width() - 1), whole(hotspot.y(), 0, size.height() - 1)) };
 }
 
 ScreenVideo::ScreenVideo(QQuickItem* parent)
@@ -63,9 +89,9 @@ void ScreenVideo::take(const QJsonObject& message)
         emit sourceChanged();
         emit placed();
     }
-    if (const QSizeF measured(message.value(QStringLiteral("width")).toDouble(), message.value(QStringLiteral("height")).toDouble());
-        measured != m_sourceSize) {
-        m_sourceSize = measured;
+    if (const auto size = measured(message.value(QStringLiteral("width")).toDouble(), message.value(QStringLiteral("height")).toDouble());
+        size != m_sourceSize) {
+        m_sourceSize = size;
         emit placed();
         update();
     }
@@ -105,16 +131,26 @@ void ScreenVideo::take(const QJsonObject& message)
     restate();
 }
 
+// A shape that no pointer can have stays out, so the view keeps its own cursor for it.
 void ScreenVideo::takeShape(const QVariantMap& shape)
 {
+    const auto key = shapeKey(shape.value(QStringLiteral("id")));
+    const auto size = measured(shape.value(QStringLiteral("width")).toDouble(), shape.value(QStringLiteral("height")).toDouble());
+    const QPointF hotspot(shape.value(QStringLiteral("x")).toDouble(), shape.value(QStringLiteral("y")).toDouble());
+    if ((m_shapes.size() >= mostShapes && !m_shapes.contains(key)) || size.isEmpty() || !std::isfinite(hotspot.x())
+        || !std::isfinite(hotspot.y()))
+        return;
     const auto png = shape.value(QStringLiteral("png")).toString();
-    const auto picture = QImage::fromData(QByteArray::fromBase64(png.toLatin1()), "PNG");
+    auto bytes = QByteArray::fromBase64(png.toLatin1());
+    QBuffer buffer(&bytes);
+    QImageReader reader(&buffer, "PNG");
+    const auto pixels = reader.size();
+    if (!pixels.isValid() || pixels.width() > largestPointer || pixels.height() > largestPointer)
+        return;
+    const auto picture = reader.read();
     if (picture.isNull())
         return;
-    m_shapes.insert(shapeKey(shape.value(QStringLiteral("id"))),
-        { QStringLiteral("data:image/png;base64,") + png, picture,
-            QPointF(shape.value(QStringLiteral("x")).toDouble(), shape.value(QStringLiteral("y")).toDouble()),
-            QSizeF(shape.value(QStringLiteral("width")).toDouble(), shape.value(QStringLiteral("height")).toDouble()) });
+    m_shapes.insert(key, { QStringLiteral("data:image/png;base64,") + png, picture, hotspot, size.boundedTo(QSizeF(largestPointer, largestPointer)) });
 }
 
 // The local pointer over the item takes the shape that the computer's pointer has there, while it
@@ -128,12 +164,13 @@ void ScreenVideo::followShape()
     }
     const auto key = shapeKey(m_pointerAt.value(QStringLiteral("shape")));
     const auto found = m_shapes.constFind(key);
-    if (m_pointerAt.isEmpty() || key == m_cursorShape || found == m_shapes.cend() || found->size.width() <= 0)
+    if (m_pointerAt.isEmpty() || key == m_cursorShape || found == m_shapes.cend())
         return;
     m_cursorShape = key;
-    auto pixmap = QPixmap::fromImage(found->picture);
-    pixmap.setDevicePixelRatio(found->picture.width() / found->size.width());
-    setCursor(QCursor(pixmap, qRound(found->hotspot.x()), qRound(found->hotspot.y())));
+    const auto cursor = cursorPicture(found->size, found->hotspot, window() ? window()->effectiveDevicePixelRatio() : 1.0);
+    auto pixmap = QPixmap::fromImage(found->picture.scaled(cursor.pixels, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
+    pixmap.setDevicePixelRatio(cursor.scale);
+    setCursor(QCursor(pixmap, cursor.hotspot.x(), cursor.hotspot.y()));
 }
 
 void ScreenVideo::forget()
@@ -260,7 +297,7 @@ std::optional<QRectF> ScreenVideo::look() const
         return ownLook();
     if (fit() <= 0)
         return std::nullopt;
-    return pictureRegion().value_or(QRectF(QPointF(), m_sourceSize));
+    return shownRegion().value_or(QRectF(QPointF(), m_sourceSize));
 }
 
 std::optional<QRectF> ScreenVideo::ownLook() const
@@ -301,6 +338,16 @@ std::optional<QPointF> ScreenVideo::streamPoint(QPointF point, bool clamped) con
     return QPointF(x, y);
 }
 
+// The part of the source that the newest picture shows, when the computer told one that a view can
+// place.
+std::optional<QRectF> ScreenVideo::shownRegion() const
+{
+    const auto region = pictureRegion();
+    if (!region || !std::isfinite(region->x()) || !std::isfinite(region->y()) || measured(region->width(), region->height()).isEmpty())
+        return std::nullopt;
+    return region;
+}
+
 // The picture of a part of the source shows where that part is, so a zoom moves and scales the
 // newest picture at once, before the screen sends the part that the view shows.
 QRectF ScreenVideo::pictureRect() const
@@ -308,7 +355,7 @@ QRectF ScreenVideo::pictureRect() const
     const auto shown = look();
     if (!shown)
         return StreamVideo::pictureRect();
-    const auto region = pictureRegion().value_or(QRectF(QPointF(), m_sourceSize));
+    const auto region = shownRegion().value_or(QRectF(QPointF(), m_sourceSize));
     const auto scale = std::min(width() / shown->width(), height() / shown->height());
     return { viewPoint(region.topLeft(), *shown), region.size() * scale };
 }
@@ -317,11 +364,11 @@ QVariantMap ScreenVideo::computerPointer() const
 {
     const auto shown = look();
     const auto shape = m_shapes.constFind(shapeKey(m_pointerAt.value(QStringLiteral("shape"))));
-    if (!shown || m_pointerAt.isEmpty() || shape == m_shapes.cend())
+    const QPointF pointed(m_pointerAt.value(QStringLiteral("x")).toDouble(), m_pointerAt.value(QStringLiteral("y")).toDouble());
+    if (!shown || m_pointerAt.isEmpty() || shape == m_shapes.cend() || !std::isfinite(pointed.x()) || !std::isfinite(pointed.y()))
         return {};
     const auto scale = std::max(std::min(width() / shown->width(), height() / shown->height()), smallestPointer);
-    const auto at = viewPoint(
-        QPointF(m_pointerAt.value(QStringLiteral("x")).toDouble(), m_pointerAt.value(QStringLiteral("y")).toDouble()), *shown);
+    const auto at = viewPoint(pointed, *shown);
     return { { QStringLiteral("x"), at.x() - shape->hotspot.x() * scale }, { QStringLiteral("y"), at.y() - shape->hotspot.y() * scale },
         { QStringLiteral("width"), shape->size.width() * scale }, { QStringLiteral("height"), shape->size.height() * scale },
         { QStringLiteral("image"), shape->address } };
