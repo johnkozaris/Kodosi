@@ -12,6 +12,7 @@ import com.kodosi.mobile.runtime.RuntimeJson
 import com.kodosi.mobile.runtime.fields
 import com.kodosi.mobile.runtime.string
 import java.nio.ByteBuffer
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
@@ -416,7 +417,8 @@ internal class VideoDecoder(
     private val refused: (VideoDecoder) -> Unit,
     private val lost: (VideoDecoder) -> Unit,
     private val heat: () -> Int = { PowerManager.THERMAL_STATUS_NONE },
-    private val decoders: (VideoCodec, IntSize) -> List<String> = ::deviceDecoders
+    private val decoders: (VideoCodec, IntSize) -> List<String> = ::deviceDecoders,
+    private val fullSpeed: (String) -> Map<String, Int> = { fullSpeedRequest(it) }
 ) : AutoCloseable {
     private val thread = HandlerThread("Kodosi video decoder").apply { start() }
     private val handler = Handler(thread.looper)
@@ -430,6 +432,9 @@ internal class VideoDecoder(
     private var closed = false
     private var waiting = true
     private var showed = false
+
+    // The codec was configured with the full-speed request.
+    private var askedFullSpeed = false
 
     // A frame's call waits for an input buffer, so it hears of a failure from the codec that changed.
     private var calling = false
@@ -485,6 +490,11 @@ internal class VideoDecoder(
     private fun create(stream: Stream) {
         val (type, size) = stream
         val chosen = decoders(type, size).firstOrNull { failures.getOrDefault(it, 0) < TRIES } ?: throw NoDecoder()
+        val request = if (chosen in refusingFullSpeed || heat() >= PowerManager.THERMAL_STATUS_MODERATE) {
+            emptyMap()
+        } else {
+            fullSpeed(chosen)
+        }
         name = chosen
         showed = false
         configured = stream
@@ -551,16 +561,13 @@ internal class VideoDecoder(
         val video = requireNotNull(next.codecInfo.getCapabilitiesForType(type.mime).videoCapabilities)
         val width = (size.width + video.widthAlignment - 1) / video.widthAlignment * video.widthAlignment
         val height = (size.height + video.heightAlignment - 1) / video.heightAlignment * video.heightAlignment
+        askedFullSpeed = request.isNotEmpty()
         next.configure(
             MediaFormat.createVideoFormat(type.mime, width, height).apply {
                 setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, MAX_FRAME)
                 setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
                 setInteger(MediaFormat.KEY_PRIORITY, REALTIME)
-                // Qualcomm's decoders then run at their highest clock, unless the phone is already warm;
-                // others may refuse the rate.
-                if (QUALCOMM.any(chosen::startsWith) && heat() < PowerManager.THERMAL_STATUS_MODERATE) {
-                    setInteger(MediaFormat.KEY_OPERATING_RATE, Short.MAX_VALUE.toInt())
-                }
+                request.forEach { (key, value) -> setInteger(key, value) }
                 val supported = next.supportedVendorParameters.toSet()
                 VENDOR_LOW_LATENCY.filterKeys { it in supported }.forEach { (key, value) -> setInteger(key, value) }
             },
@@ -590,12 +597,18 @@ internal class VideoDecoder(
 
     // Some decoders (such as the Android emulator's) fail on every frame. A codec that fails before its first picture
     // gets up to TRIES tries with its first keyframe before it is blacklisted and the next one takes over; the frames
-    // after that keyframe wait for the next one.
+    // after that keyframe wait for the next one. A failure with the full-speed request does not count: the codec is
+    // tried again at once without it, and is not asked again while the app runs.
     private fun fail() {
         val failed = name.takeUnless { showed }
+        val withRequest = askedFullSpeed
         reset()
         if (failed == null) return
-        failures[failed] = failures.getOrDefault(failed, 0) + 1
+        if (withRequest) {
+            refusingFullSpeed += failed
+        } else {
+            failures[failed] = failures.getOrDefault(failed, 0) + 1
+        }
         val keyframe = start ?: return
         try {
             create(keyframe.stream)
@@ -611,6 +624,7 @@ internal class VideoDecoder(
         val current = codec
         codec = null
         name = null
+        askedFullSpeed = false
         configured = null
         again = null
         runCatching { current?.stop() }
@@ -660,6 +674,17 @@ internal class VideoDecoder(
         const val REALTIME = 0
         val QUALCOMM = listOf("c2.qti.", "OMX.qcom.")
         const val CLOSE_MS = 500L
+
+        // The decoders that failed before their first picture with the full-speed request, while the app runs.
+        val refusingFullSpeed: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+        // Qualcomm's decoders then run at their highest clock, unless the phone is already warm; others may refuse
+        // the rate.
+        fun fullSpeedRequest(decoder: String): Map<String, Int> = if (QUALCOMM.any(decoder::startsWith)) {
+            mapOf(MediaFormat.KEY_OPERATING_RATE to Short.MAX_VALUE.toInt())
+        } else {
+            emptyMap()
+        }
 
         // About the host's lateness rule: a slower decoder gets fewer frames, a stuck one fails.
         val WAIT = 1.seconds

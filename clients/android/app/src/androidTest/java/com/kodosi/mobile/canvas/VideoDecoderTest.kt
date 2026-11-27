@@ -3,6 +3,7 @@ package com.kodosi.mobile.canvas
 import android.graphics.ImageFormat
 import android.hardware.HardwareBuffer
 import android.media.ImageReader
+import android.media.MediaFormat
 import android.os.Handler
 import android.os.HandlerThread
 import androidx.compose.ui.unit.IntSize
@@ -43,6 +44,31 @@ class VideoDecoderTest {
         VideoDecoder(reader.surface, {}, rendered = {}, refused = {}, lost = {}, decoders = failing).use { decoder ->
             assertEquals(IntSize(160, 96), stream(decoder, SMALLER, IntSize(160, 96)))
         }
+    }
+
+    @Test
+    fun aDecoderThatFailsWithTheFullSpeedRequestShowsItsPictureWithoutItAndIsNotAskedAgain() {
+        val asked = LinkedBlockingQueue<String>()
+        // A width that the decoder does not support, so it fails before its first picture.
+        val refusedRequest = { decoder: String ->
+            asked.add(decoder)
+            mapOf(MediaFormat.KEY_WIDTH to 100_000)
+        }
+        repeat(2) {
+            pictures.clear()
+            VideoDecoder(
+                reader.surface,
+                {},
+                rendered = {},
+                refused = {},
+                lost = {},
+                decoders = { _, _ -> listOf(SOFTWARE_H264) },
+                fullSpeed = refusedRequest
+            ).use { decoder ->
+                assertEquals(IntSize(160, 96), stream(decoder, SMALLER, IntSize(160, 96)))
+            }
+        }
+        assertEquals(listOf(SOFTWARE_H264), asked.toList())
     }
 
     @Test
@@ -95,6 +121,10 @@ class VideoDecoderTest {
     }
 
     private companion object {
+        // Every Android device has it. The app never asks it for full speed, so what the app remembers of it here
+        // changes no other test.
+        const val SOFTWARE_H264 = "c2.android.avc.decoder"
+
         const val SMALLER =
             "AAAAASdCwAyJigiGG8I83AgICB4QCEIwAAAAASjOPIAAAAABJbgAQACX///giigAfHAAEAuOAATn1/ffffffffPBm44Y++aDJf11" +
                 "11111110wZ11BlXXXXXXXXXTBnXUGVdddddddddMGddQZV111111110wZ11BlXXXXXXXXXTBnXg="
