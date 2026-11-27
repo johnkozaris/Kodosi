@@ -23,8 +23,8 @@ struct ScreenSharingGroup: View {
             return "Your phone and your other computers can show this Mac's screen on the canvas of its terminals."
         }
         return """
-        Kodosi Screen, a part of Kodosi, records and controls this Mac for them, so the programs in your terminals do not get \
-        these permissions. While someone watches, the menu bar says who, with a button to stop.
+        A separate part of Kodosi records and controls this Mac for them, so the programs in your terminals do not get these \
+        permissions. While someone watches, the menu bar says who, with a button to stop.
         """
     }
 
@@ -37,11 +37,11 @@ struct ScreenSharingGroup: View {
                         .accessibilityIdentifier("settings.screen.share")
                     if allowed {
                         ScreenGrantRow(pane: .screenRecording, title: String(localized: "Screen & System Audio Recording"),
-                                       use: String(localized: "For Kodosi Screen to see this Mac"), symbol: "record.circle",
+                                       use: String(localized: "For Kodosi to see this Mac"), symbol: "record.circle",
                                        tint: TileTint.purple, granted: sharing.access?.screen,
                                        identifier: "settings.screen.screenRecording")
                         ScreenGrantRow(pane: .accessibility, title: PermissionsGroup.deviceControl,
-                                       use: String(localized: "For Kodosi Screen to control this Mac"), symbol: "accessibility",
+                                       use: String(localized: "For Kodosi to control this Mac"), symbol: "accessibility",
                                        tint: TileTint.teal, granted: sharing.access?.input, identifier: "settings.screen.accessibility")
                     }
                 }

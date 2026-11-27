@@ -160,9 +160,7 @@ impl Power {
             Version: POWER_REQUEST_CONTEXT_VERSION,
             Flags: POWER_REQUEST_CONTEXT_SIMPLE_STRING,
             Reason: REASON_CONTEXT_0 {
-                SimpleReasonString: PWSTR(
-                    w!("Kodosi Screen shows this screen").as_ptr().cast_mut(),
-                ),
+                SimpleReasonString: PWSTR(w!("Kodosi shows this screen").as_ptr().cast_mut()),
             },
         };
         // SAFETY: the reason is complete, and Windows copies its text.

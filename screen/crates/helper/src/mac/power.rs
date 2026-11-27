@@ -13,7 +13,7 @@ const SUCCESS: i32 = 0;
 const ON: u32 = 255;
 /// Someone at the computer, which turns the display on; a remote user would leave it off.
 const USER_ACTIVE_LOCAL: u32 = 0;
-const ASSERTION_NAME: &str = "Kodosi Screen shows this screen";
+const ASSERTION_NAME: &str = "Kodosi shows this screen";
 
 #[link(name = "IOKit", kind = "framework")]
 unsafe extern "C" {

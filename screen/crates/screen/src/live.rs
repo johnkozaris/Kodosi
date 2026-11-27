@@ -1307,7 +1307,7 @@ mod tests {
     fn question() -> Question {
         Question {
             message: "Let the devices of Maya see and control this Mac?".to_owned(),
-            detail: "Kodosi Screen asks once for each account.".to_owned(),
+            detail: "Kodosi asks once for each account.".to_owned(),
             allow: "Allow".to_owned(),
             refuse: "Don't Allow".to_owned(),
         }
