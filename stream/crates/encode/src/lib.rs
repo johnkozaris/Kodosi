@@ -1,7 +1,7 @@
 //! Video encoders, chosen at run time from what the computer has: `VideoToolbox` on the Mac,
 //! VA-API on Linux graphics that encode H.264, `OpenH264` elsewhere. Each encoder codes new
 //! pictures at the stream's pace and sharpens a still picture on its own with passes that encode
-//! it again.
+//! it again. On Linux, VA-API also takes the compositor's frames where they are, on the GPU.
 
 use std::{
     sync::Arc,
@@ -80,6 +80,36 @@ pub enum Picture<'a> {
     Nv12(*mut std::ffi::c_void),
 }
 
+/// A frame of four bytes a pixel in one plane of a GPU's memory, as a compositor lends it.
+#[cfg(target_os = "linux")]
+#[derive(Clone, Copy)]
+pub struct Dmabuf<'a> {
+    pub fd: std::os::fd::BorrowedFd<'a>,
+    pub width: u32,
+    pub height: u32,
+    /// Where the frame starts in the buffer and the length of its rows, in bytes.
+    pub offset: u32,
+    pub pitch: u32,
+    /// How the pixels lie in memory, as DRM names it.
+    pub modifier: u64,
+    /// Red comes before blue.
+    pub red_first: bool,
+}
+
+/// What the GPU's encoder made of a `Dmabuf`, for as long as the buffer lives.
+#[cfg(target_os = "linux")]
+pub struct Imported(vaapi::Surface);
+
+/// A part of a frame, in its pixels.
+#[cfg(target_os = "linux")]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Crop {
+    pub left: f64,
+    pub top: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Settings {
     pub format: Format,
@@ -96,7 +126,12 @@ enum Backend {
     /// H.264, and its long-term references need camera mode, which halves the quality of
     /// scrolled text.
     #[cfg(not(target_os = "macos"))]
-    Pixels(pixels::Encoder),
+    Pixels {
+        encoder: pixels::Encoder,
+        /// The GPU's way in for frames that stay on it, when VA-API encodes.
+        #[cfg(target_os = "linux")]
+        importer: Option<vaapi::Importer>,
+    },
 }
 
 /// The largest picture, long side by short side, that graphics encode in real time.
@@ -136,14 +171,24 @@ impl Encoder {
         return Self(Backend::VideoToolbox(videotoolbox::Encoder::new(
             settings, output,
         )));
+        #[cfg(target_os = "linux")]
+        let display = vaapi::open();
+        #[cfg(target_os = "linux")]
+        let importer = display.clone().map(vaapi::Importer::new);
         #[cfg(not(target_os = "macos"))]
-        return Self(Backend::Pixels(pixels::Encoder::start(move |shared| {
+        return Self(Backend::Pixels {
+            encoder: pixels::Encoder::start(move |shared| {
+                #[cfg(target_os = "linux")]
+                if let Some(display) = display
+                    && vaapi::work(display, settings, output.as_ref(), shared)
+                {
+                    return;
+                }
+                openh264::work(settings.bitrate, settings.pace, output.as_ref(), shared);
+            }),
             #[cfg(target_os = "linux")]
-            if vaapi::work(settings, output.as_ref(), shared) {
-                return;
-            }
-            openh264::work(settings.bitrate, settings.pace, output.as_ref(), shared);
-        })));
+            importer,
+        });
     }
 
     /// An encoder that makes each picture a sharp keyframe, for stills that stand alone.
@@ -161,8 +206,55 @@ impl Encoder {
             #[cfg(target_os = "macos")]
             Backend::VideoToolbox(encoder) => encoder.encode(picture, region, changed),
             #[cfg(not(target_os = "macos"))]
-            Backend::Pixels(encoder) => encoder.encode(picture, region, changed),
+            Backend::Pixels { encoder, .. } => encoder.encode(picture, region, changed),
         }
+    }
+
+    /// Whether the encoder takes frames that stay on the GPU.
+    #[cfg(target_os = "linux")]
+    pub fn imports(&self) -> bool {
+        match &self.0 {
+            Backend::Pixels {
+                encoder,
+                importer: Some(_),
+            } => !pixels::lock(encoder.shared()).gpu_stopped,
+            Backend::Pixels { importer: None, .. } => false,
+        }
+    }
+
+    /// The GPU's surface of a buffer, or `None` when the GPU cannot read it.
+    #[cfg(target_os = "linux")]
+    pub fn import(&self, buffer: &Dmabuf<'_>) -> Option<Imported> {
+        let Backend::Pixels {
+            importer: Some(importer),
+            ..
+        } = &self.0
+        else {
+            return None;
+        };
+        importer.import(buffer).map(Imported)
+    }
+
+    /// Encodes `crop` of an imported frame, scaled to `size`, as a picture of `region` of the
+    /// source, or of all of it. The GPU has read the frame when this returns, so its buffer may
+    /// change then. False when the GPU could not, and the frames should come as pixels.
+    #[cfg(target_os = "linux")]
+    pub fn encode_imported(
+        &mut self,
+        frame: &Imported,
+        crop: Crop,
+        size: (usize, usize),
+        region: Option<Region>,
+        changed: f64,
+    ) -> bool {
+        let Backend::Pixels {
+            encoder,
+            importer: Some(importer),
+        } = &mut self.0
+        else {
+            return false;
+        };
+        importer.encode(encoder.shared(), &frame.0, crop, size, region, changed)
     }
 
     pub fn want_key(&mut self) {
@@ -170,7 +262,7 @@ impl Encoder {
             #[cfg(target_os = "macos")]
             Backend::VideoToolbox(encoder) => encoder.want_key(),
             #[cfg(not(target_os = "macos"))]
-            Backend::Pixels(encoder) => encoder.want_key(),
+            Backend::Pixels { encoder, .. } => encoder.want_key(),
         }
     }
 
@@ -181,7 +273,7 @@ impl Encoder {
             #[cfg(target_os = "macos")]
             Backend::VideoToolbox(encoder) => encoder.recover(),
             #[cfg(not(target_os = "macos"))]
-            Backend::Pixels(encoder) => encoder.want_key(),
+            Backend::Pixels { encoder, .. } => encoder.want_key(),
         }
     }
 
@@ -191,7 +283,7 @@ impl Encoder {
             #[cfg(target_os = "macos")]
             Backend::VideoToolbox(encoder) => encoder.held(marks),
             #[cfg(not(target_os = "macos"))]
-            Backend::Pixels(_) => {
+            Backend::Pixels { .. } => {
                 let _ = marks;
             }
         }
@@ -202,7 +294,7 @@ impl Encoder {
             #[cfg(target_os = "macos")]
             Backend::VideoToolbox(encoder) => encoder.set_bitrate(bitrate),
             #[cfg(not(target_os = "macos"))]
-            Backend::Pixels(encoder) => encoder.set_bitrate(bitrate),
+            Backend::Pixels { encoder, .. } => encoder.set_bitrate(bitrate),
         }
     }
 
@@ -211,7 +303,7 @@ impl Encoder {
             #[cfg(target_os = "macos")]
             Backend::VideoToolbox(encoder) => encoder.set_pace(pace),
             #[cfg(not(target_os = "macos"))]
-            Backend::Pixels(encoder) => encoder.set_pace(pace),
+            Backend::Pixels { encoder, .. } => encoder.set_pace(pace),
         }
     }
 
@@ -221,7 +313,7 @@ impl Encoder {
             #[cfg(target_os = "macos")]
             Backend::VideoToolbox(encoder) => encoder.set_format(format),
             #[cfg(not(target_os = "macos"))]
-            Backend::Pixels(encoder) => encoder.set_format(format),
+            Backend::Pixels { encoder, .. } => encoder.set_format(format),
         }
     }
 }

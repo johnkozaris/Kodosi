@@ -1,20 +1,22 @@
-//! A VA-API encoder for pictures of one size in one codec. The GPU converts each BGRA picture to
-//! BT.709 limited-range NV12, then encodes it as an IDR or as an inter frame on the frame before;
+//! A VA-API encoder for pictures of one size in one codec. It encodes NV12 pictures in BT.709
+//! limited range, which the GPU converts from BGRA: pixels that the session copies onto the GPU,
+//! or frames that stayed on it. It codes each as an IDR or as an inter frame on the frame before;
 //! the codec's syntax describes each frame to the driver.
 
-use std::{ffi::c_int, rc::Rc};
+use std::{ffi::c_int, sync::Arc};
 
 use stream::Codec;
 
 use super::{
-    Gpu, h264, hevc,
+    Gpu,
+    convert::{self, Converter},
+    h264, hevc,
     va::{
-        self, ColourProperties, ConfigAttribute, Display, Id, Image, NO_ID, OUT_OF_RANGE,
-        PackedHeader, Pipeline, Rectangle, Status,
+        self, ConfigAttribute, Display, Id, Image, NO_ID, OUT_OF_RANGE, PackedHeader, Status,
+        Surface,
     },
 };
 
-const BT709: u8 = 1;
 /// Room for the parameter sets beyond a frame as large as the raw picture.
 const HEADROOM: usize = 64 * 1024;
 
@@ -84,19 +86,14 @@ pub(super) fn packed(
 }
 
 pub(super) struct Session {
-    display: Rc<Display>,
+    display: Arc<Display>,
     shape: Shape,
     codec: Codec,
     syntax: Syntax,
-    converter_config: Id,
-    converter: Id,
     encoder_config: Id,
     encoder: Id,
-    /// The BGRX surface that pictures are copied into, through the image that maps it.
-    source: Id,
-    image: Option<Image>,
-    /// The NV12 picture that the encoder encodes, which passes encode again.
-    picture: Id,
+    /// Where pictures that come as pixels go, made for the first of them.
+    upload: Option<Upload>,
     /// What decoders make of the frames, in turns, so the frame before is the reference.
     reconstructed: [Id; 2],
     coded: Id,
@@ -105,9 +102,45 @@ pub(super) struct Session {
     idrs: u16,
 }
 
+/// The BGRX surface that pixels are copied into, through the image that maps it, and the NV12
+/// picture that the GPU converts them into, which passes encode again.
+struct Upload {
+    display: Arc<Display>,
+    converter: Converter,
+    source: Surface,
+    picture: Surface,
+    image: Image,
+}
+
+impl Upload {
+    fn new(
+        display: &Arc<Display>,
+        size: (usize, usize),
+        coded: (usize, usize),
+    ) -> Result<Self, Status> {
+        let converter = Converter::new(display, coded)?;
+        let source = Surface::new(display, va::FORMAT_RGB32, va::FOURCC_BGRX, size)?;
+        let picture = Surface::nv12(display, coded)?;
+        let image = display.derive_image(source.id())?;
+        Ok(Self {
+            display: Arc::clone(display),
+            converter,
+            source,
+            picture,
+            image,
+        })
+    }
+}
+
+impl Drop for Upload {
+    fn drop(&mut self) {
+        self.display.destroy_image(&self.image);
+    }
+}
+
 impl Session {
     pub(super) fn start(
-        display: &Rc<Display>,
+        display: &Arc<Display>,
         gpu: &Gpu,
         codec: Codec,
         (width, height): (usize, usize),
@@ -126,20 +159,16 @@ impl Session {
             ),
         };
         let mut session = Self {
-            display: Rc::clone(display),
+            display: Arc::clone(display),
             shape,
             codec: match syntax {
                 Syntax::H264(_) => Codec::H264,
                 Syntax::Hevc(_) => Codec::Hevc,
             },
             syntax,
-            converter_config: NO_ID,
-            converter: NO_ID,
             encoder_config: NO_ID,
             encoder: NO_ID,
-            source: NO_ID,
-            image: None,
-            picture: NO_ID,
+            upload: None,
             reconstructed: [NO_ID; 2],
             coded: NO_ID,
             frames: 0,
@@ -149,13 +178,18 @@ impl Session {
         Ok(session)
     }
 
-    fn open(&mut self, profile: c_int, entrypoint: c_int) -> Result<(), Status> {
-        let display = Rc::clone(&self.display);
+    /// The size that the encoder codes.
+    fn coded(&self) -> (usize, usize) {
         let block = match &self.syntax {
             Syntax::H264(_) => (h264::BLOCK, h264::BLOCK),
             Syntax::Hevc(syntax) => syntax.alignment(),
         };
-        let coded = self.shape.coded(block);
+        self.shape.coded(block)
+    }
+
+    fn open(&mut self, profile: c_int, entrypoint: c_int) -> Result<(), Status> {
+        let display = Arc::clone(&self.display);
+        let coded = self.coded();
         self.encoder_config = display.create_config(
             profile,
             entrypoint,
@@ -174,16 +208,8 @@ impl Session {
                 },
             ],
         )?;
-        self.converter_config = display.create_config(va::NO_PROFILE, va::VIDEO_PROCESSING, &[])?;
-        let [picture, first, second] =
-            display.create_surfaces(va::FORMAT_YUV420, va::FOURCC_NV12, coded)?;
-        (self.picture, self.reconstructed) = (picture, [first, second]);
-        let size = self.size();
-        [self.source] = display.create_surfaces(va::FORMAT_RGB32, va::FOURCC_BGRX, size)?;
-        self.image = Some(display.derive_image(self.source)?);
-        self.encoder =
-            display.create_context(self.encoder_config, coded, &[picture, first, second])?;
-        self.converter = display.create_context(self.converter_config, coded, &[picture])?;
+        self.reconstructed = display.create_surfaces(va::FORMAT_YUV420, va::FOURCC_NV12, coded)?;
+        self.encoder = display.create_context(self.encoder_config, coded, &self.reconstructed)?;
         self.coded = display.create_coded(self.encoder, coded.0 * coded.1 * 3 / 2 + HEADROOM)?;
         Ok(())
     }
@@ -196,51 +222,40 @@ impl Session {
         self.codec
     }
 
-    /// Copies a BGRA picture onto the GPU and converts it into the picture that frames encode.
-    pub(super) fn load(&self, bgra: &[u8]) -> Result<(), Status> {
-        let Some(image) = &self.image else {
+    /// Copies a BGRA picture onto the GPU and converts it into the picture that `loaded` names.
+    pub(super) fn load(&mut self, bgra: &[u8]) -> Result<(), Status> {
+        let size = self.size();
+        if self.upload.is_none() {
+            self.upload = Some(Upload::new(&self.display, size, self.coded())?);
+        }
+        let Some(upload) = &self.upload else {
             return Err(OUT_OF_RANGE);
         };
-        let size = self.size();
-        self.display.write(image, size, bgra)?;
-        let region = Rectangle {
-            x: 0,
-            y: 0,
-            width: u16::try_from(size.0).map_err(|_| OUT_OF_RANGE)?,
-            height: u16::try_from(size.1).map_err(|_| OUT_OF_RANGE)?,
-        };
-        // The same standard on both sides converts only the colour matrix, as viewers undo it:
-        // Mesa would otherwise also convert sRGB's transfer curve.
-        let pipeline = Pipeline {
-            surface: self.source,
-            surface_region: &raw const region,
-            surface_standard: va::STANDARD_BT709,
-            output_region: &raw const region,
-            output_standard: va::STANDARD_BT709,
-            input_colours: ColourProperties {
-                range: va::RANGE_FULL,
-                ..ColourProperties::default()
-            },
-            output_colours: ColourProperties {
-                range: va::RANGE_LIMITED,
-                primaries: BT709,
-                transfer: BT709,
-                matrix: BT709,
-                ..ColourProperties::default()
-            },
-            ..Pipeline::default()
-        };
-        let buffer = self
-            .display
-            .create_parameters(self.converter, va::PIPELINE, &pipeline)?;
-        let converted = self.display.render(self.converter, self.picture, &[buffer]);
-        self.display.destroy_buffer(buffer);
-        converted
+        self.display.write(&upload.image, size, bgra)?;
+        upload.converter.convert(
+            upload.source.id(),
+            convert::whole(size)?,
+            upload.picture.id(),
+            size,
+        )
     }
 
-    /// Encodes the picture at `quantizer`, as an IDR when `key`, else as an inter frame on the
+    /// The picture of the pixels that the session loaded last.
+    pub(super) fn loaded(&self) -> Result<Id, Status> {
+        self.upload
+            .as_ref()
+            .map(|upload| upload.picture.id())
+            .ok_or(OUT_OF_RANGE)
+    }
+
+    /// Encodes `picture` at `quantizer`, as an IDR when `key`, else as an inter frame on the
     /// frame before; returns the frame's units.
-    pub(super) fn encode(&mut self, key: bool, quantizer: u8) -> Result<Vec<u8>, Status> {
+    pub(super) fn encode(
+        &mut self,
+        picture: Id,
+        key: bool,
+        quantizer: u8,
+    ) -> Result<Vec<u8>, Status> {
         if key {
             self.frames = 0;
             self.idrs = self.idrs.wrapping_add(1);
@@ -264,13 +279,12 @@ impl Session {
                 syntax.buffers(&self.display, self.encoder, &frame, &mut buffers)
             }
         };
-        let rendered =
-            made.and_then(|()| self.display.render(self.encoder, self.picture, &buffers));
+        let rendered = made.and_then(|()| self.display.render(self.encoder, picture, &buffers));
         for buffer in buffers {
             self.display.destroy_buffer(buffer);
         }
         rendered?;
-        self.display.sync(self.picture)?;
+        self.display.sync(picture)?;
         let mut data = Vec::new();
         self.display.read_coded(self.coded, &mut data)?;
         self.frames = self.frames.wrapping_add(1);
@@ -284,24 +298,17 @@ impl Drop for Session {
         if self.coded != NO_ID {
             display.destroy_buffer(self.coded);
         }
-        if let Some(image) = &self.image {
-            display.destroy_image(image);
+        if self.encoder != NO_ID {
+            display.destroy_context(self.encoder);
         }
-        for context in [self.converter, self.encoder] {
-            if context != NO_ID {
-                display.destroy_context(context);
-            }
-        }
-        let mut surfaces: Vec<Id> = [self.source, self.picture]
+        let mut surfaces: Vec<Id> = self
+            .reconstructed
             .into_iter()
-            .chain(self.reconstructed)
             .filter(|surface| *surface != NO_ID)
             .collect();
         display.destroy_surfaces(&mut surfaces);
-        for config in [self.converter_config, self.encoder_config] {
-            if config != NO_ID {
-                display.destroy_config(config);
-            }
+        if self.encoder_config != NO_ID {
+            display.destroy_config(self.encoder_config);
         }
     }
 }

@@ -7,8 +7,10 @@ use std::{
     os::fd::AsRawFd,
     path::Path,
     ptr,
-    sync::OnceLock,
+    sync::{Arc, OnceLock},
 };
+
+use crate::Dmabuf;
 
 pub(super) type Id = c_uint;
 pub(super) type Status = c_int;
@@ -45,6 +47,10 @@ pub(super) const PACKED_SLICE: u32 = 0x4;
 pub(super) const FOURCC_NV12: u32 = u32::from_le_bytes(*b"NV12");
 /// Bytes blue, green, red and one unused, as BGRA pictures come.
 pub(super) const FOURCC_BGRX: u32 = u32::from_le_bytes(*b"BGRX");
+const FOURCC_RGBX: u32 = u32::from_le_bytes(*b"RGBX");
+/// DRM's names of the same two layouts.
+const DRM_XRGB8888: u32 = u32::from_le_bytes(*b"XR24");
+const DRM_XBGR8888: u32 = u32::from_le_bytes(*b"XB24");
 
 const CODED: c_int = 21;
 pub(super) const SEQUENCE: c_int = 22;
@@ -63,8 +69,13 @@ const ATTRIBUTE_PIXEL_FORMAT: c_int = 1;
 /// `VASurfaceAttribAlignmentSize`: the log2 of the width a coded size must be a multiple of in
 /// the low four bits, and of the height in the next four.
 const ATTRIBUTE_ALIGNMENT: c_int = 10;
+const ATTRIBUTE_MEMORY_TYPE: c_int = 6;
+const ATTRIBUTE_EXTERNAL_BUFFERS: c_int = 7;
+/// `VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2`: buffers described by a `PrimeDescriptor`.
+const DRM_PRIME_2: i32 = 0x4000_0000;
 const SETTABLE: u32 = 0x2;
 const INTEGER: c_int = 1;
+const POINTER: c_int = 3;
 
 pub(super) const STANDARD_BT709: c_int = 2;
 pub(super) const RANGE_LIMITED: u8 = 1;
@@ -92,6 +103,38 @@ struct SurfaceAttribute {
     flags: u32,
     value_kind: c_int,
     value: Value,
+}
+
+/// libva's `VADRMPRIMESurfaceDescriptor`, which describes a buffer of another device or
+/// process by its DMA-BUF file descriptors.
+#[repr(C)]
+#[derive(Default)]
+struct PrimeDescriptor {
+    fourcc: u32,
+    width: u32,
+    height: u32,
+    object_count: u32,
+    objects: [PrimeObject; 4],
+    layer_count: u32,
+    layers: [PrimeLayer; 4],
+}
+
+#[repr(C)]
+#[derive(Default)]
+struct PrimeObject {
+    fd: c_int,
+    size: u32,
+    modifier: u64,
+}
+
+#[repr(C)]
+#[derive(Default)]
+struct PrimeLayer {
+    drm_format: u32,
+    plane_count: u32,
+    objects: [u32; 4],
+    offsets: [u32; 4],
+    pitches: [u32; 4],
 }
 
 #[repr(C)]
@@ -412,6 +455,7 @@ pub(super) struct SliceHevc {
 const _: () = {
     assert!(size_of::<ConfigAttribute>() == 8);
     assert!(size_of::<SurfaceAttribute>() == 24);
+    assert!(size_of::<PrimeDescriptor>() == 312);
     assert!(size_of::<Image>() == 120);
     assert!(size_of::<CodedSegment>() == 48);
     assert!(size_of::<PackedHeader>() == 28);
@@ -535,11 +579,17 @@ fn unsigned(value: usize) -> Result<c_uint, Status> {
 }
 
 /// An initialized VA display on one GPU's render node.
-pub(super) struct Display {
+pub(crate) struct Display {
     library: &'static Library,
     handle: Handle,
     _node: File,
 }
+
+// SAFETY: libva's functions are thread-safe on one display (va.h, "Multithreading Guide"), and
+// each of the encoder's contexts and surfaces is used by one thread at a time.
+unsafe impl Send for Display {}
+// SAFETY: as above.
+unsafe impl Sync for Display {}
 
 impl Display {
     pub(super) fn open(node: &Path) -> Option<Self> {
@@ -706,6 +756,74 @@ impl Display {
             )
         })?;
         Ok(surfaces)
+    }
+
+    /// A surface that reads a DMA-BUF of four bytes a pixel where it is.
+    fn import(&self, buffer: &Dmabuf<'_>) -> Result<Id, Status> {
+        let (fourcc, drm_format) = if buffer.red_first {
+            (FOURCC_RGBX, DRM_XBGR8888)
+        } else {
+            (FOURCC_BGRX, DRM_XRGB8888)
+        };
+        let size = buffer
+            .pitch
+            .checked_mul(buffer.height)
+            .and_then(|plane| plane.checked_add(buffer.offset))
+            .ok_or(OUT_OF_RANGE)?;
+        let mut descriptor = PrimeDescriptor {
+            fourcc,
+            width: buffer.width,
+            height: buffer.height,
+            object_count: 1,
+            layer_count: 1,
+            ..PrimeDescriptor::default()
+        };
+        descriptor.objects[0] = PrimeObject {
+            fd: buffer.fd.as_raw_fd(),
+            size,
+            modifier: buffer.modifier,
+        };
+        descriptor.layers[0] = PrimeLayer {
+            drm_format,
+            plane_count: 1,
+            offsets: [buffer.offset, 0, 0, 0],
+            pitches: [buffer.pitch, 0, 0, 0],
+            ..PrimeLayer::default()
+        };
+        let mut attributes = [
+            SurfaceAttribute {
+                kind: ATTRIBUTE_MEMORY_TYPE,
+                flags: SETTABLE,
+                value_kind: INTEGER,
+                value: Value {
+                    integer: DRM_PRIME_2,
+                },
+            },
+            SurfaceAttribute {
+                kind: ATTRIBUTE_EXTERNAL_BUFFERS,
+                flags: SETTABLE,
+                value_kind: POINTER,
+                value: Value {
+                    pointer: (&raw mut descriptor).cast(),
+                },
+            },
+        ];
+        let mut surface = NO_ID;
+        // SAFETY: the attributes and the descriptor that they point at live for the call; the
+        // driver takes its own reference to the buffer and leaves the descriptor open.
+        checked(unsafe {
+            (self.library.create_surfaces)(
+                self.handle,
+                FORMAT_RGB32,
+                buffer.width,
+                buffer.height,
+                &raw mut surface,
+                1,
+                attributes.as_mut_ptr(),
+                unsigned(attributes.len())?,
+            )
+        })?;
+        Ok(surface)
     }
 
     pub(super) fn destroy_surfaces(&self, surfaces: &mut [Id]) {
@@ -916,5 +1034,54 @@ impl Drop for Display {
     fn drop(&mut self) {
         // SAFETY: nothing uses the display after this.
         unsafe { (self.library.terminate)(self.handle) };
+    }
+}
+
+/// A surface that goes with its value, on the display that it keeps.
+pub(crate) struct Surface {
+    display: Arc<Display>,
+    id: Id,
+    size: (usize, usize),
+}
+
+impl Surface {
+    pub(super) fn new(
+        display: &Arc<Display>,
+        format: u32,
+        fourcc: u32,
+        size: (usize, usize),
+    ) -> Result<Self, Status> {
+        let [id] = display.create_surfaces(format, fourcc, size)?;
+        Ok(Self {
+            display: Arc::clone(display),
+            id,
+            size,
+        })
+    }
+
+    pub(super) fn nv12(display: &Arc<Display>, size: (usize, usize)) -> Result<Self, Status> {
+        Self::new(display, FORMAT_YUV420, FOURCC_NV12, size)
+    }
+
+    pub(super) fn import(display: &Arc<Display>, buffer: &Dmabuf<'_>) -> Result<Self, Status> {
+        Ok(Self {
+            display: Arc::clone(display),
+            id: display.import(buffer)?,
+            size: (buffer.width as usize, buffer.height as usize),
+        })
+    }
+
+    pub(super) const fn id(&self) -> Id {
+        self.id
+    }
+
+    pub(super) const fn size(&self) -> (usize, usize) {
+        self.size
+    }
+}
+
+impl Drop for Surface {
+    fn drop(&mut self) {
+        self.display.destroy_surfaces(&mut [self.id]);
     }
 }
