@@ -875,6 +875,15 @@ impl Live {
                 }
             }
             ToWindow::Rate { bitrate } => self.flow.rate(viewer, bitrate),
+            ToWindow::Lost { frame } => {
+                self.flow.lost(viewer, frame, now);
+                let seats = &self.seats;
+                if self.capturing.is_some()
+                    && let Some(ask) = self.flow.ask(now, |viewer| queued(seats, viewer))
+                {
+                    self.ask(ask);
+                }
+            }
             ToWindow::Keyframe if self.seats.get(viewer).is_some_and(Seat::hosts_layer) => {
                 self.engine.command(ToEngine::Still { window: self.id });
             }
@@ -2087,6 +2096,22 @@ mod tests {
                 (id, message[5])
             })
             .collect()
+    }
+
+    #[tokio::test]
+    async fn a_keyframe_that_the_transport_lost_stops_the_frames_that_need_it() {
+        let mut live = live();
+        live.handle(open_tab(5)).await;
+        let mut phone = watching(&mut live, "phone").await;
+        live.handle(key_frame()).await;
+        assert_eq!(pictures(&mut phone), [(1, KEY)]);
+        live.handle(Event::Message {
+            viewer: "phone".to_owned(),
+            message: ToWindow::Lost { frame: 1 },
+        })
+        .await;
+        live.handle(video_frame(FrameKind::Delta)).await;
+        assert_eq!(pictures(&mut phone), Vec::<(u32, u8)>::new());
     }
 
     #[tokio::test]

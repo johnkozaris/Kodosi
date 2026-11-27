@@ -44,6 +44,11 @@ pub(crate) enum ToWindow {
     Rate {
         bitrate: u64,
     },
+    /// A frame that went to the viewer as datagrams and that it cannot have, from the host's
+    /// runtime.
+    Lost {
+        frame: u32,
+    },
 }
 
 /// The pointer and keys that every stream takes, or what a viewer does to the browser.

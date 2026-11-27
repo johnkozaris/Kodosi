@@ -75,28 +75,37 @@ impl ControllerFactory for Scream {
     }
 }
 
-/// The bitrate that a path carries for its video, in bits per second, before each sender takes off
-/// what its own queue and frame sizes need (draft section 4.4). Shared by a controller and its
-/// clones, so a sender reads the live value from the clone that `Connection::congestion_state`
+/// What a path's controller tells the video senders, in bits per second: the bitrate that the
+/// path carries for video before each sender takes off what its own queue and frame sizes need
+/// (draft section 4.4), and the rate at which the pacer sends. Shared by a controller and its
+/// clones, so a sender reads the live values from the clone that `Connection::congestion_state`
 /// returns.
 #[derive(Debug, Default)]
-pub(crate) struct Carried(AtomicU64);
+pub(crate) struct Rates {
+    carried: AtomicU64,
+    pacing: AtomicU64,
+}
 
-impl Carried {
+impl Rates {
     #[cfg(any(feature = "host", test))]
-    pub(crate) fn get(&self) -> u64 {
-        self.0.load(Ordering::Relaxed)
+    pub(crate) fn carried(&self) -> u64 {
+        self.carried.load(Ordering::Relaxed)
+    }
+
+    #[cfg(feature = "host")]
+    pub(crate) fn pacing(&self) -> u64 {
+        self.pacing.load(Ordering::Relaxed)
     }
 }
 
-/// Finds the bitrate that a controller built by [`Scream`] publishes.
+/// Finds the rates that a controller built by [`Scream`] publishes.
 #[cfg(feature = "host")]
-pub(crate) fn carried(controller: Box<dyn Controller>) -> Option<Arc<Carried>> {
+pub(crate) fn rates(controller: Box<dyn Controller>) -> Option<Arc<Rates>> {
     controller
         .into_any()
         .downcast::<Window>()
         .ok()
-        .map(|window| window.carried)
+        .map(|window| window.rates)
 }
 
 /// Congestion signals since the window last reacted.
@@ -108,7 +117,7 @@ struct Seen {
 
 #[derive(Debug, Clone)]
 struct Window {
-    carried: Arc<Carried>,
+    rates: Arc<Rates>,
     mss: f64,
     ref_wnd: f64,
     ref_wnd_i: f64,
@@ -149,7 +158,7 @@ impl Window {
         let mss = f64::from(mtu);
         let ref_wnd = (FIRST_PACKETS * mss).max(MIN_REF_WND);
         Self {
-            carried: Arc::default(),
+            rates: Arc::default(),
             mss,
             ref_wnd,
             ref_wnd_i: 1.0,
@@ -427,10 +436,14 @@ impl Window {
         #[expect(
             clippy::cast_possible_truncation,
             clippy::cast_sign_loss,
-            reason = "a finite positive bitrate below the ceiling"
+            reason = "finite positive bitrates"
         )]
-        let carried = carried.min(TARGET_BITRATE_MAX * 1.2) as u64;
-        self.carried.0.store(carried, Ordering::Relaxed);
+        let (carried, pacing) = (
+            carried.min(TARGET_BITRATE_MAX * 1.2) as u64,
+            self.pace_bitrate() as u64,
+        );
+        self.rates.carried.store(carried, Ordering::Relaxed);
+        self.rates.pacing.store(pacing, Ordering::Relaxed);
     }
 
     fn pace_bitrate(&self) -> f64 {
@@ -636,7 +649,7 @@ mod tests {
                     let in_flight = (self.flying.len() * usize::from(MTU)) as u64;
                     self.window.on_end_acks(acked, in_flight, false, None);
                 }
-                let rate = (bits(self.window.carried.get()) / 1.2).max(500_000.0);
+                let rate = (bits(self.window.rates.carried()) / 1.2).max(500_000.0);
                 self.credit += rate * STEP.as_secs_f64() / 8.0;
                 let window = usize::try_from(self.window.window()).unwrap();
                 while self.credit >= f64::from(MTU)
@@ -688,7 +701,7 @@ mod tests {
         path.capacity = 3_000_000.0;
         path.queued_most = Duration::ZERO;
         path.run(Duration::from_secs(10), Duration::from_secs(20));
-        let published = bits(path.window.carried.get()) / 1.2;
+        let published = bits(path.window.rates.carried()) / 1.2;
         assert!(
             published < 4_000_000.0,
             "follows the narrower path: {published}"

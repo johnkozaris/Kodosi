@@ -38,7 +38,7 @@ async fn unpack(
 ) {
     let mut unpacker = media::Unpacker::new(flow);
     let greeting = media::greeting(flow);
-    media.send(greeting.clone());
+    media.report(greeting.clone());
     let mut greeted_at = Instant::now();
     let mut heard = false;
     let mut tick = tokio::time::interval(RECEIVE_EVERY);
@@ -59,12 +59,12 @@ async fn unpack(
             _ = tick.tick(), if ticking => {
                 let now = Instant::now();
                 if !heard && now.saturating_duration_since(greeted_at) >= GREET_EVERY {
-                    media.send(greeting.clone());
+                    media.report(greeting.clone());
                     greeted_at = now;
                 }
                 let (handed, report) = unpacker.tick(now, media.rtt(), media.datagram_bytes());
                 if let Some(report) = report {
-                    media.send(report);
+                    media.report(report);
                 }
                 handed
             }

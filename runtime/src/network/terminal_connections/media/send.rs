@@ -1,23 +1,22 @@
-//! The host's side of a video flow: frames out as shards, resends of what the viewer misses while
-//! the frame can still arrive in time, and the bitrate that the stream may use.
+//! The host's side of a video flow: frames out as shards as fast as the connection takes them,
+//! under the time, drop and resend rules of `stream::media`, word to the stream of each frame
+//! that cannot arrive, and the bitrate that the stream may use.
 
 use std::{
-    collections::VecDeque,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use bytes::Bytes;
 use serde::Serialize;
 use stream::{media, viewer};
-use tokio::sync::mpsc;
+use tokio::{sync::mpsc, time::Instant};
 
 use super::super::peers::Media;
 
-const SEND_EVERY: Duration = Duration::from_millis(2);
 const RATE_EVERY: Duration = Duration::from_millis(250);
 /// A share that moved by more than this tells the stream at once.
 const RATE_CHANGE: f64 = 0.05;
@@ -31,11 +30,12 @@ pub(crate) struct Flow {
     pub(crate) number: u16,
     frames: mpsc::Sender<Bytes>,
     ready: Arc<AtomicBool>,
+    document: mpsc::Sender<Vec<u8>>,
 }
 
 impl Flow {
     /// Starts a flow for a pipe on `media`; the stream hears through `document`, as from the
-    /// viewer, the bitrate that its share of the path carries.
+    /// viewer, the bitrate that its share of the path carries and each frame that cannot arrive.
     pub(crate) fn start(media: &Media, document: mpsc::Sender<Vec<u8>>) -> Option<Self> {
         let (number, reports) = media.host()?;
         let (frames, waiting) = mpsc::channel(WAITING_FRAMES);
@@ -45,13 +45,14 @@ impl Flow {
             number,
             waiting,
             reports,
-            document,
+            document.clone(),
             Arc::clone(&ready),
         ));
         Some(Self {
             number,
             frames,
             ready,
+            document,
         })
     }
 
@@ -61,16 +62,14 @@ impl Flow {
         if !self.ready.load(Ordering::Acquire) || message.first() != Some(&viewer::FRAME) {
             return Err(message);
         }
-        // A full queue drops the frame, and the viewer asks for a keyframe or anchor.
-        drop(self.frames.try_send(Bytes::from(message)));
+        let id = media::frame_id(&message);
+        if self.frames.try_send(Bytes::from(message)).is_err()
+            && let Some(id) = id
+        {
+            tell_lost(&self.document, id);
+        }
         Ok(())
     }
-}
-
-struct Waiting {
-    shard: Bytes,
-    since: Instant,
-    until: Instant,
 }
 
 #[derive(Serialize)]
@@ -78,6 +77,13 @@ struct Rate {
     #[serde(rename = "type")]
     kind: &'static str,
     bitrate: u64,
+}
+
+#[derive(Serialize)]
+struct Lost {
+    #[serde(rename = "type")]
+    kind: &'static str,
+    frame: u32,
 }
 
 async fn send(
@@ -100,6 +106,23 @@ fn rate(bitrate: u64) -> Bytes {
     })
 }
 
+/// Tells the stream that the viewer cannot have frame `id`, so that it repairs the picture at once.
+fn tell_lost(document: &mpsc::Sender<Vec<u8>>, id: u32) {
+    let lost = Lost {
+        kind: "lost",
+        frame: id,
+    };
+    drop(document.try_send(viewer::json(&lost).to_vec()));
+}
+
+/// Waits until the connection has room for `shard`, or forever without one.
+async fn when_room(media: &Media, shard: Option<Bytes>) -> bool {
+    match shard {
+        Some(shard) => media.send_when_room(shard).await,
+        None => std::future::pending().await,
+    }
+}
+
 async fn send_frames(
     media: Media,
     number: u16,
@@ -110,49 +133,53 @@ async fn send_frames(
 ) {
     let mut packer = media::Packer::new(number);
     let mut target = media::Target::default();
-    let mut waiting = VecDeque::<Waiting>::new();
     let mut told: Option<(u64, Instant)> = None;
     let mut last_frame: Option<Instant> = None;
     let mut period = Duration::from_millis(16);
-    let wake = tokio::time::sleep(SEND_EVERY);
-    tokio::pin!(wake);
     loop {
+        let now = Instant::now();
+        // The connection's queue takes shards while it has room; the next one waits for room.
+        let waiting = loop {
+            let Some(shard) = packer.next(now.into_std()) else {
+                break None;
+            };
+            if !media.send(shard.clone()) {
+                break Some(shard);
+            }
+            packer.sent(now.into_std());
+        };
+        // A still picture leaves only the rate to tell.
+        let wake = packer.wake().map_or(now + RATE_EVERY, |at| {
+            Instant::from_std(at).min(now + RATE_EVERY)
+        });
         tokio::select! {
             frame = frames.recv() => {
                 let Some(frame) = frame else { return };
-                let now = Instant::now();
                 if let Some(last) = last_frame.replace(now) {
                     period = now.saturating_duration_since(last).min(LONGEST_PERIOD);
                 }
-                waiting.retain(|shard| shard.until > now);
-                let queued = waiting
-                    .front()
-                    .map_or(Duration::ZERO, |oldest| now.saturating_duration_since(oldest.since));
                 #[expect(clippy::cast_precision_loss, reason = "bitrates are far below 2^52")]
                 let bitrate = told.map_or(0.0, |(bitrate, _)| bitrate as f64);
-                target.frame(frame.len(), queued, period, bitrate);
-                let until = now + media::frame_wait(media.rtt());
-                let shards = packer.pack(&frame, media.datagram_bytes(), until, now);
-                waiting.extend(shards.into_iter().map(|shard| Waiting { shard, since: now, until }));
+                target.frame(frame.len(), packer.waited(now.into_std()), period, bitrate);
+                packer.pack(&frame, media.datagram_bytes(), media.link(), now.into_std());
             }
             report = reports.recv() => {
                 let Some(report) = report else { return };
                 ready.store(true, Ordering::Release);
-                let now = Instant::now();
-                let rtt = media.rtt();
-                for shard in packer.report(&report, now, rtt).into_iter().rev() {
-                    waiting.push_front(Waiting { shard, since: now, until: now + rtt });
-                }
+                packer.report(&report, now.into_std(), media.rtt());
             }
-            () = &mut wake => {}
+            sent = when_room(&media, waiting) => {
+                if !sent {
+                    return;
+                }
+                packer.sent(Instant::now().into_std());
+            }
+            () = tokio::time::sleep_until(wake) => {}
+        }
+        for id in packer.lost() {
+            tell_lost(document, id);
         }
         let now = Instant::now();
-        while let Some(next) = waiting.front() {
-            if next.until > now && !media.send(next.shard.clone()) {
-                break;
-            }
-            waiting.pop_front();
-        }
         if ready.load(Ordering::Acquire)
             && let Some(carried) = media.carried().filter(|carried| *carried > 0)
         {
@@ -165,12 +192,5 @@ async fn send_frames(
                 told = Some((share, now));
             }
         }
-        // Shards that wait go out as the path takes them; a still picture leaves only the rate.
-        let next = if waiting.is_empty() {
-            RATE_EVERY
-        } else {
-            SEND_EVERY
-        };
-        wake.as_mut().reset(tokio::time::Instant::now() + next);
     }
 }

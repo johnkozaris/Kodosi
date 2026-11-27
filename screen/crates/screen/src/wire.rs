@@ -53,6 +53,11 @@ pub(crate) enum ToScreen {
     Rate {
         bitrate: u64,
     },
+    /// A frame that went to the viewer as datagrams and that it cannot have, from the host's
+    /// runtime.
+    Lost {
+        frame: u32,
+    },
     /// The viewer's clipboard, which the computer's clipboard takes before the viewer pastes.
     Clipboard {
         text: String,
