@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/prctl.h>
 
 #include "kodosi_runtime.h"
 
@@ -26,13 +27,16 @@ static void detach(void *attached) {
 }
 
 // Runtime callbacks run on Rust threads, each watched video pipe's own among them; keep each thread attached until it
-// exits.
+// exits, under the name that the runtime gave it, which Android otherwise replaces with Thread-N.
 static JNIEnv *attach(void) {
     JNIEnv *env = NULL;
     if ((*java)->GetEnv(java, (void **)&env, JNI_VERSION_1_6) == JNI_OK) {
         return env;
     }
-    if ((*java)->AttachCurrentThreadAsDaemon(java, &env, NULL) != JNI_OK) {
+    char name[16] = {0};
+    prctl(PR_GET_NAME, name);
+    JavaVMAttachArgs arguments = {.version = JNI_VERSION_1_6, .name = name[0] == '\0' ? NULL : name, .group = NULL};
+    if ((*java)->AttachCurrentThreadAsDaemon(java, &env, &arguments) != JNI_OK) {
         return NULL;
     }
     pthread_setspecific(attachment, env);
