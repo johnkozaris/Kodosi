@@ -14,67 +14,39 @@
 
 Q_IMPORT_QML_PLUGIN(KodosiPlugin)
 
-#include <chrono>
-#include <condition_variable>
 #include <functional>
 #include <memory>
-#include <mutex>
 
 namespace {
-class PipeCommands final : public kodosi::CommandDispatcher, public kodosi::PipeRouter {
+class PipeCommands final : public kodosi::CommandDispatcher, public kodosi::VideoWatcher {
 public:
     Result send(QByteArrayView bytes) override
     {
-        std::lock_guard lock(m_mutex);
         m_sent.append(QJsonDocument::fromJson(bytes.toByteArray()).object());
-        m_changed.notify_all();
         return {};
     }
-    void route(const QString& pipe, QObject& reader, Read read) override
-    {
-        m_routes.insert(pipe, { &reader, std::move(read) });
-    }
-    void unroute(const QString& pipe) override { m_routes.remove(pipe); }
-    void deliver(const QString& pipe, QJsonObject event)
-    {
-        event.insert(QStringLiteral("pipe"), pipe);
-        const auto route = m_routes.value(pipe);
-        QMetaObject::invokeMethod(
-            route.reader, [read = route.read, event = QJsonDocument(event).toJson()] { read(event, false); },
-            Qt::QueuedConnection);
-    }
-    void deliverOpened(const QString& pipe) { deliver(pipe, { { QStringLiteral("type"), QStringLiteral("document.opened") } }); }
+    void watch(const QString& pipe, std::shared_ptr<kodosi::VideoSink> sink) override { m_watched.insert(pipe, std::move(sink)); }
+    void unwatch(const QString& pipe) override { m_watched.remove(pipe); }
+    [[nodiscard]] std::shared_ptr<kodosi::VideoSink> watched(const QString& pipe) const { return m_watched.value(pipe); }
     QStringList types() const
     {
-        std::lock_guard lock(m_mutex);
         QStringList found;
         for (const auto& command : m_sent)
             found.append(command.value(QStringLiteral("type")).toString());
         return found;
     }
-    QString lastPipe() const
+    QString lastPipe() const { return m_sent.last().value(QStringLiteral("pipe")).toString(); }
+    // The newest open of the pipe.
+    QJsonObject opening(const QString& pipe) const
     {
-        std::lock_guard lock(m_mutex);
-        return m_sent.last().value(QStringLiteral("pipe")).toString();
+        for (auto command = m_sent.crbegin(); command != m_sent.crend(); ++command) {
+            if (command->value(QStringLiteral("type")).toString() == QStringLiteral("document.open")
+                && command->value(QStringLiteral("pipe")).toString() == pipe)
+                return *command;
+        }
+        return {};
     }
     QList<QJsonObject> messages(const QString& pipe, const QString& type) const
-    {
-        std::lock_guard lock(m_mutex);
-        return messagesLocked(pipe, type);
-    }
-    bool waitForMessage(const QString& pipe, const QString& type)
-    {
-        std::unique_lock lock(m_mutex);
-        return m_changed.wait_for(
-            lock, std::chrono::seconds(5), [&] { return !messagesLocked(pipe, type).isEmpty(); });
-    }
-
-private:
-    struct Route {
-        QObject* reader = nullptr;
-        Read read;
-    };
-    QList<QJsonObject> messagesLocked(const QString& pipe, const QString& type) const
     {
         QList<QJsonObject> found;
         for (const auto& command : m_sent) {
@@ -88,10 +60,10 @@ private:
         }
         return found;
     }
-    mutable std::mutex m_mutex;
-    std::condition_variable m_changed;
+
+private:
     QList<QJsonObject> m_sent;
-    QHash<QString, Route> m_routes;
+    QHash<QString, std::shared_ptr<kodosi::VideoSink>> m_watched;
 };
 
 std::unique_ptr<QSettings> settingsIn(const QTemporaryDir& directory, const char* name)
@@ -143,11 +115,13 @@ public:
         });
         return types;
     }
+    // Answers the pipe's open and opens it, as the runtime does.
     QList<QJsonObject> watchesAfterOpening(const QString& pipe)
     {
-        commands.deliverOpened(pipe);
-        if (!QTest::qWaitFor([&] { return !commands.messages(pipe, QStringLiteral("watch")).isEmpty(); }))
-            qWarning("the view sent no watch");
+        documents.apply({ { QStringLiteral("type"), QStringLiteral("document.result") },
+            { QStringLiteral("requestId"), commands.opening(pipe).value(QStringLiteral("requestId")) },
+            { QStringLiteral("operation"), QStringLiteral("document.open") } });
+        documents.apply({ { QStringLiteral("type"), QStringLiteral("document.opened") }, { QStringLiteral("pipe"), pipe } });
         return commands.messages(pipe, QStringLiteral("watch"));
     }
 
@@ -212,13 +186,13 @@ private slots:
     void leavingTerminalsLeavesNoDeferredWork();
     void messageTextKeepsSpacesEscapesMarkupAndSkipsYourself();
     void aChosenTextSizeGrowsTheThemeAndStaysAfterARestart();
-    void theSharedBrowserAcknowledgesWithoutTheGuiThreadAndComesBackWithoutThePage();
+    void theSharedBrowserComesBackWithoutThePageAndRefusesAFrameThatItsDecoderCannotTake();
     void aPersonWhoChoosesAWatchedBrowserGivesThePageToItAtOnce();
     void aPersonWhoLeavesTheBrowserLeavesNoChoiceForALaterView();
     void aCanvasOpensAPipeToItsBrowserOnlyWhenItGoesToTheBrowser();
 };
 
-void ControlsTest::theSharedBrowserAcknowledgesWithoutTheGuiThreadAndComesBackWithoutThePage()
+void ControlsTest::theSharedBrowserComesBackWithoutThePageAndRefusesAFrameThatItsDecoderCannotTake()
 {
     BrowserViews rig;
     const auto view = rig.view(terminal(1));
@@ -242,13 +216,9 @@ void ControlsTest::theSharedBrowserAcknowledgesWithoutTheGuiThreadAndComesBackWi
     QCOMPARE(codecs, (QStringList { QStringLiteral("h264"), QStringLiteral("hevc") }));
     QVERIFY(watches.first().value(QStringLiteral("anchors")).toBool());
 
-    QByteArray frame(1, '\x01');
-    frame += QByteArray::fromHex("000000070000") + QByteArray("delta");
-    rig.commands.deliver(back, { { QStringLiteral("type"), QStringLiteral("document.frame") },
-                                   { QStringLiteral("sequence"), 0 }, { QStringLiteral("more"), false },
-                                   { QStringLiteral("data"), QString::fromLatin1(frame.toBase64()) } });
-    QVERIFY(rig.commands.waitForMessage(back, QStringLiteral("ack")));
-    QCOMPARE(rig.commands.messages(back, QStringLiteral("ack")).first().value(QStringLiteral("frame")).toInt(), 7);
+    const auto decoder = rig.commands.watched(back);
+    QVERIFY(decoder);
+    QVERIFY(!decoder->take({ .codec = 0, .key = false, .region = std::nullopt, .data = QByteArrayView("delta") }));
 }
 
 void ControlsTest::aPersonWhoChoosesAWatchedBrowserGivesThePageToItAtOnce()

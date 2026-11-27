@@ -10,35 +10,56 @@
 #include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QSet>
 #include <QSignalSpy>
 #include <QtTest/QTest>
 
 #include <algorithm>
+#include <memory>
 #include <utility>
 
 namespace {
-class Commands final : public kodosi::CommandDispatcher, public kodosi::PipeRouter {
+class Commands final : public kodosi::CommandDispatcher, public kodosi::VideoWatcher {
 public:
     QList<QJsonObject> values;
-    QStringList routes;
-    QHash<QString, std::pair<QObject*, Read>> readers;
+    QHash<QString, std::shared_ptr<kodosi::VideoSink>> watched;
     Result send(QByteArrayView bytes) override
     {
         values.append(QJsonDocument::fromJson(bytes.toByteArray()).object());
         return {};
     }
-    void route(const QString& pipe, QObject& reader, Read read) override
-    {
-        routes.append(pipe);
-        readers.insert(pipe, { &reader, std::move(read) });
-    }
-    void unroute(const QString& pipe) override { routes.removeAll(pipe); }
+    void watch(const QString& pipe, std::shared_ptr<kodosi::VideoSink> sink) override { watched.insert(pipe, std::move(sink)); }
+    void unwatch(const QString& pipe) override { watched.remove(pipe); }
     QJsonObject request() const { return values.last().value(QStringLiteral("request")).toObject(); }
-    // Hands a pipe's event to its reader on the reader's thread, as the runtime bridge does.
-    void deliver(const QString& pipe, const QJsonObject& event) const
+    // The newest command of the given type.
+    QJsonObject last(const QString& type) const
     {
-        const auto [reader, read] = readers.value(pipe);
-        QMetaObject::invokeMethod(reader, [read, bytes = QJsonDocument(event).toJson(QJsonDocument::Compact)] { read(bytes, false); });
+        for (auto value = values.crbegin(); value != values.crend(); ++value) {
+            if (value->value(QStringLiteral("type")).toString() == type)
+                return *value;
+        }
+        return {};
+    }
+    qsizetype count(const QString& type) const
+    {
+        return std::ranges::count_if(
+            values, [&type](const QJsonObject& value) { return value.value(QStringLiteral("type")).toString() == type; });
+    }
+    // Answers the newest open, so that its video goes to the view, and opens the pipe.
+    QString answerOpen(kodosi::CanvasDocuments& documents) const
+    {
+        const auto open = last(QStringLiteral("document.open"));
+        const auto pipe = open.value(QStringLiteral("pipe")).toString();
+        documents.apply({ { QStringLiteral("type"), QStringLiteral("document.result") },
+            { QStringLiteral("requestId"), open.value(QStringLiteral("requestId")) },
+            { QStringLiteral("operation"), QStringLiteral("document.open") } });
+        documents.apply({ { QStringLiteral("type"), QStringLiteral("document.opened") }, { QStringLiteral("pipe"), pipe } });
+        return pipe;
+    }
+    // A message of the stream, as the runtime hands it to the view's decoder.
+    void say(const QString& pipe, const QJsonObject& message) const
+    {
+        watched.value(pipe)->hand(QJsonDocument(message).toJson(QJsonDocument::Compact));
     }
     // The newest message of the given type that the app sent down a video pipe.
     QJsonObject told(const QString& type) const
@@ -86,23 +107,24 @@ QJsonObject answer(const Commands& commands, QJsonObject answer)
         { QStringLiteral("answer"), answer } };
 }
 
-QJsonObject opened(const QString& pipe)
-{
-    return { { QStringLiteral("type"), QStringLiteral("document.opened") }, { QStringLiteral("pipe"), pipe } };
-}
-
-// The screen's state, as the `sequence`th frame on its pipe.
-QJsonObject screenSays(const QString& pipe, int sequence, QJsonObject state)
+// The screen's state.
+QJsonObject screen(QJsonObject state)
 {
     state.insert(QStringLiteral("source"), QJsonObject { { QStringLiteral("kind"), QStringLiteral("display") }, { QStringLiteral("id"), 1 } });
     state.insert(QStringLiteral("width"), 1600);
     state.insert(QStringLiteral("height"), 1000);
     if (!state.contains(QStringLiteral("access")))
         state.insert(QStringLiteral("access"), QJsonObject { { QStringLiteral("screen"), true }, { QStringLiteral("input"), true } });
-    return { { QStringLiteral("type"), QStringLiteral("document.frame") }, { QStringLiteral("pipe"), pipe },
-        { QStringLiteral("sequence"), sequence }, { QStringLiteral("more"), false },
-        { QStringLiteral("data"), QString::fromLatin1((QByteArray(1, 0) + QJsonDocument(state).toJson()).toBase64()) } };
+    return state;
 }
+
+// A decoder that the tests hand to a video pipe.
+class Decoder final : public kodosi::VideoSink {
+public:
+    bool take(const Frame&) noexcept override { return true; }
+    void hand(QByteArrayView) noexcept override { }
+    void repair() noexcept override { }
+};
 
 QJsonObject part(const QString& key, int revision, qsizetype offset, qsizetype total, const QByteArray& data)
 {
@@ -218,13 +240,12 @@ private slots:
         kodosi::SessionCatalogModel sessions;
         kodosi::CanvasDocuments documents(commands, commands, sessions);
         QSignalSpy closed(&documents, &kodosi::CanvasDocuments::closed);
-        QObject earlier;
-        QObject later;
-        QObject other;
-        const auto first = documents.openReader(test::id(1), QStringLiteral("browser"), earlier, {});
-        const auto elsewhere = documents.openReader(test::id(2), QStringLiteral("browser"), other, {});
+        const auto first = documents.openVideo(test::id(1), QStringLiteral("browser"), std::make_shared<Decoder>());
+        QCOMPARE(commands.answerOpen(documents), first);
+        const auto elsewhere = documents.openVideo(test::id(2), QStringLiteral("browser"), std::make_shared<Decoder>());
+        QCOMPARE(commands.answerOpen(documents), elsewhere);
         const auto sent = commands.values.size();
-        const auto second = documents.openReader(test::id(1), QStringLiteral("browser"), later, {});
+        const auto second = documents.openVideo(test::id(1), QStringLiteral("browser"), std::make_shared<Decoder>());
         QCOMPARE(commands.values.size(), sent + 2);
         QCOMPARE(commands.values.at(sent).value(QStringLiteral("type")).toString(), QStringLiteral("document.close"));
         QCOMPARE(commands.values.at(sent).value(QStringLiteral("pipe")).toString(), first);
@@ -232,7 +253,9 @@ private slots:
         QCOMPARE(commands.values.last().value(QStringLiteral("pipe")).toString(), second);
         QCOMPARE(closed.size(), 1);
         QCOMPARE(closed.first().at(0).toString(), first);
-        QCOMPARE(commands.routes, (QStringList { elsewhere, second }));
+        QCOMPARE(commands.watched.keys(), QStringList { elsewhere });
+        commands.answerOpen(documents);
+        QCOMPARE(QSet<QString>(commands.watched.keyBegin(), commands.watched.keyEnd()), (QSet<QString> { elsewhere, second }));
     }
 
     void eachPipeOpensAgainAfterTheAppFellBehindAndAnEarlierAnswerClosesNothing()
@@ -277,14 +300,9 @@ private slots:
         video.setDocuments(&documents);
         video.setSessionId(test::id(1));
         video.setActive(true);
-        const auto pipe = commands.routes.last();
-        const QJsonObject state { { QStringLiteral("source"), QJsonObject { { QStringLiteral("kind"), QStringLiteral("display") }, { QStringLiteral("id"), 1 } } },
-            { QStringLiteral("width"), 1600 }, { QStringLiteral("height"), 1000 },
-            { QStringLiteral("access"), QJsonObject { { QStringLiteral("screen"), true }, { QStringLiteral("input"), true } } } };
-        commands.deliver(pipe, { { QStringLiteral("type"), QStringLiteral("document.opened") }, { QStringLiteral("pipe"), pipe } });
-        commands.deliver(pipe, { { QStringLiteral("type"), QStringLiteral("document.frame") }, { QStringLiteral("pipe"), pipe },
-            { QStringLiteral("sequence"), 0 }, { QStringLiteral("more"), false },
-            { QStringLiteral("data"), QString::fromLatin1((QByteArray(1, 0) + QJsonDocument(state).toJson()).toBase64()) } });
+        const auto pipe = commands.answerOpen(documents);
+        const auto state = screen({});
+        commands.say(pipe, state);
         QTRY_VERIFY(!video.source().isEmpty());
         const auto pointed = [&] {
             video.pointer(QStringLiteral("move"), 600, 120, Qt::NoButton, 0, 0);
@@ -314,11 +332,9 @@ private slots:
         video.setDocuments(&documents);
         video.setSessionId(test::id(1));
         video.setActive(true);
-        const auto pipe = commands.routes.last();
+        const auto pipe = commands.answerOpen(documents);
         const QJsonObject unrecorded { { QStringLiteral("screen"), false }, { QStringLiteral("input"), true } };
-        commands.deliver(pipe, opened(pipe));
-        commands.deliver(pipe,
-            screenSays(pipe, 0, { { QStringLiteral("away"), QStringLiteral("locked") }, { QStringLiteral("access"), unrecorded } }));
+        commands.say(pipe, screen({ { QStringLiteral("away"), QStringLiteral("locked") }, { QStringLiteral("access"), unrecorded } }));
         QTRY_COMPARE(video.showing(), QStringLiteral("locked"));
         video.setOffline(true);
         QCOMPARE(video.showing(), QStringLiteral("offline"));
@@ -328,16 +344,15 @@ private slots:
         QCOMPARE(video.showing(), QStringLiteral("sharingOff"));
 
         video.setShared(true);
-        const auto again = commands.routes.last();
-        commands.deliver(again, opened(again));
-        commands.deliver(again, screenSays(again, 0, { { QStringLiteral("access"), unrecorded } }));
+        const auto again = commands.answerOpen(documents);
+        commands.say(again, screen({ { QStringLiteral("access"), unrecorded } }));
         QTRY_COMPARE(video.showing(), QStringLiteral("recording"));
-        commands.deliver(again, screenSays(again, 1, {}));
+        commands.say(again, screen({}));
         QTRY_COMPARE(video.showing(), QStringLiteral("waiting"));
         QTest::ignoreMessage(QtWarningMsg, "A canvas video stopped: Kodosi Screen stopped.");
-        commands.deliver(again, { { QStringLiteral("type"), QStringLiteral("document.lost") }, { QStringLiteral("pipe"), again },
-                                    { QStringLiteral("message"), QStringLiteral("Kodosi Screen stopped.") } });
-        QTRY_COMPARE(video.showing(), QStringLiteral("failed"));
+        documents.apply({ { QStringLiteral("type"), QStringLiteral("document.lost") }, { QStringLiteral("pipe"), again },
+            { QStringLiteral("message"), QStringLiteral("Kodosi Screen stopped.") } });
+        QCOMPARE(video.showing(), QStringLiteral("failed"));
     }
 
     void aScreenThatIsNotSharedHasNoPipeUntilItIs()
@@ -349,19 +364,21 @@ private slots:
         video.setDocuments(&documents);
         video.setSessionId(test::id(1));
         video.setActive(true);
-        const auto pipe = commands.routes.last();
+        const auto pipe = commands.answerOpen(documents);
+        QCOMPARE(commands.watched.keys(), QStringList { pipe });
 
         video.setShared(false);
-        QVERIFY(commands.routes.isEmpty());
+        QVERIFY(commands.watched.isEmpty());
         QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("document.close"));
         QCOMPARE(commands.values.last().value(QStringLiteral("pipe")).toString(), pipe);
+        const auto opens = commands.count(QStringLiteral("document.open"));
         video.setActive(false);
         video.setActive(true);
         video.retry();
-        QVERIFY(commands.routes.isEmpty());
+        QCOMPARE(commands.count(QStringLiteral("document.open")), opens);
 
         video.setShared(true);
-        QCOMPARE(commands.routes.size(), 1);
+        QCOMPARE(commands.count(QStringLiteral("document.open")), opens + 1);
         QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("document.open"));
     }
 
@@ -383,9 +400,7 @@ private slots:
             kodosi::ScreenVideo video;
             open(video);
             video.setActive(true);
-            const auto pipe = commands.routes.last();
-            commands.deliver(pipe, opened(pipe));
-            commands.deliver(pipe, screenSays(pipe, 0, {}));
+            commands.say(commands.answerOpen(documents), screen({}));
             QTRY_VERIFY(!video.source().isEmpty());
             video.zoom(2, 600, 120);
         }
@@ -395,9 +410,7 @@ private slots:
         open(video);
         QVERIFY(video.zoomed());
         video.setActive(true);
-        const auto pipe = commands.routes.last();
-        commands.deliver(pipe, opened(pipe));
-        commands.deliver(pipe, screenSays(pipe, 0, {}));
+        commands.say(commands.answerOpen(documents), screen({}));
         QTRY_VERIFY(!commands.told(QStringLiteral("look")).isEmpty());
         const auto region = commands.told(QStringLiteral("look")).value(QStringLiteral("region")).toObject();
         QCOMPARE(QRectF(region.value(QStringLiteral("x")).toDouble(), region.value(QStringLiteral("y")).toDouble(),
@@ -414,10 +427,8 @@ private slots:
         video.setDocuments(&documents);
         video.setSessionId(test::id(1));
         video.setActive(true);
-        const auto pipe = commands.routes.last();
         QSignalSpy copied(&video, &kodosi::ScreenVideo::copied);
-        commands.deliver(pipe, opened(pipe));
-        commands.deliver(pipe, screenSays(pipe, 0, { { QStringLiteral("copied"), QStringLiteral("from the computer") } }));
+        commands.say(commands.answerOpen(documents), screen({ { QStringLiteral("copied"), QStringLiteral("from the computer") } }));
         QTRY_COMPARE(copied.size(), 1);
         QCOMPARE(QGuiApplication::clipboard()->text(), QStringLiteral("from the computer"));
 

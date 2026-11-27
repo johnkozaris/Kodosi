@@ -7,11 +7,10 @@
 #include <QMetaObject>
 #include <QThread>
 #include <QUuid>
-#include <algorithm>
 #include <utility>
 #include <thread>
 
-static_assert(KODOSI_FFI_ABI_VERSION == 11, "KodosiQT requires FFI ABI 11");
+static_assert(KODOSI_FFI_ABI_VERSION == 12, "KodosiQT requires FFI ABI 12");
 
 namespace kodosi {
 namespace {
@@ -53,13 +52,6 @@ namespace {
                 .terminals = raw.host_terminals };
         }
         return result;
-    }
-
-    // The runtime emits compact JSON and only pipe events carry a "pipe" key. Quotes inside JSON
-    // strings are escaped, so substring matching `"pipe":"<id>"` safely identifies routed events.
-    QByteArray pipeField(const QString& pipe)
-    {
-        return QByteArrayLiteral("\"pipe\":\"") + pipe.toUtf8() + '"';
     }
 }
 
@@ -111,10 +103,9 @@ void RuntimeBridge::startAsync(std::function<void(Result)> completion)
     const auto generation = ++m_nextGeneration;
     m_activeGeneration.store(generation, std::memory_order_release);
     std::thread([context = m_callbacks, generation, completion = std::move(completion)]() mutable {
-        const kodosi_callbacks_t callbacks {
-            &RuntimeBridge::event, &RuntimeBridge::terminalData, &RuntimeBridge::terminalControl,
-            &RuntimeBridge::terminalConnectResult, &RuntimeBridge::terminalCheckpoint
-        };
+        const kodosi_callbacks_t callbacks { &RuntimeBridge::event, &RuntimeBridge::terminalData,
+            &RuntimeBridge::terminalControl, &RuntimeBridge::terminalConnectResult, &RuntimeBridge::terminalCheckpoint,
+            &RuntimeBridge::videoFrame, &RuntimeBridge::videoMessage, &RuntimeBridge::videoRepair };
         auto* handle = kodosi_start(&callbacks, sizeof(callbacks), context.get());
         auto refusal = handle ? RuntimeFailure {} : startFailure();
         auto pending = std::shared_ptr<void*>(new void*(handle), [context](void** value) {
@@ -161,6 +152,10 @@ void RuntimeBridge::stop() noexcept
     if (!handle)
         return;
     kodosi_stop(handle);
+    {
+        std::lock_guard lock(m_videosMutex);
+        m_videos.clear();
+    }
     emit runningChanged(false);
 }
 
@@ -224,24 +219,33 @@ RuntimeBridge::Result RuntimeBridge::send(QByteArrayView json)
         tr("Command"));
 }
 
-void RuntimeBridge::route(const QString& pipe, QObject& reader, Read read)
+void RuntimeBridge::watch(const QString& pipe, std::shared_ptr<VideoSink> sink)
 {
-    std::uint64_t dropGeneration = 0;
+    auto* handle = m_handle.load(std::memory_order_acquire);
+    const auto id = pipe.toUtf8();
+    if (!handle || !sink || !validIdentifier(id))
+        return;
     {
-        std::lock_guard lock(m_queueMutex);
-        dropGeneration = m_dropGeneration;
+        std::lock_guard lock(m_videosMutex);
+        m_videos.insert(id, std::move(sink));
     }
-    const auto field = pipeField(pipe);
-    std::lock_guard lock(m_routesMutex);
-    m_routes.removeIf([&field](const Route& route) { return route.field == field; });
-    m_routes.append({ .field = field, .reader = &reader, .read = std::move(read), .dropGeneration = dropGeneration });
+    if (const auto result = kodosi_video_watch(handle, id.constData()); result != KODOSI_FFI_OK) {
+        qWarning().noquote() << "the app could not watch a video:" << result;
+        std::lock_guard lock(m_videosMutex);
+        m_videos.remove(id);
+    }
 }
 
-void RuntimeBridge::unroute(const QString& pipe)
+void RuntimeBridge::unwatch(const QString& pipe)
 {
-    const auto field = pipeField(pipe);
-    std::lock_guard lock(m_routesMutex);
-    m_routes.removeIf([&field](const Route& route) { return route.field == field; });
+    const auto id = pipe.toUtf8();
+    std::shared_ptr<VideoSink> watched;
+    {
+        std::lock_guard lock(m_videosMutex);
+        watched = m_videos.take(id);
+    }
+    if (auto* handle = m_handle.load(std::memory_order_acquire); watched && handle)
+        kodosi_video_unwatch(handle, id.constData());
 }
 
 RuntimeBridge::Result RuntimeBridge::connectTerminal(const TerminalSubscription& subscription)
@@ -329,65 +333,8 @@ void RuntimeBridge::queueEvent(const std::uint8_t* json, std::uintptr_t length)
     QueuedEvent event { .dropGeneration = m_dropGeneration, .payload = {} };
     lock.unlock();
     event.payload = copyBytes(json, length, static_cast<std::uintptr_t>(maximumEventBytes));
-    if (routeEvent(generation, event))
-        return;
     QMetaObject::invokeMethod(
         this, [this, generation, event = std::move(event)] { receiveQueued(generation, event); }, Qt::QueuedConnection);
-}
-// Tracks a routed event against the queue budget until the reader consumes it or is destroyed,
-// allowing backpressure drops to discard queued routed events alongside GUI events.
-class RuntimeBridge::Waiting {
-public:
-    Waiting(RuntimeBridge& bridge, std::uint64_t generation, QueuedEvent event)
-        : m_bridge(bridge)
-        , m_generation(generation)
-        , m_event(std::move(event))
-    {
-    }
-    ~Waiting()
-    {
-        if (!m_taken)
-            (void)m_bridge.dequeue(m_generation, m_event);
-    }
-    Waiting(const Waiting&) = delete;
-    Waiting& operator=(const Waiting&) = delete;
-    [[nodiscard]] bool take()
-    {
-        m_taken = true;
-        return m_bridge.dequeue(m_generation, m_event);
-    }
-    [[nodiscard]] const QByteArray& payload() const { return m_event.payload; }
-
-private:
-    RuntimeBridge& m_bridge;
-    std::uint64_t m_generation;
-    QueuedEvent m_event;
-    bool m_taken = false;
-};
-
-bool RuntimeBridge::routeEvent(std::uint64_t generation, const QueuedEvent& event)
-{
-    std::lock_guard lock(m_routesMutex);
-    const auto route = std::ranges::find_if(
-        m_routes, [&event](const Route& route) { return event.payload.contains(route.field); });
-    if (route == m_routes.end())
-        return false;
-    const bool afterDrop = std::exchange(route->dropGeneration, event.dropGeneration) != event.dropGeneration;
-    QMetaObject::invokeMethod(
-        route->reader,
-        [this, waiting = std::make_shared<Waiting>(*this, generation, event), field = route->field,
-            reader = route->reader, read = route->read, afterDrop] {
-            if (waiting->take() && claimed(field, reader))
-                read(waiting->payload(), afterDrop);
-        },
-        Qt::QueuedConnection);
-    return true;
-}
-bool RuntimeBridge::claimed(const QByteArray& field, const QObject* reader)
-{
-    std::lock_guard lock(m_routesMutex);
-    return std::ranges::any_of(
-        m_routes, [&](const Route& route) { return route.field == field && route.reader == reader; });
 }
 bool RuntimeBridge::dequeue(std::uint64_t generation, const QueuedEvent& event)
 {
@@ -555,6 +502,41 @@ std::int32_t RuntimeBridge::terminalCheckpoint(const char* session, const char* 
                    std::move(payload), console })
         ? KODOSI_FFI_OK
         : KODOSI_FFI_TERMINAL_CHECKPOINT_REJECTED;
+}
+// The sink decodes after the callback mutex is let go, so a slow decoder holds neither the other
+// pipe nor the terminals.
+std::shared_ptr<VideoSink> RuntimeBridge::videoSink(const char* pipe, void* userdata) noexcept
+{
+    std::lock_guard lock(static_cast<CallbackContext*>(userdata)->mutex);
+    auto* bridge = resolve(userdata);
+    if (!bridge || !pipe)
+        return {};
+    std::lock_guard videos(bridge->m_videosMutex);
+    return bridge->m_videos.value(QByteArray::fromRawData(pipe, static_cast<qsizetype>(qstrlen(pipe))));
+}
+std::int32_t RuntimeBridge::videoFrame(const char* pipe, const kodosi_video_frame_t* frame, void* userdata) noexcept
+{
+    const auto sink = videoSink(pipe, userdata);
+    if (!sink || !frame || !frame->data)
+        return KODOSI_VIDEO_TAKEN;
+    std::optional<QRectF> region;
+    if (const auto* part = frame->region)
+        region = QRectF(part->x, part->y, part->width, part->height);
+    const VideoSink::Frame given { .codec = frame->codec,
+        .key = frame->kind == KODOSI_VIDEO_KEY,
+        .region = region,
+        .data = QByteArrayView(frame->data, static_cast<qsizetype>(frame->length)) };
+    return sink->take(given) ? KODOSI_VIDEO_TAKEN : KODOSI_VIDEO_FAILED;
+}
+void RuntimeBridge::videoMessage(const char* pipe, const std::uint8_t* json, std::uintptr_t length, void* userdata) noexcept
+{
+    if (const auto sink = videoSink(pipe, userdata); sink && json)
+        sink->hand(QByteArrayView(json, static_cast<qsizetype>(length)));
+}
+void RuntimeBridge::videoRepair(const char* pipe, void* userdata) noexcept
+{
+    if (const auto sink = videoSink(pipe, userdata))
+        sink->repair();
 }
 
 }

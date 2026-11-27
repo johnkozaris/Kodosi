@@ -2,13 +2,10 @@
 #include "SessionFixture.hpp"
 #include "runtime/RuntimeBridge.hpp"
 #include <QJsonDocument>
-#include <QRegularExpression>
 #include <QSignalSpy>
-#include <QThread>
-#include <chrono>
-#include <condition_variable>
-#include <mutex>
+#include <memory>
 #include <optional>
+#include <thread>
 #include <QtTest/QTest>
 
 namespace {
@@ -18,59 +15,23 @@ bool started(kodosi::RuntimeBridge& bridge)
     bridge.startAsync([&](auto result) { running = result.has_value(); });
     return QTest::qWaitFor([&] { return running; });
 }
-QByteArray pipeEvent(const QString& type, const QString& pipe)
-{
-    return QJsonDocument(QJsonObject { { QStringLiteral("type"), type }, { QStringLiteral("pipe"), pipe },
-                             { QStringLiteral("accountEpoch"), 0 }, { QStringLiteral("accountUserId"), QJsonValue::Null } })
-        .toJson(QJsonDocument::Compact);
-}
-class Reader {
+// A decoder that tells what reached it, and refuses frames once told to.
+class Decoder final : public kodosi::VideoSink {
 public:
-    Reader(kodosi::RuntimeBridge& bridge, const QString& pipe, bool start = true)
-        : m_bridge(bridge)
-        , m_pipe(pipe)
+    bool take(const Frame& frame) noexcept override
     {
-        m_object->moveToThread(&m_thread);
-        QObject::connect(&m_thread, &QThread::finished, m_object, &QObject::deleteLater);
-        if (start)
-            m_thread.start();
-        bridge.route(pipe, *m_object, [this](const QByteArray& event, bool afterDrop) {
-            const auto sent = m_bridge.send(QByteArrayLiteral("{\"type\":\"session.list\"}")).has_value();
-            std::lock_guard lock(m_mutex);
-            m_read.append(QJsonDocument::fromJson(event).object().value(QStringLiteral("type")).toString()
-                + (afterDrop ? QStringLiteral(" after a drop") : QString {}));
-            m_sent = sent ? runtime_fixture::lastCommand : QByteArray {};
-            m_changed.notify_all();
-        });
+        auto line = QStringLiteral("%1 %2 %3").arg(frame.codec == KODOSI_VIDEO_HEVC ? QStringLiteral("hevc") : QStringLiteral("h264"),
+            frame.key ? QStringLiteral("key") : QStringLiteral("delta"), QString::fromLatin1(frame.data.toByteArray()));
+        if (const auto part = frame.region)
+            line += QStringLiteral(" of %1,%2 %3x%4").arg(part->x()).arg(part->y()).arg(part->width()).arg(part->height());
+        heard.append(line);
+        return takes;
     }
-    ~Reader()
-    {
-        m_bridge.unroute(m_pipe);
-        m_thread.quit();
-        m_thread.wait();
-    }
-    void start() { m_thread.start(); }
-    QStringList waitFor(qsizetype count)
-    {
-        std::unique_lock lock(m_mutex);
-        m_changed.wait_for(lock, std::chrono::seconds(5), [&] { return m_read.size() >= count; });
-        return m_read;
-    }
-    QByteArray sent()
-    {
-        std::lock_guard lock(m_mutex);
-        return m_sent;
-    }
+    void hand(QByteArrayView message) noexcept override { heard.append(QString::fromUtf8(message.toByteArray())); }
+    void repair() noexcept override { heard.append(QStringLiteral("repair")); }
 
-private:
-    kodosi::RuntimeBridge& m_bridge;
-    QString m_pipe;
-    QThread m_thread;
-    QObject* m_object = new QObject;
-    std::mutex m_mutex;
-    std::condition_variable m_changed;
-    QStringList m_read;
-    QByteArray m_sent;
+    QStringList heard;
+    bool takes = true;
 };
 class CheckpointSink final : public kodosi::TerminalEventSink {
 public:
@@ -164,45 +125,48 @@ private slots:
             QStringLiteral("app.resync"));
         QVERIFY(bridge.isRunning());
     }
-    void aPipeEventGoesToItsReaderWhileTheGuiThreadWaits()
+    void aVideoPipesFramesReachItsDecoderWhileTheGuiThreadWaitsAndNoneOnceItIsUnwatched()
     {
         kodosi::RuntimeBridge bridge;
-        QSignalSpy events(&bridge, &kodosi::RuntimeBridge::eventReceived);
         QVERIFY(started(bridge));
         const auto pipe = test::id(9);
-        Reader reader(bridge, pipe);
-        runtime_fixture::sendEvent(pipeEvent(QStringLiteral("document.opened"), pipe));
-        runtime_fixture::sendEvent(
-            QByteArrayLiteral("{\"type\":\"sessions.snapshot\",\"accountEpoch\":0,\"accountUserId\":null}"));
-        runtime_fixture::sendEvent(pipeEvent(QStringLiteral("document.frame"), pipe));
-        runtime_fixture::sendEvent(pipeEvent(QStringLiteral("document.frame"), test::id(8)));
-        QCOMPARE(reader.waitFor(2), (QStringList { QStringLiteral("document.opened"), QStringLiteral("document.frame") }));
-        QVERIFY(reader.sent().contains("session.list"));
-        QVERIFY(events.isEmpty());
-        QTRY_COMPARE(events.size(), 2);
-        QCOMPARE(events.at(0).first().toJsonObject().value(QStringLiteral("type")).toString(),
-            QStringLiteral("sessions.snapshot"));
-        QCOMPARE(events.at(1).first().toJsonObject().value(QStringLiteral("pipe")).toString(), test::id(8));
-        bridge.unroute(pipe);
-        runtime_fixture::sendEvent(pipeEvent(QStringLiteral("document.frame"), pipe));
-        QTRY_COMPARE(events.size(), 3);
-    }
-    void aFullQueueDropsWhatWaitsForAReaderAndTellsItWithItsNextEvent()
-    {
-        kodosi::RuntimeBridge bridge;
-        QSignalSpy behind(&bridge, &kodosi::RuntimeBridge::fellBehind);
-        QVERIFY(started(bridge));
-        const auto pipe = test::id(9);
-        Reader reader(bridge, pipe, false);
-        runtime_fixture::sendEvent(pipeEvent(QStringLiteral("document.frame"), pipe));
-        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(QStringLiteral("^the app fell behind the runtime's events")));
-        for (int number = 0; number < 4096; ++number)
-            runtime_fixture::sendEvent(
-                QByteArrayLiteral("{\"type\":\"sessions.snapshot\",\"accountEpoch\":0,\"accountUserId\":null}"));
-        runtime_fixture::sendEvent(pipeEvent(QStringLiteral("document.opened"), pipe));
-        reader.start();
-        QCOMPARE(reader.waitFor(1), QStringList { QStringLiteral("document.opened after a drop") });
-        QTRY_COMPARE(behind.size(), 1);
+        const auto id = pipe.toUtf8();
+        const auto other = test::id(8).toUtf8();
+        auto decoder = std::make_shared<Decoder>();
+        bridge.watch(pipe, decoder);
+        QCOMPARE(runtime_fixture::videoCalls, QStringList { QStringLiteral("watch ") + pipe });
+        const QByteArray picture("picture");
+        const QByteArray state(R"({"width":800})");
+        const kodosi_video_region_t part { .x = 1, .y = 2, .width = 3, .height = 4 };
+        const auto frame = [&picture](std::uint8_t kind, const kodosi_video_region_t* region) {
+            return kodosi_video_frame_t { .codec = KODOSI_VIDEO_HEVC, .kind = kind, .region = region,
+                .data = reinterpret_cast<const std::uint8_t*>(picture.constData()),
+                .length = static_cast<std::uintptr_t>(picture.size()) };
+        };
+        const auto key = frame(KODOSI_VIDEO_KEY, &part);
+        const auto delta = frame(KODOSI_VIDEO_DELTA, nullptr);
+        const auto& callbacks = runtime_fixture::callbacks;
+        auto* userdata = runtime_fixture::userdata;
+        QList<std::int32_t> answers;
+        std::thread runtime([&] {
+            answers.append(callbacks.on_video_frame(id.constData(), &key, userdata));
+            callbacks.on_video_message(id.constData(), reinterpret_cast<const std::uint8_t*>(state.constData()),
+                static_cast<std::uintptr_t>(state.size()), userdata);
+            decoder->takes = false;
+            answers.append(callbacks.on_video_frame(id.constData(), &delta, userdata));
+            answers.append(callbacks.on_video_frame(other.constData(), &delta, userdata));
+            callbacks.on_video_repair(id.constData(), userdata);
+        });
+        runtime.join();
+        QCOMPARE(answers, (QList<std::int32_t> { KODOSI_VIDEO_TAKEN, KODOSI_VIDEO_FAILED, KODOSI_VIDEO_TAKEN }));
+        QCOMPARE(decoder->heard,
+            (QStringList { QStringLiteral("hevc key picture of 1,2 3x4"), QString::fromLatin1(state),
+                QStringLiteral("hevc delta picture"), QStringLiteral("repair") }));
+
+        bridge.unwatch(pipe);
+        QCOMPARE(runtime_fixture::videoCalls.last(), QStringLiteral("unwatch ") + pipe);
+        QCOMPARE(callbacks.on_video_frame(id.constData(), &key, userdata), KODOSI_VIDEO_TAKEN);
+        QCOMPARE(decoder->heard.size(), 4);
     }
     void anOutdatedHostRefusesTheStartWithItsFacts()
     {

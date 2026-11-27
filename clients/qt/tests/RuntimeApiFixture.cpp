@@ -54,4 +54,14 @@ int32_t kodosi_terminal_disconnect(void*, const char*, const char*, uint64_t)
 {
     return KODOSI_FFI_RUNTIME_STOPPED;
 }
+int32_t kodosi_video_watch(void*, const char* pipe)
+{
+    runtime_fixture::videoCalls.append(QStringLiteral("watch ") + QString::fromUtf8(pipe));
+    return KODOSI_FFI_OK;
+}
+int32_t kodosi_video_unwatch(void*, const char* pipe)
+{
+    runtime_fixture::videoCalls.append(QStringLiteral("unwatch ") + QString::fromUtf8(pipe));
+    return KODOSI_FFI_OK;
+}
 }
