@@ -87,10 +87,27 @@ impl BackendClient {
         };
         if restoring.replace(reason) != Some(reason) {
             drop(restoring);
-            let mut event = json!({"type":"auth.restoring","reason":reason});
-            self.credential_fields(&mut event);
-            self.emit_for(generation, None, event);
+            self.emit_for(generation, None, self.restoring_notice(reason));
         }
+    }
+
+    fn restoring_notice(&self, reason: AuthRestoringReason) -> Value {
+        let mut event = json!({"type":"auth.restoring","reason":reason});
+        self.credential_fields(&mut event);
+        event
+    }
+
+    /// The state of a saved sign-in that is not restored yet, so that no app takes it for signed
+    /// out: the reason of its last failed attempt, or finalizing before one.
+    pub(crate) fn restoring_event(&self) -> Option<Value> {
+        if !self.inner.restore_pending.load(Ordering::Acquire) {
+            return None;
+        }
+        let reason = *self.inner.restoring.lock().ok()?;
+        Some(reason.map_or_else(
+            || json!({"type":"auth.finalizing"}),
+            |reason| self.restoring_notice(reason),
+        ))
     }
 
     fn stop_restoring(&self) {
