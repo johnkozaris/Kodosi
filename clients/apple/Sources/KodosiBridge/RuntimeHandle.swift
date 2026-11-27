@@ -15,6 +15,7 @@ public final class RuntimeHandle: Sendable {
 
     public init(inbox: RuntimeEventInbox) {
         self.inbox = inbox
+        videoPipes.attach(self)
     }
 
     public var isRunning: Bool {
@@ -72,6 +73,9 @@ public final class RuntimeHandle: Sendable {
                 on_terminal_control: Self.onTerminalControl,
                 on_terminal_connect_result: Self.onTerminalConnectResult,
                 on_terminal_checkpoint: Self.onTerminalCheckpoint,
+                on_video_frame: Self.onVideoFrame,
+                on_video_message: Self.onVideoMessage,
+                on_video_repair: Self.onVideoRepair,
             )
             let handle = withUnsafePointer(to: &callbacks) {
                 kodosi_start($0, UInt(MemoryLayout<kodosi_callbacks_t>.size), retained.toOpaque())
@@ -261,7 +265,7 @@ public final class RuntimeHandle: Sendable {
         completion(succeeded, failureMessage)
     }
 
-    private static func resolve(_ ud: UnsafeMutableRawPointer?) -> RuntimeHandle? {
+    static func resolve(_ ud: UnsafeMutableRawPointer?) -> RuntimeHandle? {
         guard let ud else { return nil }
         return Unmanaged<RuntimeHandle>.fromOpaque(ud).takeUnretainedValue()
     }
@@ -271,10 +275,7 @@ public final class RuntimeHandle: Sendable {
     private static let onEvent: kodosi_event_cb_t = { json, len, ud in
         autoreleasepool {
             guard len <= KODOSI_MAX_FRAME_BYTES, let json, let runtime = resolve(ud) else { return }
-            let event = Data(bytes: json, count: Int(len))
-            if !runtime.videoPipes.take(event) {
-                runtime.inbox.push(event)
-            }
+            runtime.inbox.push(Data(bytes: json, count: Int(len)))
         }
     }
 

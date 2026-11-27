@@ -127,13 +127,20 @@ public final class CanvasStore {
         }
     }
 
-    /// Managed by `videoPipes` rather than `documents` so frames stay off the main actor.
+    /// Its open, loss and close come here; its frames and messages come through `videoPipes`, off
+    /// the main actor.
     func browser(of session: String) -> DocumentLink {
-        DocumentLink(commands: commands, session: session, key: CanvasShown.browserKey, claims: videoPipes)
+        video(CanvasShown.browserKey, of: session)
     }
 
     func screen(of session: String) -> DocumentLink {
-        DocumentLink(commands: commands, session: session, key: CanvasShown.screenKey, claims: videoPipes)
+        video(CanvasShown.screenKey, of: session)
+    }
+
+    private func video(_ key: String, of session: String) -> DocumentLink {
+        let link = DocumentLink(commands: commands, session: session, key: key, videoPipes: videoPipes)
+        documents.add(link)
+        return link
     }
 
     func chatLink(of session: String) -> DocumentLink {

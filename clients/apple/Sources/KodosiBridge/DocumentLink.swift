@@ -1,9 +1,16 @@
 import Foundation
 import Synchronization
 
+/// The calls of the runtime for a watched video pipe, on the pipe's own thread.
+struct VideoCalls {
+    var frame: @Sendable (VideoFrame) -> Bool = { _ in true }
+    var message: @Sendable (Data) -> Void = { _ in }
+    var repair: @Sendable () -> Void = {}
+}
+
 /// Manages a runtime document pipe, which the runtime reopens after each drop until the view
-/// closes it. Video pipes receive events on the `VideoPipes` task and may send frames from both
-/// that task and the main actor, each frame in one piece.
+/// closes it. A video pipe's messages and frames come through `VideoPipes` once it is open; it may
+/// send from that pipe's thread and from the main actor, each frame in one piece.
 public final class DocumentLink: Sendable {
     public enum News: Equatable, Sendable {
         /// Pipe opened (including after reconnect); callers should send their initial handshake.
@@ -23,6 +30,7 @@ public final class DocumentLink: Sendable {
         var registering: String?
         var onFrame: @Sendable (Data) -> Void = { _ in }
         var onNews: @Sendable (News) -> Void = { _ in }
+        var video = VideoCalls()
     }
 
     private enum Heard {
@@ -37,14 +45,14 @@ public final class DocumentLink: Sendable {
     private let commands: CommandSink
     let session: String
     private let key: String
-    private let claims: VideoPipes?
+    private let videoPipes: VideoPipes?
     private let state = Mutex(State())
 
-    init(commands: CommandSink, session: String, key: String, claims: VideoPipes? = nil) {
+    init(commands: CommandSink, session: String, key: String, videoPipes: VideoPipes? = nil) {
         self.commands = commands
         self.session = session
         self.key = key
-        self.claims = claims
+        self.videoPipes = videoPipes
     }
 
     public var pipe: String? {
@@ -61,6 +69,30 @@ public final class DocumentLink: Sendable {
         set { state.withLock { $0.onNews = newValue } }
     }
 
+    var video: VideoCalls {
+        get { state.withLock { $0.video } }
+        set { state.withLock { $0.video = newValue } }
+    }
+
+    func frame(_ frame: VideoFrame) -> Bool {
+        video.frame(frame)
+    }
+
+    func message(_ json: Data) {
+        video.message(json)
+    }
+
+    func repair() {
+        video.repair()
+    }
+
+    /// The decoder started over, so it waits for a keyframe that the runtime asks for.
+    func restartVideo() {
+        if let pipe {
+            videoPipes?.restart(pipe)
+        }
+    }
+
     @MainActor
     public func open() async throws {
         let opening = UUIDv7.generate()
@@ -73,15 +105,12 @@ public final class DocumentLink: Sendable {
             return state.pipe
         }
         if let earlier {
-            claims?.release(earlier)
+            videoPipes?.unwatch(earlier)
         }
-        claims?.claim(opening, for: self)
         do {
             try await register(opening)
         } catch {
-            if forget(opening) {
-                claims?.release(opening)
-            }
+            _ = forget(opening)
             throw error
         }
     }
@@ -107,7 +136,7 @@ public final class DocumentLink: Sendable {
             return state.pipe
         }
         guard let pipe else { return }
-        claims?.release(pipe)
+        videoPipes?.unwatch(pipe)
         _ = commands.post("document.close", ["pipe": .string(pipe)])
     }
 
@@ -127,7 +156,7 @@ public final class DocumentLink: Sendable {
             break
         case let .news(news, onNews):
             if news == .closed {
-                claims?.release(pipe)
+                videoPipes?.unwatch(pipe)
             }
             onNews(news)
         case let .frame(frame, onFrame):
@@ -189,6 +218,9 @@ public final class DocumentLink: Sendable {
                 _ = try await commands.request("document.open", [
                     "sessionId": .string(session), "pipe": .string(pipe), "key": .string(key),
                 ])
+                if self.pipe == pipe {
+                    videoPipes?.watch(pipe, by: self)
+                }
                 return
             } catch RuntimeError.timedOut where self.pipe == pipe {
                 _ = commands.post("document.close", ["pipe": .string(pipe)])
@@ -214,7 +246,7 @@ public final class DocumentLink: Sendable {
                 try await register(pipe)
             } catch {
                 guard forget(pipe) else { return }
-                claims?.release(pipe)
+                videoPipes?.unwatch(pipe)
                 onNews(.closed)
             }
         }

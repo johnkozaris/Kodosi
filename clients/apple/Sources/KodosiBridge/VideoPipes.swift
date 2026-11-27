@@ -1,79 +1,89 @@
+import CoreGraphics
 import Foundation
 import Synchronization
 
-/// Routes the events of video pipes (the shared browser's and the screen's) to a dedicated inbox
-/// and background task so video frames never block behind main-actor events or main-thread work.
+/// What the runtime does with the app's watch of a video pipe.
+public protocol VideoWatching: AnyObject, Sendable {
+    /// The pipe's messages and the frames that its decoder can take come from now on.
+    func watch(_ pipe: String)
+    /// The decoder started over, so it needs a keyframe.
+    func restart(_ pipe: String)
+    /// Returns once no call for the pipe runs and none will come.
+    func unwatch(_ pipe: String)
+}
+
+/// A frame that the decoder of a video pipe can take. `bytes`, its Annex B picture, is valid only
+/// during the call that hands it over.
+public struct VideoFrame {
+    let codec: VideoCodec
+    /// The part of the source that the frame shows, when only a part, in the source's points.
+    let region: CGRect?
+    let bytes: UnsafeRawBufferPointer
+
+    public init?(codec: UInt8, region: CGRect?, bytes: UnsafeRawBufferPointer) {
+        guard let codec = VideoCodec(rawValue: codec) else { return nil }
+        self.codec = codec
+        self.region = region
+        self.bytes = bytes
+    }
+}
+
+/// The video pipes (the shared browser's and the screen's) that this app watches. The runtime
+/// hands each pipe's messages and frames over on a thread of that pipe, in pipe order, so they
+/// never wait for the main actor.
 public final class VideoPipes: Sendable {
-    private struct Claim {
-        let mark: Data
+    private struct Watched {
         weak var link: DocumentLink?
     }
 
     private struct State {
-        var claims: [String: Claim] = [:]
-        var reading = false
+        var watched: [String: Watched] = [:]
+        weak var runtime: any VideoWatching?
     }
 
     private let state = Mutex(State())
-    private let inbox = RuntimeEventInbox()
 
     public init() {}
 
-    deinit {
-        inbox.close()
+    /// Hands the watches to `runtime`, which outlives none of them.
+    public func attach(_ runtime: any VideoWatching) {
+        state.withLock { $0.runtime = runtime }
     }
 
-    /// Claims and enqueues events for active video pipes. Raw byte matching is safe without JSON
-    /// parsing because only pipe events carry `"pipe":"..."` and base64 payloads contain no quotes.
-    public func take(_ event: Data) -> Bool {
-        let marks = state.withLock { $0.claims.isEmpty ? [] : $0.claims.values.map(\.mark) }
-        guard marks.contains(where: { Self.names(event, $0) }) else { return false }
-        inbox.push(event)
-        return true
-    }
-
-    func claim(_ pipe: String, for link: DocumentLink) {
-        let starts = state.withLock { state in
-            state.claims[pipe] = Claim(mark: Data(#""pipe":"\#(pipe)""#.utf8), link: link)
-            defer { state.reading = true }
-            return !state.reading
+    func watch(_ pipe: String, by link: DocumentLink) {
+        let runtime = state.withLock { state in
+            state.watched[pipe] = Watched(link: link)
+            return state.runtime
         }
-        if starts {
-            read()
-        }
+        runtime?.watch(pipe)
     }
 
-    func release(_ pipe: String) {
-        _ = state.withLock { $0.claims.removeValue(forKey: pipe) }
+    func restart(_ pipe: String) {
+        state.withLock { $0.runtime }?.restart(pipe)
     }
 
-    private func read() {
-        let inbox = inbox
-        Task.detached(name: "Video frames", priority: .userInitiated) { [weak self] in
-            var faults = RuntimeEventFaults()
-            while let item = await inbox.nextItem() {
-                guard let self else { return }
-                switch item {
-                case let .event(event):
-                    let pipe = event.string("pipe")
-                    state.withLock { state in pipe.flatMap { state.claims[$0]?.link } }?.receive(event)
-                case let .unreadable(error):
-                    faults.unreadable(nil, error)
-                case let .behind(drop):
-                    RuntimeEventFaults.videoBehind(drop)
-                    for link in state.withLock({ $0.claims.values.compactMap(\.link) }) {
-                        link.renewAfterLoss()
-                    }
-                }
-            }
+    func unwatch(_ pipe: String) {
+        let runtime = state.withLock { state in
+            state.watched[pipe] = nil
+            return state.runtime
         }
+        runtime?.unwatch(pipe)
     }
 
-    private static func names(_ event: Data, _ mark: Data) -> Bool {
-        event.withUnsafeBytes { event in
-            mark.withUnsafeBytes { mark in
-                memmem(event.baseAddress, event.count, mark.baseAddress, mark.count) != nil
-            }
-        }
+    /// Returns `false` when the decoder cannot go on.
+    public func frame(_ pipe: String, _ frame: VideoFrame) -> Bool {
+        link(pipe)?.frame(frame) ?? true
+    }
+
+    public func message(_ pipe: String, _ json: Data) {
+        link(pipe)?.message(json)
+    }
+
+    public func repair(_ pipe: String) {
+        link(pipe)?.repair()
+    }
+
+    private func link(_ pipe: String) -> DocumentLink? {
+        state.withLock { $0.watched[pipe]?.link }
     }
 }
