@@ -106,11 +106,13 @@ jemand zusieht, zeigt die Menüleiste oder der Infobereich des Computers, welche
 du das Teilen ausschaltest oder dort auf **Teilen beenden** klickst, endet jede Ansicht.
 
 Auf einem Mac fragt Kodosi Screen außerdem die Person am Mac in einer eigenen Meldung, bevor es ein
-Konto bedient: einmal für jedes Konto, wenn das Teilen eingeschaltet wird. Die Meldung nennt das
-Konto und seinen Server, wenn es nicht der von Kodosi ist. Ein Programm auf dem Mac, das ein eigenes
-Kodosi mit einem anderen Konto startet, bekommt also nichts, solange die Person dort dieses Konto
-nicht erlaubt. Nur Kodosi Screen kann die Antworten lesen oder ändern, sie bleiben auf diesem Mac,
-und wenn du das Teilen ausschaltest oder auf **Teilen beenden** klickst, nimmt das alle zurück.
+Konto bedient: einmal für jedes Konto, wenn das Teilen eingeschaltet wird. Kein Programm kann diese
+Meldung erscheinen lassen; das kann nur dein eigener Klick auf den Schalter in Kodosi. Die Meldung
+nennt das Konto und seinen Server, wenn es nicht der von Kodosi ist. Ein Programm auf dem Mac, das
+ein eigenes Kodosi mit einem anderen Konto startet, bekommt also nichts, solange die Person dort
+dieses Konto nicht erlaubt. Nur Kodosi Screen kann die Antworten lesen oder ändern, sie bleiben auf
+diesem Mac, und wenn du das Teilen ausschaltest oder auf **Teilen beenden** klickst, nimmt das alle
+zurück.
 
 Während ein Gerät den Bildschirm steuert, geht auf dem Computer kopierter Text an dieses Gerät, und
 wenn du auf dem Gerät einfügst, bekommt der Computer den Text dieses Geräts. Text, den ein

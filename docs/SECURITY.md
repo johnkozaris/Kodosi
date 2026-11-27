@@ -96,11 +96,12 @@ notice while the screen is shared. While someone watches, the computer's menu ba
 says which devices watch; turning the sharing off, or **Stop sharing** there, ends every view.
 
 On a Mac, Kodosi Screen also asks the person at the Mac in its own alert before it serves an
-account: once for each account, when the sharing is turned on. The alert names the account, and its
-server when that is not Kodosi's, so a program on the Mac that starts its own Kodosi with another
-account gets nothing unless the person there allows that account. Only Kodosi Screen can read or
-change the answers, which stay on that Mac, and turning the sharing off, or **Stop sharing**, takes
-them all back.
+account: once for each account, when the sharing is turned on. No program can make this alert
+appear; only the person's own click on the switch in Kodosi can. The alert names the account, and
+its server when that is not Kodosi's, so a program on the Mac that starts its own Kodosi with
+another account gets nothing unless the person there allows that account. Only Kodosi Screen can
+read or change the answers, which stay on that Mac, and turning the sharing off, or **Stop
+sharing**, takes them all back.
 
 While a device controls the screen, text copied on the computer goes to that device, and a paste on
 it gives the computer that device's text. Text that a password manager marks as private stays on

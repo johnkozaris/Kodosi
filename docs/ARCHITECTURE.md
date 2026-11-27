@@ -300,8 +300,11 @@ root, which binds the devices that may watch. The helper keeps each allowed key 
 protection keychain, under an access group that only the team's signature with its provisioning
 profile opens, and until the host's key is there it lists, captures and plays nothing. Only turning
 the sharing on asks: the app lets the helper take the front for its alert, whose words come from the
-host and whose bundle must be whole on the disk. Any other start of a helper that does not know the
-key turns the host's sharing off without a question, and the sharing's end, in the app or in the
+host and whose bundle must be whole on the disk. Any program can start a signed host that asks, but
+none can click, so the app vouches for the click: it offers a one-time vouch under a new Mach name,
+with a secret that reaches the helper only through the host, and the helper takes it before its
+alert shows, each side checking the other's team as in the hand-over. Any other start of a helper
+that does not know the key turns the host's sharing off without a question, and the sharing's end, in the app or in the
 helper, forgets every key. A helper without the team's signature, which macOS grants nothing of a
 released one, serves every account.
 
