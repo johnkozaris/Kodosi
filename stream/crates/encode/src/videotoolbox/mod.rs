@@ -345,7 +345,6 @@ impl Encoder {
         self.gate.change(|slot| {
             slot.format = format;
             slot.repair = Repair::Key;
-            slot.held.clear();
         });
     }
 }

@@ -3,7 +3,10 @@
 use std::{
     ffi::{c_int, c_void},
     ptr::{self, NonNull},
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicU32, Ordering},
+    },
     time::Duration,
 };
 
@@ -42,6 +45,10 @@ const START_CODE: [u8; 4] = [0, 0, 0, 1];
 /// nobody asked to repair.
 const KEY_INTERVAL: i64 = 3600;
 const PROBE: (i32, i32) = (640, 360);
+/// Each session numbers its long-term references from 0, so a mark carries its session's number
+/// above the reference's token, and a session takes back only its own marks.
+const TOKEN_BITS: u32 = 32;
+static SESSIONS: AtomicU32 = AtomicU32::new(0);
 const INVALID_TIME: CMTime = CMTime {
     value: 0,
     timescale: 0,
@@ -61,6 +68,7 @@ pub(super) struct Coded {
 struct Context {
     gate: Arc<Gate>,
     codec: Codec,
+    session: u32,
 }
 
 pub(super) struct Session {
@@ -69,6 +77,7 @@ pub(super) struct Session {
     pub(super) width: usize,
     pub(super) height: usize,
     pub(super) format: Format,
+    number: u32,
 }
 
 #[expect(
@@ -151,9 +160,11 @@ impl Session {
             i32::try_from(width).map_err(|_| "the picture is too wide")?,
             i32::try_from(height).map_err(|_| "the picture is too high")?,
         );
+        let number = SESSIONS.fetch_add(1, Ordering::Relaxed);
         let context = Arc::into_raw(Arc::new(Context {
             gate: Arc::clone(gate),
             codec: format.codec,
+            session: number,
         }));
         let specification = low_latency();
         let mut raw = ptr::null_mut();
@@ -186,6 +197,7 @@ impl Session {
             width,
             height,
             format,
+            number,
         };
         session.configure()?;
         if !session.takes_quantizers() {
@@ -289,10 +301,8 @@ impl Session {
     ) -> i32 {
         let yes: &CFType = CFBoolean::new(true);
         let quantizer = CFNumber::new_i32(i32::from(quantizer));
-        let tokens: Vec<CFRetained<CFNumber>> = held
-            .iter()
-            .map(|mark| CFNumber::new_i64(mark.cast_signed()))
-            .collect();
+        let tokens: Vec<CFRetained<CFNumber>> =
+            tokens(self.number, held).map(CFNumber::new_i64).collect();
         let acknowledged = (!tokens.is_empty())
             .then(|| objc2_core_foundation::CFArray::from_retained_objects(&tokens));
         // SAFETY: a VideoToolbox constant key with the number it expects.
@@ -349,7 +359,7 @@ unsafe extern "C-unwind" fn encoded(
     let coded = NonNull::new(sample)
         .filter(|_| status == 0)
         // SAFETY: the sample is valid during the callback.
-        .and_then(|sample| unsafe { coded(sample.as_ref(), context.codec) });
+        .and_then(|sample| unsafe { coded(sample.as_ref(), context.codec, context.session) });
     context.gate.encoded(
         marker.addr(),
         status,
@@ -364,9 +374,9 @@ unsafe extern "C-unwind" fn encoded(
 /// # Safety
 ///
 /// `sample` must be a valid compressed `CMSampleBuffer`.
-unsafe fn coded(sample: &CMSampleBuffer, codec: Codec) -> Option<Coded> {
+unsafe fn coded(sample: &CMSampleBuffer, codec: Codec, session: u32) -> Option<Coded> {
     // SAFETY: the caller guarantees a valid sample.
-    let (key, mark) = unsafe { sync_and_mark(sample) };
+    let (key, token) = unsafe { sync_and_token(sample) };
     // SAFETY: as above.
     let (description, block) = unsafe { (sample.format_description()?, sample.data_buffer()?) };
     let mut out = Vec::new();
@@ -382,15 +392,26 @@ unsafe fn coded(sample: &CMSampleBuffer, codec: Codec) -> Option<Coded> {
     annex_b_units(&data, length_size, &mut out)?;
     Some(Coded {
         key,
-        mark,
+        mark: token.map(|token| mark(session, token)),
         data: Bytes::from(out),
     })
+}
+
+fn mark(session: u32, token: u32) -> u64 {
+    u64::from(session) << TOKEN_BITS | u64::from(token)
+}
+
+fn tokens(session: u32, marks: &[u64]) -> impl Iterator<Item = i64> {
+    marks
+        .iter()
+        .filter(move |mark| *mark >> TOKEN_BITS == u64::from(session))
+        .filter_map(|mark| i64::try_from(mark & u64::from(u32::MAX)).ok())
 }
 
 /// # Safety
 ///
 /// `sample` must be a valid `CMSampleBuffer`.
-unsafe fn sync_and_mark(sample: &CMSampleBuffer) -> (bool, Option<u64>) {
+unsafe fn sync_and_token(sample: &CMSampleBuffer) -> (bool, Option<u32>) {
     // SAFETY: the caller guarantees a valid sample; the attachments belong to it.
     let Some(attachments) = (unsafe { sample.sample_attachments_array(false) }) else {
         return (true, None);
@@ -419,9 +440,11 @@ unsafe fn sync_and_mark(sample: &CMSampleBuffer) -> (bool, Option<u64>) {
                 .as_ref(),
         )
     };
-    let mark = token.and_then(CFNumber::as_i64).map(i64::cast_unsigned);
+    let token = token
+        .and_then(CFNumber::as_i64)
+        .and_then(|token| u32::try_from(token).ok());
     let sync = not_sync.is_null() || ptr::eq(not_sync.cast(), CFBoolean::new(false));
-    (sync, mark)
+    (sync, token)
 }
 
 /// Writes the parameter sets in front of a keyframe and returns the stream's NAL length size.
@@ -506,4 +529,15 @@ fn annex_b_units(data: &[u8], length_size: usize, out: &mut Vec<u8>) -> Option<(
         rest = after;
     }
     Some(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{mark, tokens};
+
+    #[test]
+    fn a_mark_of_an_earlier_session_does_not_reach_videotoolbox() {
+        let held = [mark(1, 0), mark(1, 3), mark(2, 0), mark(2, 4)];
+        assert_eq!(tokens(2, &held).collect::<Vec<_>>(), [0, 4]);
+    }
 }
