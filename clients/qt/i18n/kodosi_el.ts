@@ -820,8 +820,8 @@
         <translation>Εμφάνιση ολόκληρης της οθόνης</translation>
     </message>
     <message>
-        <source>Allow control on %1</source>
-        <translation>Επιτρέψτε τον έλεγχο στο %1</translation>
+        <source>%1 does not allow control. Allow it in Kodosi&apos;s settings there.</source>
+        <translation>Το %1 δεν επιτρέπει τον έλεγχο. Επιτρέψτε τον εκεί, στις ρυθμίσεις του Kodosi.</translation>
     </message>
     <message>
         <source>Can&apos;t show the screen</source>
@@ -830,10 +830,6 @@
     <message>
         <source>Copied</source>
         <translation>Αντιγράφηκε</translation>
-    </message>
-    <message>
-        <source>View only</source>
-        <translation>Μόνο προβολή</translation>
     </message>
 </context>
 <context>

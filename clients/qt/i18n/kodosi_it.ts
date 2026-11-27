@@ -820,8 +820,8 @@
         <translation>Mostra tutto lo schermo</translation>
     </message>
     <message>
-        <source>Allow control on %1</source>
-        <translation>Consenti il controllo su %1</translation>
+        <source>%1 does not allow control. Allow it in Kodosi&apos;s settings there.</source>
+        <translation>%1 non consente il controllo. Consentilo lì, nelle impostazioni di Kodosi.</translation>
     </message>
     <message>
         <source>Can&apos;t show the screen</source>
@@ -830,10 +830,6 @@
     <message>
         <source>Copied</source>
         <translation>Copiato</translation>
-    </message>
-    <message>
-        <source>View only</source>
-        <translation>Solo visualizzazione</translation>
     </message>
 </context>
 <context>

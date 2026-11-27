@@ -354,14 +354,13 @@
     <string name="screen_window">Ventana</string>
     <string name="screen_choose">Mostrar otra pantalla o ventana</string>
     <string name="screen_whole">Mostrar toda la pantalla</string>
-    <string name="screen_view_only">Solo ver</string>
     <string name="screen_sharing_off">El uso compartido está desactivado en %1$s</string>
     <string name="computer_offline">%1$s está sin conexión</string>
     <string name="screen_locked">%1$s está bloqueado</string>
     <string name="screen_asleep">%1$s está en reposo</string>
     <string name="screen_another_account">%1$s tiene otra cuenta abierta</string>
     <string name="screen_allow_recording">Permite la grabación de pantalla en %1$s</string>
-    <string name="screen_allow_control">Permite el control en %1$s</string>
+    <string name="screen_uncontrolled">%1$s no permite el control. Permítelo allí, en los ajustes de Kodosi.</string>
     <string name="screen_cant_show">No se puede mostrar la pantalla</string>
     <string name="browser_cant_show">No se puede mostrar la página</string>
     <string name="wake_browser">Abrir navegador</string>

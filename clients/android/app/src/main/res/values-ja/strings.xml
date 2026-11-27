@@ -346,14 +346,13 @@
     <string name="screen_window">ウインドウ</string>
     <string name="screen_choose">別のディスプレイやウインドウを表示</string>
     <string name="screen_whole">画面全体を表示</string>
-    <string name="screen_view_only">表示のみ</string>
     <string name="screen_sharing_off">%1$s で共有がオフになっています</string>
     <string name="computer_offline">%1$s はオフラインです</string>
     <string name="screen_locked">%1$s はロックされています</string>
     <string name="screen_asleep">%1$s はスリープ中です</string>
     <string name="screen_another_account">%1$s では別のアカウントが使われています</string>
     <string name="screen_allow_recording">%1$s で画面収録を許可してください</string>
-    <string name="screen_allow_control">%1$s で操作を許可してください</string>
+    <string name="screen_uncontrolled">%1$s は操作を許可していません。そこで Kodosi の設定から許可してください。</string>
     <string name="screen_cant_show">画面を表示できません</string>
     <string name="browser_cant_show">ページを表示できません</string>
     <string name="wake_browser">ブラウザを開く</string>

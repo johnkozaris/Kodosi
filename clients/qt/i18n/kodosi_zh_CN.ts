@@ -819,8 +819,8 @@
         <translation>显示整个屏幕</translation>
     </message>
     <message>
-        <source>Allow control on %1</source>
-        <translation>请在 %1 上允许控制</translation>
+        <source>%1 does not allow control. Allow it in Kodosi&apos;s settings there.</source>
+        <translation>%1 不允许控制。请在那里的 Kodosi 设置中允许。</translation>
     </message>
     <message>
         <source>Can&apos;t show the screen</source>
@@ -829,10 +829,6 @@
     <message>
         <source>Copied</source>
         <translation>已复制</translation>
-    </message>
-    <message>
-        <source>View only</source>
-        <translation>仅查看</translation>
     </message>
 </context>
 <context>

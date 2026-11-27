@@ -35,6 +35,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -76,7 +77,6 @@ fun ScreenView(model: AppModel, session: String, computer: String, shared: Boole
     val placing by feed.placing.collectAsStateWithLifecycle()
     var view by remember { mutableStateOf<ScreenSurface?>(null) }
     var area by remember { mutableStateOf(IntSize.Zero) }
-    var explaining by remember { mutableStateOf(false) }
     // Before the feed shows, so that it opens no pipe to a screen that its computer does not share.
     DisposableEffect(feed, shared) {
         feed.share(shared)
@@ -108,28 +108,17 @@ fun ScreenView(model: AppModel, session: String, computer: String, shared: Boole
         ) {
             ScreenSources(feed, Modifier.weight(1f, fill = false))
             if (zoom > 1f) ActionIcon(AppSymbol.SHRINK, R.string.screen_whole, feed::showWhole)
-            if (!controls) {
-                Box {
-                    Text(
-                        stringResource(R.string.screen_view_only),
-                        Modifier.clip(CircleShape).background(KodosiTheme.colors.caution.copy(alpha = 0.12f))
-                            .clickable(role = Role.Button) { explaining = true }
-                            .heightIn(min = 36.dp).padding(horizontal = 10.dp, vertical = 9.dp),
-                        style = KodosiType.footnote,
-                        color = KodosiTheme.colors.caution
-                    )
-                    KodosiMenu(explaining, onDismissRequest = { explaining = false }) {
-                        Text(
-                            stringResource(R.string.screen_allow_control, computer),
-                            Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                            style = KodosiType.footnote,
-                            color = KodosiTheme.colors.ink
-                        )
-                    }
-                }
-            }
             Box(Modifier.weight(1f))
             KeyboardButton(view, enabled = picture && controls)
+        }
+        if (!controls && (shows == ScreenShows.LIVE || shows == ScreenShows.RESTING)) {
+            Text(
+                stringResource(R.string.screen_uncontrolled, computer),
+                Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 6.dp),
+                style = KodosiType.footnote,
+                fontWeight = FontWeight.Medium,
+                color = KodosiTheme.colors.caution
+            )
         }
         Box(Modifier.weight(1f).fillMaxWidth().background(DarkColors.terminal).onSizeChanged { area = it }) {
             AndroidView(

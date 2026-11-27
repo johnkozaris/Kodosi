@@ -42,7 +42,9 @@ Every terminal has a canvas beside it where the agent can display files and use 
 Documents on the canvas are live, so people and agents can edit the same file simultaneously.
 A computer can also show its screen on the canvas of its terminals, where its owner watches and
 controls it from their other devices. Only the person at the computer turns this on, and only the
-owner's devices ever see the screen, even in a terminal shared with friends.
+owner's devices ever see the screen, even in a terminal shared with friends. A computer that does
+not let Kodosi control it never passes for a plain video: every device says so beside the picture,
+with where the person at the computer allows control.
 
 ### Dosi
 Dosi is your meta-agent for managing other agents. It sees all your terminals, agents, and

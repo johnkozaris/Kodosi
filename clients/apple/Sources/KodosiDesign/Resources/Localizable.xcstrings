@@ -105,6 +105,58 @@
         }
       }
     },
+    "%@ does not allow control. Allow it in Kodosi's settings there." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ erlaubt keine Steuerung. Erlaube sie dort in den Einstellungen von Kodosi."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το %@ δεν επιτρέπει τον έλεγχο. Επιτρέψτε τον εκεί, στις ρυθμίσεις του Kodosi."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ no permite el control. Permítelo allí, en los ajustes de Kodosi."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ n’autorise pas le contrôle. Autorisez-le sur place, dans les réglages de Kodosi."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ non consente il controllo. Consentilo lì, nelle impostazioni di Kodosi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ は操作を許可していません。そこで Kodosi の設定から許可してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@에서 제어를 허용하지 않았어요. 그곳의 Kodosi 설정에서 허용하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 不允许控制。请在那里的 Kodosi 设置中允许。"
+          }
+        }
+      }
+    },
     "%@ invited you" : {
       "localizations" : {
         "de" : {
@@ -2202,58 +2254,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "允许"
-          }
-        }
-      }
-    },
-    "Allow control on %@" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Steuerung auf %@ erlauben"
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Επιτρέψτε τον έλεγχο στο %@"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Permite el control en %@"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Autorisez le contrôle sur %@"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Consenti il controllo su %@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ で操作を許可してください"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@에서 제어를 허용하세요"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在 %@ 上允许控制"
           }
         }
       }
@@ -13810,58 +13810,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "使用对方的邀请验证…"
-          }
-        }
-      }
-    },
-    "View only" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nur ansehen"
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Μόνο προβολή"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Solo ver"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Affichage seul"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Solo visualizzazione"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "表示のみ"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "보기 전용"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "仅查看"
           }
         }
       }

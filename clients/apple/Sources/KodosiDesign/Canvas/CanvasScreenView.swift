@@ -21,7 +21,10 @@ public struct CanvasScreenView: View {
             ThisScreen(shared: session.canvas?.screen?.shared ?? false, feed: feed)
         } else {
             VStack(spacing: 0) {
-                ScreenBar(computer: session.hostLabel, feed: feed).zIndex(1)
+                ScreenBar(feed: feed).zIndex(1)
+                if feed.access?.input == false, [.live, .resting].contains(feed.showing) {
+                    UncontrolledLine(computer: session.hostLabel)
+                }
                 ScreenStage(computer: session.hostLabel, feed: feed, typing: typing)
             }
         }
@@ -150,9 +153,24 @@ private struct ScreenPointer: View {
     }
 }
 
-private struct ScreenBar: View {
+/// Why the picture takes no input, and where the person at the computer allows it, which a
+/// watcher would not guess from a picture that looks live.
+private struct UncontrolledLine: View {
     @Environment(\.theme) private var theme
     let computer: String
+
+    var body: some View {
+        Text("\(computer) does not allow control. Allow it in Kodosi's settings there.", bundle: .module)
+            .appTextStyle(.footnote).fontWeight(.medium).foregroundStyle(theme.colors.caution)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12).padding(.bottom, 6)
+            .accessibilityIdentifier("canvas.screen.uncontrolled")
+    }
+}
+
+private struct ScreenBar: View {
+    @Environment(\.theme) private var theme
     let feed: ScreenFeed
     @State private var picking = false
 
@@ -166,16 +184,6 @@ private struct ScreenBar: View {
                     feed.showWhole()
                 }
                 .transition(.opacity)
-            }
-            if feed.access?.input == false, [.live, .resting].contains(feed.showing) {
-                ExplainedKey(words: String(localized: "Allow control on \(computer)", bundle: .module)) {
-                    Text("View only", bundle: .module)
-                        .appTextStyle(.footnote).fontWeight(.medium).foregroundStyle(theme.colors.caution)
-                        .padding(.horizontal, 9).frame(height: control - 6)
-                        .background(Capsule().fill(theme.colors.caution.opacity(0.12)))
-                        .contentShape(Capsule())
-                }
-                .accessibilityIdentifier("canvas.screen.viewOnly")
             }
             Spacer(minLength: 0)
         }

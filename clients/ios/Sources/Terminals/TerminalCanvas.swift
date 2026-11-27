@@ -186,6 +186,7 @@ struct CanvasScreen: View {
                     ToolbarItem(placement: .primaryAction) {
                         IconButton(title: "Keyboard", symbol: typing ? "keyboard.chevron.compact.down" : "keyboard",
                                    identifier: "canvas.keyboard", size: 32, active: typing) { typing.toggle() }
+                            .disabled(current.section == .screen && store.screenFeed(session.id).access?.input == false)
                     }
                     .sharedBackgroundVisibility(.hidden)
                 }
