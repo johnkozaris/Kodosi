@@ -225,7 +225,7 @@ async function hello($, rewound) {
     facts.usage = await $.session.usage()
     Object.assign(facts, await modesOff($))
     facts.commands = await slashCommands($)
-    facts.settings = offersSettings($)
+    facts.settings = await offersSettings($)
     turns = await prompts($)
     rows = earlier(await $.session.messages({ last: HISTORY }))
   } catch (error) {
@@ -276,9 +276,12 @@ async function stop($) {
   moved.length = 0
 }
 
-function offersSettings($) {
+// Claude Code refuses a module that reads a call of $ as a value, so only a call can tell whether
+// this Claude Code has its settings for a module.
+async function offersSettings($) {
   try {
-    return typeof $.config.list === 'function' && typeof $.config.set === 'function'
+    await $.config.list()
+    return true
   } catch (error) {
     return false
   }
