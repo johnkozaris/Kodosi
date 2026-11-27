@@ -30,6 +30,13 @@
 //! the draft's section 6: a burst's acknowledgements come in as the queue that it built drains, and
 //! the window was measured against that queue, so a round trip that falls back at once would
 //! publish more than the path carried.
+//!
+//! The draft grows the window by a share of itself each round trip, so a long path needs as many
+//! round trips to start as a short one, and so far more time. Until the window first reacts, that
+//! share follows time instead, as on a path of `VIRTUAL_RTT`. Only until then: such growth at every
+//! round trip lets a queue stand on a long path and raises the loss behind a policer, and growth by
+//! time also of the window's fixed step, or again after each reaction, makes slow and lossy long
+//! paths overshoot.
 
 use std::{
     any::Any,
@@ -60,6 +67,8 @@ const BETA_ECN: f64 = 0.8;
 const POST_CONGESTION_DELAY_RTTS: f64 = 100.0;
 const MUL_INCREASE_FACTOR: f64 = 0.02;
 const VIRTUAL_RTT: f64 = 0.025;
+/// The longest round trip whose start grows as fast in time as a path of `VIRTUAL_RTT`.
+const START_RTT_MOST: f64 = 0.2;
 const REF_WND_I_UPDATE_MAX_HOLD_RTTS: f64 = 50.0;
 const REF_WND_OVERHEAD_MIN: f64 = 1.5;
 const REF_WND_OVERHEAD_MAX: f64 = 3.0;
@@ -446,7 +455,8 @@ impl Window {
     }
 
     /// Grows the window by the bytes acknowledged without marks, more while no congestion has been
-    /// seen for a while and less near the last window that met congestion (draft section 4.2.2.2).
+    /// seen for a while and less near the last window that met congestion (draft section 4.2.2.2),
+    /// and until it first reacts as fast in time on a long path as on a short one.
     fn grow(&mut self, now: Instant, scl: f64, latency_scale: f64) {
         let post_congestion = (Self::since(self.last_congestion_detected, now)
             / (POST_CONGESTION_DELAY_RTTS * VIRTUAL_RTT.max(self.s_rtt)))
@@ -457,8 +467,13 @@ impl Window {
         let mut increment = self.bytes_newly_acked * self.ref_wnd_ratio() / increment_scale;
         increment *= (self.s_rtt / VIRTUAL_RTT).min(1.0);
         increment *= scl;
+        let by_time = if self.last_reaction.is_none() {
+            (self.s_rtt.min(START_RTT_MOST) / VIRTUAL_RTT).max(1.0)
+        } else {
+            1.0
+        };
         let multiplier = if scale_factor > 1.0 {
-            (scale_factor - 1.0).mul_add(post_congestion, 1.0)
+            (scale_factor - 1.0).mul_add(post_congestion * by_time, 1.0)
         } else {
             scale_factor
         };
@@ -1111,6 +1126,26 @@ mod tests {
         }
     }
 
+    /// A long path starts in about as much time as a short one: until the window first reacts,
+    /// its growth follows time rather than round trips.
+    #[test]
+    fn a_long_path_reaches_most_of_the_capacity_within_seconds() {
+        let capacity = 20e6;
+        for (round_trip, within) in [(120, 6), (200, 8)] {
+            let mut path = Path::new(capacity).with_round_trip(Duration::from_millis(round_trip));
+            let mut at = Duration::ZERO;
+            while at < Duration::from_secs(within) && path.published() < 0.8 * capacity {
+                path.run(at, at + Duration::from_millis(10));
+                at += Duration::from_millis(10);
+            }
+            assert!(
+                path.published() >= 0.8 * capacity,
+                "{round_trip} ms: {} after {within} s",
+                path.published()
+            );
+        }
+    }
+
     /// A screen sends a frame of a few frame times of bitrate at once, which the pacer sends at
     /// 1.5 times the bitrate, and is then still until the next change. Its bursts are its only
     /// probes: the published bitrate must not settle above what the path carries, nor fall far
@@ -1150,7 +1185,7 @@ mod tests {
             );
             assert!(rise < 1.02, "{case}: rises {rise} while still");
             assert!(
-                least > 0.4 * capacity && most < 1.25 * capacity,
+                least > 0.4 * capacity && most < 1.1 * capacity,
                 "{case}: from {least} to {most}"
             );
         }
