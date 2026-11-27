@@ -178,6 +178,9 @@ public struct TerminalConfiguration: Sendable, Hashable {
         builder.withCursorStyleBlink(true)
         builder.withFontSize(14)
         builder.withFontThicken(true)
+        // Ghostty copies each selection to a selection pasteboard by default on macOS. The views
+        // have none, so the copy would replace the system clipboard.
+        builder.withCustom("copy-on-select", "none")
     }
 
     public var rendered: String {
