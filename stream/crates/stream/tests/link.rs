@@ -26,6 +26,11 @@ const LIVE_EVERY: u32 = 400;
 /// The bottleneck drops what would wait longer than this.
 const QUEUE: Duration = Duration::from_millis(200);
 const VIEWER: &str = "viewer";
+/// The frames that wait for the viewer's app, and the shards of a flow that wait for the viewer's
+/// runtime while it waits for room there.
+const PIPE: usize = 64;
+const FLOW_SHARDS: usize = 4096;
+const STALL: Duration = Duration::from_secs(2);
 /// The longest the viewer may be without a picture it can decode, and the longest a whole new
 /// screen may take to show.
 const BOUND: Duration = Duration::from_secs(1);
@@ -153,7 +158,8 @@ impl Encoder {
     }
 }
 
-/// Typing, two whole new screens, a scroll at half the link, then a still picture.
+/// Typing, two whole new screens, a scroll at half the link and 60 frames a second, then a still
+/// picture.
 fn script(case: Case) -> Vec<(Duration, usize, bool)> {
     let ms = Duration::from_millis;
     let mut events = Vec::new();
@@ -166,10 +172,10 @@ fn script(case: Case) -> Vec<(Duration, usize, bool)> {
         clippy::cast_sign_loss,
         reason = "a frame's bytes"
     )]
-    let scrolled = (case.capacity * 0.5 / 30.0 / 8.0) as usize;
+    let scrolled = (case.capacity * 0.5 / 60.0 / 8.0) as usize;
     events.extend(
-        (10_500..11_500)
-            .step_by(33)
+        (10_500..12_500)
+            .step_by(16)
             .map(|at| (ms(at), scrolled, false)),
     );
     events.sort_by_key(|(at, ..)| *at);
@@ -179,13 +185,15 @@ fn script(case: Case) -> Vec<(Duration, usize, bool)> {
 #[derive(Debug)]
 struct Outcome {
     shown: Vec<Option<Duration>>,
+    /// From the end of the app's stall until it shows the newest frame.
+    back: Option<Duration>,
     longest_broken: Duration,
     in_step: bool,
     sent_again: usize,
 }
 
 #[expect(clippy::too_many_lines, reason = "one simulation loop")]
-fn run(case: Case, loss: f64, seed: u64) -> Outcome {
+fn run(case: Case, loss: f64, seed: u64, stall: Option<Duration>) -> Outcome {
     let start = Instant::now();
     let one_way = case.rtt / 2;
     #[expect(
@@ -211,6 +219,11 @@ fn run(case: Case, loss: f64, seed: u64) -> Outcome {
     let mut tokens = BURST;
     let mut free_at = start;
     let mut wire: VecDeque<(Instant, Bytes)> = VecDeque::new();
+    let mut queued: VecDeque<Bytes> = VecDeque::new();
+    let mut pending: VecDeque<Bytes> = VecDeque::new();
+    let mut pipe: VecDeque<Bytes> = VecDeque::new();
+    let resumed = stall.map(|from| start + from + STALL);
+    let mut back = None;
     let mut reports: VecDeque<(Instant, Bytes)> = VecDeque::new();
     let mut acks: VecDeque<(Instant, u32)> = VecDeque::new();
     let mut sent: HashSet<(u16, u16)> = HashSet::new();
@@ -302,18 +315,40 @@ fn run(case: Case, loss: f64, seed: u64) -> Outcome {
             encoder.repair = flow.ask(now, |_| 0).or(encoder.repair);
         }
 
-        // The viewer: its runtime puts frames together, its app acknowledges and decodes them.
+        // The viewer: its runtime puts frames together and waits for room in the pipe to the app,
+        // which acknowledges and decodes each frame that it takes.
         while let Some((_, shard)) = wire.pop_front_if(|(due, _)| *due <= now) {
-            told.extend(unpacker.shard(&shard, now));
+            if queued.len() < FLOW_SHARDS {
+                queued.push_back(shard);
+            }
         }
-        if step % RECEIVE_EVERY == 0 {
+        let room = |pending: &mut VecDeque<Bytes>, pipe: &mut VecDeque<Bytes>| {
+            while pipe.len() < PIPE
+                && let Some(frame) = pending.pop_front()
+            {
+                pipe.push_back(frame);
+            }
+        };
+        room(&mut pending, &mut pipe);
+        while pending.is_empty()
+            && let Some(shard) = queued.pop_front()
+        {
+            pending.extend(unpacker.shard(&shard, now));
+            room(&mut pending, &mut pipe);
+        }
+        if pending.is_empty() && step % RECEIVE_EVERY == 0 {
             let (handed, report) = unpacker.tick(now, rtt, DATAGRAM);
-            told.extend(handed);
+            pending.extend(handed);
+            room(&mut pending, &mut pipe);
             if let Some(report) = report
                 && random.next() >= loss
             {
                 reports.push_back((now + one_way, report));
             }
+        }
+        let stalled = stall.is_some_and(|from| (start + from..start + from + STALL).contains(&now));
+        if !stalled {
+            told.extend(std::mem::take(&mut pipe));
         }
         for message in told {
             let id = media::frame_id(&message).unwrap();
@@ -333,12 +368,20 @@ fn run(case: Case, loss: f64, seed: u64) -> Outcome {
         } else if ever_shown {
             broken_since.get_or_insert(now);
         }
+        if resumed.is_some_and(|resumed| now >= resumed)
+            && back.is_none()
+            && picture.holds == Holds::Stream
+            && picture.last == Some(encoder.newest)
+        {
+            back = resumed.map(|resumed| now - resumed);
+        }
     }
     if let Some(since) = broken_since {
         longest_broken = longest_broken.max(start + LENGTH - since);
     }
     Outcome {
         shown,
+        back,
         longest_broken,
         in_step: picture.holds == Holds::Stream && picture.last == Some(encoder.newest),
         sent_again,
@@ -346,9 +389,10 @@ fn run(case: Case, loss: f64, seed: u64) -> Outcome {
 }
 
 /// Without repairs that follow the transport, whole new screens on these links stopped the
-/// picture for good, and lost frames left it stopped.
+/// picture for good, and lost frames left it stopped. A viewer app that stops taking frames for a
+/// while has the picture back soon after it goes on.
 #[test]
-fn the_viewer_has_a_picture_again_soon_after_whole_new_screens_and_lost_frames() {
+fn the_viewer_has_a_picture_again_soon_after_whole_new_screens_lost_frames_and_a_stall() {
     let ms = Duration::from_millis;
     let cases = [
         Case {
@@ -382,11 +426,30 @@ fn the_viewer_has_a_picture_again_soon_after_whole_new_screens_and_lost_frames()
             screen: 30_000,
         },
     ];
+    // A long round trip lets the most frames reach an app before the host takes it as late.
+    let satellite = Case {
+        name: "satellite, 10 Mbit/s, 300 ms",
+        capacity: 10e6,
+        rtt: ms(300),
+        screen: 150_000,
+    };
     let mut faults = Vec::new();
+    for case in cases.into_iter().chain([satellite]) {
+        for loss in [0.0, 0.02] {
+            let outcome = run(case, loss, 1, Some(Duration::from_millis(10_600)));
+            let back = outcome.back.is_some_and(|back| back <= BOUND);
+            if !back || outcome.longest_broken > BOUND || !outcome.in_step {
+                faults.push(format!(
+                    "{}, loss {loss}, app still for {STALL:?}: {outcome:?}",
+                    case.name
+                ));
+            }
+        }
+    }
     for case in cases {
         for loss in [0.0, 0.02, 0.05] {
             for seed in 1..=2 {
-                let outcome = run(case, loss, seed);
+                let outcome = run(case, loss, seed, None);
                 let late = outcome
                     .shown
                     .iter()

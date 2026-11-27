@@ -377,6 +377,20 @@ impl Packer {
         std::mem::take(&mut self.lost)
     }
 
+    /// Ends the flow, and returns the stream frame ids of the frames that the viewer has not
+    /// reported on, since no report can come any more.
+    pub fn end(&mut self) -> Vec<u32> {
+        let unreported = self.frames.drain(..).filter(|packed| !packed.told);
+        let lost = unreported
+            .filter_map(|packed| packed.id)
+            .collect::<Vec<_>>();
+        self.again.clear();
+        std::mem::take(&mut self.lost)
+            .into_iter()
+            .chain(lost)
+            .collect()
+    }
+
     fn resend(&mut self, position: usize, indices: &[usize], now: Instant, rtt: Duration) {
         let packed = &self.frames[position];
         if packed.rest == Rest::Passed {
@@ -748,24 +762,32 @@ impl Unpacker {
         if frame < next {
             return Vec::new();
         }
+        let mut handed = Vec::new();
         if frame - next >= MOST_FRAMES {
-            self.frames.clear();
+            // The stream started over: what was put together goes on, so that it is acknowledged,
+            // and the rest is given up, as when a keyframe passes it.
+            for (earlier, assembly) in std::mem::take(&mut self.frames) {
+                match assembly.whole {
+                    Some(whole) => handed.push(whole),
+                    None => self.told.push((earlier, LOST, Vec::new())),
+                }
+            }
             self.held = 0;
             self.next = Some(frame);
         }
         if !self.frames.contains_key(&frame) {
             let cost = Assembly::cost(&header);
             if self.held + cost > MOST_HELD {
-                return Vec::new();
+                return handed;
             }
             self.held += cost;
             self.frames.insert(frame, Assembly::new(&header, now));
         }
         let Some(assembly) = self.frames.get_mut(&frame) else {
-            return Vec::new();
+            return handed;
         };
         if !assembly.of(&header) || self.held + piece.len() > MOST_HELD {
-            return Vec::new();
+            return handed;
         }
         let (held, whole) = (assembly.held(), assembly.whole.is_some());
         assembly.take(usize::from(header.index), piece, now, self.rtt);
@@ -776,7 +798,8 @@ impl Unpacker {
                 self.spacing = assembly.widest.max(self.spacing * 7 / 8);
             }
         }
-        self.hand_on(now, None)
+        handed.extend(self.hand_on(now, None));
+        handed
     }
 
     /// Whether a tick has nothing to do until the next shard comes.
@@ -919,6 +942,10 @@ impl Unpacker {
                 break;
             }
             let fit = (room - report.len() - ENTRY_HEADER) / 2;
+            // A missing entry without indices asks for the whole frame.
+            if *state == MISSING && !indices.is_empty() && fit == 0 {
+                break;
+            }
             let indices = &indices[..indices.len().min(fit)];
             #[expect(clippy::cast_possible_truncation, reason = "frames travel as 16 bits")]
             report.put_u16(*frame as u16);
@@ -1504,6 +1531,45 @@ mod tests {
         assert_eq!(asked, Vec::<u16>::new());
         let (_, report) = unpacker.tick(now + burst * 3, RTT, ROOM);
         assert_eq!(states(&report.unwrap(), MISSING), [1]);
+    }
+
+    /// The host takes a missing entry without indices as an ask for the whole frame.
+    #[test]
+    fn a_report_leaves_for_the_next_one_the_missing_shards_that_do_not_fit() {
+        let mut unpacker = Unpacker::new(1);
+        unpacker.told.push((7, MISSING, (0..10).collect()));
+        unpacker.told.push((8, MISSING, vec![3]));
+        let room = REPORT_HEADER + ENTRY_HEADER + 2 * 10 + ENTRY_HEADER;
+        let first = unpacker.report(room).unwrap();
+        assert_eq!(states(&first, MISSING), [7]);
+        let next = unpacker.report(ROOM).unwrap();
+        let entries = entries(&next);
+        assert_eq!((entries[0].frame, entries[0].indices.clone()), (8, vec![3]));
+    }
+
+    /// Frames that a restart of the count clears are acknowledged or given up, never dropped
+    /// without a word.
+    #[test]
+    fn a_stream_that_starts_over_hands_on_what_was_whole_and_gives_up_the_rest() {
+        let now = Instant::now();
+        let mut packer = Packer::new(1);
+        let mut unpacker = Unpacker::new(1);
+        let stuck = pack(&mut packer, &message(1, 3000, false), now);
+        unpacker.shard(&stuck[0], now);
+        let whole = message(2, 100, false);
+        let shards = pack(&mut packer, &whole, now);
+        assert_eq!(unpacker.shard(&shards[0], now), Vec::<Bytes>::new());
+        for id in 3..600 {
+            pack(&mut packer, &message(id, 100, false), now);
+        }
+        let later = message(600, 100, true);
+        let starts = pack(&mut packer, &later, now);
+        assert_eq!(
+            unpacker.shard(&starts[0], now),
+            vec![Bytes::from(whole), Bytes::from(later)]
+        );
+        let (_, report) = unpacker.tick(now, RTT, ROOM);
+        assert_eq!(states(&report.unwrap(), LOST), [0]);
     }
 
     fn crafted(frame: u16, originals: u16, recoveries: u16, length: u32, body: usize) -> Vec<u8> {
