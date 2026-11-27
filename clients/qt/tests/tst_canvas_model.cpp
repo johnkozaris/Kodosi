@@ -510,6 +510,51 @@ private slots:
         QCOMPARE(first.value(QStringLiteral("data")).toString().size() % 4, 0);
         QVERIFY(!commands.values.at(2).value(QStringLiteral("more")).toBool());
     }
+
+    void aComputersPointerBecomesACursorAtAWholeScaleWhateverTheComputerSays()
+    {
+        // A display at half a pixel per point sends a 32-pixel picture that is 64 points wide.
+        const auto half = kodosi::cursorPicture(QSizeF(64, 64), QPointF(10.4, 20.6), 1);
+        QCOMPARE(half.pixels, QSize(64, 64));
+        QCOMPARE(half.scale, 1);
+        QCOMPARE(half.hotspot, QPoint(10, 21));
+        const auto fractional = kodosi::cursorPicture(QSizeF(24.5, 24.5), QPointF(3, 3), 1.5);
+        QCOMPARE(fractional.pixels, QSize(50, 50));
+        QCOMPARE(fractional.scale, 2);
+
+        for (const qreal said : { qQNaN(), qInf(), -qInf(), -1.0, 0.0, 0.25, 1e300 }) {
+            const auto cursor = kodosi::cursorPicture(QSizeF(said, said), QPointF(said, said), said);
+            QVERIFY2(cursor.scale >= 1 && cursor.scale <= 4, qPrintable(QString::number(said)));
+            QVERIFY(cursor.pixels.width() >= cursor.scale && cursor.pixels.width() % cursor.scale == 0);
+            QVERIFY(cursor.pixels.height() >= cursor.scale && cursor.pixels.height() % cursor.scale == 0);
+            QVERIFY(cursor.pixels.width() <= 256 * cursor.scale && cursor.pixels.height() <= 256 * cursor.scale);
+            QVERIFY(cursor.hotspot.x() >= 0 && cursor.hotspot.x() < cursor.pixels.width() / cursor.scale);
+            QVERIFY(cursor.hotspot.y() >= 0 && cursor.hotspot.y() < cursor.pixels.height() / cursor.scale);
+        }
+    }
+
+    void aWheelsNotchScrollsByItsAngleAndATouchpadByItsPixels()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasDocuments documents(commands, commands, sessions);
+        kodosi::ScreenVideo video;
+        video.setSize(QSizeF(800, 500));
+        video.setDocuments(&documents);
+        video.setSessionId(test::id(1));
+        video.setActive(true);
+        commands.say(commands.answerOpen(documents), screen({}));
+        QTRY_VERIFY(!video.source().isEmpty());
+        const auto scrolled = [&](QPoint pixels, QPoint angle, Qt::ScrollPhase phase) {
+            video.wheel(600, 120, pixels, angle, phase, 0);
+            return commands.told(QStringLiteral("input")).value(QStringLiteral("input")).toObject().value(QStringLiteral("deltaY")).toDouble();
+        };
+
+        // A notch down on Wayland: an angle of 120 and 15 pixels.
+        QCOMPARE(scrolled(QPoint(0, -15), QPoint(0, -120), Qt::NoScrollPhase), 100.0);
+        QCOMPARE(scrolled(QPoint(), QPoint(0, 120), Qt::NoScrollPhase), -100.0);
+        QCOMPARE(scrolled(QPoint(0, -7), QPoint(0, -84), Qt::ScrollUpdate), 7.0);
+    }
 };
 
 QTEST_MAIN(CanvasModelTest)

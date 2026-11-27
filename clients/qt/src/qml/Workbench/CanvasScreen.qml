@@ -161,7 +161,7 @@ Item {
                         video.zoom(Math.pow(1.25, steps), wheel.x, wheel.y);
                         return;
                     }
-                    video.wheel(wheel.x, wheel.y, wheel.pixelDelta, wheel.angleDelta, wheel.modifiers);
+                    video.wheel(wheel.x, wheel.y, wheel.pixelDelta, wheel.angleDelta, wheel.phase, wheel.modifiers);
                 }
             }
             // Above the input area, which still gets the events, so that its cursor is the one shown.

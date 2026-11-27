@@ -9,6 +9,20 @@
 #include <QVariantMap>
 
 namespace kodosi {
+// A computer's pointer as this device's cursor: its picture's size in pixels, its whole pixels per
+// point, and its hotspot in points.
+struct CursorPicture {
+    QSize pixels;
+    int scale = 1;
+    QPoint hotspot;
+};
+
+// The cursor for a pointer of `points` with its hotspot, on a device of `deviceScale` pixels per
+// point. Wayland takes a cursor only at a whole scale of one or more, whose multiple its size must
+// be, and ends the app's connection otherwise; so the picture is scaled to whole points times the
+// device's whole pixels per point, whatever the computer said.
+[[nodiscard]] CursorPicture cursorPicture(QSizeF points, QPointF hotspot, qreal deviceScale);
+
 // The screen of a terminal's computer on its canvas: the video of the display or window that it
 // shows, its pointer, and the zoom of this view. Input and pointer positions are in the shown
 // source's points. While another device drives the capture, the view shows what that device shows.
@@ -90,6 +104,7 @@ private:
     // The part of the source that this view's own zoom shows.
     [[nodiscard]] std::optional<QRectF> ownLook() const;
     [[nodiscard]] qreal fit() const;
+    [[nodiscard]] std::optional<QRectF> shownRegion() const;
     [[nodiscard]] QPointF viewPoint(QPointF point, const QRectF& look) const;
     void takeControl();
     void looked();

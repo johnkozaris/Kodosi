@@ -54,7 +54,8 @@ public:
     void setRest(qreal rest);
 
     Q_INVOKABLE void pointer(const QString& action, qreal x, qreal y, int button, int clicks, int modifiers);
-    Q_INVOKABLE void wheel(qreal x, qreal y, QPoint pixels, QPoint angle, int modifiers);
+    // `phase` is the wheel event's Qt::ScrollPhase.
+    Q_INVOKABLE void wheel(qreal x, qreal y, QPoint pixels, QPoint angle, int phase, int modifiers);
     Q_INVOKABLE bool key(int key, const QString& text, int modifiers, bool down);
     Q_INVOKABLE void paste();
     Q_INVOKABLE void step(const QVariantMap& input);
