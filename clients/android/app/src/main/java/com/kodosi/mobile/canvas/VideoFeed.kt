@@ -469,7 +469,12 @@ internal class VideoDecoder(
             waiting = false
             var left = WAIT.inWholeNanoseconds
             while (buffers.isEmpty()) {
-                if (left <= 0) return false
+                if (left <= 0) {
+                    // Qualcomm's decoders that fail once they have the stream tell nobody and keep the frames that
+                    // they took, so one that takes no frame for that long before its first picture is broken.
+                    if (!showed) fail()
+                    return false
+                }
                 left = changed.awaitNanos(left)
                 if (closed) return true
                 if (codec !== current) return false
