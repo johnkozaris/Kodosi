@@ -898,11 +898,12 @@ impl Expected {
 fn punched(usable: &[(SocketAddr, bool)], system: ComputerSystem) -> Vec<SocketAddr> {
     usable
         .iter()
-        // macOS refuses a program's first send to its own network when the person did not allow
-        // it (or when macOS lost the answer), and then drops that device's packets on the same
-        // pair of ports; a Mac's firewall decides by program, so a first send opens nothing there.
-        // The device that asks sends first to a Mac's own network, and the Mac answers its packet.
-        // Linux and Windows firewalls let a device in only after the computer sent to it.
+        // When the person did not allow Kodosi on the local network (or macOS lost the answer), a
+        // Mac that sends first to a device on its own network loses that device's packets on the
+        // same pair of ports, whether macOS refuses the send or lets it out. A Mac's firewall
+        // decides by program, so a first send opens nothing there. So the device that asks sends
+        // first to a Mac's own network, and the Mac answers its packet. Linux and Windows
+        // firewalls let a device in only after the computer sent to it.
         .filter(|(_, own_network)| !own_network || system != ComputerSystem::Mac)
         .map(|(address, _)| *address)
         .collect()
