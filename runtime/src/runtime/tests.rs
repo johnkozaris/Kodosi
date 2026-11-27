@@ -3141,16 +3141,22 @@ fn heard_by(events: &mut broadcast::Receiver<Event>) -> Vec<(Option<Uuid>, Value
         .collect()
 }
 
-fn question(runtime: &Runtime, facts: &sharing::Facts, command: &Command) -> Option<[String; 3]> {
+fn question(runtime: &Runtime, facts: &sharing::Facts, command: &Command) -> Option<[String; 4]> {
     match runtime.gate(command, Origin::Command, facts).unwrap() {
-        sharing::Gate::Ask(question) => {
-            Some([question.title, question.message, question.confirm].map(|text| text.to_string()))
-        }
+        sharing::Gate::Ask(question) => Some(
+            [
+                question.title,
+                question.message,
+                question.consent,
+                question.confirm,
+            ]
+            .map(|text| text.to_string()),
+        ),
         sharing::Gate::Open => None,
     }
 }
 
-fn asks(words: [&str; 3]) -> [String; 3] {
+fn asks(words: [&str; 4]) -> [String; 4] {
     words.map(str::to_owned)
 }
 
@@ -3281,8 +3287,10 @@ async fn a_share_that_the_kodosi_command_widens_waits_for_the_app_then_goes_to_i
         question.1,
         json!({"type":"sharing.approval","approvalId":question.1["approvalId"],
             "operation":"session.share","title":"Share “Build” with @ben?",
-            "message":"@ben gets full control: they can type anything as you on laptop. The kodosi command asked for this.",
-            "confirm":"Share","from":"command","accountUserId":"owner","accountEpoch":0}),
+            "message":"@ben gets full control: they can type anything as you on laptop.",
+            "consent":"I trust @ben with my computer.","confirm":"Share",
+            "asker":"The kodosi command asked for this.","readSeconds":5,
+            "accountUserId":"owner","accountEpoch":0}),
         "a person whom this device cannot find in the signed friend list goes by the handle"
     );
     assert_eq!(waiting.0, Some(command));
@@ -3681,6 +3689,7 @@ async fn the_owner_is_asked_only_when_someone_new_would_get_in() {
             Some(asks([
                 "Share “Docs” with Ana Lima (@ana) and Erin Wu (@erin)?",
                 "Ana Lima (@ana) and Erin Wu (@erin) get full control: they can type anything as you on laptop.",
+                "I trust Ana Lima (@ana) and Erin Wu (@erin) with my computer.",
                 "Share",
             ])),
         ),
@@ -3690,6 +3699,7 @@ async fn the_owner_is_asked_only_when_someone_new_would_get_in() {
             Some(asks([
                 "Share “Docs” with Ben Okafor (@ben)?",
                 "Ben Okafor (@ben) gets full control: they can type anything as you on laptop.",
+                "I trust Ben Okafor (@ben) with my computer.",
                 "Share",
             ])),
         ),
@@ -3701,6 +3711,7 @@ async fn the_owner_is_asked_only_when_someone_new_would_get_in() {
             Some(asks([
                 "Share “Deploy” with Team?",
                 "Ben Okafor (@ben) gets full control, and so will friends of yours who join later. It leaves Release.",
+                "I trust Ben Okafor (@ben) with my computer.",
                 "Share",
             ])),
         ),
@@ -3710,6 +3721,7 @@ async fn the_owner_is_asked_only_when_someone_new_would_get_in() {
             Some(asks([
                 "Share “Deploy” with Quiet?",
                 "Ben Okafor (@ben) gets full control, and so will friends of yours who join later. It leaves Release.",
+                "I trust Ben Okafor (@ben) with my computer.",
                 "Share",
             ])),
         ),
@@ -3719,6 +3731,7 @@ async fn the_owner_is_asked_only_when_someone_new_would_get_in() {
             Some(asks([
                 "Share “Deploy” with Unchecked?",
                 "Members of Unchecked who are your friends get full control, and so will friends of yours who join later. It leaves Release.",
+                "I trust the members of Unchecked with my computer.",
                 "Share",
             ])),
         ),
@@ -3731,6 +3744,7 @@ async fn the_owner_is_asked_only_when_someone_new_would_get_in() {
             Some(asks([
                 "Start the new terminal in Team?",
                 "Ben Okafor (@ben) gets full control of it, and so will friends of yours who join later.",
+                "I trust Ben Okafor (@ben) with my computer.",
                 "Start",
             ])),
         ),
@@ -3740,6 +3754,7 @@ async fn the_owner_is_asked_only_when_someone_new_would_get_in() {
             Some(asks([
                 "Start the new terminal in Unchecked?",
                 "Members of Unchecked who are your friends get full control of it, and so will friends of yours who join later.",
+                "I trust the members of Unchecked with my computer.",
                 "Start",
             ])),
         ),
@@ -3753,28 +3768,49 @@ async fn the_owner_is_asked_only_when_someone_new_would_get_in() {
             Some(asks([
                 "Invite @eve to Release?",
                 "@eve sees its chat and tasks and gets full control of your terminal in it.",
+                "I trust @eve with my computer.",
                 "Invite",
             ])),
         ),
         (
             &all,
             befriend("CARL", true),
-            Some(asks(["Accept @carl as a friend?", befriend_carl, "Accept"])),
+            Some(asks([
+                "Accept @carl as a friend?",
+                befriend_carl,
+                "I trust @carl with my computer.",
+                "Accept",
+            ])),
         ),
         (
             &all,
             befriend("eve", false),
-            Some(asks(["Add @eve as a friend?", befriend_anybody, "Add"])),
+            Some(asks([
+                "Add @eve as a friend?",
+                befriend_anybody,
+                "I trust @eve with my computer.",
+                "Add",
+            ])),
         ),
         (
             &carl_unlisted,
             befriend("carl", false),
-            Some(asks(["Add @carl as a friend?", befriend_anybody, "Add"])),
+            Some(asks([
+                "Add @carl as a friend?",
+                befriend_anybody,
+                "I trust @carl with my computer.",
+                "Add",
+            ])),
         ),
         (
             &only_friends,
             befriend("dora", false),
-            Some(asks(["Add @dora as a friend?", befriend_anybody, "Add"])),
+            Some(asks([
+                "Add @dora as a friend?",
+                befriend_anybody,
+                "I trust @dora with my computer.",
+                "Add",
+            ])),
         ),
         (
             &all,
@@ -3782,6 +3818,7 @@ async fn the_owner_is_asked_only_when_someone_new_would_get_in() {
             Some(asks([
                 "Add @dora as a friend?",
                 &format!("{befriend_anybody} {identity}"),
+                "I trust @dora with my computer.",
                 "Add",
             ])),
         ),
@@ -3791,6 +3828,7 @@ async fn the_owner_is_asked_only_when_someone_new_would_get_in() {
             Some(asks([
                 "Add Ana Lima (@ana) as a friend?",
                 befriend_anybody,
+                "I trust Ana Lima (@ana) with my computer.",
                 "Add",
             ])),
         ),
@@ -3800,6 +3838,7 @@ async fn the_owner_is_asked_only_when_someone_new_would_get_in() {
             Some(asks([
                 "Trust the new identity of Ben Okafor (@ben)?",
                 "Whoever holds it gets full control of your terminals shared with Ben Okafor (@ben). Trust it only if they told you that their identity changed.",
+                "Ben Okafor (@ben) told me that their identity changed.",
                 "Trust",
             ])),
         ),
@@ -3809,6 +3848,7 @@ async fn the_owner_is_asked_only_when_someone_new_would_get_in() {
             Some(asks([
                 "Trust the new identity of Erin Wu (@erin)?",
                 "Whoever holds it can act as Erin Wu (@erin), with full control of each terminal and project that you share with them. Trust it only if they told you that their identity changed.",
+                "Erin Wu (@erin) told me that their identity changed.",
                 "Trust",
             ])),
         ),
@@ -3818,6 +3858,7 @@ async fn the_owner_is_asked_only_when_someone_new_would_get_in() {
             Some(asks([
                 "Trust the new identity of Erin Wu (@erin)?",
                 "Whoever holds it gets full control of your terminals shared with Erin Wu (@erin). Trust it only if they told you that their identity changed.",
+                "Erin Wu (@erin) told me that their identity changed.",
                 "Trust",
             ])),
         ),
@@ -3830,6 +3871,7 @@ async fn the_owner_is_asked_only_when_someone_new_would_get_in() {
                 &format!(
                     "Whoever holds it gets full control of your terminals shared with Ben Okafor (@ben). {identity}"
                 ),
+                "This invite came from Ben Okafor (@ben).",
                 "Trust",
             ])),
         ),
@@ -3841,6 +3883,7 @@ async fn the_owner_is_asked_only_when_someone_new_would_get_in() {
                 &format!(
                     "Whoever holds it gets full control of your terminals shared with Ben Okafor (@ben). {identity}"
                 ),
+                "This invite came from Ben Okafor (@ben).",
                 "Verify",
             ])),
         ),
@@ -3852,6 +3895,7 @@ async fn the_owner_is_asked_only_when_someone_new_would_get_in() {
                 &format!(
                     "Whoever holds it can act as Erin Wu (@erin), with full control of each terminal and project that you share with them. {identity}"
                 ),
+                "This invite came from Erin Wu (@erin).",
                 "Trust",
             ])),
         ),
@@ -3861,6 +3905,7 @@ async fn the_owner_is_asked_only_when_someone_new_would_get_in() {
             Some(asks([
                 "Add @carl as a friend?",
                 &format!("{befriend_carl} {identity}"),
+                "I trust @carl with my computer.",
                 "Add",
             ])),
         ),
@@ -3888,6 +3933,7 @@ async fn a_device_joins_the_account_only_with_the_owners_ok_in_the_app() {
         Some(asks([
             "Add the device “Phone of Mallory” to your account?",
             "It gets full control of your terminals. Approve it only if it is yours and shows the code ABCD-EFGH-JKMN.",
+            "“Phone of Mallory” is my device.",
             "Approve",
         ]))
     );
@@ -3915,6 +3961,7 @@ async fn a_device_joins_the_account_only_with_the_owners_ok_in_the_app() {
         Some(asks([
             "Show a code that adds a device to your account?",
             "A device that uses the code joins your account and gets full control of your terminals.",
+            "I asked for this code to add a device of mine.",
             "Show code",
         ]))
     );
@@ -3972,7 +4019,7 @@ async fn the_owner_is_asked_while_this_device_cannot_tell_who_would_get_in() {
     let fresh = facts(Some(vec![terminal.clone()]));
     let generic = "Members of Team who are your friends get full control, and so will friends of yours who join later.";
     let message = |runtime: &Runtime, facts: &sharing::Facts, command: &Command| {
-        question(runtime, facts, command).map(|[_, message, _]| message)
+        question(runtime, facts, command).map(|[_, message, ..]| message)
     };
     assert_eq!(
         message(&runtime, &fresh, &attach(&terminal, team)),
@@ -4193,7 +4240,7 @@ async fn a_project_choice_asks_when_its_people_cannot_be_verified_and_counts_onl
         (
             Some(app),
             &json!(
-                "Members of Team who are your friends get full control, and so will friends of yours who join later. The kodosi command asked for this."
+                "Members of Team who are your friends get full control, and so will friends of yours who join later."
             )
         ),
         "a project whose people this device cannot verify asks"
@@ -4250,7 +4297,7 @@ async fn a_project_choice_asks_when_its_people_cannot_be_verified_and_counts_onl
             Some(app),
             &json!("session.attachProject"),
             &json!(
-                "Ben Okafor (@ben) gets full control, and so will friends of yours who join later. The kodosi command asked for this."
+                "Ben Okafor (@ben) gets full control, and so will friends of yours who join later."
             )
         ),
         "a signed friend whom the server leaves out of the project asks, and a friend whom only the server lists is not named"
@@ -4634,7 +4681,7 @@ async fn a_sign_in_of_the_kodosi_command_asks_before_another_account_takes_the_t
             &json!("auth.login.start"),
             &json!("Sign in as intruder?"),
             &json!(
-                "The terminal that runs on this computer moves to that account, which gets full control of it. The kodosi command asked for this."
+                "The terminal that runs on this computer moves to that account, which gets full control of it."
             )
         )
     );

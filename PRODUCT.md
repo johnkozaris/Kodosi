@@ -73,8 +73,10 @@ between you.
 
 Every change that lets someone new into your terminals or projects asks you first in the Kodosi
 app of the device where it starts, including changes the `kodosi` command asks for on behalf of an
-agent or of anyone typing in your terminals. This guards against mistakes and agents, not against
-a person in your shell, who acts as you. The computer that runs a terminal stays the only one that
+agent or of anyone typing in your terminals. The question is a warning that you accept twice: you
+tick that you trust them, and the button that lets them in works only after a short countdown, so
+nobody lets someone in by reflex. This guards against mistakes and agents, not against a person in
+your shell, who acts as you. The computer that runs a terminal stays the only one that
 writes who may enter it; your other devices ask it over the encrypted channel.
 
 ### Agents stay with their providers

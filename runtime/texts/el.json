@@ -50,6 +50,10 @@
 "Dosi's conversation is missing.": "Η συζήτηση του Dosi λείπει.",
 "Friends you share a terminal or project with get full control of it.": "Οι φίλοι με τους οποίους μοιράζεστε ένα τερματικό ή ένα έργο αποκτούν πλήρη έλεγχό του.",
 "Git is not available on this computer.": "Το Git δεν είναι διαθέσιμο σε αυτόν τον υπολογιστή.",
+"I asked for a new recovery key.": "Ζήτησα νέο κλειδί ανάκτησης.",
+"I asked for this code to add a device of mine.": "Ζήτησα αυτόν τον κωδικό για να προσθέσω μια δική μου συσκευή.",
+"I trust the members of {project} with my computer.": "Εμπιστεύομαι τον υπολογιστή μου στα μέλη του {project}.",
+"I trust {people} with my computer.": "Εμπιστεύομαι τον υπολογιστή μου σε {people}.",
 "Import issues from a computer.": "Εισαγάγετε issues από υπολογιστή.",
 "Install Claude Code or Codex, then choose it for Dosi in Settings.": "Εγκαταστήστε το Claude Code ή το Codex και μετά επιλέξτε το για το Dosi στις Ρυθμίσεις.",
 "Invalid device code.": "Ο κωδικός της συσκευής δεν είναι έγκυρος.",
@@ -309,6 +313,7 @@
 "This friend has a new identity. Trust it in Friends before you share or connect.": "Αυτός ο φίλος έχει νέα ταυτότητα. Ορίστε την ως αξιόπιστη στους Φίλους πριν μοιραστείτε ή συνδεθείτε.",
 "This invitation is no longer available.": "Αυτή η πρόσκληση δεν είναι πλέον διαθέσιμη.",
 "This invitation is unavailable.": "Αυτή η πρόσκληση δεν είναι διαθέσιμη.",
+"This invite came from {person}.": "Η πρόσκληση ήρθε από {person}.",
 "This invite is for another identity than the one that Kodosi has for this friend.": "Αυτή η πρόσκληση είναι για άλλη ταυτότητα από αυτή που έχει το Kodosi για αυτόν τον φίλο.",
 "This invite is for another person.": "Αυτή η πρόσκληση είναι για άλλο άτομο.",
 "This invite is not for the identity that this friend has now. Ask them for a new invite.": "Αυτή η πρόσκληση δεν είναι για την τωρινή ταυτότητα αυτού του φίλου. Ζητήστε του νέα πρόσκληση.",
@@ -442,10 +447,12 @@
 "{person} sees its chat and tasks and gets full control of your terminal in it.": "{person} βλέπει τη συνομιλία και τις εργασίες του έργου και αποκτά πλήρη έλεγχο του τερματικού σας σε αυτό.",
 "{person} sees its chat and tasks and gets full control of your terminals in it.": "{person} βλέπει τη συνομιλία και τις εργασίες του έργου και αποκτά πλήρη έλεγχο των τερματικών σας σε αυτό.",
 "{person} sees its chat and tasks and gets full control of your {count} terminals in it.": "{person} βλέπει τη συνομιλία και τις εργασίες του έργου και αποκτά πλήρη έλεγχο των {count} τερματικών σας σε αυτό.",
+"{person} told me that their identity changed.": "{person} μου είπε ότι άλλαξε η ταυτότητα του λογαριασμού.",
 "{program} did not start: {error}": "Το {program} δεν ξεκίνησε: {error}",
 "{reason} Approve this device from another device, or start fresh here.": "{reason} Εγκρίνετε αυτή τη συσκευή από άλλη συσκευή ή κάντε νέα αρχή εδώ.",
 "{reason} Go back to Kodosi and try again.": "{reason} Επιστρέψτε στο Kodosi και δοκιμάστε ξανά.",
 "{reason} Kodosi did not send some of your last input.": "{reason} Το Kodosi δεν έστειλε μέρος της τελευταίας εισόδου σας.",
 "{reason} {error}": "{reason} {error}",
-"{sentence} {next}": "{sentence} {next}"
+"{sentence} {next}": "{sentence} {next}",
+"“{device}” is my device.": "Η συσκευή «{device}» είναι δική μου."
 }

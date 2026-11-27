@@ -18,8 +18,8 @@ use crate::{
     },
     network::{self, BackendClient, ProjectMember, RemoteSession},
     protocol::{
-        APPROVAL_WAIT, ApprovalOutcome, ClientKind, FriendEntry, FriendRequestEntry, SessionEntry,
-        answer_time, parse_id, short_id,
+        APPROVAL_READ, APPROVAL_WAIT, ApprovalOutcome, ClientKind, FriendEntry, FriendRequestEntry,
+        SessionEntry, answer_time, parse_id, short_id,
     },
     text::{Arg, Text},
 };
@@ -212,12 +212,20 @@ pub(super) type Members = BTreeMap<Uuid, Membership>;
 
 pub(super) enum Gate {
     Open,
-    Ask(Question),
+    Ask(Box<Question>),
+}
+
+impl Gate {
+    fn ask(question: Question) -> Self {
+        Self::Ask(Box::new(question))
+    }
 }
 
 pub(super) struct Question {
     pub(super) title: Text,
     pub(super) message: Text,
+    /// What the owner ticks before the confirm button works: whom they trust, or what they know.
+    pub(super) consent: Text,
     pub(super) confirm: Text,
 }
 
@@ -520,7 +528,7 @@ impl Runtime {
         held.account = facts.account.clone().and_then(std::result::Result::ok);
         match self.gate(&held.command, held.requester.origin, facts)? {
             Gate::Open => self.run_held(held),
-            Gate::Ask(question) => self.ask_about(held, question),
+            Gate::Ask(question) => self.ask_about(held, &question),
         }
     }
 
@@ -626,7 +634,7 @@ impl Runtime {
                 project_id,
                 user_id,
                 ..
-            } => Ok(Gate::Ask(self.invite_question(project_id, user_id, facts))),
+            } => Ok(Gate::ask(self.invite_question(project_id, user_id, facts))),
             Command::RequestFriend { username, .. } | Command::AcceptFriend { username, .. } => {
                 match &facts.account {
                     Some(Err(why)) => return Err(Error::Text(why.clone())),
@@ -635,7 +643,7 @@ impl Runtime {
                     }
                     _ => {}
                 }
-                Ok(Gate::Ask(
+                Ok(Gate::ask(
                     self.friend_question(command, me, username, facts),
                 ))
             }
@@ -646,19 +654,21 @@ impl Runtime {
             Command::ApproveDevice { code, .. } if origin == Origin::Command => {
                 device_gate(code, facts)
             }
-            Command::OfferDevice { .. } if origin == Origin::Command => Ok(Gate::Ask(Question {
+            Command::OfferDevice { .. } if origin == Origin::Command => Ok(Gate::ask(Question {
                 title: text!("Show a code that adds a device to your account?"),
                 message: text!(
                     "A device that uses the code joins your account and gets full control of your terminals."
                 ),
+                consent: text!("I asked for this code to add a device of mine."),
                 confirm: text!("Show code"),
             })),
             Command::CreateRecoveryKey { .. } if origin == Origin::Command => {
-                Ok(Gate::Ask(Question {
+                Ok(Gate::ask(Question {
                     title: text!("Make a new recovery key?"),
                     message: text!(
                         "With the key and your sign-in, a device can join your account and get full control of your terminals. Your earlier key stops working."
                     ),
+                    consent: text!("I asked for a new recovery key."),
                     confirm: text!("Make key"),
                 }))
             }
@@ -709,13 +719,14 @@ impl Runtime {
                 computer = &computer
             )
         };
-        Ok(Gate::Ask(Question {
+        Ok(Gate::ask(Question {
             title: text!(
                 "Share “{terminal}” with {people}?",
                 terminal = shown(&terminal.name),
-                people = people
+                people = people.clone()
             ),
             message,
+            consent: trusting(people),
             confirm: text!("Share"),
         }))
     }
@@ -774,19 +785,28 @@ impl Runtime {
         }
         let access = now.as_ref().map_or(&[][..], |spot| spot.people.as_slice());
         let label = self.project_label(project);
-        let mut message = match self.gaining(me, target, access, facts).map(listed) {
+        let (mut message, consent) = match self.gaining(me, target, access, facts).map(listed) {
             Some(None) if now.is_some() => return Ok(Gate::Open),
-            Some(Some((person, true))) => text!(
-                "{person} gets full control, and so will friends of yours who join later.",
-                person = person
+            Some(Some((person, true))) => (
+                text!(
+                    "{person} gets full control, and so will friends of yours who join later.",
+                    person = person.clone()
+                ),
+                trusting(person),
             ),
-            Some(Some((people, false))) => text!(
-                "{people} get full control, and so will friends of yours who join later.",
-                people = people
+            Some(Some((people, false))) => (
+                text!(
+                    "{people} get full control, and so will friends of yours who join later.",
+                    people = people.clone()
+                ),
+                trusting(people),
             ),
-            None | Some(None) => text!(
-                "Members of {project} who are your friends get full control, and so will friends of yours who join later.",
-                project = &label
+            None | Some(None) => (
+                text!(
+                    "Members of {project} who are your friends get full control, and so will friends of yours who join later.",
+                    project = &label
+                ),
+                trusting_members(&label),
             ),
         };
         if let Some(left) = now.and_then(|spot| spot.project) {
@@ -796,13 +816,14 @@ impl Runtime {
             );
             message = sentences(message, leaving);
         }
-        Ok(Gate::Ask(Question {
+        Ok(Gate::ask(Question {
             title: text!(
                 "Share “{terminal}” with {project}?",
                 terminal = shown(&terminal.name),
                 project = label
             ),
             message,
+            consent,
             confirm: text!("Share"),
         }))
     }
@@ -812,24 +833,35 @@ impl Runtime {
             return Ok(Gate::Open);
         }
         let label = self.project_label(project);
-        let message = match self.gaining(me, parse_id(project)?, &[], facts).map(listed) {
+        let (message, consent) = match self.gaining(me, parse_id(project)?, &[], facts).map(listed)
+        {
             Some(None) => return Ok(Gate::Open),
-            Some(Some((person, true))) => text!(
-                "{person} gets full control of it, and so will friends of yours who join later.",
-                person = person
+            Some(Some((person, true))) => (
+                text!(
+                    "{person} gets full control of it, and so will friends of yours who join later.",
+                    person = person.clone()
+                ),
+                trusting(person),
             ),
-            Some(Some((people, false))) => text!(
-                "{people} get full control of it, and so will friends of yours who join later.",
-                people = people
+            Some(Some((people, false))) => (
+                text!(
+                    "{people} get full control of it, and so will friends of yours who join later.",
+                    people = people.clone()
+                ),
+                trusting(people),
             ),
-            None => text!(
-                "Members of {project} who are your friends get full control of it, and so will friends of yours who join later.",
-                project = &label
+            None => (
+                text!(
+                    "Members of {project} who are your friends get full control of it, and so will friends of yours who join later.",
+                    project = &label
+                ),
+                trusting_members(&label),
             ),
         };
-        Ok(Gate::Ask(Question {
+        Ok(Gate::ask(Question {
             title: text!("Start the new terminal in {project}?", project = label),
             message,
+            consent,
             confirm: text!("Start"),
         }))
     }
@@ -891,10 +923,11 @@ impl Runtime {
         Question {
             title: text!(
                 "Invite {person} to {project}?",
-                person = person,
+                person = &person,
                 project = self.project_label(project)
             ),
             message,
+            consent: trusting(person),
             confirm: text!("Invite"),
         }
     }
@@ -972,6 +1005,7 @@ impl Runtime {
         Question {
             title,
             message,
+            consent: trusting(person),
             confirm,
         }
     }
@@ -988,11 +1022,15 @@ impl Runtime {
             None => None,
         };
         let person = self.friend_named(facts, handle);
-        Gate::Ask(Question {
+        Gate::ask(Question {
             title: text!("Trust the new identity of {person}?", person = &person),
             message: sentences(
                 self.holder(facts, user, &person),
                 text!("Trust it only if they told you that their identity changed."),
+            ),
+            consent: text!(
+                "{person} told me that their identity changed.",
+                person = &person
             ),
             confirm: text!("Trust"),
         })
@@ -1037,11 +1075,12 @@ impl Runtime {
             Question {
                 title,
                 message: self.holder(facts, known.map(|(user, _)| user.as_str()), &person),
+                consent: text!("This invite came from {person}.", person = &person),
                 confirm,
             }
         };
         question.message = sentences(question.message, identity_in(&root));
-        Gate::Ask(question)
+        Gate::ask(question)
     }
 
     /// What whoever holds the identity of a friend gets. A friend whom this device cannot find
@@ -1154,7 +1193,7 @@ impl Runtime {
         Vec::new()
     }
 
-    fn ask_about(&mut self, held: Held, question: Question) -> Result<()> {
+    fn ask_about(&mut self, held: Held, question: &Question) -> Result<()> {
         self.can_ask()?;
         let operation = held.command.operation();
         let request = held.command.request_id().to_owned();
@@ -1188,24 +1227,21 @@ impl Runtime {
     fn ask_owner(
         &mut self,
         asked: Asked,
-        question: Question,
+        question: &Question,
         origin: Origin,
         operation: &str,
         request: &str,
     ) -> Instant {
         let id = Uuid::now_v7();
-        let (from, message) = match origin {
-            Origin::App => (ClientKind::App, question.message),
-            Origin::Command | Origin::Device => (
-                ClientKind::Command,
-                sentences(
-                    question.message,
-                    text!("The kodosi command asked for this."),
-                ),
-            ),
+        let from = match origin {
+            Origin::App => ClientKind::App,
+            Origin::Command | Origin::Device => ClientKind::Command,
         };
         let shown = json!({"type":"sharing.approval","approvalId":id,"operation":operation,
-            "title":question.title,"message":message,"confirm":question.confirm,"from":from});
+            "title":question.title,"message":question.message,"consent":question.consent,
+            "confirm":question.confirm,
+            "asker":(from == ClientKind::Command).then(|| text!("The kodosi command asked for this.")),
+            "readSeconds":APPROVAL_READ.as_secs()});
         self.tell_apps(&shown);
         if from == ClientKind::Command {
             self.tell_waiting(
@@ -1384,14 +1420,15 @@ impl Runtime {
             )
         };
         let question = Question {
-            title: text!("Sign in as {account}?", account = account),
+            title: text!("Sign in as {account}?", account = &account),
             message,
+            consent: trusting(account),
             confirm: text!("Sign in"),
         };
         let request = sign_in.request_id.clone();
         self.ask_owner(
             Asked::SignIn(sign_in),
-            question,
+            &question,
             Origin::Command,
             "auth.login.start",
             &request,
@@ -1519,12 +1556,13 @@ fn device_gate(code: &str, facts: &Facts) -> Result<Gate> {
             )
         },
     );
-    Ok(Gate::Ask(Question {
+    Ok(Gate::ask(Question {
         title: text!(
             "Add the device “{device}” to your account?",
-            device = device
+            device = &device
         ),
         message,
+        consent: text!("“{device}” is my device.", device = device),
         confirm: text!("Approve"),
     }))
 }
@@ -1741,4 +1779,15 @@ fn listed(mut names: Vec<String>) -> Option<(Arg, bool)> {
 
 fn sentences(sentence: Text, next: Text) -> Text {
     text!("{sentence} {next}", sentence = sentence, next = next)
+}
+
+fn trusting(people: impl Into<Arg>) -> Text {
+    text!("I trust {people} with my computer.", people = people.into())
+}
+
+fn trusting_members(project: &str) -> Text {
+    text!(
+        "I trust the members of {project} with my computer.",
+        project = project
+    )
 }

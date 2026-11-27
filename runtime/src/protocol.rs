@@ -37,13 +37,16 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 115;
+pub const VERSION: u32 = 116;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 /// The words that name a window for `kodosi show window`, at most.
 const MOST_WINDOW_WORDS: usize = 512;
 /// How long a command that lets someone new in waits for the owner's answer in the app.
 pub const APPROVAL_WAIT: std::time::Duration = std::time::Duration::from_mins(5);
+/// How long the app shows such a question before it takes the owner's OK, so that nobody allows it
+/// by reflex.
+pub const APPROVAL_READ: std::time::Duration = std::time::Duration::from_secs(5);
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
 pub(crate) const REPORT_NOTE_BYTES: usize = 1000;
 const DEVICE_CODE_BYTES: usize = 256;
@@ -1516,16 +1519,20 @@ pub enum EventBody {
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         refused: bool,
     },
-    /// A command waits for the owner's OK, so each app of this device shows the question with the
-    /// confirm button and a Cancel button, as the runtime words them.
+    /// A command waits for the owner's OK, so each app of this device asks the question as the
+    /// runtime words it. Its confirm button works only once the owner ticked the consent and the
+    /// question showed for `read_seconds` while the app was in front.
     #[serde(rename = "sharing.approval")]
     SharingApproval {
         approval_id: String,
         operation: String,
         title: Text,
         message: Text,
+        consent: Text,
         confirm: Text,
-        from: ClientKind,
+        /// Who asked, when the question did not come from a person in the app.
+        asker: Option<Text>,
+        read_seconds: u64,
     },
     #[serde(rename = "sharing.approvalEnded")]
     SharingApprovalEnded {
