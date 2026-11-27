@@ -156,6 +156,8 @@ Item {
         spacing: 0
 
         Rectangle {
+            id: header
+
             Layout.fillWidth: true
             Layout.preferredHeight: root.joined ? 38 : 36
             topLeftRadius: KodosiTheme.radiusTile
@@ -861,11 +863,20 @@ Item {
         look: root.look
     }
     TerminalDropArea {
+        id: placing
+
         anchors.fill: parent
         enabled: !root.projectEmbedded
         radius: KodosiTheme.radiusTile
         dashed: false
         objectName: root.objectName + ".drop"
+        // The chat takes the terminals that are dropped on it.
+        containmentMask: QtObject {
+            function contains(spot: point): bool {
+                return spot.x >= 0 && spot.y >= 0 && spot.x < placing.width
+                    && spot.y < (root.chatting ? header.height : placing.height)
+            }
+        }
 
         onTerminalDropped: id => {
             if (id === root.sessionId)

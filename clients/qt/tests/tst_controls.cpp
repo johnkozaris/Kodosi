@@ -360,36 +360,58 @@ void ControlsTest::messageTextKeepsSpacesEscapesMarkupAndSkipsYourself()
     kodosi::qml::provide<kodosi::qml::AppStateForeign>(engine, workspace);
     kodosi::qml::provide<kodosi::qml::AccountModelForeign>(engine, workspace.account());
     kodosi::qml::provide<kodosi::qml::PeopleModelForeign>(engine, workspace.people());
+    kodosi::ChatProse prose;
+    kodosi::qml::provide<kodosi::qml::ChatProseForeign>(engine, prose);
     QQmlComponent component(&engine);
     component.setData(R"(
         import QtQuick
         import Kodosi 1.0
-        QtObject {
+        Item {
             readonly property var targets: [
                 { id: "u1", name: "Leo Park", kind: "person", handle: "leo" },
                 { id: "u2", name: "Maya Chen", kind: "person" },
                 { id: "t\"1", name: "Amber Wren", kind: "terminal", program: "" }
             ]
             readonly property var parts: Mentions.segments("a  <b> @maya chen\n  @Amber Wren a@Maya.com", targets)
-            readonly property string html: Mentions.html(parts, "u1")
-            readonly property string chips: Mentions.chips(parts, "u1").map(chip => chip.start + "-" + chip.end + " " + chip.color).join(",")
+            readonly property string html: Mentions.html(parts, "u1", KodosiTheme.look, false)
+            readonly property string chips: projectWords.chips.map(chip => chip.start + "-" + chip.end + " " + chip.color).join(",")
+            readonly property var chatParts: Mentions.segments("**go** `x` @Amber Wren and @Leo Park",
+                Mentions.mentionTargets([{ name: "Amber Wren", agent: "" }, { name: "Leo Park", agent: "" }],
+                    [{ terminal: "t2", name: "Amber Wren", agent: "", place: "" }]))
+            readonly property string chatHtml: Mentions.html(chatParts, "", KodosiTheme.look, true)
+            readonly property string chatChips: chatWords.chips.map(chip => chip.start + "-" + chip.end).join(",")
             readonly property string offered: Mentions.suggestions("@", targets, "u1").map(target => target.id).join(",")
+            readonly property string ranked: Mentions.suggestions("@ma", [{ id: "e", name: "Emma" }, { id: "m", name: "Maya" }], "")
+                .map(target => target.id).join(",")
+            readonly property string threeWords: Mentions.query("ask @Amber Wren now")
+            readonly property string fourWords: Mentions.query("ask @Amber Wren and more")
             readonly property bool mine: Mentions.mentions(Mentions.segments("ping @Leo Park", targets), "u1")
             readonly property bool mineByName: Mentions.mentions(Mentions.segments("thanks @leo.", targets), "u1")
             readonly property bool notMine: Mentions.mentions(Mentions.segments("@leopard", targets), "u1")
+
+            MentionText { id: projectWords; width: 600; text: parent.html; parts: parent.parts; selfId: "u1" }
+            MentionText { id: chatWords; width: 600; text: parent.chatHtml; parts: parent.chatParts }
         }
     )", {});
     std::unique_ptr<QObject> object(component.create());
     QVERIFY2(object, qPrintable(component.errorString()));
     const auto html = object->property("html").toString();
     QVERIFY2(html.startsWith(QStringLiteral("<span style=\"white-space:pre-wrap\">a  &lt;b&gt; <span style=\"color:#")), qPrintable(html));
-    QVERIFY2(html.contains(QStringLiteral("\">@maya&nbsp;chen</span>\n  <a href=\"kodosi-mention://terminal/t&quot;1\"")), qPrintable(html));
-    QVERIFY2(html.endsWith(QStringLiteral("\">@Amber&nbsp;Wren</a> a@Maya.com</span>")), qPrintable(html));
+    QVERIFY2(html.contains(QStringLiteral("\">@maya&nbsp;chen</span>\n  <a style=\"color:#eaa47e;")), qPrintable(html));
+    QVERIFY2(html.endsWith(QStringLiteral("\" href=\"kodosi-mention://terminal/t&quot;1\">@Amber&nbsp;Wren</a> a@Maya.com</span>")), qPrintable(html));
     QVERIFY2(!html.contains(QStringLiteral("background")), qPrintable(html));
     const auto chips = object->property("chips").toString();
     QVERIFY2(chips.startsWith(QStringLiteral("7-17 #")), qPrintable(chips));
     QVERIFY2(chips.endsWith(QStringLiteral(",20-31 #eaa47e")), qPrintable(chips));
+    const auto chatHtml = object->property("chatHtml").toString();
+    QVERIFY2(chatHtml.contains(QStringLiteral("<b>go</b> <code>x</code>")), qPrintable(chatHtml));
+    QVERIFY2(chatHtml.contains(QStringLiteral("href=\"kodosi-mention://terminal/t2\">@Amber&nbsp;Wren</a>")), qPrintable(chatHtml));
+    QVERIFY2(chatHtml.contains(QStringLiteral("text-decoration:none\">@Leo&nbsp;Park</span>")), qPrintable(chatHtml));
+    QCOMPARE(object->property("chatChips").toString(), QStringLiteral("5-16,21-30"));
     QCOMPARE(object->property("offered").toString(), QStringLiteral("u2,t\"1"));
+    QCOMPARE(object->property("ranked").toString(), QStringLiteral("m,e"));
+    QCOMPARE(object->property("threeWords").toString(), QStringLiteral("@Amber Wren now"));
+    QCOMPARE(object->property("fourWords").toString(), QString());
     QVERIFY(object->property("mine").toBool());
     QVERIFY(object->property("mineByName").toBool());
     QVERIFY(!object->property("notMine").toBool());

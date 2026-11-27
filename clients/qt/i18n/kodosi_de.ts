@@ -1014,6 +1014,24 @@
     </message>
 </context>
 <context>
+    <name>ChatHandOff</name>
+    <message>
+        <source>Hand-off from %1</source>
+        <translation>Übergabe von %1</translation>
+    </message>
+</context>
+<context>
+    <name>ChatPeerMenu</name>
+    <message>
+        <source>Mention</source>
+        <translation>Erwähnen</translation>
+    </message>
+    <message>
+        <source>Hand off</source>
+        <translation>Übergeben</translation>
+    </message>
+</context>
+<context>
     <name>ChatSettings</name>
     <message>
         <source>Find a setting</source>

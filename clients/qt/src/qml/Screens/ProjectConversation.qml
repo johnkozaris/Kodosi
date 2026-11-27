@@ -333,47 +333,21 @@ Item {
                                     bottomRightRadius: entry.own ? 6 : 16
                                     color: entry.own ? KodosiTheme.accentSoft : "transparent"
 
-                                    Repeater {
-                                        model: Mentions.chips(entry.parts, Models.Account.userId)
-
-                                        Rectangle {
-                                            required property var modelData
-                                            readonly property rect head: body.text.length > 0 && body.width > 0 && body.contentHeight > 0
-                                                ? body.positionToRectangle(modelData.start) : Qt.rect(0, 0, 0, 0)
-                                            readonly property rect tail: body.text.length > 0 && body.width > 0 && body.contentHeight > 0
-                                                ? body.positionToRectangle(modelData.end) : Qt.rect(0, 0, 0, 0)
-
-                                            x: body.x + head.x - 3
-                                            y: body.y + head.y
-                                            width: tail.x - head.x + 6
-                                            height: head.height
-                                            radius: 5
-                                            visible: head.y === tail.y && tail.x > head.x
-                                            color: KodosiTheme.alpha(modelData.color, 0.18)
-                                        }
-                                    }
-                                    TextEdit {
+                                    MentionText {
                                         id: body
                                         anchors.fill: parent
                                         anchors.leftMargin: entry.own ? 12 : 0
                                         anchors.rightMargin: entry.own ? 12 : 0
                                         anchors.topMargin: entry.own ? 7 : 0
-                                        text: Mentions.html(entry.parts, Models.Account.userId)
-                                        color: KodosiTheme.ink
-                                        font.pixelSize: KodosiTheme.fontBody
-                                        readOnly: true
-                                        selectByMouse: true
-                                        selectionColor: KodosiTheme.accent
-                                        selectedTextColor: KodosiTheme.accentInk
-                                        wrapMode: TextEdit.Wrap
-                                        textFormat: TextEdit.RichText
+                                        text: Mentions.html(entry.parts, Models.Account.userId, KodosiTheme.look, false)
+                                        parts: entry.parts
+                                        selfId: Models.Account.userId
                                         Accessible.name: entry.modelData.text
                                         onLinkActivated: link => {
-                                            if (link.startsWith("kodosi-mention://terminal/"))
-                                                root.terminalRequested(link.substring(26));
+                                            const terminal = Mentions.terminal(link);
+                                            if (terminal.length > 0)
+                                                root.terminalRequested(terminal);
                                         }
-
-                                        HoverHandler { cursorShape: body.hoveredLink.length > 0 ? Qt.PointingHandCursor : Qt.IBeamCursor }
                                     }
                                 }
                             }
@@ -479,58 +453,16 @@ Item {
                 onClicked: { transcript.positionViewAtEnd(); Models.Projects.setPresentation("followLatest", true); }
             }
         }
-        Item {
+        MentionList {
             Layout.fillWidth: true
             Layout.leftMargin: 10
             Layout.rightMargin: 10
             Layout.bottomMargin: 6
             visible: root.suggestions.length > 0
-            implicitHeight: list.implicitHeight + 10
-
-            Raised { anchors.fill: parent; radius: KodosiTheme.radiusLg; fill: KodosiTheme.lifted; elevation: 2 }
-            Column {
-                id: list
-                x: 5
-                y: 5
-                width: parent.width - 10
-                spacing: 1
-
-                Repeater {
-                    model: root.suggestions
-
-                    AbstractButton {
-                        id: suggestion
-
-                        required property var modelData
-                        required property int index
-                        readonly property bool current: index === Math.min(root.highlighted, root.suggestions.length - 1)
-
-                        width: list.width
-                        height: 32
-                        hoverEnabled: true
-                        objectName: "project.mention." + modelData.id
-                        Accessible.id: objectName
-                        Accessible.name: modelData.name
-                        contentItem: RowLayout {
-                            spacing: 9
-                            Item {
-                                Layout.leftMargin: 8
-                                Layout.preferredWidth: 22
-                                Layout.preferredHeight: 22
-                                PersonAvatar { visible: suggestion.modelData.kind === "person"; name: suggestion.modelData.name; key: suggestion.modelData.id; size: 22 }
-                                AgentMark { visible: suggestion.modelData.kind === "terminal"; program: suggestion.modelData.program; size: 22 }
-                            }
-                            PlainLabel { text: suggestion.modelData.name; font.weight: Font.Medium }
-                            PlainLabel { Layout.fillWidth: true; text: suggestion.modelData.detail; color: KodosiTheme.inkFaint; font.pixelSize: KodosiTheme.fontCaption; elide: Text.ElideRight }
-                        }
-                        background: Rectangle {
-                            radius: KodosiTheme.radiusSm
-                            color: suggestion.current ? KodosiTheme.accentSoft : KodosiTheme.alpha(KodosiTheme.ink, suggestion.hovered ? 0.05 : 0)
-                        }
-                        onClicked: { root.pick(modelData); editor.forceActiveFocus(); }
-                    }
-                }
-            }
+            suggestions: root.suggestions
+            highlighted: root.highlighted
+            identifier: "project.mention"
+            onPicked: target => { root.pick(target); editor.forceActiveFocus(); }
         }
         Item {
             Layout.fillWidth: true
@@ -555,8 +487,7 @@ Item {
                     Accessible.id: objectName
                     onClicked: {
                         root.dismissed = "";
-                        if (Mentions.query(editor.text).length === 0)
-                            Models.Projects.setPresentation("message", editor.text + (editor.text.length === 0 || editor.text.endsWith(" ") ? "@" : " @"));
+                        Models.Projects.setPresentation("message", Mentions.start(editor.text));
                         editor.forceActiveFocus();
                         editor.cursorPosition = editor.text.length;
                     }

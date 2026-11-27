@@ -129,6 +129,56 @@ private slots:
         QCOMPARE(commands.of(QStringLiteral("document.close")).size(), 2);
     }
 
+    void theChatKnowsThePeersOfItsAgentAndTheAgentsThatAMessageNamesOrHandsOver()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasDocuments documents(commands, commands, sessions);
+        kodosi::TerminalChats chats(documents, sessions);
+        auto* chat = chats.chat(test::id(1));
+        chat->watch();
+        const auto pipe = commands.of(QStringLiteral("document.open")).first().value(QStringLiteral("pipe")).toString();
+        int sequence = 0;
+        const auto frame = [&](const QJsonObject& value) {
+            documents.apply({ { QStringLiteral("type"), QStringLiteral("document.frame") }, { QStringLiteral("pipe"), pipe },
+                { QStringLiteral("sequence"), sequence++ }, { QStringLiteral("more"), false },
+                { QStringLiteral("data"), QString::fromLatin1(QJsonDocument(value).toJson(QJsonDocument::Compact).toBase64()) } });
+        };
+        documents.apply({ { QStringLiteral("type"), QStringLiteral("document.opened") }, { QStringLiteral("pipe"), pipe } });
+        const QJsonObject elk { { QStringLiteral("name"), QStringLiteral("Timber Elk") }, { QStringLiteral("agent"), QStringLiteral("copilot") } };
+        const QJsonArray peers { QJsonObject { { QStringLiteral("terminal"), test::id(2) }, { QStringLiteral("name"), QStringLiteral("Timber Elk") },
+            { QStringLiteral("agent"), QStringLiteral("copilot") }, { QStringLiteral("place"), QStringLiteral("KodosiWebsite") } } };
+        const auto named = item(QStringLiteral("p1"), { { QStringLiteral("kind"), QStringLiteral("person") },
+                                                         { QStringLiteral("text"), QStringLiteral("Ask @Timber Elk") }, { QStringLiteral("mentions"), QJsonArray { elk } } });
+        const auto handed = item(QStringLiteral("p2"), { { QStringLiteral("kind"), QStringLiteral("person") }, { QStringLiteral("text"), QString {} },
+                                                          { QStringLiteral("handoff"), elk } });
+        frame({ { QStringLiteral("snapshot"), QJsonObject { { QStringLiteral("revision"), 4 }, { QStringLiteral("state"), QStringLiteral("working") },
+                                                    { QStringLiteral("facts"), QJsonObject {} }, { QStringLiteral("items"), QJsonArray { named, handed } },
+                                                    { QStringLiteral("peers"), peers },
+                                                    { QStringLiteral("queued"), QJsonArray { QJsonObject { { QStringLiteral("id"), QStringLiteral("q1") },
+                                                                                    { QStringLiteral("text"), QString {} }, { QStringLiteral("handoff"), elk } } } } } } });
+        QCOMPARE(chat->peers(), (QVariantList { QVariantMap { { QStringLiteral("terminal"), test::id(2) }, { QStringLiteral("name"), QStringLiteral("Timber Elk") },
+                                    { QStringLiteral("agent"), QStringLiteral("copilot") }, { QStringLiteral("place"), QStringLiteral("KodosiWebsite") } } }));
+        const QVariantMap shownElk { { QStringLiteral("name"), QStringLiteral("Timber Elk") }, { QStringLiteral("agent"), QStringLiteral("copilot") } };
+        const auto people = chat->lines();
+        QCOMPARE(people.at(0).toMap().value(QStringLiteral("mentions")), QVariant(QVariantList { shownElk }));
+        QVERIFY(!people.at(0).toMap().contains(QStringLiteral("handoff")));
+        QCOMPARE(people.at(1).toMap().value(QStringLiteral("handoff")), QVariant(shownElk));
+        QCOMPARE(chat->queued().first().toMap().value(QStringLiteral("handoff")), QVariant(shownElk));
+
+        frame({ { QStringLiteral("update"), QJsonObject { { QStringLiteral("revision"), 5 },
+                                                  { QStringLiteral("changes"), QJsonArray { QJsonObject { { QStringLiteral("change"), QStringLiteral("reset") } } } } } } });
+        QCOMPARE(chat->peers().size(), 1);
+        frame({ { QStringLiteral("update"), QJsonObject { { QStringLiteral("revision"), 6 },
+                                                  { QStringLiteral("changes"), QJsonArray { QJsonObject { { QStringLiteral("change"), QStringLiteral("peers") },
+                                                                                   { QStringLiteral("peers"), QJsonArray {} } } } } } } });
+        QVERIFY(chat->peers().isEmpty());
+
+        chat->handOff(test::id(2));
+        const auto sent = QJsonDocument::fromJson(QByteArray::fromBase64(
+            commands.of(QStringLiteral("document.send")).last().value(QStringLiteral("data")).toString().toLatin1())).object();
+        QCOMPARE(sent, (QJsonObject { { QStringLiteral("do"), QStringLiteral("handOff") }, { QStringLiteral("terminal"), test::id(2) } }));
+    }
 };
 
 QTEST_MAIN(TerminalChatTest)

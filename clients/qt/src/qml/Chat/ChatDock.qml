@@ -32,7 +32,13 @@ Item {
         return starting.concat(chat.commands.filter(command => !command.name.toLowerCase().startsWith(letters)
             && command.name.toLowerCase().includes(letters)))
     }
+    readonly property string mentionQuery: (field.activeFocus || peerMenu.visible) && root.dismissed !== Mentions.query(root.chat.draft)
+        ? Mentions.query(root.chat.draft) : ""
+    readonly property var mentions: root.suggestions.length > 0 ? []
+        : Mentions.suggestions(root.mentionQuery, Mentions.peerTargets(root.chat.peers), "")
     property int picked: 0
+    property int highlighted: 0
+    property string dismissed: ""
 
     signal sent()
     signal terminalRequested()
@@ -49,8 +55,21 @@ Item {
             root.chat.draft = ""
             root.open(control)
         } else if (root.chat.submit()) {
+            root.dismissed = ""
             root.sent()
         }
+    }
+    function mention(target: var): void {
+        root.chat.draft = Mentions.complete(Mentions.start(root.chat.draft), target)
+        field.cursorPosition = field.length
+        field.forceActiveFocus()
+    }
+    // A hand-off takes the place of the mention that the draft starts.
+    function handOff(target: var): void {
+        if (Mentions.query(root.chat.draft).length > 0)
+            root.chat.draft = root.chat.draft.substring(0, root.chat.draft.lastIndexOf("@"))
+        root.chat.handOff(target.id)
+        root.sent()
     }
     function open(control: string): void {
         if (control === "model")
@@ -62,16 +81,24 @@ Item {
     }
     function move(step: int): bool {
         const count = root.suggestions.length
-        if (count === 0)
-            return false
+        if (count === 0) {
+            if (root.mentions.length === 0)
+                return false
+            root.highlighted = (Math.min(root.highlighted, root.mentions.length - 1) + step + root.mentions.length) % root.mentions.length
+            return true
+        }
         root.picked = (Math.min(root.picked, count - 1) + step + count) % count
         commandView.positionViewAtIndex(root.picked, ListView.Contain)
         return true
     }
     function complete(): bool {
         const count = root.suggestions.length
-        if (count === 0)
-            return false
+        if (count === 0) {
+            if (root.mentions.length === 0)
+                return false
+            root.mention(root.mentions[Math.min(root.highlighted, root.mentions.length - 1)])
+            return true
+        }
         const command = root.suggestions[Math.min(root.picked, count - 1)]
         if (root.chat.draft === "/" + command.name)
             return false
@@ -92,6 +119,7 @@ Item {
 
     implicitHeight: dock.implicitHeight + 12
     objectName: "chat.dock"
+    onMentionQueryChanged: root.highlighted = 0
 
     ColumnLayout {
         id: dock
@@ -470,6 +498,7 @@ Item {
                 readonly property string refusal: modelData.refused || ""
                 readonly property bool terminal: modelData.terminal === true
                 readonly property bool given: modelData.given === true
+                readonly property real wordsWidth: handed.active ? handed.implicitWidth : queuedWords.implicitWidth
 
                 Layout.fillWidth: true
                 implicitHeight: queuedColumn.implicitHeight
@@ -490,7 +519,7 @@ Item {
                     id: queuedColumn
 
                     anchors.right: parent.right
-                    width: Math.min(parent.width - (waiting.given ? 40 : 68), Math.max(queuedWords.implicitWidth + 40,
+                    width: Math.min(parent.width - (waiting.given ? 40 : 68), Math.max(waiting.wordsWidth + 40,
                         showTerminal.visible ? showTerminal.implicitWidth : 0))
                     spacing: 4
 
@@ -498,8 +527,8 @@ Item {
                         id: bubble
 
                         anchors.right: parent.right
-                        width: Math.min(queuedWords.implicitWidth + 40, parent.width)
-                        height: queuedWords.height + 16
+                        width: Math.min(waiting.wordsWidth + 40, parent.width)
+                        height: (handed.active ? handed.height : queuedWords.height) + 16
                         radius: 16
                         bottomRightRadius: 6
                         color: root.look.accentSoft
@@ -531,6 +560,7 @@ Item {
 
                             x: 28
                             y: 8
+                            visible: !handed.active
                             width: Math.min(implicitWidth, bubble.parent.width - 40)
                             text: waiting.modelData.text
                             color: root.look.ink
@@ -538,6 +568,20 @@ Item {
                             wrapMode: Text.WordWrap
                             maximumLineCount: 2
                             elide: Text.ElideRight
+                        }
+                        Loader {
+                            id: handed
+
+                            x: 28
+                            y: 8
+                            active: !!waiting.modelData.handoff
+                            sourceComponent: ChatHandOff {
+                                handoff: waiting.modelData.handoff
+                                look: root.look
+                                widest: waiting.width - (waiting.given ? 40 : 68) - 40
+                                pixelSize: KodosiTheme.fontFootnote
+                                markSize: 15
+                            }
                         }
                     }
                     AbstractButton {
@@ -750,6 +794,19 @@ Item {
                 }
             }
         }
+        MentionList {
+            Layout.fillWidth: true
+            visible: root.mentions.length > 0 && !root.away && root.chat.canWrite
+            suggestions: root.mentions
+            highlighted: root.highlighted
+            look: root.look
+            identifier: "chat.mention"
+            onPicked: target => root.mention(target)
+            onMenuRequested: (target, row, position) => {
+                peerMenu.target = target
+                peerMenu.popupFor(row, position)
+            }
+        }
         Item {
             id: composerArea
 
@@ -819,6 +876,12 @@ Item {
                         Keys.onDownPressed: event => {
                             event.accepted = root.move(1)
                         }
+                        Keys.onEscapePressed: event => {
+                            if (root.mentions.length > 0)
+                                root.dismissed = root.mentionQuery
+                            else
+                                event.accepted = false
+                        }
                         Keys.onTabPressed: {
                             if (!root.complete())
                                 nextItemInFocusChain(true).forceActiveFocus(Qt.TabFocusReason)
@@ -880,5 +943,12 @@ Item {
             sessionId: root.sessionId
             look: root.look
         }
+    }
+    ChatPeerMenu {
+        id: peerMenu
+
+        identifier: "chat.mention.menu"
+        onMentionChosen: target => root.mention(target)
+        onHandOffChosen: target => root.handOff(target)
     }
 }

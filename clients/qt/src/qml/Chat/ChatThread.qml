@@ -172,14 +172,19 @@ Item {
                 id: mineView
 
                 PersonBubble {
-                    html: entry.line.html || ""
+                    id: mine
+
+                    html: Mentions.html(mine.parts, "", root.look, true)
                     text: entry.line.text || ""
+                    parts: Mentions.segments(mine.text, Mentions.mentionTargets(entry.line.mentions || [], root.chat.peers))
+                    handoff: entry.line.handoff || null
                     look: root.look
                     onLinkActivated: link => root.linkActivated(link)
 
                     CopyKey {
                         x: parent.width - width
                         y: -10
+                        enabled: !entry.line.handoff
                         message: entry.line.text || ""
                         shown: hover.hovered
                         look: root.look
@@ -191,9 +196,14 @@ Item {
                 id: otherView
 
                 Item {
-                    implicitHeight: Math.max(28, words.y + words.implicitHeight)
+                    id: other
+
+                    readonly property var parts: Mentions.segments(entry.line.text || "",
+                        Mentions.mentionTargets(entry.line.mentions || [], root.chat.peers))
+
+                    implicitHeight: Math.max(28, handed.active ? handed.y + handed.height : words.y + words.implicitHeight)
                     Accessible.role: Accessible.StaticText
-                    Accessible.name: qsTr("%1: %2").arg(entry.line.byName || "", entry.line.text || "")
+                    Accessible.name: qsTr("%1: %2").arg(entry.line.byName || "", (handed.item as ChatHandOff)?.words ?? entry.line.text ?? "")
 
                     PersonAvatar {
                         name: entry.line.byName || ""
@@ -221,27 +231,35 @@ Item {
                             font.pixelSize: KodosiTheme.fontCaption2
                         }
                     }
-                    TextEdit {
+                    MentionText {
                         id: words
 
                         x: 38
                         y: who.height + 4
                         width: parent.width - 38
-                        text: Prose.styled(entry.line.html || "", root.look)
-                        textFormat: TextEdit.RichText
-                        readOnly: true
-                        selectByMouse: true
-                        wrapMode: TextEdit.Wrap
-                        color: root.look.ink
-                        font.pixelSize: KodosiTheme.fontBody
-                        selectionColor: root.look.accent
-                        selectedTextColor: root.look.accentInk
+                        visible: !handed.active
+                        text: Prose.styled(Mentions.html(other.parts, "", root.look, true), root.look)
+                        parts: other.parts
+                        look: root.look
                         Accessible.ignored: true
                         onLinkActivated: link => root.linkActivated(link)
+                    }
+                    Loader {
+                        id: handed
+
+                        x: 38
+                        y: who.height + 6
+                        active: !!entry.line.handoff
+                        sourceComponent: ChatHandOff {
+                            handoff: entry.line.handoff
+                            look: root.look
+                            widest: other.width - 38
+                        }
                     }
                     CopyKey {
                         x: parent.width - width
                         y: -10
+                        enabled: !entry.line.handoff
                         message: entry.line.text || ""
                         shown: hover.hovered
                         look: root.look

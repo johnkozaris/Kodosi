@@ -9,7 +9,7 @@ DropArea {
     property bool dashed: true
     property string label: ""
 
-    signal terminalDropped(string sessionId)
+    signal terminalDropped(string sessionId, point at)
 
     keys: ["application/x-kodosi-terminal"]
     onDropped: drop => {
@@ -17,7 +17,7 @@ DropArea {
         if (id.length === 0)
             return
         drop.accept(Qt.MoveAction)
-        root.terminalDropped(id)
+        root.terminalDropped(id, Qt.point(drop.x, drop.y))
     }
 
     Rectangle {
