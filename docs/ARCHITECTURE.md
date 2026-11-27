@@ -359,14 +359,17 @@ own rate control and spends its spare bits on the same passes.
 Slow viewers skip frames and recover on the next keyframe. When every viewer supports them, the
 encoder also marks long-term references, and a viewer that missed frames recovers from an anchor:
 a small frame that references only marks every viewer acknowledged. Some hardware decoders freeze
-on long-term references, so a stream with any viewer that does not declare them has none.
+on long-term references, so a stream with any viewer that does not declare them has none. While
+nothing changes, the flow control tells each viewer that has every frame it was sent that nothing
+did; a viewer with a frame on its way or a gap hears nothing, since its picture is not the newest.
 
 The viewer's runtime keeps the rule for frames, once for every app. It reads each frame's header,
 hands the app only a frame that its decoder can take, acknowledges each frame, and asks again for a
 keyframe while it waits for one. The apps only decode and draw: each gets a stream's frames as
-bytes, on a thread of that stream. When a picture waits for a repair for longer than a moment, the
-runtime tells the app, which rests on the last picture until the next frame, so a picture that
-stands still never looks live.
+bytes, on a thread of that stream. When a picture waits for a repair for longer than a moment, or
+its stream says nothing for a while, the runtime tells the app, which rests on the last picture
+until the next frame or until the stream says again that nothing changed. So a picture whose stream
+went silent never looks live, and a still screen never rests.
 
 ## Localization
 
