@@ -491,7 +491,8 @@ async fn video_frames_go_as_datagrams_once_the_viewer_takes_the_flow() {
     assert_eq!(arrived.unwrap().unwrap(), next);
 }
 
-/// The stream repairs at once when its frame cannot even wait for the connection.
+/// The stream repairs at once when its frame cannot even wait for the connection, and hears of
+/// each such frame however full its own queue is.
 #[cfg(feature = "host")]
 #[tokio::test]
 async fn a_frame_that_the_flow_has_no_room_for_is_told_lost_to_the_stream() {
@@ -507,7 +508,7 @@ async fn a_frame_that_the_flow_has_no_room_for_is_told_lost_to_the_stream() {
         viewer.reach_at(host_keys.signing_public(), address, pipe),
     );
     let (arrived, reached) = (arrived.unwrap(), reached.unwrap());
-    let (document, mut heard) = mpsc::channel(64);
+    let (document, mut heard) = mpsc::channel(1);
     let flow = super::super::media::Flow::start(&arrived.media().unwrap(), document).unwrap();
     let (frames, _shown) = mpsc::channel(64);
     let _view =
@@ -541,4 +542,51 @@ async fn a_frame_that_the_flow_has_no_room_for_is_told_lost_to_the_stream() {
         }
     }
     assert_eq!(lost, [5, 6, 7, 8, 9, 10]);
+}
+
+/// A frame that the viewer put together waits for room in the pipe to its app: the host took it as
+/// arrived, so it must reach the app and be acknowledged.
+#[cfg(feature = "host")]
+#[tokio::test]
+async fn a_frame_that_arrived_waits_for_the_app_to_take_it() {
+    let (host_keys, viewer_keys) = (
+        DeviceKeys::generate().unwrap(),
+        DeviceKeys::generate().unwrap(),
+    );
+    let (host, viewer) = (peers_of(&host_keys), peers_of(&viewer_keys));
+    let address = on_this_computer(&host).await;
+    let pipe = Uuid::now_v7();
+    let (arrived, reached) = tokio::join!(
+        host.expect(viewer_keys.signing_public(), pipe).meet(&[]),
+        viewer.reach_at(host_keys.signing_public(), address, pipe),
+    );
+    let (arrived, reached) = (arrived.unwrap(), reached.unwrap());
+    let (document, _heard) = mpsc::channel(64);
+    let flow = super::super::media::Flow::start(&arrived.media().unwrap(), document).unwrap();
+    let (frames, mut shown) = mpsc::channel(1);
+    let _view =
+        super::super::media::receive(&reached.media().unwrap(), flow.number, frames).unwrap();
+    let frame = |id: u32| {
+        let mut frame = vec![stream::viewer::FRAME];
+        frame.extend(id.to_be_bytes());
+        frame.extend([u8::from(id == 1), 0]);
+        frame.extend([0; 2000]);
+        frame
+    };
+    let ready = tokio::time::timeout(Duration::from_secs(5), async {
+        while flow.take(frame(1)).is_err() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await;
+    assert!(ready.is_ok(), "the viewer's greeting readies the flow");
+    for id in 2..=4 {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert!(flow.take(frame(id)).is_ok());
+    }
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    for id in 1..=4 {
+        let taken = tokio::time::timeout(Duration::from_secs(5), shown.recv()).await;
+        assert_eq!(taken.unwrap().unwrap(), frame(id));
+    }
 }

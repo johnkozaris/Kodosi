@@ -70,8 +70,10 @@ async fn unpack(
             }
         };
         for frame in handed {
-            // A full queue drops the frame, and the viewer asks for a keyframe or anchor.
-            if let Err(mpsc::error::TrySendError::Closed(_)) = frames.try_send(frame.to_vec()) {
+            // A frame put together reaches the app, which acknowledges it, however long the app
+            // takes: meanwhile the flow's shards wait in its queue or are dropped there, and the
+            // host hears that those frames did not arrive.
+            if frames.send(frame.to_vec()).await.is_err() {
                 return;
             }
         }
