@@ -1,5 +1,5 @@
 diff --git a/build.zig b/build.zig
-index 91fc5c9db..e9665fc02 100644
+index 9e0559cda..5ef6b4bec 100644
 --- a/build.zig
 +++ b/build.zig
 @@ -284,17 +284,16 @@ pub fn build(b: *std.Build) !void {

@@ -80,7 +80,7 @@ index b207c78ae..ae35c65b4 100644
  
      // Window was not found, it probably quit before we handled the message.
 diff --git a/src/Surface.zig b/src/Surface.zig
-index 7f71cdd50..dd72228b8 100644
+index fb81e866f..bbc9e36eb 100644
 --- a/src/Surface.zig
 +++ b/src/Surface.zig
 @@ -101,6 +101,9 @@ renderer_thread: rendererpkg.Thread,
@@ -110,7 +110,7 @@ index 7f71cdd50..dd72228b8 100644
          .change_config => |config| try self.updateConfig(config),
  
          .set_title => |*v| {
-@@ -2459,7 +2465,7 @@ fn copySelectionToClipboards(
+@@ -2461,7 +2467,7 @@ fn copySelectionToClipboards(
  /// also copy per `copy_on_select`, use `setSelectionAndCopy`.
  ///
  /// This must be called with the renderer mutex held.
@@ -119,7 +119,7 @@ index 7f71cdd50..dd72228b8 100644
      // Compute the transition before `select` below, which untracks (frees)
      // the previous selection's tracked pins; reading them after would be a
      // use-after-free.
-@@ -2483,6 +2489,10 @@ fn setSelection(self: *Surface, sel_: ?terminal.Selection) !void {
+@@ -2485,6 +2491,10 @@ fn setSelection(self: *Surface, sel_: ?terminal.Selection) !void {
      }
  }
  
@@ -130,7 +130,7 @@ index 7f71cdd50..dd72228b8 100644
  /// Set a selection and, per `copy_on_select`, copy it to the clipboard.
  /// For committing selection gestures (mouse release, select-all binding).
  ///
-@@ -2585,7 +2595,7 @@ pub fn setFontSize(self: *Surface, size: font.face.DesiredSize) !void {
+@@ -2587,7 +2597,7 @@ pub fn setFontSize(self: *Surface, size: font.face.DesiredSize) !void {
  /// This queues a render operation with the renderer thread. The render
  /// isn't guaranteed to happen immediately but it will happen as soon as
  /// practical.
@@ -139,7 +139,7 @@ index 7f71cdd50..dd72228b8 100644
      try self.renderer_thread.wakeup.notify();
  }
  
-@@ -2659,6 +2669,197 @@ fn resize(self: *Surface, size: rendererpkg.ScreenSize) !void {
+@@ -2661,6 +2671,197 @@ fn resize(self: *Surface, size: rendererpkg.ScreenSize) !void {
      };
  }
  

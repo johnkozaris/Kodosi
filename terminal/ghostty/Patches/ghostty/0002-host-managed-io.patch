@@ -47,7 +47,7 @@ index 439195c75..3d5d8adf7 100644
  GHOSTTY_API void ghostty_surface_draw(ghostty_surface_t);
  GHOSTTY_API void ghostty_surface_set_content_scale(ghostty_surface_t, double, double);
 diff --git a/src/Surface.zig b/src/Surface.zig
-index 7f7b1df88..9876a0c1b 100644
+index eaa9cc3a9..8794c660a 100644
 --- a/src/Surface.zig
 +++ b/src/Surface.zig
 @@ -662,43 +662,52 @@ pub fn init(

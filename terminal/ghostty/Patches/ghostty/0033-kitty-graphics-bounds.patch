@@ -96,7 +96,7 @@ index ef1c40457..10405f61d 100644
      const testing = std.testing;
      const alloc = testing.allocator;
 diff --git a/src/terminal/kitty/graphics_image.zig b/src/terminal/kitty/graphics_image.zig
-index 281bb02e0..ae5842ad8 100644
+index 6d515c339..6a9778c65 100644
 --- a/src/terminal/kitty/graphics_image.zig
 +++ b/src/terminal/kitty/graphics_image.zig
 @@ -34,6 +34,9 @@ pub const LoadingImage = struct {
@@ -127,7 +127,7 @@ index 281bb02e0..ae5842ad8 100644
          };
  
          // Special case for the direct medium, we just add the chunk directly.
-@@ -551,8 +558,8 @@ pub const LoadingImage = struct {
+@@ -545,8 +552,8 @@ pub const LoadingImage = struct {
          if (data.len == 0) return;
  
          // If our data would get too big, return an error

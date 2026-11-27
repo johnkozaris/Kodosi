@@ -49,7 +49,7 @@ index bb887c01b..26dfd13da 100644
  
  /**
 diff --git a/src/terminal/c/terminal.zig b/src/terminal/c/terminal.zig
-index a5f6a3184..d995b59f4 100644
+index 035b0cfa8..a6c2ab817 100644
 --- a/src/terminal/c/terminal.zig
 +++ b/src/terminal/c/terminal.zig
 @@ -168,6 +168,7 @@ pub const ClipboardRead = extern struct {
@@ -162,10 +162,10 @@ index 0a1c5a7ae..2584e55c5 100644
      /// reply should carry every requested representation the clipboard
      /// has; unrequested ones are ignored. Protocols that only carry text
 diff --git a/src/terminal/stream_terminal.zig b/src/terminal/stream_terminal.zig
-index d98328a3d..4393aacee 100644
+index d7a795445..2234777fa 100644
 --- a/src/terminal/stream_terminal.zig
 +++ b/src/terminal/stream_terminal.zig
-@@ -1100,6 +1100,7 @@ pub const Handler = struct {
+@@ -1114,6 +1114,7 @@ pub const Handler = struct {
          };
          func(self, .{
              .location = location,
@@ -173,7 +173,7 @@ index d98328a3d..4393aacee 100644
              .mimes = &.{"text/plain"},
              .list = false,
              .name = "",
-@@ -1284,6 +1285,7 @@ pub const Handler = struct {
+@@ -1298,6 +1299,7 @@ pub const Handler = struct {
          };
          func(self, .{
              .location = meta.loc,

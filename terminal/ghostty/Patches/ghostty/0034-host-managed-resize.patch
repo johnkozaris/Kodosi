@@ -36,10 +36,10 @@ index 3d6a11eec..7729ecbf3 100644
  GHOSTTY_API void ghostty_surface_refresh(ghostty_surface_t);
  GHOSTTY_API void ghostty_surface_draw(ghostty_surface_t);
 diff --git a/src/Surface.zig b/src/Surface.zig
-index 86c40ad86..12786e77a 100644
+index df8032268..c1b019ea3 100644
 --- a/src/Surface.zig
 +++ b/src/Surface.zig
-@@ -2859,7 +2859,7 @@ test "checkpoint notifications coalesce without producers when the app mailbox i
+@@ -2861,7 +2861,7 @@ test "checkpoint notifications coalesce without producers when the app mailbox i
      while (app_mailbox.pop(testing.io)) |_| {}
  }
  

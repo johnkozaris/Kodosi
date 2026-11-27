@@ -39,7 +39,7 @@ index 7af224368..0141b1b85 100644
      step.addOption(ApprtRuntime, "app_runtime", self.app_runtime);
      step.addOption(FontBackend, "font_backend", self.font_backend);
 diff --git a/src/build/SharedDeps.zig b/src/build/SharedDeps.zig
-index d9e3c066d..3cdf7c43e 100644
+index c74e60212..a108ca0f8 100644
 --- a/src/build/SharedDeps.zig
 +++ b/src/build/SharedDeps.zig
 @@ -194,7 +194,9 @@ pub fn add(
