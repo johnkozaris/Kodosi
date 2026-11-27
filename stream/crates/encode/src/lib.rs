@@ -61,6 +61,9 @@ pub trait Output: Send + Sync + 'static {
     /// Returns false when the frame could not be queued, so the encoder sends a keyframe next.
     fn frame(&self, frame: Encoded) -> bool;
     fn failed(&self, problem: String);
+    /// The encoder lost the newest picture, which only the GPU held, and needs it again as
+    /// pixels: encoding moved from the GPU to software.
+    fn redraw(&self) {}
 }
 
 #[derive(Clone, Copy)]

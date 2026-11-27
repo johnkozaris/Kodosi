@@ -80,6 +80,8 @@ enum Order {
     /// The helper put the pointer here, in the shown display's points, and the desktop did not
     /// show it there: `KWin` at times sends no picture for a move of the pointer alone.
     Point((f64, f64)),
+    /// The encoder needs the newest picture again.
+    Redraw,
     Hide,
     Quit,
 }
@@ -108,6 +110,10 @@ impl Video {
 
     pub(super) fn point(&self, at: (f64, f64)) {
         drop(self.orders.send(Order::Point(at)));
+    }
+
+    pub(super) fn redraw(&self) {
+        drop(self.orders.send(Order::Redraw));
     }
 
     pub(super) fn hide(&self) {
@@ -184,6 +190,11 @@ fn work(
             Order::Point(at) => {
                 if let Some(current) = shown.borrow().as_ref() {
                     current.drawing.borrow_mut().pointer.place(at);
+                }
+            }
+            Order::Redraw => {
+                if let Some(current) = shown.borrow().as_ref() {
+                    current.change(Drawing::redraw);
                 }
             }
             Order::Hide => *shown.borrow_mut() = None,
@@ -285,9 +296,15 @@ impl Shown {
     }
 
     fn want(&self, wanted: Wanted, frames: Arc<Frames>) {
+        self.change(|drawing| drawing.want(wanted, frames));
+    }
+
+    /// Changes what the drawing shows, and asks the stream for frames in shared memory when the
+    /// encoder could not read the frame in the GPU's memory.
+    fn change(&self, change: impl FnOnce(&mut Drawing)) {
         let copies = {
             let mut drawing = self.drawing.borrow_mut();
-            drawing.want(wanted, frames);
+            change(&mut drawing);
             drawing.wants_copies()
         };
         if copies {
@@ -384,6 +401,11 @@ impl Drawing {
         }
         self.wanted = wanted;
         self.frames = frames;
+        self.redraw();
+    }
+
+    /// Encodes the held frame again, as all new.
+    fn redraw(&mut self) {
         self.fresh = true;
         self.draw(1.0);
     }
@@ -1244,6 +1266,10 @@ impl Output for Sent {
 
     fn failed(&self, problem: String) {
         drop(self.events.send(Event::Failed(problem)));
+    }
+
+    fn redraw(&self) {
+        drop(self.events.send(Event::Redraw));
     }
 }
 

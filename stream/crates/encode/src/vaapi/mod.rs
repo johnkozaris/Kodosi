@@ -130,7 +130,9 @@ pub(crate) fn work(
     };
     while let Some(job) = worker.next() {
         if worker.code(job).is_err() {
-            give_back(shared, worker.last.take(), worker.bitrate, worker.pace);
+            if !give_back(shared, worker.last.take(), worker.bitrate, worker.pace) {
+                output.redraw();
+            }
             return false;
         }
     }
@@ -139,8 +141,8 @@ pub(crate) fn work(
 
 /// Leaves the slot as software needs it to take over: with the newest pixels, as all new, with
 /// the bitrate and the pace, and without the GPU's pictures, which the capture then sends as
-/// pixels.
-fn give_back(shared: &Shared, last: Option<Taken>, bitrate: u32, pace: Pace) {
+/// pixels. Returns whether the slot holds a picture for software.
+fn give_back(shared: &Shared, last: Option<Taken>, bitrate: u32, pace: Pace) -> bool {
     let mut slot = pixels::lock(shared);
     slot.gpu_stopped = true;
     slot.converted = None;
@@ -153,6 +155,7 @@ fn give_back(shared: &Shared, last: Option<Taken>, bitrate: u32, pace: Pace) {
     slot.changed = 1.0;
     slot.bitrate.get_or_insert(bitrate);
     slot.pace.get_or_insert(pace);
+    slot.picture.is_some()
 }
 
 /// A picture that the worker took from the slot.
