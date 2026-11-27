@@ -1,28 +1,38 @@
 use std::{sync::mpsc, thread, time::Duration};
 
-use zbus::blocking::{Connection, connection::Builder};
+use zbus::{Connection, connection::Builder};
 
 const LIMIT: Duration = Duration::from_secs(3);
 
 pub(crate) fn ask_session<T: Send + 'static>(
-    question: impl FnOnce(&Connection) -> Option<T> + Send + 'static,
+    question: impl AsyncFnOnce(&Connection) -> Option<T> + Send + 'static,
 ) -> Option<T> {
     ask(Builder::session, question)
 }
 
 pub(crate) fn ask_system<T: Send + 'static>(
-    question: impl FnOnce(&Connection) -> Option<T> + Send + 'static,
+    question: impl AsyncFnOnce(&Connection) -> Option<T> + Send + 'static,
 ) -> Option<T> {
     ask(Builder::system, question)
 }
 
+/// Asks again on the connection of an earlier question.
+pub(crate) fn ask_on<T: Send + 'static>(
+    connection: Connection,
+    question: impl AsyncFnOnce(&Connection) -> Option<T> + Send + 'static,
+) -> Option<T> {
+    within(LIMIT, move || zbus::block_on(question(&connection)))
+}
+
 fn ask<T: Send + 'static>(
-    bus: fn() -> zbus::Result<Builder<'static>>,
-    question: impl FnOnce(&Connection) -> Option<T> + Send + 'static,
+    bus: fn() -> Builder<'static>,
+    question: impl AsyncFnOnce(&Connection) -> Option<T> + Send + 'static,
 ) -> Option<T> {
     within(LIMIT, move || {
-        let connection = bus().ok()?.method_timeout(LIMIT).build().ok()?;
-        question(&connection)
+        zbus::block_on(async move {
+            let connection = bus().method_timeout(LIMIT).build().await.ok()?;
+            question(&connection).await
+        })
     })
 }
 
@@ -50,11 +60,13 @@ mod tests {
         let address = format!("unix:path={}", socket.display());
         let started = std::time::Instant::now();
         let answer = within(Duration::from_millis(300), move || {
-            Builder::address(address.as_str())
-                .ok()?
-                .build()
-                .ok()
-                .map(drop)
+            zbus::block_on(async move {
+                Builder::address(address.as_str())
+                    .build()
+                    .await
+                    .ok()
+                    .map(drop)
+            })
         });
         assert!(answer.is_none());
         assert!(started.elapsed() < Duration::from_secs(2));

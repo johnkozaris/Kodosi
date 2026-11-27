@@ -17,11 +17,7 @@ use tokio::{
     sync::{mpsc, watch},
     task::JoinHandle,
 };
-use zbus::{
-    Connection,
-    object_server::SignalEmitter,
-    zvariant::{self, ObjectPath, OwnedValue, Type, Value},
-};
+use zbus::{Connection, ObjectPath, OwnedVariant, Type, Variant, object_server::SignalEmitter};
 
 use super::{portal::CALL_LIMIT, session::Event};
 
@@ -84,17 +80,14 @@ impl Shown {
     async fn show(notice: &Notice, events: mpsc::UnboundedSender<Event>) -> Option<Self> {
         let name = format!("org.kde.StatusNotifierItem-{}-1", std::process::id());
         let bus = zbus::connection::Builder::session()
-            .ok()?
             .method_timeout(CALL_LIMIT)
             .name(name.as_str())
-            .ok()?
             .serve_at(
                 ITEM_PATH,
                 Item {
                     watching: notice.watching.clone(),
                 },
             )
-            .ok()?
             .serve_at(
                 MENU_PATH,
                 Menu {
@@ -104,7 +97,6 @@ impl Shown {
                     events,
                 },
             )
-            .ok()?
             .build()
             .await
             .ok()?;
@@ -207,19 +199,18 @@ struct Menu {
 }
 
 /// A menu item with its children, as `com.canonical.dbusmenu` lays them out.
-#[derive(Debug, Clone, serde::Serialize, Type, zvariant::Value, zvariant::OwnedValue)]
-#[zvariant(crate = "zbus::zvariant")]
+#[derive(Debug, Clone, serde::Serialize, Type, Variant, OwnedVariant)]
 struct Layout {
     id: i32,
-    properties: HashMap<String, OwnedValue>,
-    children: Vec<OwnedValue>,
+    properties: HashMap<String, OwnedVariant>,
+    children: Vec<OwnedVariant>,
 }
 
 impl Menu {
     /// The item's properties, or those of them that are `named` when any are.
-    fn properties(&self, id: i32, named: &[String]) -> HashMap<String, OwnedValue> {
+    fn properties(&self, id: i32, named: &[String]) -> HashMap<String, OwnedVariant> {
         let mut properties = HashMap::new();
-        let mut set = |name: &str, value: Value<'_>| {
+        let mut set = |name: &str, value: Variant<'_>| {
             if (named.is_empty() || named.iter().any(|wanted| wanted == name))
                 && let Ok(value) = value.try_into_owned()
             {
@@ -227,12 +218,12 @@ impl Menu {
             }
         };
         match id {
-            ROOT => set("children-display", Value::from("submenu")),
+            ROOT => set("children-display", Variant::from("submenu")),
             WHO => {
-                set("label", Value::from(self.watching.as_str()));
-                set("enabled", Value::from(false));
+                set("label", Variant::from(self.watching.as_str()));
+                set("enabled", Variant::from(false));
             }
-            STOP => set("label", Value::from(self.stop.as_str())),
+            STOP => set("label", Variant::from(self.stop.as_str())),
             _ => {}
         }
         properties
@@ -243,7 +234,9 @@ impl Menu {
         let children = if id == ROOT && depth != 0 {
             [WHO, STOP]
                 .into_iter()
-                .filter_map(|child| OwnedValue::try_from(self.layout(child, depth - 1, named)).ok())
+                .filter_map(|child| {
+                    OwnedVariant::try_from(self.layout(child, depth - 1, named)).ok()
+                })
                 .collect()
         } else {
             Vec::new()
@@ -286,7 +279,7 @@ impl Menu {
         &self,
         ids: Vec<i32>,
         properties: Vec<String>,
-    ) -> Vec<(i32, HashMap<String, OwnedValue>)> {
+    ) -> Vec<(i32, HashMap<String, OwnedVariant>)> {
         let ids = if ids.is_empty() {
             vec![ROOT, WHO, STOP]
         } else {
@@ -297,19 +290,19 @@ impl Menu {
             .collect()
     }
 
-    fn get_property(&self, id: i32, name: &str) -> zbus::fdo::Result<OwnedValue> {
+    fn get_property(&self, id: i32, name: &str) -> zbus::fdo::Result<OwnedVariant> {
         self.properties(id, &[])
             .remove(name)
             .ok_or_else(|| zbus::fdo::Error::InvalidArgs(name.to_owned()))
     }
 
-    fn event(&self, id: i32, event: &str, _data: Value<'_>, _timestamp: u32) {
+    fn event(&self, id: i32, event: &str, _data: Variant<'_>, _timestamp: u32) {
         if id == STOP && event == "clicked" {
             drop(self.events.send(Event::Stopped));
         }
     }
 
-    fn event_group(&self, events: Vec<(i32, String, OwnedValue, u32)>) -> Vec<i32> {
+    fn event_group(&self, events: Vec<(i32, String, OwnedVariant, u32)>) -> Vec<i32> {
         for (id, event, _, _) in &events {
             if *id == STOP && event == "clicked" {
                 drop(self.events.send(Event::Stopped));

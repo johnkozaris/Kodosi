@@ -20,20 +20,21 @@ pub(super) fn default_shell() -> PathBuf {
 
 #[cfg(target_os = "linux")]
 pub(super) fn session_environment() -> Option<Vec<(OsString, OsString)>> {
-    use zbus::{blocking, proxy::CacheProperties};
+    use zbus::{
+        Proxy,
+        proxy::{Builder, CacheProperties},
+    };
 
-    let variables: Vec<String> = crate::bus::ask_session(|connection| {
-        let manager: blocking::Proxy<'_> = blocking::proxy::Builder::new(connection)
+    let variables: Vec<String> = crate::bus::ask_session(async |connection| {
+        let manager: Proxy<'_> = Builder::new(connection)
             .destination("org.freedesktop.systemd1")
-            .ok()?
             .path("/org/freedesktop/systemd1")
-            .ok()?
             .interface("org.freedesktop.systemd1.Manager")
-            .ok()?
             .cache_properties(CacheProperties::No)
             .build()
+            .await
             .ok()?;
-        manager.get_property("Environment").ok()
+        manager.get_property("Environment").await.ok()
     })?;
     Some(
         variables

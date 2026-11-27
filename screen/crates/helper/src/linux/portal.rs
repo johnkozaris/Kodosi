@@ -5,6 +5,7 @@
 
 use std::{
     collections::HashMap,
+    num::NonZeroUsize,
     os::{fd::OwnedFd, unix::fs::OpenOptionsExt as _},
     path::PathBuf,
     sync::atomic::{AtomicU32, Ordering},
@@ -15,10 +16,8 @@ use futures_util::StreamExt as _;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use tokio::time::Instant;
 use zbus::{
-    Connection, MatchRule, MessageStream,
-    message::Type as MessageType,
-    names::BusName,
-    zvariant::{self, DeserializeDict, DynamicType, ObjectPath, OwnedObjectPath, Type, Value},
+    Connection, DeserializeDict, DynamicType, MatchRule, MessageStream, ObjectPath,
+    OwnedObjectPath, OwnedVariant, Type, Variant, message::Type as MessageType, names::BusName,
 };
 
 pub(super) const DESKTOP: &str = "org.freedesktop.portal.Desktop";
@@ -64,12 +63,6 @@ impl From<zbus::Error> for Problem {
     }
 }
 
-impl From<zvariant::Error> for Problem {
-    fn from(error: zvariant::Error) -> Self {
-        Self::Failed(error.to_string())
-    }
-}
-
 #[derive(Clone)]
 pub(super) struct Portal {
     bus: Connection,
@@ -84,7 +77,6 @@ impl Portal {
     /// any other call to it. `None` without a session bus.
     pub(super) async fn connect() -> Option<Self> {
         let bus = zbus::connection::Builder::session()
-            .ok()?
             .method_timeout(CALL_LIMIT)
             .build()
             .await
@@ -128,7 +120,7 @@ impl Portal {
         };
         reply
             .body()
-            .deserialize::<(HashMap<String, Vec<String>>, zvariant::OwnedValue)>()
+            .deserialize::<(HashMap<String, Vec<String>>, OwnedVariant)>()
             .is_ok_and(|(apps, _)| {
                 apps.get(app)
                     .is_some_and(|granted| granted.iter().any(|grant| grant == "yes"))
@@ -209,11 +201,11 @@ impl Portal {
                 .await,
         );
         let mut devices = vec![
-            ("types", Value::from(KEYBOARD | POINTER)),
-            ("persist_mode", Value::from(PERSIST)),
+            ("types", Variant::from(KEYBOARD | POINTER)),
+            ("persist_mode", Variant::from(PERSIST)),
         ];
         if let Some(restore) = restore {
-            devices.push(("restore_token", Value::from(restore)));
+            devices.push(("restore_token", Variant::from(restore)));
         }
         let _: Answer = self
             .request(REMOTE_DESKTOP, "SelectDevices", deadline, |token| {
@@ -232,9 +224,9 @@ impl Portal {
                     with_handle(
                         token,
                         [
-                            ("types", Value::from(MONITOR)),
-                            ("multiple", Value::from(true)),
-                            ("cursor_mode", Value::from(cursor)),
+                            ("types", Variant::from(MONITOR)),
+                            ("multiple", Variant::from(true)),
+                            ("cursor_mode", Variant::from(cursor)),
                         ],
                     ),
                 )
@@ -262,7 +254,7 @@ impl Portal {
         };
         reply
             .body()
-            .deserialize::<zvariant::OwnedValue>()
+            .deserialize::<OwnedVariant>()
             .ok()
             .and_then(|modes| u32::try_from(modes).ok())
             .unwrap_or_default()
@@ -313,11 +305,12 @@ impl Portal {
         let path = format!("{DESKTOP_PATH}/request/{sender}/{token}");
         let rule = MatchRule::builder()
             .msg_type(MessageType::Signal)
-            .interface(REQUEST)?
-            .member("Response")?
-            .path(path.as_str())?
-            .build();
-        let mut answers = MessageStream::for_match_rule(rule, &self.bus, Some(1)).await?;
+            .interface(REQUEST)
+            .member("Response")
+            .path(path.as_str())
+            .build()?;
+        let mut answers =
+            MessageStream::for_match_rule(rule, &self.bus, Some(NonZeroUsize::MIN)).await?;
         self.bus
             .call_method(
                 Some(DESKTOP),
@@ -394,7 +387,7 @@ impl Desktop {
                 &(&self.session, options()),
             )
             .await?;
-        Ok(reply.body().deserialize::<zvariant::OwnedFd>()?.into())
+        Ok(reply.body().deserialize::<zbus::OwnedFd>()?.into())
     }
 
     /// The connection to the desktop's libei server, which takes the input.
@@ -409,18 +402,18 @@ impl Desktop {
                 &(&self.session, options()),
             )
             .await?;
-        Ok(reply.body().deserialize::<zvariant::OwnedFd>()?.into())
+        Ok(reply.body().deserialize::<zbus::OwnedFd>()?.into())
     }
 
     /// Resolves once the desktop closes the session, as when the person at the computer ends it.
     pub(super) async fn closing(&self) -> Result<MessageStream, Problem> {
         let rule = MatchRule::builder()
             .msg_type(MessageType::Signal)
-            .interface(SESSION)?
-            .member("Closed")?
-            .path(self.session.as_ref())?
-            .build();
-        Ok(MessageStream::for_match_rule(rule, &self.bus, Some(1)).await?)
+            .interface(SESSION)
+            .member("Closed")
+            .path(self.session.as_ref())
+            .build()?;
+        Ok(MessageStream::for_match_rule(rule, &self.bus, Some(NonZeroUsize::MIN)).await?)
     }
 }
 
@@ -458,17 +451,17 @@ async fn close(bus: &Connection, session: &ObjectPath<'_>) {
 }
 
 #[derive(Debug, Default, DeserializeDict, Type)]
-#[zvariant(signature = "a{sv}", crate = "zbus::zvariant")]
+#[zbus(signature = "a{sv}")]
 struct Created {
     session_handle: Option<String>,
 }
 
 #[derive(Debug, Default, DeserializeDict, Type)]
-#[zvariant(signature = "a{sv}", crate = "zbus::zvariant")]
+#[zbus(signature = "a{sv}")]
 struct Answer {}
 
 #[derive(Debug, Default, DeserializeDict, Type)]
-#[zvariant(signature = "a{sv}", crate = "zbus::zvariant")]
+#[zbus(signature = "a{sv}")]
 struct Started {
     devices: Option<u32>,
     clipboard_enabled: Option<bool>,
@@ -477,7 +470,7 @@ struct Started {
 }
 
 #[derive(Debug, Default, DeserializeDict, Type)]
-#[zvariant(signature = "a{sv}", crate = "zbus::zvariant")]
+#[zbus(signature = "a{sv}")]
 struct Stream {
     position: Option<(i32, i32)>,
     size: Option<(i32, i32)>,
@@ -510,16 +503,16 @@ fn handle() -> String {
     )
 }
 
-fn options() -> HashMap<&'static str, Value<'static>> {
+fn options() -> HashMap<&'static str, Variant<'static>> {
     HashMap::new()
 }
 
 fn with_handle<'v>(
     token: &str,
-    entries: impl IntoIterator<Item = (&'static str, Value<'v>)>,
-) -> HashMap<&'static str, Value<'v>> {
-    let mut options: HashMap<&'static str, Value<'v>> = entries.into_iter().collect();
-    options.insert("handle_token", Value::from(token.to_owned()));
+    entries: impl IntoIterator<Item = (&'static str, Variant<'v>)>,
+) -> HashMap<&'static str, Variant<'v>> {
+    let mut options: HashMap<&'static str, Variant<'v>> = entries.into_iter().collect();
+    options.insert("handle_token", Variant::from(token.to_owned()));
     options
 }
 

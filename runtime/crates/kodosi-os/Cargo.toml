@@ -28,8 +28,10 @@ trash = "5.4.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 keyring-core = "1.0.1"
-zbus = "5.19.0"
+zbus = { version = "6.5.0", default-features = false, features = ["proxy", "tokio"] }
 zbus-secret-service-keyring-store = { version = "1.0.1", features = ["crypto-rust"] }
+# The keyring store still talks through zbus 5, whose errors say when the Secret Service refused a key.
+zbus5 = { package = "zbus", version = "5.19.0", default-features = false }
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = { workspace = true }

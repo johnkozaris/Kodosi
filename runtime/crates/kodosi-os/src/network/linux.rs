@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs, net::Ipv4Addr, path::Path};
 
-use zbus::zvariant::{OwnedObjectPath, OwnedValue};
+use zbus::{Connection, OwnedObjectPath, OwnedVariant};
 
 use super::{Hardware, Link, Medium, Wakes, hardware, unix};
 use crate::bus;
@@ -69,75 +69,90 @@ pub(super) const fn fast_startup() -> bool {
 /// The Wake-on-LAN flags of the connection that `NetworkManager` runs on each card. It sets them on
 /// the card each time it connects it, and any user may read them.
 fn network_manager(cards: Vec<String>) -> HashMap<String, u32> {
-    bus::ask_system(move |bus| {
-        let property = |path: &OwnedObjectPath, interface: &str, name: &str| {
-            let value: OwnedValue = bus
-                .call_method(
-                    Some(MANAGER),
-                    path,
-                    Some(PROPERTIES),
-                    "Get",
-                    &(interface, name),
-                )
-                .ok()?
-                .body()
-                .deserialize()
-                .ok()?;
-            OwnedObjectPath::try_from(value).ok()
-        };
-        let flags = |card: &str| {
-            let device: OwnedObjectPath = bus
-                .call_method(
-                    Some(MANAGER),
-                    MANAGER_PATH,
-                    Some(MANAGER),
-                    "GetDeviceByIpIface",
-                    &card,
-                )
-                .ok()?
-                .body()
-                .deserialize()
-                .ok()?;
-            let active = property(
-                &device,
-                "org.freedesktop.NetworkManager.Device",
-                "ActiveConnection",
-            )?;
-            let settings = property(
-                &active,
-                "org.freedesktop.NetworkManager.Connection.Active",
-                "Connection",
-            )?;
-            let mut all: HashMap<String, HashMap<String, OwnedValue>> = bus
-                .call_method(
-                    Some(MANAGER),
-                    &settings,
-                    Some("org.freedesktop.NetworkManager.Settings.Connection"),
-                    "GetSettings",
-                    &(),
-                )
-                .ok()?
-                .body()
-                .deserialize()
-                .ok()?;
-            Some(
-                all.remove("802-3-ethernet")
-                    .and_then(|wired| {
-                        wired
-                            .get("wake-on-lan")
-                            .and_then(|flags| u32::try_from(flags).ok())
-                    })
-                    .unwrap_or(WAKE_DEFAULT),
-            )
-        };
-        Some(
-            cards
-                .into_iter()
-                .filter_map(|card| Some((card.clone(), flags(&card)?)))
-                .collect(),
-        )
+    bus::ask_system(async move |bus| {
+        let mut managed = HashMap::new();
+        for card in cards {
+            if let Some(flags) = wake_flags(bus, &card).await {
+                managed.insert(card, flags);
+            }
+        }
+        Some(managed)
     })
     .unwrap_or_default()
+}
+
+async fn wake_flags(bus: &Connection, card: &str) -> Option<u32> {
+    let device: OwnedObjectPath = bus
+        .call_method(
+            Some(MANAGER),
+            MANAGER_PATH,
+            Some(MANAGER),
+            "GetDeviceByIpIface",
+            &card,
+        )
+        .await
+        .ok()?
+        .body()
+        .deserialize()
+        .ok()?;
+    let active = path_property(
+        bus,
+        &device,
+        "org.freedesktop.NetworkManager.Device",
+        "ActiveConnection",
+    )
+    .await?;
+    let settings = path_property(
+        bus,
+        &active,
+        "org.freedesktop.NetworkManager.Connection.Active",
+        "Connection",
+    )
+    .await?;
+    let mut all: HashMap<String, HashMap<String, OwnedVariant>> = bus
+        .call_method(
+            Some(MANAGER),
+            &settings,
+            Some("org.freedesktop.NetworkManager.Settings.Connection"),
+            "GetSettings",
+            &(),
+        )
+        .await
+        .ok()?
+        .body()
+        .deserialize()
+        .ok()?;
+    Some(
+        all.remove("802-3-ethernet")
+            .and_then(|wired| {
+                wired
+                    .get("wake-on-lan")
+                    .and_then(|flags| u32::try_from(flags).ok())
+            })
+            .unwrap_or(WAKE_DEFAULT),
+    )
+}
+
+async fn path_property(
+    bus: &Connection,
+    path: &OwnedObjectPath,
+    interface: &str,
+    name: &str,
+) -> Option<OwnedObjectPath> {
+    let value: OwnedVariant = bus
+        .call_method(
+            Some(MANAGER),
+            path,
+            Some(PROPERTIES),
+            "Get",
+            &(interface, name),
+        )
+        .await
+        .ok()?
+        .body()
+        .deserialize()
+        .ok()?;
+    OwnedObjectPath::try_from(value).ok()
 }
 
 /// What the flags of `NetworkManager` say about a magic packet. It leaves the card as its driver set

@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use futures_util::StreamExt as _;
 use screen::link::Away;
 use tokio::{sync::mpsc, task::JoinHandle};
-use zbus::{Connection, Proxy, connection::Builder, zvariant::OwnedObjectPath};
+use zbus::{Connection, OwnedObjectPath, Proxy, connection::Builder};
 
 use super::{portal::CALL_LIMIT, session::Event};
 
@@ -115,8 +115,8 @@ fn note(seen: &Mutex<Seen>, change: impl FnOnce(&mut Seen)) {
     change(&mut seen.lock().unwrap_or_else(PoisonError::into_inner));
 }
 
-async fn connect(bus: zbus::Result<Builder<'static>>) -> Option<Connection> {
-    bus.ok()?.method_timeout(CALL_LIMIT).build().await.ok()
+async fn connect(bus: Builder<'static>) -> Option<Connection> {
+    bus.method_timeout(CALL_LIMIT).build().await.ok()
 }
 
 async fn login_session() -> Option<Proxy<'static>> {
