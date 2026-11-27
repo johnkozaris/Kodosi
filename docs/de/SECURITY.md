@@ -97,22 +97,22 @@ Wenn du in den Kodosi-Einstellungen eines Computers das Teilen des Bildschirms e
 jedes deiner freigegebenen Geräte den ganzen Bildschirm dieses Computers sehen und steuern, nicht
 nur seine Terminals, und zwar im Canvas seiner Terminals. Freunde sehen ihn nie, auch nicht in einem
 Terminal, das du mit ihnen teilst, und Video, Eingaben und der Text der Zwischenablage werden
-Ende-zu-Ende-verschlüsselt übertragen wie die Terminals selbst. Kodosi Screen, ein Helfer von
-Kodosi, übernimmt die Aufnahme und die Eingaben. Auf einem Mac hat Kodosi Screen die Berechtigungen
-für Bildschirmaufnahme und Bedienungshilfen, die das braucht, damit die Programme in deinen
-Terminals sie nicht bekommen. Unter Linux erlaubt der Desktop Kodosi das Teilen über sein Portal zur
+Ende-zu-Ende-verschlüsselt übertragen wie die Terminals selbst. Ein separater Teil von Kodosi
+übernimmt die Aufnahme und die Eingaben. Auf einem Mac hat dieser Teil die Berechtigungen für
+Bildschirmaufnahme und Bedienungshilfen, die das braucht, damit die Programme in deinen Terminals
+sie nicht bekommen. Unter Linux erlaubt der Desktop Kodosi das Teilen über sein Portal zur
 Bildschirmfreigabe und zeigt einen eigenen Hinweis an, während der Bildschirm geteilt wird. Solange
 jemand zusieht, zeigt die Menüleiste oder der Infobereich des Computers, welche Geräte zusehen. Wenn
 du das Teilen ausschaltest oder dort auf **Teilen beenden** klickst, endet jede Ansicht.
 
-Auf einem Mac fragt Kodosi Screen außerdem die Person am Mac in einer eigenen Meldung, bevor es ein
-Konto bedient: einmal für jedes Konto, wenn das Teilen eingeschaltet wird. Kein Programm kann diese
-Meldung erscheinen lassen; das kann nur dein eigener Klick auf den Schalter in Kodosi. Die Meldung
-nennt das Konto und seinen Server, wenn es nicht der von Kodosi ist. Ein Programm auf dem Mac, das
-ein eigenes Kodosi mit einem anderen Konto startet, bekommt also nichts, solange die Person dort
-dieses Konto nicht erlaubt. Nur Kodosi Screen kann die Antworten lesen oder ändern, sie bleiben auf
-diesem Mac, und wenn du das Teilen ausschaltest oder auf **Teilen beenden** klickst, nimmt das alle
-zurück.
+Auf einem Mac fragt dieser Teil von Kodosi außerdem die Person am Mac in einer eigenen Meldung,
+bevor er ein Konto bedient: einmal für jedes Konto, wenn das Teilen eingeschaltet wird. Kein
+Programm kann diese Meldung erscheinen lassen; das kann nur dein eigener Klick auf den Schalter in
+Kodosi. Die Meldung nennt das Konto und seinen Server, wenn es nicht der von Kodosi ist. Ein
+Programm auf dem Mac, das ein eigenes Kodosi mit einem anderen Konto startet, bekommt also nichts,
+solange die Person dort dieses Konto nicht erlaubt. Nur dieser Teil von Kodosi kann die Antworten
+lesen oder ändern, sie bleiben auf diesem Mac, und wenn du das Teilen ausschaltest oder auf **Teilen
+beenden** klickst, nimmt das alle zurück.
 
 Während ein Gerät den Bildschirm steuert, geht auf dem Computer kopierter Text an dieses Gerät, und
 wenn du auf dem Gerät einfügst, bekommt der Computer den Text dieses Geräts. Text, den ein

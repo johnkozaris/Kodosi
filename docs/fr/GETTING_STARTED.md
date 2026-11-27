@@ -267,10 +267,10 @@ Dès que le canvas contient un élément, l'en-tête du terminal ajoute les bout
   partage sur cet ordinateur : sur un Mac, **Permettre à mes autres appareils de voir et contrôler
   ce Mac** dans **Réglages › Général** ; sous Linux et Windows, **Permettre à mes autres appareils
   de voir et contrôler cet ordinateur** dans **Réglages › Compte**.
-  - Sur un Mac, macOS vous demande alors de laisser Kodosi Screen, une partie de Kodosi, enregistrer
-    et contrôler l'écran. Seul Kodosi Screen obtient ces autorisations, donc les programmes de vos
-    terminaux ne les obtiennent pas. Si macOS ne vous le demande pas, **Autoriser…** dans ces mêmes
-    réglages indique où les activer.
+  - Sur un Mac, macOS vous demande alors de laisser Kodosi enregistrer et contrôler l'écran. Seule
+    une partie distincte de Kodosi obtient ces autorisations, donc les programmes de vos terminaux
+    ne les obtiennent pas. Si macOS ne vous le demande pas, **Autoriser…** dans ces mêmes réglages
+    indique où les activer.
   - Sous Linux, le partage fonctionne avec KDE Plasma 6 et GNOME sous Wayland. Sous KDE, il suffit
     d'activer le partage ; GNOME demande une seule fois si Kodosi peut partager l'écran et retient
     votre réponse.

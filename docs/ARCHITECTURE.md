@@ -286,8 +286,9 @@ an isolated, ephemeral profile tied to the terminal's lifetime.
 
 [screen/](../screen/) is a standalone library with no Kodosi imports. Kodosi Screen, a helper
 program, captures the screen and plays viewers' input, and the host links to it with the same
-messages on every system. On a Mac it is an app inside Kodosi's bundle that the host opens through
-Launch Services, so that macOS grants Screen Recording and Accessibility to it alone and the
+messages on every system. People see it only under the name Kodosi, also in the permission
+questions and lists of macOS. On a Mac it is an app inside Kodosi's bundle that the host opens
+through Launch Services, so that macOS grants Screen Recording and Accessibility to it alone and the
 programs in terminals, which inherit Kodosi's permissions, do not get them. The host and the helper
 link only with a program signed by their own team, which the kernel names on each Mach message of
 the handover, so a program in a terminal that starts the helper or asks for the host's link gets

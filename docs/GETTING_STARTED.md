@@ -234,9 +234,9 @@ copper dot whenever something is new:
   computer: **Let my other devices see and control this Mac** in **Settings › General** on a Mac,
   or **Let my other devices see and control this computer** in **Settings › Account** on Linux and
   Windows.
-  - On a Mac, macOS then asks you to let Kodosi Screen, a part of Kodosi, record and control the
-    screen. Kodosi Screen alone holds these permissions, so the programs in your terminals don't
-    get them. If macOS doesn't ask, **Allow…** in the same settings shows where to turn them on.
+  - On a Mac, macOS then asks you to let Kodosi record and control the screen. A separate part of
+    Kodosi alone holds these permissions, so the programs in your terminals don't get them. If
+    macOS doesn't ask, **Allow…** in the same settings shows where to turn them on.
   - On Linux, sharing works with KDE Plasma 6 and GNOME on Wayland. On KDE, turning sharing on is
     all it takes; GNOME asks once whether Kodosi may share the screen and remembers your answer.
   - Windows needs no permission. Kodosi can't control programs that run as administrator, and

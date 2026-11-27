@@ -258,10 +258,10 @@ En cuanto el lienzo tiene contenido, la cabecera del terminal añade los botones
   compartir en ese ordenador: en un Mac, **Dejar que mis otros dispositivos vean y controlen este
   Mac** en **Ajustes › General**, y en Linux y Windows, **Dejar que mis otros dispositivos vean y
   controlen este ordenador** en **Ajustes › Cuenta**.
-  - En un Mac, macOS te pide entonces que dejes que Kodosi Screen, una parte de Kodosi, grabe y
-    controle la pantalla. Solo Kodosi Screen tiene estos permisos, así que los programas de tus
-    terminales no los reciben. Si macOS no te lo pide, **Permitir…** en los mismos ajustes te
-    muestra dónde activarlos.
+  - En un Mac, macOS te pide entonces que dejes que Kodosi grabe y controle la pantalla. Solo una
+    parte independiente de Kodosi tiene estos permisos, así que los programas de tus terminales no
+    los reciben. Si macOS no te lo pide, **Permitir…** en los mismos ajustes te muestra dónde
+    activarlos.
   - En Linux, compartir funciona con KDE Plasma 6 y GNOME en Wayland. En KDE basta con activar la
     función de compartir; GNOME pregunta una vez si Kodosi puede compartir la pantalla y recuerda tu
     respuesta.

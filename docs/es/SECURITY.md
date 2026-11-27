@@ -98,21 +98,21 @@ Si activas compartir la pantalla en los ajustes de Kodosi de un ordenador, cada 
 dispositivos aprobados puede ver y controlar toda la pantalla de ese ordenador, no solo sus
 terminales, desde el lienzo de sus terminales. Tus amigos nunca la ven, ni siquiera en un terminal
 que compartes con ellos, y el vídeo, la entrada y el texto del portapapeles viajan cifrados de
-extremo a extremo como los propios terminales. Kodosi Screen, un ayudante de Kodosi, se encarga de
-la captura y de la entrada. En un Mac tiene los permisos de grabación de pantalla y de accesibilidad
+extremo a extremo como los propios terminales. Una parte independiente de Kodosi se encarga de la
+captura y de la entrada. En un Mac tiene los permisos de grabación de pantalla y de accesibilidad
 que esto necesita, así que los programas de tus terminales no los obtienen. En Linux, el escritorio
 autoriza a Kodosi a compartir la pantalla mediante su portal de pantalla compartida y muestra su
 propio aviso cuando la pantalla se está compartiendo. Mientras alguien mira, la barra de menús o la
 bandeja del sistema del ordenador indica qué dispositivos están mirando; desactivar la función, o
 pulsar **Dejar de compartir** allí, termina todas las vistas.
 
-En un Mac, Kodosi Screen además pregunta a quien está frente al Mac, en un aviso propio, antes de
-atender una cuenta: una vez por cada cuenta, cuando se activa la función. Ningún programa puede
-hacer que aparezca este aviso; solo puede hacerlo tu propio clic en el interruptor de Kodosi. El
-aviso nombra la cuenta, y su servidor cuando no es el de Kodosi, así que un programa del Mac que
+En un Mac, esta parte de Kodosi además pregunta a quien está frente al Mac, en un aviso propio,
+antes de atender una cuenta: una vez por cada cuenta, cuando se activa la función. Ningún programa
+puede hacer que aparezca este aviso; solo puede hacerlo tu propio clic en el interruptor de Kodosi.
+El aviso nombra la cuenta, y su servidor cuando no es el de Kodosi, así que un programa del Mac que
 inicie su propio Kodosi con otra cuenta no obtiene nada salvo que esa persona permita esa cuenta.
-Solo Kodosi Screen puede leer o cambiar las respuestas, que se quedan en ese Mac, y desactivar la
-función, o pulsar **Dejar de compartir**, las retira todas.
+Solo esta parte de Kodosi puede leer o cambiar las respuestas, que se quedan en ese Mac, y
+desactivar la función, o pulsar **Dejar de compartir**, las retira todas.
 
 Mientras un dispositivo controla la pantalla, el texto que se copia en el ordenador va a ese
 dispositivo, y al pegar en él, el ordenador recibe el texto de ese dispositivo. El texto que un
