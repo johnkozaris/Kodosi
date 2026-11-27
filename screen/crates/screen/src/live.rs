@@ -9,7 +9,7 @@ use std::{
 use bytes::Bytes;
 use stream::{
     Ask, Codec, Decoder, Encoded, Flow, Format, Pacer, Region, Size, Viewing,
-    viewer::{Frame, Input, KeyAction, MouseAction, MouseButton, Viewer},
+    viewer::{self, Frame, Input, KeyAction, MouseAction, MouseButton, Viewer},
 };
 use tokio::{
     io::AsyncWriteExt as _,
@@ -600,6 +600,11 @@ impl Live {
             self.changed_watchers();
         }
         let seats = &self.seats;
+        for viewer in self.flow.unchanged(now, |viewer| queued(seats, viewer)) {
+            if let Some(seat) = seats.get(&viewer) {
+                drop(seat.outgoing.try_send(viewer::unchanged()));
+            }
+        }
         if self.capture.is_some()
             && let Some(ask) = self.flow.ask(now, |viewer| queued(seats, viewer))
         {
