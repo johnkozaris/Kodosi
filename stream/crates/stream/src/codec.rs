@@ -44,7 +44,6 @@ pub struct Decoder {
 pub struct Format {
     pub codec: Codec,
     /// Long-term references that let a viewer recover from an anchor instead of a keyframe.
-    /// Some hardware decoders freeze on them, so only viewers that declare support get them.
     pub anchors: bool,
 }
 
@@ -60,6 +59,7 @@ impl Default for Format {
 #[derive(Debug, Clone, Copy)]
 pub struct Viewing<'a> {
     pub decoders: &'a [Decoder],
+    /// The viewer's hardware decoder takes HEVC anchors.
     pub anchors: bool,
 }
 
@@ -77,7 +77,7 @@ pub fn choose<'a>(encodable: &[Codec], viewers: impl IntoIterator<Item = Viewing
     }
     Format {
         codec: if hevc { Codec::Hevc } else { Codec::H264 },
-        anchors,
+        anchors: hevc && anchors,
     }
 }
 
@@ -122,14 +122,17 @@ mod tests {
 
     #[test]
     fn anchors_need_every_viewer() {
+        let both = [Codec::H264, Codec::Hevc];
         let apple = [H264, HEVC];
-        assert!(choose(&[Codec::H264], [viewing(&apple, true)]).anchors);
-        assert!(
-            !choose(
-                &[Codec::H264],
-                [viewing(&apple, true), viewing(&[H264], false)]
-            )
-            .anchors
-        );
+        assert!(choose(&both, [viewing(&apple, true)]).anchors);
+        assert!(!choose(&both, [viewing(&apple, true), viewing(&apple, false)]).anchors);
+    }
+
+    #[test]
+    fn an_h264_stream_has_no_anchors_when_every_viewer_takes_them() {
+        let both = [Codec::H264, Codec::Hevc];
+        let apple = [H264, HEVC];
+        assert!(!choose(&[Codec::H264], [viewing(&apple, true)]).anchors);
+        assert!(!choose(&both, [viewing(&apple, true), viewing(&[H264], true)]).anchors);
     }
 }

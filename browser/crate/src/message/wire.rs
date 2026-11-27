@@ -16,7 +16,7 @@ use super::State;
 pub(crate) enum ToWindow {
     /// Initial handshake from a viewer:
     /// - `decoders`: the codecs the viewer decodes, and which of them in hardware.
-    /// - `anchors`: decoder supports anchor-frame recovery after dropped frames.
+    /// - `anchors`: the viewer's hardware decoder takes HEVC anchors.
     /// - `opened`: user explicitly opened the view (false on reconnect or visibility resume).
     /// - `layer`: client can host the Core Animation layer instead of video when local.
     Watch {

@@ -10,8 +10,6 @@ use std::{
 
 pub use stream::{Codec, Encoded, Format, FrameKind, Pace, Region};
 
-#[cfg(any(target_os = "macos", target_os = "linux"))]
-mod nal;
 #[cfg(not(target_os = "macos"))]
 mod openh264;
 #[cfg(not(target_os = "macos"))]

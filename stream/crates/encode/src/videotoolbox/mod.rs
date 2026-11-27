@@ -5,7 +5,6 @@
 
 mod convert;
 mod session;
-mod sps;
 
 use std::{
     collections::VecDeque,
@@ -346,7 +345,6 @@ impl Encoder {
         self.gate.change(|slot| {
             slot.format = format;
             slot.repair = Repair::Key;
-            slot.held.clear();
         });
     }
 }
@@ -760,7 +758,7 @@ mod tests {
     #[test]
     fn a_viewer_that_missed_frames_recovers_at_once_from_an_anchor_on_a_held_mark() {
         let format = Format {
-            codec: Codec::H264,
+            codec: Codec::Hevc,
             anchors: true,
         };
         let (frames, mut encoder) = start(format, 4_000_000);
