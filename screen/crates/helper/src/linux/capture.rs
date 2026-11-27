@@ -323,8 +323,9 @@ struct Format {
     height: u32,
     /// Red comes before blue, which the encoder takes the other way round.
     red_first: bool,
-    /// How the pixels of a frame in the GPU's memory lie there.
-    modifier: u64,
+    /// The stream states that frames in the GPU's memory lie there in rows one after the other,
+    /// the only layout that the encoder reads there.
+    linear: bool,
 }
 
 /// The frames of one stream, and what the helper draws of them for the encoder.
@@ -410,7 +411,7 @@ impl Drawing {
             width: size.width,
             height: size.height,
             red_first,
-            modifier: info.modifier(),
+            linear: modifier(param, &info) == Some(LINEAR),
         });
         self.fresh = true;
         drop(self.events.send(Event::Sized {
@@ -686,10 +687,10 @@ impl Lent<'_> {
             })
     }
 
-    /// The frame in the GPU's memory, when it is there.
+    /// The frame in the GPU's memory, when it is there in the layout that the stream states.
     fn dmabuf(&self, format: Format) -> Option<Dmabuf<'_>> {
         let data = self.data()?;
-        if data.type_ != spa_sys::SPA_DATA_DmaBuf {
+        if data.type_ != spa_sys::SPA_DATA_DmaBuf || !format.linear {
             return None;
         }
         let chunk = self.chunk()?;
@@ -701,7 +702,7 @@ impl Lent<'_> {
             height: format.height,
             offset: chunk.offset,
             pitch: u32::try_from(chunk.stride).ok()?,
-            modifier: format.modifier,
+            modifier: LINEAR,
             red_first: format.red_first,
         })
     }
@@ -1087,6 +1088,18 @@ fn format(modifier: Option<u64>) -> Option<Vec<u8>> {
     serialize(object)
 }
 
+/// The modifier that a negotiated format states for frames in the GPU's memory, as `info` read
+/// it from the format. A format without one leaves their layout to the compositor and the
+/// driver, which the encoder cannot know. Compositors state it as a choice of one value, which
+/// `info` reads as well as a plain value.
+fn modifier(format: &Pod, info: &VideoInfoRaw) -> Option<u64> {
+    format
+        .as_object()
+        .ok()?
+        .find_prop(Id(spa_sys::SPA_FORMAT_VIDEO_modifier))?;
+    Some(info.modifier())
+}
+
 /// The metadata that the helper reads: the header, the changed rectangles and the pointer.
 fn metas() -> Vec<Vec<u8>> {
     let cursor = |side: i32| {
@@ -1231,5 +1244,52 @@ impl Output for Sent {
 
     fn failed(&self, problem: String) {
         drop(self.events.send(Event::Failed(problem)));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A negotiated format, with the modifier property when one is given.
+    fn negotiated(modifier: Option<Value>) -> Vec<u8> {
+        let mut object = spa::pod::object!(
+            SpaTypes::ObjectParamFormat,
+            ParamType::Format,
+            spa::pod::property!(FormatProperties::MediaType, Id, MediaType::Video),
+            spa::pod::property!(FormatProperties::MediaSubtype, Id, MediaSubtype::Raw),
+            spa::pod::property!(FormatProperties::VideoFormat, Id, VideoFormat::BGRx),
+        );
+        if let Some(value) = modifier {
+            object.properties.push(Property {
+                key: FormatProperties::VideoModifier.as_raw(),
+                flags: PropertyFlags::empty(),
+                value,
+            });
+        }
+        serialize(object).unwrap()
+    }
+
+    fn stated(modifier: Option<Value>) -> Option<u64> {
+        let format = negotiated(modifier);
+        let format = Pod::from_bytes(&format).unwrap();
+        let mut info = VideoInfoRaw::new();
+        info.parse(format).unwrap();
+        super::modifier(format, &info)
+    }
+
+    #[test]
+    fn only_a_layout_that_the_stream_states_reaches_the_gpu() {
+        let fixed = |modifier| {
+            Value::Choice(ChoiceValue::Long(Choice(
+                ChoiceFlags::empty(),
+                ChoiceEnum::None(modifier),
+            )))
+        };
+        assert_eq!(stated(Some(fixed(0))), Some(LINEAR));
+        assert_eq!(stated(Some(Value::Long(0))), Some(LINEAR));
+        assert_eq!(stated(None), None);
+        let x_tiled = 0x0100_0000_0000_0001;
+        assert_eq!(stated(Some(fixed(x_tiled))), Some(x_tiled.cast_unsigned()));
     }
 }
