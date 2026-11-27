@@ -10,7 +10,9 @@ const VERSION = 1
 // consecutive empty responses returning faster than QUICK_MS indicate a dead connection.
 const QUICK_MS = 200
 const FAILURES = 3
-const HISTORY = 120
+// The messages of the conversation that a chat gets when it links: enough to fill the window of
+// items that the chat keeps, also after a restart of Kodosi or of Claude Code.
+const HISTORY = 1000
 const HISTORY_PART = 20
 const ASKED = 64
 const COMMAND_WORDS = 160

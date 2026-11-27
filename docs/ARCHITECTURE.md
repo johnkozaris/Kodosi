@@ -208,6 +208,10 @@ The host turns these reports into structured chat state: user messages, agent re
 pending questions, the agent's task list, and session metadata. Replies, answers, and stops flow
 back over the same channel.
 
+The host keeps no copy of a conversation. When a chat links to its agent, as after the agent or the
+host starts again, the agent's extension or server reads the earlier messages back out of the
+agent's own record, so a view that opens again and every other device get the same chat.
+
 A message waits in the host's queue only until the agent's interface takes it. Codex and Copilot
 CLI take it into the running turn and read it before their next step. Claude Code takes a plugin's
 prompt into its own queue while it works, which its terminal shows, and gives the queued prompts to

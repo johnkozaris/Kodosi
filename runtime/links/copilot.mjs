@@ -9,7 +9,9 @@ const VERSION = 1
 // consecutive empty responses returning faster than QUICK_MS indicate a dead connection.
 const QUICK_MS = 200
 const FAILURES = 3
-const HISTORY = 400
+// The events of the session that a chat gets when it links: enough to fill the window of items
+// that the chat keeps, also after a restart of Kodosi or of Copilot.
+const HISTORY = 1000
 const HISTORY_PART = 40
 // Keep batches under the host's 8 MiB limit (each UTF-16 code unit in JS
 // string length can expand to up to 3 UTF-8 bytes).
@@ -218,17 +220,19 @@ async function hello(early) {
   } catch (error) {
     facts.context = undefined
   }
-  let earlier = []
+  let saved = []
   try {
-    earlier = (await session.getEvents()).map(shaped).filter(Boolean).slice(-HISTORY)
+    saved = (await session.getEvents()).map(shaped).filter(Boolean)
   } catch (error) {
-    earlier = []
+    saved = []
   }
+  // A finished message holds its whole text, so the history leaves out the pieces it came in.
+  const earlier = saved.filter(event => event.type !== 'assistant.message_delta').slice(-HISTORY)
   tell('hello', facts)
   for (let at = 0; at < earlier.length; at += HISTORY_PART) {
     tell('history', { events: earlier.slice(at, at + HISTORY_PART), more: at + HISTORY_PART < earlier.length })
   }
-  const known = new Set(earlier.map(event => event.id))
+  const known = new Set(saved.map(event => event.id))
   for (const event of early.splice(0)) if (!known.has(event.id)) tell('event', event)
   await readTasks()
   await readQuota()
