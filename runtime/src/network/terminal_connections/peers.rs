@@ -225,15 +225,9 @@ impl Media {
         })
     }
 
-    /// Sends a datagram unless that would push out earlier ones that still wait.
-    #[cfg(feature = "host")]
-    pub(super) fn send(&self, datagram: Bytes) -> bool {
-        self.0.connection.datagram_send_buffer_space() >= datagram.len()
-            && self.0.connection.send_datagram(datagram).is_ok()
-    }
-
-    /// Sends a datagram once the connection has room for it, and returns false when the
-    /// connection takes no datagrams any more. Dropped before then, it sent nothing.
+    /// Sends a datagram once the connection has room for it without pushing out earlier ones
+    /// that wait, and returns false when the connection takes no datagrams any more. Dropped
+    /// before then, it sent nothing.
     #[cfg(feature = "host")]
     pub(super) async fn send_when_room(&self, datagram: Bytes) -> bool {
         match self.0.connection.send_datagram_wait(datagram).await {

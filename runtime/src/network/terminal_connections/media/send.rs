@@ -11,6 +11,7 @@ use std::{
 };
 
 use bytes::Bytes;
+use futures_util::FutureExt as _;
 use serde::Serialize;
 use stream::{media, viewer};
 use tokio::{sync::mpsc, time::Instant};
@@ -139,14 +140,17 @@ async fn send_frames(
     loop {
         let now = Instant::now();
         // The connection's queue takes shards while it has room; the next one waits for room.
+        // `datagram_send_buffer_space` counts one datagram's overhead for all that wait, so only
+        // the send itself tells whether one more fits without pushing out another.
         let waiting = loop {
             let Some(shard) = packer.next(now.into_std()) else {
                 break None;
             };
-            if !media.send(shard.clone()) {
-                break Some(shard);
+            match media.send_when_room(shard.clone()).now_or_never() {
+                Some(true) => packer.sent(now.into_std()),
+                Some(false) => return,
+                None => break Some(shard),
             }
-            packer.sent(now.into_std());
         };
         // A still picture leaves only the rate to tell.
         let wake = packer.wake().map_or(now + RATE_EVERY, |at| {
@@ -155,6 +159,7 @@ async fn send_frames(
         tokio::select! {
             frame = frames.recv() => {
                 let Some(frame) = frame else { return };
+                let now = Instant::now();
                 if let Some(last) = last_frame.replace(now) {
                     period = now.saturating_duration_since(last).min(LONGEST_PERIOD);
                 }
@@ -165,6 +170,7 @@ async fn send_frames(
             }
             report = reports.recv() => {
                 let Some(report) = report else { return };
+                let now = Instant::now();
                 ready.store(true, Ordering::Release);
                 packer.report(&report, now.into_std(), media.rtt());
             }

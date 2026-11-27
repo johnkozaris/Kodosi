@@ -532,10 +532,9 @@ async fn a_frame_that_the_flow_has_no_room_for_is_told_lost_to_the_stream() {
         assert!(flow.take(frame(id)).is_ok());
     }
     let mut lost = Vec::new();
-    while let Ok(Some(message)) =
-        tokio::time::timeout(Duration::from_millis(500), heard.recv()).await
-    {
-        if let Some(said) = stream::viewer::from_json::<serde_json::Value>(&message)
+    let heard_until = tokio::time::Instant::now() + Duration::from_secs(1);
+    while let Ok(Some(message)) = tokio::time::timeout_at(heard_until, heard.recv()).await {
+        if let Some(said) = stream::viewer::from_json::<Value>(&message)
             && said["type"] == "lost"
         {
             lost.push(said["frame"].as_u64().unwrap());
