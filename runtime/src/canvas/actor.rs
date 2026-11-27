@@ -226,6 +226,13 @@ impl CanvasHandle {
         local: bool,
     ) -> Result<PipeEnds, Text> {
         if key == SCREEN_PIPE {
+            // Kodosi Screen holds permissions that the programs on this computer lack, and any of
+            // them can open a pipe here.
+            if local {
+                return Err(text!(
+                    "Only the other devices of this computer's owner watch its screen."
+                ));
+            }
             if self.state.borrow().screen.is_none() {
                 return Err(text!("This computer's screen is not on the canvas."));
             }
@@ -233,7 +240,7 @@ impl CanvasHandle {
                 id: view,
                 person,
                 name,
-                local,
+                local: false,
             };
             return self.screen.watch(viewer).await;
         }

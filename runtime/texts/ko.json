@@ -116,6 +116,7 @@
 "Only the computer that hosts a terminal can add it.": "터미널은 그 터미널을 호스팅하는 컴퓨터만 추가할 수 있어요.",
 "Only the computer that hosts this terminal can change it.": "이 터미널은 호스팅하는 컴퓨터만 바꿀 수 있어요.",
 "Only the devices of this computer's owner watch its screen.": "이 컴퓨터의 화면은 주인의 기기만 볼 수 있어요.",
+"Only the other devices of this computer's owner watch its screen.": "이 컴퓨터의 화면은 주인의 다른 기기만 볼 수 있어요.",
 "Only the owner can change this terminal.": "이 터미널은 소유자만 바꿀 수 있어요.",
 "Only the owner can share this terminal.": "이 터미널은 소유자만 공유할 수 있어요.",
 "Only your own devices can use this computer.": "이 컴퓨터는 내 기기만 사용할 수 있어요.",

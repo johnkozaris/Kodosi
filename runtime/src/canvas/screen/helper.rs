@@ -22,8 +22,7 @@ pub(super) struct Screens(screen::Screens);
 impl Screens {
     /// Kodosi Screen ships next to the host's program: in the Helpers folder of Kodosi's app on a
     /// Mac, beside the `kodosi` program elsewhere. `KODOSI_SCREEN_HELPER` names another one for
-    /// development. On a Mac its socket goes in the host's private IPC folder, since Unix socket
-    /// paths are short; on Linux it keeps what the desktop granted it in the data root.
+    /// development. On Linux it keeps what the desktop granted it in the data root.
     pub(super) fn new(
         data_root: &Path,
         stopped: impl Fn() + Send + Sync + 'static,
@@ -38,8 +37,6 @@ impl Screens {
                     helper.is_file()
                 }
             })?;
-        let sockets = kodosi_os::ipc::private_dir(&crate::local_host::namespace(data_root))
-            .map_or_else(|_| data_root.join("screen"), |folder| folder.join("screen"));
         let arguments = if cfg!(target_os = "linux") {
             vec!["--grant".into(), data_root.join("screen-grant.json").into()]
         } else {
@@ -47,7 +44,6 @@ impl Screens {
         };
         Some(Self(screen::Screens::new(screen::Settings {
             helper,
-            sockets,
             arguments,
             notice: Arc::new(|devices| {
                 let language = crate::text::language();

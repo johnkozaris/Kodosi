@@ -116,6 +116,7 @@
 "Only the computer that hosts a terminal can add it.": "Seul l'ordinateur qui héberge un terminal peut l'ajouter.",
 "Only the computer that hosts this terminal can change it.": "Seul l'ordinateur qui héberge ce terminal peut le modifier.",
 "Only the devices of this computer's owner watch its screen.": "Seuls les appareils du propriétaire de cet ordinateur voient son écran.",
+"Only the other devices of this computer's owner watch its screen.": "Seuls les autres appareils du propriétaire de cet ordinateur voient son écran.",
 "Only the owner can change this terminal.": "Seul le propriétaire peut modifier ce terminal.",
 "Only the owner can share this terminal.": "Seul le propriétaire peut partager ce terminal.",
 "Only your own devices can use this computer.": "Seuls vos propres appareils peuvent utiliser cet ordinateur.",

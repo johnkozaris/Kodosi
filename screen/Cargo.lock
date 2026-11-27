@@ -802,6 +802,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "objc2-security"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "709fe137109bd1e8b5a99390f77a7d8b2961dafc1a1c5db8f2e60329ad6d895a"
+dependencies = [
+ "bitflags",
+ "objc2-core-foundation",
+]
+
+[[package]]
 name = "objc2-video-toolbox"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1048,6 +1058,8 @@ version = "0.1.0"
 dependencies = [
  "bytes",
  "getrandom",
+ "objc2-core-foundation",
+ "objc2-security",
  "serde",
  "serde_json",
  "stream",

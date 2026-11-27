@@ -840,6 +840,28 @@ async fn only_a_device_of_the_owner_puts_this_computers_screen_on_the_canvas_or_
     session.close().await.expect("close");
 }
 
+#[tokio::test]
+async fn a_program_on_this_computer_never_watches_its_screen() {
+    let (session, _changes, _root) = shell("exec /bin/cat").await;
+    let opened = pipe(
+        &session.canvas,
+        &session.chat,
+        crate::canvas::SCREEN_PIPE,
+        Uuid::now_v7().to_string(),
+        Uuid::now_v7().to_string(),
+        "Ana".to_owned(),
+        true,
+    )
+    .await;
+    assert_eq!(
+        opened.err(),
+        Some(text!(
+            "Only the other devices of this computer's owner watch its screen."
+        ))
+    );
+    session.close().await.expect("close");
+}
+
 async fn next_status(changes: &mut mpsc::Receiver<SessionChange>) -> Option<ProgramStatus> {
     tokio::time::timeout(Duration::from_secs(5), async {
         loop {

@@ -116,6 +116,7 @@
 "Only the computer that hosts a terminal can add it.": "只有托管终端的电脑才能添加它。",
 "Only the computer that hosts this terminal can change it.": "只有托管此终端的电脑才能更改它。",
 "Only the devices of this computer's owner watch its screen.": "只有这台电脑主人的设备才能观看它的屏幕。",
+"Only the other devices of this computer's owner watch its screen.": "只有这台电脑主人的其他设备才能观看它的屏幕。",
 "Only the owner can change this terminal.": "只有所有者可以更改此终端。",
 "Only the owner can share this terminal.": "只有所有者可以共享此终端。",
 "Only your own devices can use this computer.": "只有你自己的设备才能使用这台电脑。",
