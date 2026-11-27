@@ -8,6 +8,7 @@ fi
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 : "${KODOSI_TEAM_ID:?Set KODOSI_TEAM_ID to the Apple Developer team identifier}"
 : "${KODOSI_PROVISIONING_PROFILE:?Set KODOSI_PROVISIONING_PROFILE to the name of the Developer ID provisioning profile}"
+: "${KODOSI_SCREEN_PROVISIONING_PROFILE:?Set KODOSI_SCREEN_PROVISIONING_PROFILE to the name of the Developer ID provisioning profile for com.kodosi.screen}"
 "$ROOT/../apple/scripts/verify-kodosi-checkout.sh"
 rm -rf "$1"
 xcodebuild -project "$ROOT/KodosiDesktop.xcodeproj" \
@@ -18,5 +19,6 @@ xcodebuild -project "$ROOT/KodosiDesktop.xcodeproj" \
            CODE_SIGN_STYLE=Manual \
            CODE_SIGN_IDENTITY="${KODOSI_SIGNING_IDENTITY:-Developer ID Application}" \
            KODOSI_PROVISIONING_PROFILE="$KODOSI_PROVISIONING_PROFILE" \
+           KODOSI_SCREEN_PROVISIONING_PROFILE="$KODOSI_SCREEN_PROVISIONING_PROFILE" \
            DEVELOPMENT_TEAM="$KODOSI_TEAM_ID" \
            archive
