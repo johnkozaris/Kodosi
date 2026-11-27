@@ -7,6 +7,13 @@
 //! clock drift remedy (section 4.5.1) does not apply: it would take a standing queue for a longer
 //! route. Classic ECN marks count as congestion; L4S marking needs per-acknowledgement mark counts
 //! that noq does not report.
+//!
+//! A screen sends a burst and is then still, and the draft is made for a source that sends all the
+//! time. While noq has nothing to send, the window does not grow and the round trip that the
+//! bitrate is published with falls only slowly, as in libwebrtc's `SCReAM` and the draft's section
+//! 6: a burst's acknowledgements come in as the queue that it built drains, and the window was
+//! measured against that queue, so a round trip that falls back at once would publish more than
+//! the path carried.
 
 use std::{
     any::Any,
@@ -64,6 +71,9 @@ const NORM_EVERY: Duration = Duration::from_millis(50);
 const NORM_KEPT: usize = 200;
 const NORM_AVERAGED: usize = 50;
 const SMALLEST_RTT: f64 = 0.001;
+/// The share of the way to the path's smoothed round trip that the published one moves down at
+/// each acknowledgement while the connection has nothing to send.
+const IDLE_RTT_GAIN: f64 = 1.0 / 128.0;
 
 /// Builds one controller for each path of each connection.
 #[derive(Debug, Default)]
@@ -125,7 +135,12 @@ struct Window {
     ref_wnd_i_update_time: Option<Instant>,
     ref_wnd_lowest: f64,
     ref_wnd_overhead: f64,
+    /// The round trip for the published bitrate and the reactions, from `path_rtt`, noq's
+    /// smoothed one, from its first sample on.
     s_rtt: f64,
+    path_rtt: Option<f64>,
+    /// noq had nothing to send when it last could.
+    idle: bool,
     base: VecDeque<(Instant, f64)>,
     qdelay: f64,
     qdelay_avg: f64,
@@ -167,6 +182,8 @@ impl Window {
             ref_wnd_lowest: ref_wnd,
             ref_wnd_overhead: REF_WND_OVERHEAD_MAX,
             s_rtt: 0.1,
+            path_rtt: None,
+            idle: false,
             base: VecDeque::new(),
             qdelay: 0.0,
             qdelay_avg: 0.0,
@@ -398,7 +415,8 @@ impl Window {
     }
 
     /// Grows the window by the bytes acknowledged without marks, more while no congestion has been
-    /// seen for a while and less near the last window that met congestion (draft section 4.2.2.2).
+    /// seen for a while and less near the last window that met congestion (draft section 4.2.2.2),
+    /// and not while the connection has nothing to send.
     fn grow(&mut self, now: Instant, scl: f64, latency_scale: f64) {
         let post_congestion = (Self::since(self.last_congestion_detected, now)
             / (POST_CONGESTION_DELAY_RTTS * VIRTUAL_RTT.max(self.s_rtt)))
@@ -420,7 +438,7 @@ impl Window {
             .max(self.max_bytes_in_flight_prev)
             .mul_add(BYTES_IN_FLIGHT_HEAD_ROOM, self.mss);
         let grown = self.ref_wnd + increment;
-        if grown <= allowed && self.target_bitrate < TARGET_BITRATE_MAX {
+        if grown <= allowed && self.target_bitrate < TARGET_BITRATE_MAX && !self.idle {
             self.ref_wnd = grown;
         }
         self.bytes_newly_acked = 0.0;
@@ -459,13 +477,30 @@ impl Window {
         #[expect(clippy::cast_precision_loss, reason = "packet sizes are small")]
         let bytes = bytes as f64;
         let round = now.saturating_duration_since(sent).as_secs_f64();
-        self.s_rtt = smoothed.as_secs_f64().max(SMALLEST_RTT);
+        let path_rtt = smoothed.as_secs_f64().max(SMALLEST_RTT);
+        if self.path_rtt.replace(path_rtt).is_none() {
+            self.s_rtt = path_rtt;
+        }
         self.sample_base(now, round);
         self.qdelay = (round - self.base_rtt().unwrap_or(round)).max(0.0);
         self.bytes_newly_acked += bytes;
         self.acked.push_back((now, bytes));
         let alpha = (LOSS_RATE_THRESHOLD / 4.0).min(self.mss / self.ref_wnd / 2.0);
         self.loss_rate *= 1.0 - alpha;
+    }
+
+    /// Follows the path's round trip, except that it falls only slowly while the connection has
+    /// nothing to send.
+    fn follow_rtt(&mut self) {
+        let Some(path) = self.path_rtt else {
+            return;
+        };
+        let gain = if self.idle && path < self.s_rtt {
+            IDLE_RTT_GAIN
+        } else {
+            1.0
+        };
+        self.s_rtt = (path - self.s_rtt).mul_add(gain, self.s_rtt);
     }
 
     fn turn_round(&mut self, now: Instant) {
@@ -500,9 +535,11 @@ impl Controller for Window {
         &mut self,
         now: Instant,
         in_flight: u64,
-        _app_limited: bool,
+        app_limited: bool,
         _largest_packet_num_acked: Option<u64>,
     ) {
+        self.idle = app_limited;
+        self.follow_rtt();
         self.bytes_in_flight_prev = self.bytes_in_flight;
         #[expect(clippy::cast_precision_loss, reason = "bytes in flight are small")]
         let in_flight = in_flight as f64;
@@ -634,6 +671,13 @@ mod tests {
         }
 
         fn run(&mut self, from: Duration, to: Duration) {
+            self.send(from, to, 1.0);
+        }
+
+        /// Sends at `factor` times the published bitrate, or nothing when it is 0, which noq
+        /// tells the controller as a connection with nothing to send.
+        fn send(&mut self, from: Duration, to: Duration, factor: f64) {
+            let idle = factor == 0.0;
             let mut at = from;
             while at < to {
                 let now = self.start + at;
@@ -647,10 +691,10 @@ mod tests {
                     self.window
                         .acked_packet(acked, sent, u64::from(MTU), smoothed);
                     let in_flight = (self.flying.len() * usize::from(MTU)) as u64;
-                    self.window.on_end_acks(acked, in_flight, false, None);
+                    self.window.on_end_acks(acked, in_flight, idle, None);
                 }
                 let rate = (bits(self.window.rates.carried()) / 1.2).max(500_000.0);
-                self.credit += rate * STEP.as_secs_f64() / 8.0;
+                self.credit += factor * rate * STEP.as_secs_f64() / 8.0;
                 let window = usize::try_from(self.window.window()).unwrap();
                 while self.credit >= f64::from(MTU)
                     && (self.flying.len() + 1) * usize::from(MTU) <= window
@@ -711,6 +755,36 @@ mod tests {
             "drains the queue: {:?}",
             path.queued_most
         );
+    }
+
+    /// A screen sends a frame of a few frame times of bitrate at once, paced at 1.5 times the
+    /// bitrate, and is then still until the next change. Its bursts are its only probes: the
+    /// published bitrate must not rise while it is still, nor settle above what the path carries.
+    #[test]
+    fn a_source_that_sends_in_bursts_publishes_no_more_than_the_path_carries() {
+        for (capacity, budgets) in [(3e6, 4.0), (8e6, 4.0), (8e6, 2.0), (20e6, 4.0)] {
+            let mut path = Path::new(capacity);
+            let mut rise: f64 = 1.0;
+            let (mut least, mut most) = (f64::MAX, 0.0f64);
+            for second in 0..30 {
+                let from = Duration::from_secs(second);
+                let burst = Duration::from_secs_f64(budgets / 60.0 / 1.5);
+                path.send(from, from + burst, 1.5);
+                let after_burst = bits(path.window.rates.carried()) / 1.2;
+                path.send(from + burst, from + Duration::from_secs(1), 0.0);
+                let still = bits(path.window.rates.carried()) / 1.2;
+                if second >= 10 {
+                    rise = rise.max(still / after_burst);
+                    (least, most) = (least.min(still), most.max(still));
+                }
+            }
+            let case = format!("{} Mbit/s, {budgets} frame times", capacity / 1e6);
+            assert!(rise < 1.02, "{case}: rises {rise} while still");
+            assert!(
+                least > 0.4 * capacity && most < 1.35 * capacity,
+                "{case}: from {least} to {most}"
+            );
+        }
     }
 
     /// Wi-Fi loses packets now and then without any queue; only losses with a queue mean
