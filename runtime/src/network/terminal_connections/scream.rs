@@ -14,7 +14,9 @@
 //! such loss. Here only a loss while a queue builds takes the draft's cut. Without a queue, the
 //! window gives up only the share that the path loses beyond what repair carries: a radio that
 //! loses little costs nothing, and behind a policer, where that share is the overshoot, the window
-//! settles just above the policer's rate.
+//! settles just above the policer's rate. Such a cut does not slow the growth that follows, as a
+//! cut for congestion does: it says what repair costs, not that the window reached what the path
+//! carries, and growth that slows after each one would hold a long path far below what it carries.
 //!
 //! A screen sends a burst and is then still, and the draft is made for a source that sends all the
 //! time. While noq has nothing to send, the window does not grow and the round trip that the
@@ -395,7 +397,9 @@ impl Window {
         self.qdelay_avg_prev = self.qdelay_avg;
         if reaction.is_some() {
             self.congested = true;
-            self.last_congestion_detected = Some(now);
+            if !matches!(reaction, Some(Reaction::PathLoss(_))) {
+                self.last_congestion_detected = Some(now);
+            }
             if self.ref_wnd > (self.ref_wnd_lowest + self.mss).max(self.ref_wnd_lowest * 1.05)
                 || Self::since(self.ref_wnd_i_update_time, now)
                     > REF_WND_I_UPDATE_MAX_HOLD_RTTS * self.s_rtt
@@ -1012,7 +1016,12 @@ mod tests {
     /// repair them: the bitrate stays near what the path carries and never falls to the floor.
     #[test]
     fn a_path_that_loses_packets_by_itself_keeps_the_bitrate() {
-        for (capacity, round_trip, loss) in [(6e6, 60, 0.01), (6e6, 60, 0.02), (20e6, 120, 0.01)] {
+        for (capacity, round_trip, loss) in [
+            (6e6, 60, 0.01),
+            (6e6, 60, 0.02),
+            (20e6, 120, 0.01),
+            (20e6, 120, 0.02),
+        ] {
             let mut path = Path::new(capacity)
                 .with_round_trip(Duration::from_millis(round_trip))
                 .with_radio_loss(loss);
