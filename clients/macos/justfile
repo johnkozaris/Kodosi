@@ -98,6 +98,6 @@ release-package: xcode-gen
 cask-gen:
     scripts/release/generate-cask.sh build/export/Kodosi-{{ version }}.dmg build/kodosi.rb
 
-# Verify code signatures, provisioning profile, and entitlements in the release archive.
+# Verify code signatures, provisioning profiles, and entitlements of the exported release app.
 signature-check:
     scripts/release/verify-signed.sh

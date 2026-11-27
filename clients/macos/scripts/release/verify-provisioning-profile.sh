@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 2 ]]; then
-    echo "usage: $0 <app> <expected-team-id>" >&2
+if [[ $# -lt 2 || $# -gt 3 ]]; then
+    echo "usage: $0 <app> <expected-team-id> [<app-that-contains-it-and-whose-profile-it-carries>]" >&2
     exit 2
 fi
 
 app=$1
 expected_team_id=$2
+container=${3:-}
 
 fail() {
     echo "$app: $1" >&2
@@ -18,6 +19,12 @@ profile="$app/Contents/embedded.provisionprofile"
 [[ -f "$profile" ]] || fail "no embedded provisioning profile."
 bundle_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")
 application_id="$expected_team_id.$bundle_id"
+profile_application_id=$application_id
+if [[ -n $container ]]; then
+    cmp -s "$profile" "$container/Contents/embedded.provisionprofile" ||
+        fail "the embedded profile is not the profile of $container."
+    profile_application_id="$expected_team_id.$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$container/Contents/Info.plist")"
+fi
 
 scratch=$(mktemp -d)
 trap 'rm -rf "$scratch"' EXIT
@@ -43,8 +50,8 @@ entry() {
     fail "the embedded profile is not for macOS."
 [[ $(extract "$decoded" TeamIdentifier.0 raw) == "$expected_team_id" ]] ||
     fail "the embedded profile is not for team $expected_team_id."
-[[ $(entry "$decoded" Entitlements:com.apple.application-identifier) == "$application_id" ]] ||
-    fail "the embedded profile is not for $application_id."
+[[ $(entry "$decoded" Entitlements:com.apple.application-identifier) == "$profile_application_id" ]] ||
+    fail "the embedded profile is not for $profile_application_id."
 
 expires=$(extract "$decoded" ExpirationDate raw)
 expires_digits=${expires//[^0-9]/}
@@ -70,8 +77,14 @@ done
 
 [[ $(extract "$signed" keychain-access-groups json) == "[\"$application_id\"]" ]] ||
     fail "the signature must hold exactly the Keychain access group $application_id."
-[[ $(entry "$signed" com.apple.application-identifier) == "$application_id" ]] ||
-    fail "the signature does not name the application identifier $application_id."
+if [[ -n $container ]]; then
+    # The profile names the app that contains this one, so it grants this one no identifier.
+    [[ -z $(entry "$signed" com.apple.application-identifier) ]] ||
+        fail "the signature names an application identifier, which its profile does not grant."
+else
+    [[ $(entry "$signed" com.apple.application-identifier) == "$application_id" ]] ||
+        fail "the signature does not name the application identifier $application_id."
+fi
 [[ $(entry "$signed" com.apple.developer.team-identifier) == "$expected_team_id" ]] ||
     fail "the signature does not name team $expected_team_id."
 [[ $(entry "$signed" com.apple.security.get-task-allow) != true ]] ||
