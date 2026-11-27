@@ -15,7 +15,9 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -356,7 +358,7 @@ abstract class VideoFeed(
         if (!key && !behind && id != (last?.plus(1)?.and(0xffffffffL))) restart()
         last = id
         if (behind && !key) return
-        if (decoder?.frame(bytes.copyOfRange(start, bytes.size), key, codec) != true) {
+        if (decoder?.frame(ByteBuffer.wrap(bytes, start, bytes.size - start), key, codec) != true) {
             restart()
             return
         }
@@ -412,6 +414,8 @@ internal fun deviceDecoders(codec: VideoCodec, size: IntSize): List<String> {
         .map { it.name }
 }
 
+// The pipe's thread hands frames to the decoder while MediaCodec calls back on the decoder's own thread and the feed
+// closes it on the pipes' thread, so the codec's state is under one lock.
 internal class VideoDecoder(
     private val surface: Surface,
     private val sized: (IntSize) -> Unit,
@@ -423,49 +427,65 @@ internal class VideoDecoder(
 ) : AutoCloseable {
     private val thread = HandlerThread("Kodosi video decoder").apply { start() }
     private val handler = Handler(thread.looper)
-    private val queued = AtomicInteger()
+    private val lock = ReentrantLock()
+
+    // An input buffer came, or the codec changed.
+    private val changed = lock.newCondition()
     private var codec: MediaCodec? = null
     private var name: String? = null
     private var configured: Stream? = null
     private var closed = false
     private var waiting = true
     private var showed = false
+
+    // A frame's call waits for an input buffer, so it hears of a failure from the codec that changed.
+    private var calling = false
+
+    // The keyframe that the codec started with, until it shows a picture.
     private var start: Keyframe? = null
+
+    // The keyframe that the next codec tries, until an input buffer takes it.
+    private var again: Keyframe? = null
     private val failures = mutableMapOf<String, Int>()
     private val buffers = ArrayDeque<Int>()
-    private val frames = ArrayDeque<ByteArray>()
 
-    fun frame(bytes: ByteArray, key: Boolean, codec: VideoCodec): Boolean {
-        if (bytes.size > MAX_FRAME) return false
-        if (queued.incrementAndGet() > 2) {
-            queued.decrementAndGet()
-            return false
-        }
-        return handler.post { take(bytes, key, codec) }.also { if (!it) queued.decrementAndGet() }
-    }
-
-    private fun take(bytes: ByteArray, key: Boolean, codec: VideoCodec) {
-        if (closed || (waiting && !key)) {
-            queued.decrementAndGet()
-            return
-        }
-        if (key) start = Keyframe(bytes, codec)
+    // On the pipe's thread: copies the bytes into an input buffer, waiting up to WAIT for one, and returns false when
+    // the decoder cannot go on. A closed decoder takes every frame.
+    fun frame(bytes: ByteBuffer, key: Boolean, type: VideoCodec): Boolean = lock.withLock {
+        if (closed) return true
+        if (bytes.remaining() > MAX_FRAME) return false
+        calling = true
         try {
-            val stream = if (key) codec.pictureSize(bytes)?.let { Stream(codec, it) } else null
-            if (stream != null && stream != configured) {
-                reset()
-                create(stream)
+            if (key) {
+                again = null
+                val stream = type.pictureSize(bytes)?.let { Stream(type, it) }
+                if (stream != null && stream != configured) {
+                    reset()
+                    start = Keyframe(bytes.copied(), stream)
+                    create(stream)
+                }
+            } else if (waiting) {
+                return false
             }
-            checkNotNull(codec)
+            val current = checkNotNull(codec)
             waiting = false
-            frames.addLast(bytes)
-            feed()
+            var left = WAIT.inWholeNanoseconds
+            while (buffers.isEmpty()) {
+                if (left <= 0) return false
+                left = changed.awaitNanos(left)
+                if (closed) return true
+                if (codec !== current) return false
+            }
+            queue(current, bytes)
+            true
         } catch (_: NoDecoder) {
-            queued.decrementAndGet()
             refused(this)
+            true
         } catch (_: Exception) {
-            queued.decrementAndGet()
             fail()
+            false
+        } finally {
+            calling = false
         }
     }
 
@@ -480,41 +500,57 @@ internal class VideoDecoder(
         next.setCallback(
             object : MediaCodec.Callback() {
                 override fun onInputBufferAvailable(codec: MediaCodec, index: Int) {
-                    if (closed || this@VideoDecoder.codec != codec) return
-                    buffers.addLast(index)
-                    feed()
+                    lock.withLock {
+                        if (closed || this@VideoDecoder.codec !== codec) return
+                        buffers.addLast(index)
+                        val keyframe = again
+                        if (keyframe != null) {
+                            again = null
+                            try {
+                                queue(codec, ByteBuffer.wrap(keyframe.bytes))
+                            } catch (_: Exception) {
+                                failed()
+                                return
+                            }
+                        }
+                        changed.signalAll()
+                    }
                 }
 
                 // A timestamp of now shows the picture at the next refresh of the display.
                 override fun onOutputBufferAvailable(codec: MediaCodec, index: Int, info: MediaCodec.BufferInfo) {
-                    if (closed || this@VideoDecoder.codec != codec) return
-                    val shows = info.size > 0
-                    runCatching {
-                        if (shows) {
-                            codec.releaseOutputBuffer(
-                                index,
-                                System.nanoTime()
-                            )
-                        } else {
-                            codec.releaseOutputBuffer(index, false)
-                        }
-                    }.onSuccess {
-                        if (shows && !showed) {
-                            showed = true
-                            failures.remove(chosen)
-                            rendered(this@VideoDecoder)
+                    lock.withLock {
+                        if (closed || this@VideoDecoder.codec !== codec) return
+                        val shows = info.size > 0
+                        runCatching {
+                            if (shows) {
+                                codec.releaseOutputBuffer(index, System.nanoTime())
+                            } else {
+                                codec.releaseOutputBuffer(index, false)
+                            }
+                        }.onSuccess {
+                            if (shows && !showed) {
+                                showed = true
+                                start = null
+                                failures.remove(chosen)
+                                rendered(this@VideoDecoder)
+                            }
                         }
                     }
                 }
 
                 override fun onOutputFormatChanged(codec: MediaCodec, format: MediaFormat) {
-                    if (closed || this@VideoDecoder.codec != codec) return
-                    format.shownSize()?.let(sized)
+                    lock.withLock {
+                        if (closed || this@VideoDecoder.codec !== codec) return
+                        format.shownSize()?.let(sized)
+                    }
                 }
 
                 override fun onError(codec: MediaCodec, error: MediaCodec.CodecException) {
-                    if (closed || this@VideoDecoder.codec != codec) return
-                    fail()
+                    lock.withLock {
+                        if (closed || this@VideoDecoder.codec !== codec) return
+                        failed()
+                    }
                 }
             },
             handler
@@ -542,35 +578,40 @@ internal class VideoDecoder(
         next.start()
     }
 
-    private fun feed() {
-        val codec = codec ?: return
-        try {
-            while (frames.isNotEmpty() && buffers.isNotEmpty()) {
-                val index = buffers.removeFirst()
-                val frame = frames.removeFirst()
-                queued.decrementAndGet()
-                val input = codec.getInputBuffer(index) ?: throw IllegalStateException()
-                if (frame.size > input.capacity()) throw IllegalStateException()
-                input.clear()
-                input.put(frame)
-                codec.queueInputBuffer(index, 0, frame.size, System.nanoTime() / 1000, 0)
-            }
-        } catch (_: Exception) {
-            fail()
-        }
+    private fun queue(codec: MediaCodec, bytes: ByteBuffer) {
+        val index = buffers.removeFirst()
+        val input = codec.getInputBuffer(index) ?: throw IllegalStateException()
+        val size = bytes.remaining()
+        if (size > input.capacity()) throw IllegalStateException()
+        input.clear()
+        input.put(bytes.duplicate())
+        codec.queueInputBuffer(index, 0, size, System.nanoTime() / 1000, 0)
     }
 
-    // Some decoders (such as the Android emulator's) fail on every frame. A codec that fails before its
-    // first picture gets up to TRIES tries with the cached keyframe before it is blacklisted and the
-    // next one takes over.
+    // A failure outside a frame's call, so the feed asks for a keyframe.
+    private fun failed() {
+        val heard = calling
+        fail()
+        if (!heard) lost(this)
+    }
+
+    // Some decoders (such as the Android emulator's) fail on every frame. A codec that fails before its first picture
+    // gets up to TRIES tries with its first keyframe before it is blacklisted and the next one takes over; the frames
+    // after that keyframe wait for the next one.
     private fun fail() {
         val failed = name.takeUnless { showed }
         reset()
-        if (failed != null) {
-            failures[failed] = failures.getOrDefault(failed, 0) + 1
-            start?.let { frame(it.bytes, key = true, it.codec) }
+        if (failed == null) return
+        failures[failed] = failures.getOrDefault(failed, 0) + 1
+        val keyframe = start ?: return
+        try {
+            create(keyframe.stream)
+            again = keyframe
+        } catch (_: NoDecoder) {
+            refused(this)
+        } catch (_: Exception) {
+            fail()
         }
-        lost(this)
     }
 
     private fun reset() {
@@ -578,20 +619,22 @@ internal class VideoDecoder(
         codec = null
         name = null
         configured = null
+        again = null
         runCatching { current?.stop() }
         runCatching { current?.release() }
-        queued.addAndGet(-frames.size)
-        frames.clear()
         buffers.clear()
         waiting = true
+        changed.signalAll()
     }
 
     // Returns once the codec let go of the surface, or after CLOSE_MS.
     override fun close() {
         val released = CountDownLatch(1)
         handler.post {
-            closed = true
-            reset()
+            lock.withLock {
+                closed = true
+                reset()
+            }
             thread.quitSafely()
             released.countDown()
         }
@@ -610,11 +653,13 @@ internal class VideoDecoder(
         return IntSize(width, height).takeIf { width > 0 && height > 0 }
     }
 
+    private fun ByteBuffer.copied() = ByteArray(remaining()).also { duplicate().get(it) }
+
     private class NoDecoder : Exception()
 
     private data class Stream(val codec: VideoCodec, val size: IntSize)
 
-    private class Keyframe(val bytes: ByteArray, val codec: VideoCodec)
+    private class Keyframe(val bytes: ByteArray, val stream: Stream)
 
     private companion object {
         const val TRIES = 3
@@ -622,6 +667,9 @@ internal class VideoDecoder(
         const val REALTIME = 0
         val QUALCOMM = listOf("c2.qti.", "OMX.qcom.")
         const val CLOSE_MS = 500L
+
+        // About the host's lateness rule: a slower decoder gets fewer frames, a stuck one fails.
+        val WAIT = 1.seconds
 
         // Switches of each vendor's decoders for the low latency that KEY_LOW_LATENCY asks of them.
         val VENDOR_LOW_LATENCY = mapOf(

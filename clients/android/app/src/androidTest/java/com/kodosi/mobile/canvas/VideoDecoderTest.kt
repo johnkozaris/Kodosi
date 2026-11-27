@@ -7,13 +7,13 @@ import android.os.Handler
 import android.os.HandlerThread
 import androidx.compose.ui.unit.IntSize
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import java.nio.ByteBuffer
 import java.util.Base64
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -63,7 +63,7 @@ class VideoDecoderTest {
             lost = {},
             decoders = { _, _ -> listOf("c2.kodosi.missing.decoder") }
         ).use { decoder ->
-            assertTrue(decoder.frame(Base64.getDecoder().decode(SMALLER), key = true, VideoCodec.H264))
+            decoder.frame(frame(SMALLER), key = true, VideoCodec.H264)
             assertEquals(decoder, refusals.poll(5, TimeUnit.SECONDS))
             assertNull(refusals.poll(1, TimeUnit.SECONDS))
         }
@@ -73,17 +73,25 @@ class VideoDecoderTest {
     // keyframe until a decoded frame of the expected size arrives.
     private fun stream(
         decoder: VideoDecoder,
-        frame: String,
+        keyframe: String,
         size: IntSize,
         codec: VideoCodec = VideoCodec.H264
     ): IntSize? {
-        val bytes = Base64.getDecoder().decode(frame)
         val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
         while (System.nanoTime() < end) {
-            decoder.frame(bytes, key = true, codec)
+            decoder.frame(frame(keyframe), key = true, codec)
             if (pictures.poll(100, TimeUnit.MILLISECONDS) == size) return size
         }
         return null
+    }
+
+    // A frame in memory outside the Java heap, as the runtime lends it.
+    private fun frame(base64: String): ByteBuffer {
+        val bytes = Base64.getDecoder().decode(base64)
+        return ByteBuffer.allocateDirect(bytes.size).apply {
+            put(bytes)
+            flip()
+        }
     }
 
     private companion object {

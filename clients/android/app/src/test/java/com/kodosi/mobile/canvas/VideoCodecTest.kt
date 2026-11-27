@@ -1,6 +1,7 @@
 package com.kodosi.mobile.canvas
 
 import androidx.compose.ui.unit.IntSize
+import java.nio.ByteBuffer
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -8,8 +9,8 @@ class VideoCodecTest {
     // VideoToolbox codes a 64x64 HEVC picture 160 wide and crops it in the sequence parameter set.
     @Test
     fun anHevcKeyframeGivesTheSizeOfItsPicturesAfterTheCrop() {
-        assertEquals(IntSize(64, 64), VideoCodec.HEVC.pictureSize(HEVC_KEYFRAME))
-        assertEquals(null, VideoCodec.H264.pictureSize(HEVC_KEYFRAME))
+        assertEquals(IntSize(64, 64), VideoCodec.HEVC.pictureSize(ByteBuffer.wrap(HEVC_KEYFRAME)))
+        assertEquals(null, VideoCodec.H264.pictureSize(ByteBuffer.wrap(HEVC_KEYFRAME)))
     }
 
     private companion object {
