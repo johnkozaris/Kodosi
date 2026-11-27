@@ -12,16 +12,14 @@ if ! xcrun stapler validate "$app"; then
     echo "$app has no valid notarization ticket. Notarize the app with notarize.sh." >&2
     exit 1
 fi
-staging=$(mktemp -d "${TMPDIR:-/tmp}/kodosi-dmg.XXXXXX")
-trap 'rm -rf "$staging"' EXIT
-/usr/bin/ditto "$app" "$staging/Kodosi.app"
-ln -s /Applications "$staging/Applications"
-mkdir -p "$(dirname "$dmg")"
-diskutil image create from \
-    --format ULFO \
-    --volumeName "Kodosi" \
-    "$staging" \
-    "$dmg"
+release=$(dirname "$0")
+tools="$release/../../.tools/dmg"
+if ! cmp -s "$release/dmg-requirements.txt" "$tools/requirements.txt"; then
+    uv venv --clear --quiet --python '>=3.12' "$tools"
+    uv pip install --quiet --require-hashes --python "$tools/bin/python" -r "$release/dmg-requirements.txt"
+    cp "$release/dmg-requirements.txt" "$tools/requirements.txt"
+fi
+"$tools/bin/python" "$release/make-dmg.py" "$app" "$dmg"
 codesign \
     --force \
     --sign "${KODOSI_SIGNING_IDENTITY:-Developer ID Application}" \

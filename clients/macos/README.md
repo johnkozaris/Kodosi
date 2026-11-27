@@ -38,3 +38,7 @@ Release builds auto-update via [Sparkle](https://sparkle-project.org), configure
 URL and public key in `Config/Release.xcconfig`. Inside `clients/macos/`, `just release-package`
 builds the notarized DMG, `just cask-gen` updates the Homebrew cask, and
 `scripts/release/generate-appcast.sh` generates the signed Sparkle appcast.
+
+`scripts/release/make-dmg.py` draws the background of the DMG's window and writes the window's
+layout without Finder, so packaging opens no window and needs no one at the Mac. Packaging needs
+`uv` to install the script's pinned libraries.
