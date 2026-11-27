@@ -9,14 +9,15 @@ use std::collections::{HashMap, VecDeque};
 use serde_json::{Map, Value, json};
 
 use super::{
-    AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
-    ChatPerson, ChatTask, ChatTool, MOST_OUTPUT, MOST_QUESTIONS, MOST_TARGET, MOST_TEXT,
-    PlanChoice, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
+    AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatGiven, ChatMode, ChatNote,
+    ChatNow, ChatPerson, ChatPicture, ChatTask, ChatTool, MOST_OUTPUT, MOST_QUESTIONS, MOST_TARGET,
+    MOST_TEXT, PlanChoice, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
     agent::{
-        Agent, Places, Stop, answer, list, open_items, person, plan_command, question, remember,
-        show_state, stop_open, text, words,
+        Agent, Places, Stop, answer, list, open_items, person, pictured, plan_command, question,
+        remember, show_state, stop_open, text, words,
     },
     diff,
+    mention::picture,
     state::{Chat, ends_of, start_of},
 };
 
@@ -261,7 +262,9 @@ impl Codex {
         let Some(handed) = self.handed.remove(index) else {
             return;
         };
-        let queued = handed.queued.or_else(|| chat.queue(handed.text, handed.by));
+        let queued = handed
+            .queued
+            .or_else(|| chat.queue(handed.text, handed.by, Vec::new()));
         if let Some(queued) = queued {
             chat.refuse(&queued, Some(start_of(reason, MOST_TARGET).to_owned()));
             self.held = true;
@@ -278,7 +281,7 @@ impl Codex {
         if self.turn.is_some() {
             self.handed[index].steering = false;
             if let Some(queued) = &self.handed[index].queued {
-                chat.give(queued);
+                chat.give(queued, ChatGiven::Step);
             }
         } else if let Some(Handed {
             queued: Some(queued),
@@ -334,7 +337,7 @@ impl Codex {
             "p": {
                 "threadId": thread,
                 "expectedTurnId": turn,
-                "input": [{"type": "text", "text": queued.said, "text_elements": []}],
+                "input": input(&queued.said, &queued.files),
             },
         }))
     }
@@ -784,7 +787,16 @@ impl Codex {
             .map(|part| text(part, "text"))
             .collect::<Vec<_>>()
             .join("\n");
-        if said.is_empty() {
+        let pictures = list(item, "content")
+            .filter_map(|part| match text(part, "type") {
+                "localImage" => Some(picture(text(part, "path"))),
+                "image" => Some(ChatPicture {
+                    name: String::new(),
+                }),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        if said.is_empty() && pictures.is_empty() {
             return None;
         }
         let by = match self.handed.front() {
@@ -800,7 +812,7 @@ impl Codex {
                 None
             }
         };
-        Some(chat.push(at, person(&said, by)))
+        Some(chat.push(at, pictured(&said, by, pictures)))
     }
 
     fn request(&mut self, chat: &mut Chat, event: &Value) {
@@ -1185,7 +1197,7 @@ impl Agent for Codex {
         true
     }
 
-    fn commands(&mut self, chat: &Chat) -> Vec<Value> {
+    fn commands(&mut self, chat: &mut Chat) -> Vec<Value> {
         let mut commands = self.calls.drain(..).collect::<Vec<_>>();
         let free = self.linked && !self.held && self.handed.is_empty() && chat.asks().is_empty();
         if free && let Some(steer) = self.steer(chat) {
@@ -1200,16 +1212,17 @@ impl Agent for Codex {
         let next = self
             .said
             .take()
-            .map(|(said, by)| (None, said, by))
+            .map(|(said, by)| (None, said, by, Vec::new()))
             .or_else(|| {
                 let queued = chat.queued().iter().find(|queued| !queued.terminal)?;
                 Some((
                     Some(queued.id.clone()),
                     queued.said.clone(),
                     queued.by.clone(),
+                    queued.files.clone(),
                 ))
             });
-        if let Some((queued, text, by)) = next {
+        if let Some((queued, text, by, files)) = next {
             self.sent += 1;
             if command_of(&text) == Some("compact") {
                 commands.push(self.compact(&thread, queued, text, by));
@@ -1238,7 +1251,7 @@ impl Agent for Codex {
             }
             let mut start = json!({
                 "threadId": thread,
-                "input": [{"type": "text", "text": text, "text_elements": []}],
+                "input": input(&text, &files),
             });
             if let Some(mode) = plan_mode {
                 start["collaborationMode"] = mode;
@@ -1305,6 +1318,21 @@ impl Agent for Codex {
             "p": {"threadId": thread, "turnId": id},
         }))
     }
+}
+
+/// A message as Codex takes it into a turn: its words, then each picture as a file of this
+/// computer, which Codex shows its model itself.
+fn input(text: &str, files: &[String]) -> Value {
+    let words = (!text.is_empty() || files.is_empty())
+        .then(|| json!({"type": "text", "text": text, "text_elements": []}));
+    words
+        .into_iter()
+        .chain(
+            files
+                .iter()
+                .map(|file| json!({"type": "localImage", "path": file})),
+        )
+        .collect()
 }
 
 /// The command that a message names, as Codex's composer reads a word after a slash.

@@ -26,9 +26,9 @@ pub(crate) fn agent_asks() -> crate::text::Text {
 pub(crate) const NO_AGENT: &str = "No agent in this terminal reports its state, so it gets no messages. Type into it with kodosi terminal input.";
 
 pub use context::{ContextPlace, PlaceKind, TerminalContext};
-#[cfg(feature = "host")]
-pub(crate) use picture::pictures_root;
 pub use picture::{Picture, PictureFormat, TERMINAL_PICTURE_MAX_BYTES};
+#[cfg(feature = "host")]
+pub(crate) use picture::{pictures_root, save as save_picture};
 pub(crate) use remote::RemoteTerminal;
 #[cfg(feature = "host")]
 pub(crate) use session::{TerminalSession, pipe};

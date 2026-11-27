@@ -1,5 +1,6 @@
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, path::PathBuf, time::Duration};
 
+use base64::Engine as _;
 use serde_json::Value;
 use tokio::{
     sync::{mpsc, oneshot, watch},
@@ -7,14 +8,14 @@ use tokio::{
 };
 
 use super::{
-    ChatFrame, ChatPerson, ChatRequest, MOST_MESSAGE,
+    ChatFrame, ChatPerson, ChatRequest, MOST_MESSAGE, MOST_PICTURES,
     agent::{self, Agent, Stop},
     mention::{Message, Peer, Peers},
     state::{Chat, ends_of},
 };
 use crate::{
     canvas::{PIPE_QUEUE, PipeEnds},
-    terminal::ChatAgent,
+    terminal::{ChatAgent, Picture, TERMINAL_PICTURE_MAX_BYTES},
     text::Text,
 };
 
@@ -34,6 +35,8 @@ pub(super) enum Job {
     Request {
         viewer: u64,
         request: ChatRequest,
+        /// The files of the pictures that came with a message, saved on this computer.
+        files: Vec<String>,
     },
     Detach {
         viewer: u64,
@@ -87,13 +90,19 @@ pub(crate) struct ChatHandle {
 }
 
 impl ChatHandle {
-    /// The chat of the terminal `id`, whose agent can reach the agents of `peers` but its own.
-    pub(super) fn spawn(id: String, peers: Option<watch::Receiver<Peers>>) -> Self {
+    /// The chat of the terminal `id`, whose agent can reach the agents of `peers` but its own,
+    /// and which keeps the pictures of its messages in `pictures`.
+    pub(super) fn spawn(
+        id: String,
+        peers: Option<watch::Receiver<Peers>>,
+        pictures: Option<PathBuf>,
+    ) -> Self {
         let (jobs, receiver) = mpsc::channel(JOBS);
         let (linked, linking) = watch::channel(None);
         let mut room = Room {
             id,
             peers,
+            pictures,
             jobs: receiver,
             own: jobs.downgrade(),
             linked,
@@ -179,6 +188,7 @@ struct Room {
     /// The terminal's ID.
     id: String,
     peers: Option<watch::Receiver<Peers>>,
+    pictures: Option<PathBuf>,
     jobs: mpsc::Receiver<Job>,
     own: mpsc::WeakSender<Job>,
     linked: watch::Sender<Option<ChatAgent>>,
@@ -263,7 +273,11 @@ impl Room {
     fn handle(&mut self, job: Job) {
         match job {
             Job::Attach { person, reply } => self.attach(person, reply),
-            Job::Request { viewer, request } => self.request(viewer, request),
+            Job::Request {
+                viewer,
+                request,
+                files,
+            } => self.request(viewer, request, files),
             Job::Detach { viewer } => {
                 self.viewers.remove(&viewer);
             }
@@ -366,6 +380,8 @@ impl Room {
             self.chat.set_commands([]);
             self.chat.set_settings([]);
             self.agent = Some(agent);
+        } else if let Some(agent) = &mut self.agent {
+            agent.relinked(&mut self.chat);
         }
         self.link = Some(link);
         self.heard = 0;
@@ -408,7 +424,7 @@ impl Room {
         }
     }
 
-    fn request(&mut self, viewer: u64, request: ChatRequest) {
+    fn request(&mut self, viewer: u64, request: ChatRequest, files: Vec<String>) {
         let peers = match &request {
             ChatRequest::Send { .. } | ChatRequest::HandOff { .. } => self.peers(),
             _ => Vec::new(),
@@ -421,13 +437,13 @@ impl Room {
             .get(&viewer)
             .map(|viewer| viewer.person.clone());
         match request {
-            ChatRequest::Send { text } => {
+            ChatRequest::Send { text, .. } => {
                 let text = text.trim();
-                if text.is_empty() || !agent.is_linked() {
+                if (text.is_empty() && files.is_empty()) || !agent.is_linked() {
                     return;
                 }
                 let message = Message::naming(ends_of(text, MOST_MESSAGE), &peers);
-                if let Some(id) = self.chat.queue(message, by) {
+                if let Some(id) = self.chat.queue(message, by, files) {
                     if !agent.takes(text) {
                         self.chat.in_terminal(&id);
                     }
@@ -438,7 +454,12 @@ impl Room {
                 let Some(peer) = peers.iter().find(|peer| peer.shown.terminal == terminal) else {
                     return;
                 };
-                if agent.is_linked() && self.chat.queue(Message::handing(peer), by).is_some() {
+                if agent.is_linked()
+                    && self
+                        .chat
+                        .queue(Message::handing(peer), by, Vec::new())
+                        .is_some()
+                {
                     agent.retry();
                 }
             }
@@ -509,13 +530,25 @@ impl Room {
         let viewer = self.made;
         self.viewers.insert(viewer, Viewer { person, frames });
         let jobs = self.own.clone();
+        let pictures = self.pictures.clone();
         tokio::spawn(async move {
             while let Some(frame) = requests.recv().await {
+                let Ok(request) = serde_json::from_slice::<ChatRequest>(&frame) else {
+                    continue;
+                };
+                drop(frame);
+                let (request, files) = saved(request, pictures.clone()).await;
                 let Some(jobs) = jobs.upgrade() else {
                     return;
                 };
-                if let Ok(request) = serde_json::from_slice::<ChatRequest>(&frame)
-                    && jobs.send(Job::Request { viewer, request }).await.is_err()
+                if jobs
+                    .send(Job::Request {
+                        viewer,
+                        request,
+                        files,
+                    })
+                    .await
+                    .is_err()
                 {
                     return;
                 }
@@ -542,7 +575,7 @@ impl Room {
 
     fn tell(&mut self) {
         if let Some(agent) = &mut self.agent {
-            self.commands.extend(agent.commands(&self.chat));
+            self.commands.extend(agent.commands(&mut self.chat));
         }
         if !self.commands.is_empty()
             && let Some(poll) = self.poll.take()
@@ -569,6 +602,52 @@ impl Room {
 
 fn encoded(frame: &ChatFrame) -> Vec<u8> {
     serde_json::to_vec(frame).unwrap_or_default()
+}
+
+/// Saves the pictures of a message in `folder` for the agent, and gives the request without their
+/// bytes, with the files that hold them.
+async fn saved(request: ChatRequest, folder: Option<PathBuf>) -> (ChatRequest, Vec<String>) {
+    let ChatRequest::Send { text, pictures } = request else {
+        return (request, Vec::new());
+    };
+    let files = match folder {
+        Some(folder) if !pictures.is_empty() => {
+            tokio::task::spawn_blocking(move || save_pictures(&folder, &pictures))
+                .await
+                .unwrap_or_default()
+        }
+        _ => Vec::new(),
+    };
+    let request = ChatRequest::Send {
+        text,
+        pictures: Vec::new(),
+    };
+    (request, files)
+}
+
+/// The pictures of one message together take up to the size of one picture that a terminal takes.
+fn save_pictures(folder: &std::path::Path, pictures: &[String]) -> Vec<String> {
+    let mut left = TERMINAL_PICTURE_MAX_BYTES;
+    let mut files = Vec::new();
+    for data in pictures.iter().take(MOST_PICTURES) {
+        let saved = base64::engine::general_purpose::STANDARD
+            .decode(data)
+            .map_err(|error| error.to_string())
+            .and_then(|bytes| {
+                if bytes.len() > left {
+                    return Err("the pictures of the message are too large".to_owned());
+                }
+                let picture = Picture::new(bytes.into()).map_err(|error| error.to_string())?;
+                left -= picture.bytes.len();
+                crate::terminal::save_picture(folder, &picture).map_err(|error| error.to_string())
+            });
+        match saved.map(|path| path.into_os_string().into_string()) {
+            Ok(Ok(file)) => files.push(file),
+            Ok(Err(_)) => tracing::warn!("a picture of the chat has a path that is not UTF-8"),
+            Err(error) => tracing::warn!(%error, "a picture of the chat was not saved"),
+        }
+    }
+    files
 }
 
 /// Whether the agents of `peers` changed; a room without them never hears of a change.

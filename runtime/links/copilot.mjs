@@ -150,6 +150,13 @@ function shaped(event) {
   if (!fields) return null
   const data = {}
   for (const field of fields) if (event.data && event.data[field] !== undefined) data[field] = brief(event.data[field], 0)
+  // Only the kind and the file of each attachment: the chat shows the pictures among them.
+  if (event.type === 'user.message' && Array.isArray(event.data && event.data.attachments)) {
+    data.attachments = event.data.attachments.slice(0, 16).map(attached => {
+      const { type, path } = attached || {}
+      return { type: String(type), path: typeof path === 'string' ? path : undefined }
+    })
+  }
   return { type: event.type, data, id: event.id, agent: event.agentId, at: Date.parse(event.timestamp) || undefined }
 }
 
@@ -257,9 +264,15 @@ async function run(command) {
   try {
     if (command.mode) await session.rpc.mode.set({ mode: String(command.mode) })
     // `immediate` gives the message to the turn that runs, as Enter does in Copilot's terminal.
-    if (command.text) {
-      const prompt = String(command.text)
-      const messageId = await session.send({ prompt, ...(command.steer && { mode: 'immediate' }) })
+    const pictures = Array.isArray(command.pictures) ? command.pictures.map(String) : []
+    if (command.text || pictures.length > 0) {
+      const prompt = String(command.text || '')
+      const attachments = pictures.map(path => ({ type: 'file', path, displayName: path.split(/[\\/]/).pop() }))
+      const messageId = await session.send({
+        prompt,
+        ...(attachments.length > 0 && { attachments }),
+        ...(command.steer && { mode: 'immediate' }),
+      })
       if (command.steer && messageId) steered.set(command.n, { messageId, expectedPrompt: prompt })
     }
     tell('did', { n: command.n })

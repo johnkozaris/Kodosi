@@ -672,7 +672,7 @@ impl Antigravity {
             self.set("option", &session, &option, value.trim());
             return;
         }
-        chat.queue(line.to_owned(), None);
+        chat.queue(line.to_owned(), None, Vec::new());
     }
 }
 
@@ -835,7 +835,7 @@ impl Agent for Antigravity {
         true
     }
 
-    fn commands(&mut self, chat: &Chat) -> Vec<Value> {
+    fn commands(&mut self, chat: &mut Chat) -> Vec<Value> {
         let mut commands = self.calls.drain(..).collect::<Vec<_>>();
         // Permission requests block the next prompt, whereas open `ask_question` asks are
         // answered by sending the next prompt.

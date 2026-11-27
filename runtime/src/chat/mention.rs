@@ -1,10 +1,11 @@
 //! How a chat tells its agent about the agents of other terminals that a person names with `@` or
-//! hands the work of to it, and how the chat shows such a message again: the person's words apart
-//! from the lines that Kodosi added for the agent.
+//! hands the work of to it, and about the pictures of an agent that takes them only as files, and
+//! how the chat shows such a message again: the person's words apart from the lines that Kodosi
+//! added for the agent.
 
 use std::sync::Arc;
 
-use super::{ChatMention, ChatPeer};
+use super::{ChatMention, ChatPeer, ChatPicture};
 use crate::agents::Agent;
 
 const NAMED: &str = "[Kodosi] @";
@@ -12,6 +13,7 @@ const DETAILS: &str = " in a Kodosi terminal. Details: kodosi terminal info \"";
 const HANDED: &str = "[Kodosi] Hand-off: continue the work of @";
 const READ_IT: &str = " in a Kodosi terminal. Read its conversation: kodosi terminal read \"";
 const READ_END: &str = "\" --conversation";
+const PICTURE: &str = "[Kodosi] The person sent a picture. Read this file to see it: ";
 
 /// The agents that the agents of a computer's terminals can reach.
 pub(crate) type Peers = Arc<Vec<Peer>>;
@@ -41,6 +43,7 @@ pub(super) struct Message {
     pub(super) words: String,
     pub(super) mentions: Vec<ChatMention>,
     pub(super) handoff: Option<ChatMention>,
+    pub(super) pictures: Vec<ChatPicture>,
     pub(super) said: String,
 }
 
@@ -51,6 +54,7 @@ impl From<String> for Message {
             words,
             mentions: Vec::new(),
             handoff: None,
+            pictures: Vec::new(),
         }
     }
 }
@@ -79,6 +83,7 @@ impl Message {
             mentions: named.iter().map(|peer| peer.mention()).collect(),
             words,
             handoff: None,
+            pictures: Vec::new(),
         }
     }
 
@@ -88,6 +93,7 @@ impl Message {
             words: String::new(),
             mentions: Vec::new(),
             handoff: Some(peer.mention()),
+            pictures: Vec::new(),
             said: format!(
                 "{HANDED}{name}, {agent}{READ_IT}{name}{READ_END}",
                 name = peer.name,
@@ -96,30 +102,64 @@ impl Message {
         }
     }
 
-    /// A message as the agent got it, apart: the person's words and the agents that Kodosi's
-    /// lines after them name.
+    /// A message as the agent got it, apart: the person's words, and the agents and the pictures
+    /// that Kodosi's lines after them name.
     pub(super) fn heard(said: &str) -> Self {
         let mut words = said.trim_end();
         let mut mentions = Vec::new();
         let mut handoff = None;
+        let mut pictures = Vec::new();
         loop {
             let (before, line) = words.rsplit_once('\n').unwrap_or(("", words));
             if let Some(mention) = mention_in(line) {
                 mentions.push(mention);
             } else if let Some(handed) = handoff_in(line).filter(|_| handoff.is_none()) {
                 handoff = Some(handed);
+            } else if let Some(file) = line.strip_prefix(PICTURE).filter(|file| !file.is_empty()) {
+                pictures.push(picture(file));
             } else {
                 break;
             }
             words = before.trim_end();
         }
         mentions.reverse();
+        pictures.reverse();
         Self {
             words: words.to_owned(),
             mentions,
             handoff,
+            pictures,
             said: said.to_owned(),
         }
+    }
+}
+
+/// The message for an agent that sees a picture only when it reads its file: `said`, then a line
+/// for each file.
+pub(super) fn with_pictures(said: &str, files: &[String]) -> String {
+    if files.is_empty() {
+        return said.to_owned();
+    }
+    let lines = files
+        .iter()
+        .map(|file| format!("{PICTURE}{file}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    if said.is_empty() {
+        lines
+    } else {
+        format!("{said}\n\n{lines}")
+    }
+}
+
+/// The picture of a file on the terminal's computer, by the name of the file.
+pub(super) fn picture(file: &str) -> ChatPicture {
+    ChatPicture {
+        name: file
+            .rsplit(['/', '\\'])
+            .next()
+            .unwrap_or_default()
+            .to_owned(),
     }
 }
 

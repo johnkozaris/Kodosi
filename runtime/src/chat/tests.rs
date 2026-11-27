@@ -117,7 +117,8 @@ impl Play {
         for line in record.lines() {
             let line: Value = serde_json::from_str(line).expect("a line of the record");
             if let Some(text) = line.get("prompt").and_then(Value::as_str) {
-                self.chat.queue(text.to_owned(), self.answers_by.clone());
+                self.chat
+                    .queue(text.to_owned(), self.answers_by.clone(), Vec::new());
             }
             if line.get("stop").is_some() {
                 self.stop();
@@ -137,7 +138,7 @@ impl Play {
                 None => {}
             }
             if matches!(self.agent.name(), Codex::NAME | Antigravity::NAME) {
-                let calls = self.agent.commands(&self.chat);
+                let calls = self.agent.commands(&mut self.chat);
                 self.calls.extend(calls);
             }
             self.follow();
@@ -152,7 +153,7 @@ impl Play {
                 for (ask, decision) in decisions {
                     self.agent.answered(&mut self.chat, &ask, &decision);
                 }
-                self.calls.extend(self.agent.commands(&self.chat));
+                self.calls.extend(self.agent.commands(&mut self.chat));
             }
             Stop::Nothing => {}
         }
@@ -565,13 +566,14 @@ fn a_command_of_the_chat_runs_as_in_the_terminal_and_a_session_without_checks_ca
 #[test]
 fn a_command_that_claude_code_shows_in_its_terminal_stays_until_it_ends_there() {
     let mut play = Play::of(record!("text"), &[]);
-    play.chat.queue("/config".to_owned(), Some(sam()));
-    assert_eq!(play.agent.commands(&play.chat).len(), 1);
+    play.chat
+        .queue("/config".to_owned(), Some(sam()), Vec::new());
+    assert_eq!(play.agent.commands(&mut play.chat).len(), 1);
 
     play.take(&json!({"k": "waits", "n": 1}));
     let queued = &play.view.queued[0];
     assert!(
-        queued.terminal && queued.given,
+        queued.terminal && queued.given.is_some(),
         "the command is the terminal's"
     );
     play.take(&json!({"k": "did", "n": 1}));
@@ -662,28 +664,133 @@ fn the_chat_changes_the_settings_of_claude_code_and_shows_why_it_refused_one() {
 #[test]
 fn a_message_that_a_stop_in_the_terminal_dropped_waits_for_the_next_turn_of_claude_code() {
     let mut play = Play::of(record!("text"), &[]);
-    play.chat
-        .queue("Use the staging database.".to_owned(), Some(sam()));
+    play.chat.queue(
+        "Use the staging database.".to_owned(),
+        Some(sam()),
+        Vec::new(),
+    );
     let sent = json!({"do": "prompt", "n": 1, "text": "Use the staging database."});
-    assert_eq!(play.agent.commands(&play.chat), [sent]);
+    assert_eq!(play.agent.commands(&mut play.chat), [sent]);
 
     let stopped = "the prompt was removed from the queue before it ran";
     play.take(&json!({"k": "did", "n": 1, "drop": stopped}));
     assert_eq!(play.view.queued[0].refused, None, "a stop refuses nothing");
     assert!(
-        play.agent.commands(&play.chat).is_empty(),
+        play.agent.commands(&mut play.chat).is_empty(),
         "Claude Code takes nothing until a person writes to it"
     );
 
     play.take(&json!({"k": "turn"}));
     play.take(&json!({"k": "turnEnd", "reason": "answer"}));
     assert_eq!(
-        play.agent.commands(&play.chat),
+        play.agent.commands(&mut play.chat),
         [json!({"do": "prompt", "n": 2, "text": "Use the staging database."})]
     );
     let blocked = "a hook answered without passing the prompt on";
     play.take(&json!({"k": "did", "n": 2, "drop": blocked}));
     assert_eq!(play.view.queued[0].refused.as_deref(), Some(blocked));
+}
+
+#[test]
+fn a_message_goes_to_claude_code_while_it_works_and_a_command_waits_for_its_turn() {
+    let mut play = Play::of(record!("text"), &[]);
+    play.take(&json!({"k": "turn"}));
+    play.chat
+        .queue("Also count the pens.".to_owned(), Some(sam()), Vec::new());
+    play.chat
+        .queue("/compact".to_owned(), Some(sam()), Vec::new());
+    assert_eq!(
+        play.agent.commands(&mut play.chat),
+        [json!({"do": "prompt", "n": 1, "text": "Also count the pens."})],
+        "Claude Code keeps the message for its next turn"
+    );
+    play.follow();
+    assert_eq!(play.view.queued[0].given, Some(ChatGiven::Turn));
+    assert_eq!(play.view.queued[1].given, None, "the command still waits");
+
+    play.take(&json!({"k": "turnEnd", "reason": "answer"}));
+    assert!(
+        play.agent.commands(&mut play.chat).is_empty(),
+        "the command waits for the message before it"
+    );
+    play.take(&json!({"k": "turn"}));
+    play.take(&json!({
+        "k": "row",
+        "door": "prompt",
+        "origin": {"kind": "plugin", "name": "kodosi", "asUser": true},
+        "uuid": "0b6f1c2a-7d3e-4f58-9a61-2c4b8e9d0f13",
+        "content": [{"type": "text", "text": "Also count the pens."}],
+    }));
+    play.take(&json!({"k": "turnEnd", "reason": "answer"}));
+    assert_eq!(
+        play.agent.commands(&mut play.chat),
+        [json!({"do": "prompt", "n": 2, "text": "/compact"})]
+    );
+}
+
+#[test]
+fn a_message_that_claude_code_held_waits_in_the_chat_again_when_it_ends() {
+    let mut play = Play::of(record!("text"), &[]);
+    play.take(&json!({"k": "turn"}));
+    play.chat
+        .queue("Also count the pens.".to_owned(), Some(sam()), Vec::new());
+    assert_eq!(play.agent.commands(&mut play.chat).len(), 1);
+
+    play.take(&json!({"k": "end", "reason": "prompt_input_exit"}));
+    assert_eq!(
+        play.view.queued[0].given, None,
+        "the person can take it back"
+    );
+    play.take(&json!({"k": "hello", "agent": "claude", "session": "s2"}));
+    assert_eq!(
+        play.agent.commands(&mut play.chat),
+        [json!({"do": "prompt", "n": 2, "text": "Also count the pens."})]
+    );
+}
+
+#[test]
+fn a_picture_reaches_codex_and_copilot_as_their_own_and_shows_with_the_words() {
+    let file = "/run/kodosi/pictures/t/picture-0a1b2c3d4e5f6a7b.png";
+    let shown = [ChatPicture {
+        name: "picture-0a1b2c3d4e5f6a7b.png".to_owned(),
+    }];
+    let mut codex = Play::codex(&[codex!("first")], &[]);
+    codex.chat.queue(
+        "What is on it?".to_owned(),
+        Some(sam()),
+        vec![file.to_owned()],
+    );
+    let start = codex.agent.commands(&mut codex.chat);
+    assert_eq!(
+        start[0]["p"]["input"],
+        json!([
+            {"type": "text", "text": "What is on it?", "text_elements": []},
+            {"type": "localImage", "path": file},
+        ])
+    );
+    codex.follow();
+    assert_eq!(codex.view.queued[0].pictures, shown);
+
+    let mut copilot = Play::copilot(&[copilot!("always")], &[ChatAnswer::Always]);
+    copilot.chat.queue(
+        "What is on it?".to_owned(),
+        Some(sam()),
+        vec![file.to_owned()],
+    );
+    assert_eq!(
+        copilot.agent.commands(&mut copilot.chat)[0]["pictures"],
+        json!([file])
+    );
+    copilot.take(&json!({
+        "k": "event",
+        "type": "user.message",
+        "data": {"content": "What is on it?", "attachments": [{"type": "file", "path": file}]},
+    }));
+    let Some(ChatBody::Person { pictures, .. }) = copilot.view.items.last().map(|item| &item.body)
+    else {
+        panic!("the person's message");
+    };
+    assert_eq!(pictures, &shown);
 }
 
 fn events(record: &str) -> Vec<Value> {
@@ -732,7 +839,7 @@ async fn frame(ends: &mut crate::canvas::PipeEnds) -> ChatFrame {
 
 #[tokio::test]
 async fn the_chat_tells_the_terminal_how_many_helpers_work() {
-    let chat = ChatHandle::spawn(String::new(), None);
+    let chat = ChatHandle::spawn(String::new(), None, None);
     let record = record!("helper");
     let ended = record
         .find("{\"k\":\"turnEnd\"")
@@ -753,7 +860,7 @@ async fn an_answer_of_a_viewer_reaches_the_agent_before_or_after_the_agent_asks_
         .split_once("{\"answer\"")
         .expect("the record has a question");
     for waits_first in [true, false] {
-        let chat = ChatHandle::spawn(String::new(), None);
+        let chat = ChatHandle::spawn(String::new(), None, None);
         assert!(report(&chat, "one", 1, events(record!("text"))).await);
         assert!(report(&chat, "one", 2, events(asking)).await);
         let mut viewer = chat
@@ -972,10 +1079,13 @@ fn a_message_goes_into_the_turn_of_codex_and_starts_the_next_turn_when_the_turn_
         .expect("the end of the turn");
     let until = after.lines().take(ended + 1).collect::<Vec<_>>().join("\n");
     let mut play = Play::codex(&[codex!("first"), &before], &[]);
-    play.chat
-        .queue("Print only the even numbers.".to_owned(), Some(sam()));
+    play.chat.queue(
+        "Print only the even numbers.".to_owned(),
+        Some(sam()),
+        Vec::new(),
+    );
 
-    let steer = play.agent.commands(&play.chat);
+    let steer = play.agent.commands(&mut play.chat);
     assert_eq!(steer.len(), 1, "{steer:?}");
     assert_eq!(steer[0]["m"], "turn/steer");
     assert_eq!(
@@ -1000,7 +1110,7 @@ fn a_message_goes_into_the_turn_of_codex_and_starts_the_next_turn_when_the_turn_
         "e": {"code": -32600, "message": "no active turn to steer"},
     }));
 
-    let start = play.agent.commands(&play.chat);
+    let start = play.agent.commands(&mut play.chat);
     assert_eq!(start.len(), 1, "{start:?}");
     assert_eq!(start[0]["m"], "turn/start");
     assert_eq!(
@@ -1253,11 +1363,12 @@ fn a_message_goes_into_the_turn_of_copilot_at_once_and_a_command_waits_for_its_e
     let (running, _) = split_at(copilot!("always"), "\"session.idle\"");
     let mut play = Play::copilot(&[&running], &[ChatAnswer::Always]);
     play.chat
-        .queue("Also count the pens.".to_owned(), Some(sam()));
-    play.chat.queue("/compact".to_owned(), Some(sam()));
+        .queue("Also count the pens.".to_owned(), Some(sam()), Vec::new());
+    play.chat
+        .queue("/compact".to_owned(), Some(sam()), Vec::new());
 
     assert_eq!(
-        play.agent.commands(&play.chat),
+        play.agent.commands(&mut play.chat),
         [json!({"do": "prompt", "n": 1, "text": "Also count the pens.", "steer": true})]
     );
     play.take(&json!({
@@ -1277,7 +1388,7 @@ fn a_message_goes_into_the_turn_of_copilot_at_once_and_a_command_waits_for_its_e
         });
     assert_eq!(said, Some(("Also count the pens.", Some(sam()))));
     assert!(
-        play.agent.commands(&play.chat).is_empty(),
+        play.agent.commands(&mut play.chat).is_empty(),
         "a command waits for the end of the turn"
     );
 
@@ -1288,7 +1399,7 @@ fn a_message_goes_into_the_turn_of_copilot_at_once_and_a_command_waits_for_its_e
         "at": 1_795_270_669_615_u64,
     }));
     assert_eq!(
-        play.agent.commands(&play.chat),
+        play.agent.commands(&mut play.chat),
         [json!({"do": "prompt", "n": 2, "text": "/compact"})]
     );
 }
@@ -1298,20 +1409,27 @@ fn a_stop_takes_back_the_message_that_copilot_has_not_read_and_sends_it_after_th
     let (running, _) = split_at(copilot!("always"), "\"session.idle\"");
     let mut play = Play::copilot(&[&running], &[ChatAnswer::Always]);
     play.chat
-        .queue("Also count the pens.".to_owned(), Some(sam()));
+        .queue("Also count the pens.".to_owned(), Some(sam()), Vec::new());
     assert_eq!(
-        play.agent.commands(&play.chat),
+        play.agent.commands(&mut play.chat),
         [json!({"do": "prompt", "n": 1, "text": "Also count the pens.", "steer": true})]
     );
     play.take(&json!({"k": "did", "n": 1}));
-    assert!(play.view.queued[0].given, "Copilot has the message");
+    assert_eq!(
+        play.view.queued[0].given,
+        Some(ChatGiven::Step),
+        "Copilot has the message"
+    );
 
     play.stop();
     assert_eq!(play.calls.last(), Some(&json!({"do": "stop", "back": [1]})));
     play.take(&json!({"k": "did", "n": 1, "back": true}));
-    assert!(!play.view.queued[0].given, "Copilot gave the message back");
+    assert_eq!(
+        play.view.queued[0].given, None,
+        "Copilot gave the message back"
+    );
     assert!(
-        play.agent.commands(&play.chat).is_empty(),
+        play.agent.commands(&mut play.chat).is_empty(),
         "the message waits for the end of the stopped turn"
     );
 
@@ -1320,7 +1438,7 @@ fn a_stop_takes_back_the_message_that_copilot_has_not_read_and_sends_it_after_th
     }
     assert_eq!(play.ends().last(), Some(&TurnEnd::Stopped));
     assert_eq!(
-        play.agent.commands(&play.chat),
+        play.agent.commands(&mut play.chat),
         [json!({"do": "prompt", "n": 2, "text": "Also count the pens."})]
     );
 }
@@ -1330,13 +1448,13 @@ fn codex_compacts_for_the_chat_and_leaves_a_command_of_its_terminal_to_the_perso
     const THREAD: &str = "00000001-0000-7000-8000-000000000000";
     let mut play = Play::codex(&[codex!("first")], &[]);
     for text in ["/status", "/compact", "Count the pens."] {
-        let id = play.chat.queue(text.to_owned(), Some(sam()));
+        let id = play.chat.queue(text.to_owned(), Some(sam()), Vec::new());
         if !play.agent.takes(text) {
             play.chat.in_terminal(&id.expect("room in the queue"));
         }
     }
 
-    let compact = play.agent.commands(&play.chat);
+    let compact = play.agent.commands(&mut play.chat);
     assert_eq!(compact.len(), 1, "{compact:?}");
     assert_eq!(compact[0]["m"], "thread/compact/start");
     assert_eq!(compact[0]["p"], json!({"threadId": THREAD}));
@@ -1366,7 +1484,7 @@ fn codex_compacts_for_the_chat_and_leaves_a_command_of_its_terminal_to_the_perso
             note: ChatNote::Compacted
         }
     )));
-    let start = play.agent.commands(&play.chat);
+    let start = play.agent.commands(&mut play.chat);
     assert_eq!(start.len(), 1, "{start:?}");
     assert_eq!(start[0]["m"], "turn/start");
     assert_eq!(start[0]["p"]["input"][0]["text"], "Count the pens.");
@@ -1383,12 +1501,15 @@ fn codex_compacts_for_the_chat_and_leaves_a_command_of_its_terminal_to_the_perso
 fn a_message_that_codex_took_into_its_turn_is_given() {
     let (before, _) = stopped_turn();
     let mut play = Play::codex(&[codex!("first"), &before], &[]);
-    play.chat
-        .queue("Print only the even numbers.".to_owned(), Some(sam()));
-    let steer = play.agent.commands(&play.chat);
+    play.chat.queue(
+        "Print only the even numbers.".to_owned(),
+        Some(sam()),
+        Vec::new(),
+    );
+    let steer = play.agent.commands(&mut play.chat);
 
     play.take(&json!({"k": "reply", "tag": steer[0]["tag"], "r": {"turnId": "turn10"}}));
-    assert!(play.view.queued[0].given);
+    assert_eq!(play.view.queued[0].given, Some(ChatGiven::Step));
 }
 
 /// The lines of a record before its first line with `mark`, and the lines from there.
@@ -1506,7 +1627,7 @@ async fn chat_that_reaches_timber_elk() -> (
     };
     let (peers, known) =
         tokio::sync::watch::channel(std::sync::Arc::new(vec![timber_elk(), itself]));
-    let chat = ChatHandle::spawn("a".to_owned(), Some(known));
+    let chat = ChatHandle::spawn("a".to_owned(), Some(known), None);
     assert!(report(&chat, "one", 1, events(record!("text"))).await);
     let mut viewer = chat
         .attach("sam".to_owned(), "Sam".to_owned())
@@ -1581,6 +1702,7 @@ async fn an_agent_learns_who_a_message_names_and_the_chat_shows_the_words_alone(
         &viewer,
         &ChatRequest::Send {
             text: words.to_owned(),
+            pictures: Vec::new(),
         },
     )
     .await;
@@ -1602,8 +1724,55 @@ async fn an_agent_learns_who_a_message_names_and_the_chat_shows_the_words_alone(
                 agent: "copilot".to_owned(),
             }],
             handoff: None,
+            pictures: Vec::new(),
         }
     );
+}
+
+#[tokio::test]
+async fn a_picture_of_a_message_reaches_claude_code_as_a_file_and_shows_with_the_words() {
+    use base64::Engine as _;
+    let folder = tempfile::tempdir().expect("a folder");
+    let pictures = kodosi_os::fs::canonicalize(folder.path())
+        .expect("the folder")
+        .join("a");
+    let chat = ChatHandle::spawn("a".to_owned(), None, Some(pictures.clone()));
+    assert!(report(&chat, "one", 1, events(record!("text"))).await);
+    let mut viewer = chat
+        .attach("sam".to_owned(), "Sam".to_owned())
+        .await
+        .expect("the chat opens");
+    frame(&mut viewer).await;
+    let png = b"\x89PNG\r\n\x1a\nrest";
+    let words = "What is on it?";
+    send(
+        &viewer,
+        &ChatRequest::Send {
+            text: words.to_owned(),
+            pictures: vec![base64::engine::general_purpose::STANDARD.encode(png)],
+        },
+    )
+    .await;
+
+    let said = prompted(&chat).await;
+    let saved = std::fs::read_dir(&pictures)
+        .expect("the pictures of the terminal")
+        .map(|entry| entry.expect("a picture").path())
+        .collect::<Vec<_>>();
+    let [file] = saved.as_slice() else {
+        panic!("one picture: {saved:?}");
+    };
+    assert_eq!(std::fs::read(file).expect("the picture"), png);
+    let file = file.to_str().expect("a path").to_owned();
+    assert_eq!(
+        said,
+        mention::with_pictures(words, std::slice::from_ref(&file))
+    );
+    let ChatBody::Person { text, pictures, .. } = recorded(&chat, &mut viewer, &said).await else {
+        panic!("the person's message");
+    };
+    assert_eq!(text, words);
+    assert_eq!(pictures, [mention::picture(&file)]);
 }
 
 #[tokio::test]
@@ -1640,6 +1809,7 @@ async fn a_hand_off_gives_the_agent_the_work_of_another_and_the_chat_shows_whose
                 name: "Timber Elk".to_owned(),
                 agent: "copilot".to_owned(),
             }),
+            pictures: Vec::new(),
         }
     );
 }

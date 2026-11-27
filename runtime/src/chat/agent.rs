@@ -5,8 +5,8 @@ use std::collections::{HashMap, HashSet};
 use serde_json::Value;
 
 use super::{
-    ChatAnswer, ChatBody, ChatNow, ChatOption, ChatPerson, ChatQuestion, ChatState, MOST_CALLS,
-    MOST_OPTIONS, MOST_TARGET, MOST_TEXT, ToolState,
+    ChatAnswer, ChatBody, ChatNow, ChatOption, ChatPerson, ChatPicture, ChatQuestion, ChatState,
+    MOST_CALLS, MOST_OPTIONS, MOST_PICTURES, MOST_TARGET, MOST_TEXT, ToolState,
     antigravity::Antigravity,
     claude::Claude,
     codex::Codex,
@@ -28,6 +28,10 @@ pub(super) trait Agent: Send {
 
     /// Called when the link resumes reporting after going silent.
     fn back(&mut self, chat: &mut Chat);
+
+    /// Called when another link of the same agent takes over the chat, as after the agent
+    /// started again: what the earlier link had given the agent is gone with it.
+    fn relinked(&mut self, _chat: &mut Chat) {}
 
     fn is_linked(&self) -> bool;
 
@@ -58,7 +62,7 @@ pub(super) trait Agent: Send {
     fn answered(&mut self, chat: &mut Chat, ask: &str, decision: &Value) -> bool;
 
     /// Returns pending adapter calls and, when the agent is ready, the next queued prompt.
-    fn commands(&mut self, chat: &Chat) -> Vec<Value>;
+    fn commands(&mut self, chat: &mut Chat) -> Vec<Value>;
 
     fn stop(&mut self, chat: &Chat) -> Stop;
 
@@ -125,14 +129,25 @@ pub(super) fn list<'a>(value: &'a Value, key: &str) -> impl Iterator<Item = &'a 
 }
 
 /// A message as the agent got it, which the chat shows as the person's words with the agents that
-/// they name apart.
+/// they name and the pictures apart.
 pub(super) fn person(said: &str, by: Option<ChatPerson>) -> ChatBody {
+    pictured(said, by, Vec::new())
+}
+
+/// A message as the agent got it with `pictures`, which the agent took beside its words.
+pub(super) fn pictured(said: &str, by: Option<ChatPerson>, pictures: Vec<ChatPicture>) -> ChatBody {
     let heard = Message::heard(said);
     ChatBody::Person {
         text: ends_of(&heard.words, MOST_TEXT),
         by,
         mentions: heard.mentions,
         handoff: heard.handoff,
+        pictures: heard
+            .pictures
+            .into_iter()
+            .chain(pictures)
+            .take(MOST_PICTURES)
+            .collect(),
     }
 }
 

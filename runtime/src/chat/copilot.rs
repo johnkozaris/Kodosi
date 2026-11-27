@@ -8,14 +8,15 @@ use std::collections::{HashMap, VecDeque};
 use serde_json::{Map, Value, json};
 
 use super::{
-    AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
-    ChatOption, ChatPerson, ChatQuestion, ChatStep, ChatTask, ChatTool, MOST_OUTPUT, MOST_TARGET,
-    MOST_TEXT, PlanChoice, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
+    AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatGiven, ChatMode, ChatNote,
+    ChatNow, ChatOption, ChatPerson, ChatQuestion, ChatStep, ChatTask, ChatTool, MOST_OUTPUT,
+    MOST_TARGET, MOST_TEXT, PlanChoice, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
     agent::{
-        Agent, Places, Stop, answer, list, person, plan_command, remember, show_state, stop_open,
-        text, words,
+        Agent, Places, Stop, answer, list, person, pictured, plan_command, remember, show_state,
+        stop_open, text, words,
     },
     diff,
+    mention::picture,
     state::{Chat, ends_of, start_of},
 };
 
@@ -383,7 +384,11 @@ impl Copilot {
 
     fn said_by_person(&mut self, chat: &mut Chat, data: &Value, at: u64) {
         let said = text(data, "content");
-        if said.is_empty() {
+        let pictures = list(data, "attachments")
+            .filter(|attached| is_picture(attached))
+            .map(|attached| picture(text(attached, "path")))
+            .collect::<Vec<_>>();
+        if said.is_empty() && pictures.is_empty() {
             return;
         }
         let by = match self.handed.front() {
@@ -396,7 +401,7 @@ impl Copilot {
                 None
             }
         };
-        chat.push(at, person(said, by));
+        chat.push(at, pictured(said, by, pictures));
     }
 
     /// Finalizes an assistant message, removing the empty placeholder of a message that only calls
@@ -815,7 +820,9 @@ impl Copilot {
                     chat.unqueue(&handed.queued);
                 }
             }
-            None if self.handed[index].into_turn => chat.give(&self.handed[index].queued),
+            None if self.handed[index].into_turn => {
+                chat.give(&self.handed[index].queued, ChatGiven::Step);
+            }
             None => {}
         }
     }
@@ -1015,7 +1022,7 @@ impl Agent for Copilot {
     /// it at once, as Enter gives it in Copilot's terminal, and Copilot reads it before its next
     /// model request. A slash command waits for the turn to end, as Copilot holds the commands
     /// that cannot run in a turn.
-    fn commands(&mut self, chat: &Chat) -> Vec<Value> {
+    fn commands(&mut self, chat: &mut Chat) -> Vec<Value> {
         if !self.linked || self.held || !self.handed.is_empty() || !chat.asks().is_empty() {
             return Vec::new();
         }
@@ -1039,6 +1046,9 @@ impl Agent for Copilot {
             into_turn,
         });
         let mut command = json!({"do": "prompt", "n": self.sent, "text": text});
+        if !queued.files.is_empty() {
+            command["pictures"] = json!(queued.files);
+        }
         if plan.is_some() {
             command["mode"] = json!("plan");
         }
@@ -1392,6 +1402,15 @@ fn patched(patch: &str, places: &Places) -> String {
         .map(|path| places.file(path))
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+/// A file of the message that Copilot shows its model as a picture.
+fn is_picture(attached: &Value) -> bool {
+    let path = text(attached, "path").to_ascii_lowercase();
+    text(attached, "type") == "file"
+        && [".png", ".jpg", ".jpeg", ".gif", ".webp"]
+            .iter()
+            .any(|kind| path.ends_with(kind))
 }
 
 fn change(given: &str, path: &str) -> Option<ToolDetail> {
