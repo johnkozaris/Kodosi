@@ -24,9 +24,10 @@
 //! acknowledged bytes whatever noq tells, as in the draft, and the draft's bound on bytes in flight
 //! keeps it near what the source showed: a still screen sends nothing and grows nothing. A packet
 //! that waited in a queue does not count: a burst builds a queue that the queue delay average reads
-//! low, and a packet that waited is no proof of room. While noq has nothing to send, the round trip
-//! that the bitrate is published with falls only slowly, as in libwebrtc's `SCReAM` and the
-//! draft's section 6: a burst's acknowledgements come in as the queue that it built drains, and
+//! low, and a packet that waited is no proof of room. Its own time on a slow link is no wait,
+//! though: the base round trip comes from the smallest packets. While noq has nothing to send, the
+//! round trip that the bitrate is published with falls only slowly, as in libwebrtc's `SCReAM` and
+//! the draft's section 6: a burst's acknowledgements come in as the queue that it built drains, and
 //! the window was measured against that queue, so a round trip that falls back at once would
 //! publish more than the path carried.
 
@@ -512,7 +513,8 @@ impl Window {
         }
         self.sample_base(now, round);
         self.qdelay = (round - self.base_rtt().unwrap_or(round)).max(0.0);
-        if self.qdelay < self.qdelay_target / 4.0 {
+        let own_time = 8.0 * bytes / self.target_bitrate.max(RATE_PACE_MIN);
+        if self.qdelay < self.qdelay_target / 4.0 + own_time {
             self.bytes_newly_acked += bytes;
         }
         self.acked.push_back((now, bytes));
@@ -796,7 +798,7 @@ mod tests {
                 window: Window::new(start, MTU),
                 start,
                 capacity,
-                round_trip: Duration::ZERO,
+                round_trip: Duration::from_millis(20),
                 radio_loss: 0.0,
                 policer: None,
                 queue_limit: None,
@@ -813,21 +815,27 @@ mod tests {
                 in_flight: 0,
                 sent_packets: 0,
                 largest_acked: None,
-                smoothed: 0.0,
+                smoothed: 0.02,
                 sent_bits: 0.0,
                 measured: Measured::default(),
             }
-            .with_round_trip(Duration::from_millis(20))
         }
 
-        /// The handshake has measured the round trip before the source starts.
         fn with_round_trip(mut self, round_trip: Duration) -> Self {
             self.round_trip = round_trip;
-            self.smoothed = round_trip.as_secs_f64();
-            self.window.path_rtt = Some(self.smoothed);
-            self.window.s_rtt = self.smoothed;
-            self.window.publish();
             self
+        }
+
+        /// The handshake measures the round trip before the source starts.
+        fn handshake(&mut self) {
+            if self.window.path_rtt.is_some() {
+                return;
+            }
+            self.smoothed = self.round_trip.as_secs_f64();
+            let answered = self.start + self.round_trip;
+            self.window
+                .acked_packet(answered, self.start, 0, self.round_trip);
+            self.window.on_end_acks(answered, 0, true, None);
         }
 
         fn with_radio_loss(mut self, share: f64) -> Self {
@@ -851,6 +859,7 @@ mod tests {
 
         /// Starts from the window's floor, as after cuts.
         fn at_the_floor(mut self) -> Self {
+            self.handshake();
             self.window.ref_wnd = MIN_REF_WND;
             self.window.ref_wnd_lowest = MIN_REF_WND;
             self.window.publish();
@@ -889,6 +898,7 @@ mod tests {
 
         /// The source makes `frame_times` frames' worth of bitrate at once.
         fn burst(&mut self, frame_times: f64) {
+            self.handshake();
             self.make(frame_times * self.published() / 60.0 / 8.0);
         }
 
@@ -907,6 +917,7 @@ mod tests {
         }
 
         fn advance(&mut self, from: Duration, to: Duration, frames: bool) {
+            self.handshake();
             let mut at = from;
             while at < to {
                 let now = self.start + at;
