@@ -25,7 +25,9 @@ a terminal needs attention.
 Any terminal running a supported agent can also be viewed as a chat: your messages, the agent's
 replies and actions, the helpers working for it, and its prompts with clickable answer buttons.
 You can switch freely between the terminal screen and chat view, and anything you do in one shows
-up in the other.
+up in the other. Typing `@` in a chat names another of your running agents so the two can talk, and
+you can hand an agent's work to the chat's agent, which reads the first agent's conversation and
+carries on without disturbing it.
 
 ### Sharing
 Share any terminal with friends or with a project, from any of your devices. Everyone with access

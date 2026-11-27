@@ -26,6 +26,8 @@ Terminals with chat-capable agents can toggle between the terminal screen (with 
 row) and the chat view. Each terminal opens in whichever view its agent runs in, and you can
 switch views at any time. In the chat, a long press on a message or a finished answer copies it
 whole, as written, opens it to select part of it, or reads it aloud in the voice of its language.
+Typing `@` lists your other running agents to mention, and a long press on one hands its work over
+instead.
 
 ### Talking in chat
 In the chat view, the mic key beside Send lets you talk instead of typing. Your words appear as your

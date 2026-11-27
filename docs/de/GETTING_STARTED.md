@@ -173,6 +173,13 @@ Antwort-Buttons. Du kannst direkt im Chat antworten oder den Agent stoppen; gibs
 Rückfrage eigenen Text ein, erfährt der Agent, was er stattdessen tun soll. Alles, was du im Chat
 machst, passiert zugleich im zugrunde liegenden Terminal.
 
+Tippe im Chat `@`, um einen anderen deiner laufenden Agents zu erwähnen, damit die beiden
+miteinander sprechen können: Kodosi sagt dem Agent des Chats, wer das ist und wie er ihm schreiben
+kann. Um die Arbeit eines Agents an den Agent des Chats zu übergeben, ziehe dessen Terminal auf den
+Chat und wähle **Übergeben**, oder halte den Agent auf dem Smartphone in der `@`-Liste gedrückt. Der
+Agent des Chats liest die Unterhaltung des anderen Agents und setzt die Arbeit fort; der andere
+Agent bekommt keine Nachricht.
+
 Bei Claude Code öffnet das Zahnrad unter dem Nachrichtenfeld oder `/config` die eigenen
 Einstellungen von Claude Code. Claude Code prüft und speichert jede Änderung und sagt, warum, wenn
 es eine nicht übernimmt.
@@ -447,7 +454,7 @@ der App sofort sichtbar.
 | `kodosi agent list` | Listet installierte Agents, ihre Konten und deine zuletzt genutzten Einstellungen auf. |
 | `kodosi agent usage` | Zeigt die aktuelle Tarifnutzung und die Rücksetzzeiten für angemeldete Konten von Claude Code, Codex und Copilot CLI an. |
 | `kodosi terminal list` | Listet Terminals mit ihren Namen und IDs auf (beides lässt sich als `<terminal>` angeben). |
-| `kodosi terminal read <terminal>` | Gibt den aktuellen Bildschirminhalt aus. Mit `--history` wird auch der Scrollback-Verlauf eingeschlossen. |
+| `kodosi terminal read <terminal>` | Gibt den aktuellen Bildschirminhalt aus. Mit `--history` wird auch der Scrollback-Verlauf eingeschlossen, mit `--conversation` stattdessen die Unterhaltung des Agents ausgegeben, wie der Chat sie zeigt. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | Sendet eine Nachricht mit Absender und Herkunft an den Agent in einem Terminal. |
 | `kodosi terminal agent <terminal> --model sonnet` | Ändert Modell, Denkaufwand, Schnellmodus oder Berechtigungen eines laufenden Agents. |
 | `kodosi terminal input <terminal> --enter "make test"` | Tippt Text in ein Terminal ein. |

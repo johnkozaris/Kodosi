@@ -173,6 +173,13 @@ des boutons cliquables. Vous pouvez répondre à l'agent ou l'arrêter directeme
 si vous saisissez un texte libre pendant qu'il pose une question, cela lui indique quoi faire à la
 place. Tout ce que vous faites dans le chat se répercute aussi dans le terminal sous-jacent.
 
+Dans le chat, tapez `@` pour mentionner un autre de vos agents en cours d'exécution afin que les
+deux puissent se parler : Kodosi indique à l'agent du chat de qui il s'agit et comment lui écrire.
+Pour transmettre le travail d'un agent à l'agent du chat, faites glisser le terminal de cet agent
+sur le chat et choisissez **Transmettre** ou, sur un téléphone, maintenez le doigt sur l'agent dans
+la liste `@`. L'agent du chat lit la conversation de l'autre agent et poursuit le travail ; l'autre
+agent ne reçoit aucun message.
+
 Avec Claude Code, la roue dentée sous le champ de message, ou `/config`, ouvre les réglages de
 Claude Code. Claude Code vérifie et enregistre chaque modification, et dit pourquoi quand il en
 refuse une.
@@ -450,7 +457,7 @@ immédiatement dans l'app.
 | `kodosi agent list` | Liste les agents installés, leurs comptes et vos derniers réglages utilisés. |
 | `kodosi agent usage` | Affiche l'utilisation actuelle du forfait et les horaires de réinitialisation pour les comptes Claude Code, Codex et Copilot CLI connectés. |
 | `kodosi terminal list` | Liste les terminaux avec leurs noms et leurs identifiants (passez l'un ou l'autre comme `<terminal>`). |
-| `kodosi terminal read <terminal>` | Affiche le contenu actuel de l'écran. Ajoutez `--history` pour inclure l'historique de défilement. |
+| `kodosi terminal read <terminal>` | Affiche le contenu actuel de l'écran. Ajoutez `--history` pour inclure l'historique de défilement, ou `--conversation` pour afficher à la place la conversation de l'agent telle que le chat la montre. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | Envoie un message à l'agent d'un terminal, accompagné de l'expéditeur et de la provenance. |
 | `kodosi terminal agent <terminal> --model sonnet` | Change le modèle, le niveau d'effort, le mode rapide ou les autorisations d'un agent en cours d'exécution. |
 | `kodosi terminal input <terminal> --enter "make test"` | Saisit du texte dans un terminal. |

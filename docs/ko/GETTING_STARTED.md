@@ -152,6 +152,11 @@ Claude Code를 실행 중인 터미널이나 Kodosi로 시작한 Codex 및 Copil
 수 있고, 에이전트가 질문하는 중에 직접 텍스트를 입력하면 선택지 대신 무엇을 해야 할지 지시할 수
 있어요. 채팅에서 수행하는 모든 동작은 실제 터미널에도 똑같이 반영돼요.
 
+채팅에서 `@`를 입력하면 실행 중인 다른 에이전트를 멘션해 두 에이전트가 서로 대화하게 할 수 있어요. Kodosi는 채팅의
+에이전트에게 그 에이전트가 누구이고 어떻게 메시지를 보내는지 알려 줘요. 에이전트의 작업을 채팅의 에이전트에게 넘기려면 그
+에이전트의 터미널을 채팅 위로 끌어다 놓고 **인계**를 고르거나, 휴대폰에서는 `@` 목록에서 그 에이전트를 길게 누르세요.
+채팅의 에이전트가 다른 에이전트의 대화를 읽고 작업을 이어 가며, 다른 에이전트에게는 아무 메시지도 가지 않아요.
+
 Claude Code에서는 메시지 입력란 아래의 톱니바퀴나 `/config`로 Claude Code 자체 설정을 열 수 있어요. Claude Code가 변경 사항을 하나씩 확인해
 저장하고, 받아들이지 않는 변경은 그 이유를 알려 줘요.
 
@@ -381,7 +386,7 @@ Mac은 Kodosi가 로컬 네트워크를 사용할 수 있을 때만 깨우기 �
 | `kodosi agent list` | 설치된 에이전트, 등록된 계정, 마지막으로 사용한 설정 목록을 보여 줘요. |
 | `kodosi agent usage` | 로그인된 Claude Code, Codex, Copilot CLI 계정의 현재 요금제 사용량과 초기화 시각을 보여 줘요. |
 | `kodosi terminal list` | 터미널 목록을 이름과 ID와 함께 보여 줘요. 둘 중 어느 쪽이든 `<terminal>` 인자로 쓸 수 있어요. |
-| `kodosi terminal read <terminal>` | 현재 화면 내용을 출력해요. `--history`를 붙이면 스크롤 기록까지 함께 출력돼요. |
+| `kodosi terminal read <terminal>` | 현재 화면 내용을 출력해요. `--history`를 붙이면 스크롤 기록까지 함께 출력되고, `--conversation`을 붙이면 대신 채팅에 보이는 그대로 에이전트의 대화를 출력해요. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | 보낸 사람과 출처 정보를 붙여 터미널의 에이전트에게 메시지를 전달해요. |
 | `kodosi terminal agent <terminal> --model sonnet` | 실행 중인 에이전트의 모델, 추론 수준, 빠른 모드, 권한을 변경해요. |
 | `kodosi terminal input <terminal> --enter "make test"` | 터미널에 텍스트를 입력해요. |

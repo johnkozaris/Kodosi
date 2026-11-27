@@ -92,6 +92,8 @@ Kodosi 会在无人使用、没有 Agent 正在工作、也没有其他程序在
 
 运行 Claude Code 的终端，以及通过 Kodosi 启动的 Codex 和 Copilot CLI 终端，还在标题栏提供了 **聊天** 视图。聊天视图会展示你的消息、Agent 的回复和工具调用记录，并以可点击的按钮呈现待回答的问题。你可以直接在聊天视图中回复或中止 Agent；在它提问时输入自定义内容，就能直接指示它改做什么。你在聊天视图中进行的所有操作，都会同步发生在底层终端中。
 
+在聊天中输入 `@`，即可提及你正在运行的另一个 Agent，让两个 Agent 互相交流：Kodosi 会告诉聊天中的 Agent 对方是谁，以及如何给它发消息。要把某个 Agent 的工作交接给聊天中的 Agent，请将该 Agent 的终端拖到聊天上并选择 **交接**；在手机上，则在 `@` 列表中长按该 Agent。聊天中的 Agent 会读取另一个 Agent 的对话并继续工作，另一个 Agent 不会收到任何消息。
+
 使用 Claude Code 时，点按消息框下方的齿轮或输入 `/config`，即可打开 Claude Code 自己的设置。Claude Code 会检查并保存每项更改；如果不接受某项更改，会说明原因。
 
 在 Mac、iPhone、iPad 和 Android 上，点按或轻点消息输入框旁的麦克风，就能用说话代替打字。你说话时，你的话会显示为你的消息，停顿较长时间后就会发送，让你有时间思考；点按或轻点 **发送** 可以更早发送。语音在你的设备上转成文字，音频不会离开设备。
@@ -222,7 +224,7 @@ Dosi 头像旁的状态栏会提示它是在工作中、已回复还是在等待
 | `kodosi agent list` | 列出已安装的 Agent、它们的账号以及你上次使用的设置。 |
 | `kodosi agent usage` | 显示已登录的 Claude Code、Codex 和 Copilot CLI 账号当前的套餐用量与重置时间。 |
 | `kodosi terminal list` | 列出所有终端及其名称和 ID（两者均可作为 `<terminal>` 参数使用）。 |
-| `kodosi terminal read <terminal>` | 输出终端当前的屏幕内容。加上 `--history` 可包含回滚历史记录。 |
+| `kodosi terminal read <terminal>` | 输出终端当前的屏幕内容。加上 `--history` 可包含回滚历史记录，加上 `--conversation` 则改为按聊天视图的样子输出 Agent 的对话。 |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | 向指定终端内的 Agent 发送一条附带发送者和来源标记的消息。 |
 | `kodosi terminal agent <terminal> --model sonnet` | 在线更改运行中 Agent 的模型、推理强度、快速模式或权限。 |
 | `kodosi terminal input <terminal> --enter "make test"` | 向终端输入文本。 |

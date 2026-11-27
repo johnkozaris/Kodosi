@@ -171,6 +171,12 @@ los que puedes hacer clic. Puedes responder o detener al agente directamente des
 escribes un texto propio mientras hace una pregunta, le indica al agente qué hacer en su lugar.
 Todo lo que haces en el chat ocurre también en el terminal subyacente.
 
+En el chat, escribe `@` para mencionar a otro de tus agentes en marcha y que los dos puedan hablar:
+Kodosi le dice al agente del chat quién es y cómo enviarle mensajes. Para traspasar el trabajo de un
+agente al agente del chat, arrastra el terminal de ese agente sobre el chat y elige **Traspasar** o,
+en un teléfono, mantén pulsado el agente en la lista de `@`. El agente del chat lee la conversación
+del otro agente y continúa con el trabajo; el otro agente no recibe ningún mensaje.
+
 Con Claude Code, el engranaje bajo el campo de mensaje, o `/config`, abre los ajustes propios de
 Claude Code. Claude Code revisa y guarda cada cambio, y explica por qué cuando no acepta alguno.
 
@@ -434,7 +440,7 @@ aparecen en la app al instante.
 | `kodosi agent list` | Lista los agentes instalados, sus cuentas y tus últimos ajustes. |
 | `kodosi agent usage` | Muestra el uso actual del plan y las horas de restablecimiento de las cuentas con sesión iniciada de Claude Code, Codex y Copilot CLI. |
 | `kodosi terminal list` | Lista los terminales con sus nombres e ID (puedes pasar cualquiera de los dos como `<terminal>`). |
-| `kodosi terminal read <terminal>` | Imprime el contenido actual de la pantalla. Añade `--history` para incluir el historial de desplazamiento. |
+| `kodosi terminal read <terminal>` | Imprime el contenido actual de la pantalla. Añade `--history` para incluir el historial de desplazamiento, o `--conversation` para imprimir en su lugar la conversación del agente tal como la muestra el chat. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | Envía un mensaje al agente de un terminal, etiquetado con el remitente y el origen. |
 | `kodosi terminal agent <terminal> --model sonnet` | Cambia el modelo, el esfuerzo, el modo rápido o los permisos de un agente en ejecución. |
 | `kodosi terminal input <terminal> --enter "make test"` | Escribe texto en un terminal. |

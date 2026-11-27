@@ -155,6 +155,12 @@ activity, and any pending questions with clickable buttons. You can reply or sto
 from chat; if you type custom text while it's asking a question, it tells the agent what to do
 instead. Everything you do in chat happens in the underlying terminal as well.
 
+In chat, type `@` to mention another of your running agents so the two can talk: Kodosi tells the
+chat's agent who that agent is and how to message it. To hand an agent's work to the chat's agent,
+drag that agent's terminal onto the chat and choose **Hand off**, or touch and hold the agent in the
+`@` list on a phone. The chat's agent reads the other agent's conversation and carries on with the
+work; the other agent gets no message.
+
 With Claude Code, the gear under the message field, or `/config`, opens Claude Code's own settings.
 Claude Code checks and saves each change, and says why when it doesn't take one.
 
@@ -394,7 +400,7 @@ app immediately.
 | `kodosi agent list` | Lists installed agents, their accounts, and your last-used settings. |
 | `kodosi agent usage` | Shows current plan usage and reset times for signed-in Claude Code, Codex, and Copilot CLI accounts. |
 | `kodosi terminal list` | Lists terminals with their names and IDs (pass either as `<terminal>`). |
-| `kodosi terminal read <terminal>` | Prints the current screen contents. Add `--history` to include scrollback. |
+| `kodosi terminal read <terminal>` | Prints the current screen contents. Add `--history` to include scrollback, or `--conversation` to print the agent's conversation as its chat shows it. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | Sends a message to the agent in a terminal, tagged with sender and origin. |
 | `kodosi terminal agent <terminal> --model sonnet` | Changes a running agent's model, effort, fast mode, or permissions. |
 | `kodosi terminal input <terminal> --enter "make test"` | Types text into a terminal. |

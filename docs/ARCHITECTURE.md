@@ -202,6 +202,14 @@ The host turns these reports into structured chat state: user messages, agent re
 pending questions, the agent's task list, and session metadata. Replies, answers, and stops flow
 back over the same channel.
 
+Each chat also lists the agents of the other terminals that its agent can reach, as its host's
+terminal list has them. A message that names one with `@` reaches the agent as the person wrote it,
+followed by one short Kodosi line for each named agent: its agent kind and the command that shows
+its details. A hand-off asks the agent to continue another agent's work and to read that agent's
+conversation with `kodosi terminal read <terminal> --conversation`, which takes it from the other
+terminal's chat without a message to its agent. The host reads its own lines back out of the agent's
+record, so the chat shows the person's words and the named agents apart, also after a restart.
+
 The host also reports which view an agent primarily runs in (terminal vs. chat, such as
 Antigravity ACP chat, switching back to terminal while waiting for sign-in). Clients open on that
 default view, and a user's manual toggle sticks unless the agent explicitly signals a view change
