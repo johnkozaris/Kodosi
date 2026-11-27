@@ -23,7 +23,7 @@ use super::{
     capture::{Frames, Video, Wanted},
     clipboard::Clipboard,
     hand::Hand,
-    input::Hands,
+    input::{Hands, Placed},
     notice::Tray,
     portal::{Desktop, Grant, Portal, Problem, Shared},
 };
@@ -73,6 +73,9 @@ pub(super) enum Event {
     Changed,
     /// The pixels of a display's stream, first and after each change of the display.
     Sized { node: u32, pixels: (u32, u32) },
+    /// Where the desktop's libei server places the displays, and their scales, first and after
+    /// each change of them.
+    Placed(Vec<Placed>),
 }
 
 /// Serves the host on standard input and output until it quits or goes away.
@@ -101,6 +104,8 @@ pub(super) async fn serve(arguments: Arguments) {
         sources: Sources::default(),
         scales: HashMap::new(),
         streamed: HashMap::new(),
+        placed: Vec::new(),
+        places: HashMap::new(),
         capture: None,
         frames: None,
         tray,
@@ -160,6 +165,10 @@ struct Session {
     scales: HashMap<Place, f64>,
     /// What the streams of this portal session told of their displays, by node.
     streamed: HashMap<u32, Streamed>,
+    /// Where the desktop's libei server places the displays now, and their scales.
+    placed: Vec<Placed>,
+    /// The index in `placed` of each display of this portal session, by its node.
+    places: HashMap<u32, usize>,
     /// The captured display.
     capture: Option<u32>,
     /// The encoder, from the first capture until the host stops it.
@@ -539,7 +548,12 @@ impl Session {
         };
         let hands = if desktop.input {
             let hand = Arc::clone(&self.hand);
-            desktop.eis().await.ok().map(|eis| Hands::start(eis, hand))
+            let events = self.events.clone();
+            desktop
+                .eis()
+                .await
+                .ok()
+                .map(|eis| Hands::start(eis, hand, events))
         } else {
             None
         };
@@ -555,6 +569,8 @@ impl Session {
             }
         });
         self.streamed.clear();
+        self.placed.clear();
+        self.places.clear();
         self.sharing = Sharing::On(Linked {
             video,
             hands,
@@ -617,6 +633,7 @@ impl Session {
             }
             Event::Changed => self.look().await,
             Event::Sized { node, pixels } => self.sized(node, pixels).await,
+            Event::Placed(placed) => self.placed(placed).await,
         }
     }
 
@@ -680,19 +697,53 @@ impl Session {
         self.tell_sources().await;
     }
 
-    /// A display as the portal told it when its session started, with what its stream told
-    /// since.
+    /// The desktop's libei server tells where the displays are and their scales, first and after
+    /// each change of them. A display keeps its place in the server's list while no display comes
+    /// or goes; at first, its place is where the portal put it.
+    async fn placed(&mut self, placed: Vec<Placed>) {
+        if placed.len() != self.placed.len() {
+            self.places.clear();
+        }
+        if let Some(linked) = self.linked() {
+            let found: Vec<(u32, usize)> = linked
+                .desktop
+                .displays
+                .iter()
+                .filter(|shared| !self.places.contains_key(&shared.node))
+                .filter_map(|shared| {
+                    let known = self.known(shared);
+                    let index = placed.iter().position(|place| holds(place, &known))?;
+                    Some((shared.node, index))
+                })
+                .collect();
+            self.places.extend(found);
+        }
+        self.placed = placed;
+        self.tell_sources().await;
+    }
+
+    /// A display as the portal told it when its session started, with what its stream and the
+    /// desktop's libei server told since.
     fn known(&self, shared: &Shared) -> Known {
+        let placed = self
+            .places
+            .get(&shared.node)
+            .and_then(|index| self.placed.get(*index))
+            .filter(|placed| placed.scale > 0.0);
         let streamed = self.streamed.get(&shared.node);
-        let scale = streamed
-            .map(|streamed| streamed.scale)
+        let scale = placed
+            .map(|placed| placed.scale)
+            .or_else(|| streamed.map(|streamed| streamed.scale))
             .or_else(|| self.scales.get(&place(shared)).copied())
             .unwrap_or(1.0);
+        let points = match (streamed, placed) {
+            (Some(streamed), _) => points(streamed.pixels, scale),
+            (None, Some(placed)) => (placed.width, placed.height),
+            (None, None) => (shared.width, shared.height),
+        };
         Known {
-            origin: (shared.x, shared.y),
-            points: streamed.map_or((shared.width, shared.height), |streamed| {
-                points(streamed.pixels, scale)
-            }),
+            origin: placed.map_or((shared.x, shared.y), |placed| (placed.x, placed.y)),
+            points,
             scale,
             pixels: streamed.map(|streamed| streamed.pixels),
         }
@@ -785,6 +836,16 @@ struct Known {
 /// starts, and its stream tells when the display turns or takes another resolution.
 fn points(pixels: (u32, u32), scale: f64) -> (f64, f64) {
     (f64::from(pixels.0) / scale, f64::from(pixels.1) / scale)
+}
+
+/// Whether the desktop's libei server places a display where the helper knows it, in whole
+/// logical pixels.
+fn holds(placed: &Placed, known: &Known) -> bool {
+    let near = |one: f64, other: f64| (one - other).abs() < 1.0;
+    near(placed.x, known.origin.0)
+        && near(placed.y, known.origin.1)
+        && near(placed.width, known.points.0)
+        && near(placed.height, known.points.1)
 }
 
 /// Pixels per point of a display of `points` as the portal told them, whose stream has
