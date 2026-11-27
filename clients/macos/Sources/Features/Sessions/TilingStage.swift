@@ -60,6 +60,12 @@ struct TilingStage: View {
                         .disabled(!visible)
                         .layoutValue(key: TerminalTileVisibility.self, value: visible)
                         .opacity(visible ? 1 : 0).allowsHitTesting(visible).accessibilityHidden(!visible)
+                        // Showing a hidden tile also enables its keys, whose enable animation would
+                        // then move them in from the corner of the window.
+                        .transaction(value: visible) { transaction in
+                            transaction.animation = nil
+                            transaction.disablesAnimations = true
+                        }
                         .environment(\.terminalTileVisible, visible)
                         .environment(\.terminalAlone, alone)
                         .terminalScope(session.terminalLook)

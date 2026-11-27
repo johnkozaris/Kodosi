@@ -147,7 +147,11 @@ struct ChatDock<ModelKey: View>: View {
                 .textFieldStyle(.plain)
                 .tint(theme.colors.accent)
                 .lineLimit(1 ... 8)
+            #if os(macOS)
+                .appTextStyle(.callout)
+            #else
                 .appTextStyle(.body)
+            #endif
                 .foregroundStyle(theme.colors.ink)
                 .focused(focused)
                 .padding(.leading, 10).padding(.vertical, 7)
@@ -535,6 +539,7 @@ private struct ChatFactsRow<ModelKey: View>: View {
             line(full: false)
             ScrollView(.horizontal) { line(full: false) }.scrollIndicators(.hidden)
         }
+        .monospacedDigit()
     }
 
     private func line(full: Bool) -> some View {
@@ -651,14 +656,13 @@ private struct ChatUsageKey: View {
                                 Text(verbatim: "\(limit.used)%")
                             }
                         }
-                        .monospacedDigit()
                         .foregroundStyle(limit.level == .normal ? theme.colors.ink : limit.level.color(theme.colors))
                     }
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(Text(verbatim: limit.spoken))
                 }
                 if facts.context == nil, facts.limits.isEmpty, let cost = facts.cost {
-                    Text(verbatim: ChatWords.cost(cost)).monospacedDigit()
+                    Text(verbatim: ChatWords.cost(cost))
                 }
                 Image(systemName: "chevron.down")
                     .font(scaled: 8, weight: .bold)
@@ -721,7 +725,6 @@ struct ContextMeter: View {
                     Text(verbatim: "\(percent)%")
                 }
             }
-            .monospacedDigit()
             .foregroundStyle(level == .normal ? theme.colors.ink : level.color(theme.colors))
         }
         .animation(theme.motion.snappy, value: percent)
