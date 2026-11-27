@@ -11,8 +11,17 @@ extension UTType {
 struct TerminalDrag: Codable, Transferable {
     let sessionId: String
 
+    /// The terminal of the drag under way in this app. A drop target reads a drag's terminal only
+    /// at the drop, so a drag notes it when it starts.
+    @MainActor static var current: String?
+
     static var transferRepresentation: some TransferRepresentation {
         CodableRepresentation(contentType: .kodosiTerminal)
+    }
+
+    @MainActor static func starting(_ sessionId: String) -> TerminalDrag {
+        current = sessionId
+        return TerminalDrag(sessionId: sessionId)
     }
 }
 
@@ -61,7 +70,7 @@ extension View {
     @ContentBuilder
     func terminalDrag(_ session: RuntimeSession, when enabled: Bool = true) -> some View {
         if enabled {
-            draggable(TerminalDrag(sessionId: session.id)) { TerminalDragPreview(session: session) }
+            draggable(TerminalDrag.starting(session.id)) { TerminalDragPreview(session: session) }
         } else {
             self
         }

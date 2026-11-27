@@ -12,6 +12,8 @@ public final class TerminalChat {
     /// Locally submitted answers by ask ID, until their ask is gone or a fresh snapshot arrives.
     public private(set) var answers: [String: ChatAnswer] = [:]
     public var draft = ""
+    /// Counts the words that came into the draft from outside its field, which then takes the focus.
+    public var drafted = 0
 
     @ObservationIgnored private let store: CanvasStore
     @ObservationIgnored let session: String
@@ -51,6 +53,11 @@ public final class TerminalChat {
 
     public var settings: [ChatSetting] {
         chat?.settings ?? []
+    }
+
+    /// The agents of other terminals that this terminal's agent can reach, in the order to show.
+    public var peers: [ChatPeer] {
+        chat?.peers ?? []
     }
 
     /// The control of the chat that a draft of only a command's name opens in place of sending it.
@@ -160,6 +167,12 @@ public final class TerminalChat {
         request(.unqueue(queued.id))
     }
 
+    /// Asks the agent to go on with the work of `peer`'s agent, which gets no message.
+    public func handOff(_ peer: ChatPeer) {
+        guard canWrite else { return }
+        request(.handOff(terminal: peer.terminal))
+    }
+
     public func stop() {
         request(.stop)
     }
@@ -261,6 +274,8 @@ extension ChatSnapshot {
             self.commands = commands
         case let .settings(settings):
             self.settings = settings
+        case let .peers(peers):
+            self.peers = peers
         case let .facts(facts):
             self.facts = facts
         case let .state(state, now):

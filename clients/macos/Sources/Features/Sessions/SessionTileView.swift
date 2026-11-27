@@ -167,17 +167,25 @@ struct SessionTileView: View {
                     .opacity(chatting ? 0 : 1).allowsHitTesting(!chatting).accessibilityHidden(chatting)
                     .environment(\.terminalTileVisible, tileVisible && !chatting)
                 if chatting {
-                    TerminalChatView(chat: deps.canvas.chat(session.id), agent: session.agent, me: deps.account.userId,
+                    let chat = deps.canvas.chat(session.id)
+                    TerminalChatView(chat: chat, agent: session.agent, me: deps.account.userId,
                                      otherComputer: session.otherComputer,
-                                     names: [session.name, session.projectName, session.folderName].compactMap(\.self))
+                                     names: [session.name, session.projectName, session.folderName].compactMap(\.self),
+                                     openTerminal: openTerminal)
                     {
                         deps.workbench.faces[session.id] = FacePick(.terminal, over: session.face)
                     } modelKey: { name, effort, open in
                         ChatModelKey(session: session, name: name, effort: effort, open: open)
                     }
+                    .chatDrop(chat)
                 }
             }
         }
+    }
+
+    /// Opens the terminal of an agent that a message of the chat names.
+    private func openTerminal(_ id: String) {
+        deps.activateSession(id)
     }
 
     private func screen(manager: TerminalSessionManager, managed: ManagedTerminalSession, state: TerminalRenderState) -> some View {

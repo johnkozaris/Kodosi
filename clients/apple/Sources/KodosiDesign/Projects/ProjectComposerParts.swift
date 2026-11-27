@@ -41,20 +41,20 @@ public struct ProjectMentionCompletion: Equatable {
         highlighted = 0
     }
 
-    fileprivate mutating func move(by offset: Int, in suggestions: [ProjectMention]) -> Bool {
+    mutating func move(by offset: Int, in suggestions: [ProjectMention]) -> Bool {
         guard !suggestions.isEmpty else { return false }
         let count = suggestions.count
         highlighted = (min(highlighted, count - 1) + offset + count) % count
         return true
     }
 
-    fileprivate mutating func dismiss(in draft: String, focused: Bool) -> Bool {
+    mutating func dismiss(in draft: String, focused: Bool) -> Bool {
         guard let query = query(in: draft, focused: focused) else { return false }
         dismissed = query
         return true
     }
 
-    fileprivate mutating func queryChanged() {
+    mutating func queryChanged() {
         highlighted = 0
     }
 }
@@ -107,12 +107,19 @@ public struct ProjectMentionSuggestions: View {
     let highlighted: ProjectMention?
     let identifier: String
     let pick: (ProjectMention) -> Void
+    let handOff: ((ProjectMention) -> Void)?
 
-    public init(suggestions: [ProjectMention], highlighted: ProjectMention?, identifier: String, pick: @escaping (ProjectMention) -> Void) {
+    /// With `handOff`, a long press on a row, or the row's accessibility action, offers to hand that
+    /// agent's work over in place of the mention.
+    public init(
+        suggestions: [ProjectMention], highlighted: ProjectMention?, identifier: String, pick: @escaping (ProjectMention) -> Void,
+        handOff: ((ProjectMention) -> Void)? = nil,
+    ) {
         self.suggestions = suggestions
         self.highlighted = highlighted
         self.identifier = identifier
         self.pick = pick
+        self.handOff = handOff
     }
 
     public var body: some View {
@@ -120,6 +127,7 @@ public struct ProjectMentionSuggestions: View {
             ForEach(suggestions) { target in
                 Button { pick(target) } label: { row(target, highlighted: target.id == highlighted?.id) }
                     .buttonStyle(PressScaleStyle(scale: 0.98))
+                    .modifier(HandOffChoice(target: target, pick: pick, handOff: handOff))
                     .accessibilityIdentifier("\(identifier).\(AccessibilityIdentifier.token(target.id))")
             }
         }
@@ -145,7 +153,33 @@ public struct ProjectMentionSuggestions: View {
         }
         .padding(.horizontal, Self.inset)
         .frame(minHeight: Self.height)
-        .background(highlighted ? theme.colors.accentSoft : .clear, in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
+        .background(highlighted ? theme.colors.lifted.mix(with: theme.colors.ink, by: 0.06) : .clear,
+                    in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
         .contentShape(Rectangle())
+    }
+}
+
+private struct HandOffChoice: ViewModifier {
+    let target: ProjectMention
+    let pick: (ProjectMention) -> Void
+    let handOff: ((ProjectMention) -> Void)?
+
+    func body(content: Content) -> some View {
+        if let handOff {
+            content
+                .accessibilityAction(named: Text("Hand off", bundle: .module)) { handOff(target) }
+            #if os(iOS)
+                .contextMenu {
+                    Button { pick(target) } label: {
+                        Label { Text("Mention", bundle: .module) } icon: { Image(systemName: ChatSymbol.mention) }
+                    }
+                    Button { handOff(target) } label: {
+                        Label { Text("Hand off", bundle: .module) } icon: { Image(systemName: ChatSymbol.handOff) }
+                    }
+                }
+            #endif
+        } else {
+            content
+        }
     }
 }

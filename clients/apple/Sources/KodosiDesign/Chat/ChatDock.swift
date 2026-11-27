@@ -28,6 +28,7 @@ struct ChatDock<ModelKey: View>: View {
     @State private var oneLine: CGFloat = 0
     @State private var talk = ChatTalk()
     @State private var canTalk = ChatTalk.available ?? false
+    @State private var mentioning = ProjectMentionCompletion()
 
     private var stops: Bool {
         chat.working && !chat.typed
@@ -35,6 +36,13 @@ struct ChatDock<ModelKey: View>: View {
 
     private var suggestions: [ChatCommand] {
         ChatCommandMatch.commands(chat.commands, for: chat.draft)
+    }
+
+    /// The agents of other terminals that fit the name after an `@` in the draft, unless a command
+    /// fits the draft.
+    private var mentions: [ProjectMention] {
+        guard suggestions.isEmpty else { return [] }
+        return mentioning.suggestions(in: chat.draft, focused: focused.wrappedValue, targets: chat.peers.map(ProjectMention.init(peer:)))
     }
 
     private var placeholder: String {
@@ -83,9 +91,16 @@ struct ChatDock<ModelKey: View>: View {
                     .transition(.opacity)
             } else {
                 let suggestions = suggestions
+                let mentions = mentions
                 if !suggestions.isEmpty {
                     ChatCommandList(commands: suggestions, picked: min(picked, suggestions.count - 1), choose: choose)
                         .transition(AnyTransition.rise)
+                } else if !mentions.isEmpty {
+                    ProjectMentionSuggestions(
+                        suggestions: mentions, highlighted: mentioning.current(in: mentions), identifier: "chat.mention",
+                        pick: mention, handOff: handOff,
+                    )
+                    .transition(AnyTransition.rise)
                 }
                 ChatTalkArea(talk: talk, chat: chat, stop: stopTalking, edit: edit, send: send) { composer }
                 ChatFactsRow(facts: chat.facts, modelKey: modelKey, modelOpen: $modelOpen, usageOpen: $usageOpen,
@@ -106,7 +121,10 @@ struct ChatDock<ModelKey: View>: View {
         .animation(theme.motion.snappy, value: chat.typed)
         .animation(theme.motion.hover, value: focused.wrappedValue)
         .animation(theme.motion.snappy, value: suggestions.isEmpty)
+        .animation(theme.motion.snappy, value: mentions.map(\.id))
         .onChange(of: chat.draft) { _, _ in picked = 0 }
+        .onChange(of: mentioning.query(in: chat.draft, focused: focused.wrappedValue)) { mentioning.queryChanged() }
+        .onChange(of: chat.drafted) { focused.wrappedValue = true }
         .talking(talk, in: chat) {
             sends += 1
             sent()
@@ -152,7 +170,10 @@ struct ChatDock<ModelKey: View>: View {
                 .onKeyPress(.tab) { complete() ? .handled : .ignored }
                 .onKeyPress(.upArrow) { move(-1) }
                 .onKeyPress(.downArrow) { move(1) }
-                .onKeyPress(.escape) { .handled }
+                .onKeyPress(.escape) {
+                    _ = mentioning.dismiss(in: chat.draft, focused: focused.wrappedValue)
+                    return .handled
+                }
                 .accessibilityIdentifier("chat.input")
             HStack(spacing: 6) {
                 if canTalk {
@@ -220,6 +241,26 @@ struct ChatDock<ModelKey: View>: View {
             return
         }
         chat.submit()
+        mentioning.sent()
+        sends += 1
+        sent()
+    }
+
+    /// Names the agent in the draft in place of the words after its `@`.
+    private func mention(_ target: ProjectMention) {
+        mentioning.pick(target, in: &chat.draft)
+        selection = TextSelection(insertionPoint: chat.draft.endIndex)
+        focused.wrappedValue = true
+    }
+
+    /// Hands the agent's work over in place of naming it: the words after its `@` go.
+    private func handOff(_ target: ProjectMention) {
+        guard let peer = chat.peers.first(where: { $0.terminal == target.id }) else { return }
+        if let at = chat.draft.lastIndex(of: "@") {
+            chat.draft = String(chat.draft[..<at])
+        }
+        mentioning.sent()
+        chat.handOff(peer)
         sends += 1
         sent()
     }
@@ -234,15 +275,22 @@ struct ChatDock<ModelKey: View>: View {
 
     private func move(_ step: Int) -> KeyPress.Result {
         let count = suggestions.count
-        guard count > 0 else { return .ignored }
+        guard count > 0 else {
+            return mentioning.move(by: step, in: mentions) ? .handled : .ignored
+        }
         picked = (min(picked, count - 1) + step + count) % count
         return .handled
     }
 
-    /// Return and Tab take the picked command while the draft is a part of its name.
+    /// Return and Tab take the picked command while the draft is a part of its name, or the
+    /// highlighted agent after an `@`.
     private func complete() -> Bool {
         let suggestions = suggestions
-        guard !suggestions.isEmpty else { return false }
+        guard !suggestions.isEmpty else {
+            guard let target = mentioning.current(in: mentions) else { return false }
+            mention(target)
+            return true
+        }
         let command = suggestions[min(picked, suggestions.count - 1)]
         guard chat.draft != "/\(command.name)" else { return false }
         choose(command)
@@ -288,7 +336,11 @@ private struct ChatQueuedRow: View {
                         .font(mac: 9, ios: .caption2, weight: .semibold)
                         .foregroundStyle(queued.refused != nil && !queued.terminal ? theme.colors.caution : theme.colors.inkFaint)
                         .accessibilityLabel(status)
-                    Text(queued.text).appTextStyle(.footnote).foregroundStyle(theme.colors.ink).lineLimit(2)
+                    if let handoff = queued.said.handoff {
+                        ChatHandOffLine(handoff: handoff, style: .footnote)
+                    } else {
+                        Text(queued.said.text).appTextStyle(.footnote).foregroundStyle(theme.colors.ink).lineLimit(2)
+                    }
                 }
                 .projectBubble()
                 .help(status)

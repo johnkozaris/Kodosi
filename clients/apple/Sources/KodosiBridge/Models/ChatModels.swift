@@ -31,9 +31,11 @@ public struct ChatSnapshot: Decodable, Equatable, Sendable {
     public var tasks: [ChatTask]
     public var commands: [ChatCommand]
     public var settings: [ChatSetting]
+    /// The agents of other terminals that this terminal's agent can reach, in the order to show.
+    public var peers: [ChatPeer]
 
     private enum Key: String, CodingKey {
-        case revision, state, now, facts, items, asks, queued, tasks, commands, settings
+        case revision, state, now, facts, items, asks, queued, tasks, commands, settings, peers
     }
 
     public init(from decoder: any Decoder) throws {
@@ -48,6 +50,7 @@ public struct ChatSnapshot: Decodable, Equatable, Sendable {
         tasks = try fields.decodeIfPresent([ChatTask].self, forKey: .tasks) ?? []
         commands = try fields.decodeIfPresent([ChatCommand].self, forKey: .commands) ?? []
         settings = try fields.decodeIfPresent([ChatSetting].self, forKey: .settings) ?? []
+        peers = try fields.decodeIfPresent([ChatPeer].self, forKey: .peers) ?? []
     }
 }
 
@@ -68,12 +71,14 @@ public enum ChatChange: Decodable, Equatable, Sendable {
     case commands([ChatCommand])
     /// The agent's own settings, whole.
     case settings([ChatSetting])
+    /// The agents that this terminal's agent can reach, whole.
+    case peers([ChatPeer])
     case facts(ChatFacts)
     case state(ChatState, now: ChatNow?)
     case reset
 
     private enum Key: String, CodingKey {
-        case change, item, id, text, asks, queued, tasks, commands, settings, facts, state, now
+        case change, item, id, text, asks, queued, tasks, commands, settings, peers, facts, state, now
     }
 
     public init(from decoder: any Decoder) throws {
@@ -87,6 +92,7 @@ public enum ChatChange: Decodable, Equatable, Sendable {
         case "tasks": self = try .tasks(fields.decode([ChatTask].self, forKey: .tasks))
         case "commands": self = try .commands(fields.decode([ChatCommand].self, forKey: .commands))
         case "settings": self = try .settings(fields.decode([ChatSetting].self, forKey: .settings))
+        case "peers": self = try .peers(fields.decode([ChatPeer].self, forKey: .peers))
         case "facts": self = try .facts(fields.decode(ChatFacts.self, forKey: .facts))
         case "state": self = try .state(fields.decode(ChatState.self, forKey: .state), now: fields.decodeIfPresent(ChatNow.self, forKey: .now))
         case "reset": self = .reset
@@ -149,8 +155,9 @@ public struct ChatItem: Decodable, Equatable, Identifiable, Sendable {
 }
 
 public enum ChatBody: Decodable, Equatable, Sendable {
-    /// `by` is `nil` when the message was typed directly in the terminal.
-    case person(text: String, by: ChatPerson?)
+    /// The person's own words, without what Kodosi added for the agent. `by` is `nil` when the
+    /// message was typed directly in the terminal.
+    case person(ChatSaid, by: ChatPerson?)
     case text(String, live: Bool)
     case tool(ChatTool)
     case turn(TurnEnd, ms: UInt64)
@@ -164,7 +171,7 @@ public enum ChatBody: Decodable, Equatable, Sendable {
         let fields = try decoder.container(keyedBy: Key.self)
         switch try fields.decode(String.self, forKey: .kind) {
         case "person":
-            self = try .person(text: fields.decode(String.self, forKey: .text), by: fields.decodeIfPresent(ChatPerson.self, forKey: .by))
+            self = try .person(ChatSaid(from: decoder), by: fields.decodeIfPresent(ChatPerson.self, forKey: .by))
         case "text": self = try .text(fields.decode(String.self, forKey: .text), live: fields.decodeIfPresent(Bool.self, forKey: .live) ?? false)
         case "tool": self = try .tool(fields.decode(ChatTool.self, forKey: .tool))
         case "turn": self = try .turn(fields.decode(TurnEnd.self, forKey: .end), ms: fields.decodeIfPresent(UInt64.self, forKey: .ms) ?? 0)
@@ -316,7 +323,7 @@ public enum ChangeSign: String, Decodable, Sendable {
 
 public struct ChatQueued: Decodable, Equatable, Identifiable, Sendable {
     public let id: String
-    public let text: String
+    public let said: ChatSaid
     /// Provider's rejection reason if the agent declined the message. The entry stays queued until
     /// removed or superseded by another chat or terminal message.
     public let refused: String?
@@ -328,13 +335,13 @@ public struct ChatQueued: Decodable, Equatable, Identifiable, Sendable {
     public let given: Bool
 
     private enum Key: String, CodingKey {
-        case id, text, refused, terminal, given
+        case id, refused, terminal, given
     }
 
     public init(from decoder: any Decoder) throws {
         let fields = try decoder.container(keyedBy: Key.self)
         id = try fields.decode(String.self, forKey: .id)
-        text = try fields.decode(String.self, forKey: .text)
+        said = try ChatSaid(from: decoder)
         refused = try fields.decodeIfPresent(String.self, forKey: .refused)
         terminal = try fields.decodeIfPresent(Bool.self, forKey: .terminal) ?? false
         given = try fields.decodeIfPresent(Bool.self, forKey: .given) ?? false

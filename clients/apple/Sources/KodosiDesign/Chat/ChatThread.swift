@@ -157,10 +157,10 @@ struct ChatThread: View {
         case let .row(row, lead):
             if row.isAgents {
                 AgentTurnPart(agent: agent, lead: lead, time: row.date, working: working) {
-                    ChatRowView(row: row, me: me, hold: hold)
+                    ChatRowView(row: row, me: me, peers: chat.peers, hold: hold)
                 }
             } else {
-                ChatRowView(row: row, me: me, hold: hold)
+                ChatRowView(row: row, me: me, peers: chat.peers, hold: hold)
             }
         case let .now(lead):
             AgentTurnPart(agent: agent, lead: lead, time: .now, working: true) {
@@ -233,15 +233,24 @@ struct ChatRowView: View {
     @Environment(\.theme) private var theme
     let row: ChatRow
     let me: String?
+    let peers: [ChatPeer]
     let hold: () -> Void
 
     var body: some View {
         switch row.kind {
-        case let .person(text, by):
+        case let .person(said, by):
+            let targets = said.targets(in: peers)
             if let by, let me, by.id != me {
-                ChatOtherPerson(text: text, person: by, time: row.date).copiesMessage(text).padding(.top, 16)
+                ChatOtherPerson(said: said, targets: targets, person: by, time: row.date)
+                    .copiesMessage(said.handoff == nil ? said.text : nil).padding(.top, 16)
+            } else if let handoff = said.handoff {
+                HStack(spacing: 0) {
+                    Spacer(minLength: 56)
+                    ChatHandOffLine(handoff: handoff).projectBubble()
+                }
+                .padding(.top, 18)
             } else {
-                PersonBubble(text: text, copies: true).padding(.top, 18)
+                PersonBubble(text: said.text, targets: targets, copies: true).padding(.top, 18)
             }
         case let .answer(text, live):
             AgentProse(text: text, live: live).frame(maxWidth: .infinity, alignment: .leading)
@@ -267,7 +276,8 @@ struct ChatRowView: View {
 
 private struct ChatOtherPerson: View {
     @Environment(\.theme) private var theme
-    let text: String
+    let said: ChatSaid
+    let targets: [ProjectMention]
     let person: ChatPerson
     let time: Date?
 
@@ -281,9 +291,15 @@ private struct ChatOtherPerson: View {
                         ProjectMessageTime(date: time)
                     }
                 }
-                Text(ProjectMessageText.formatted(text))
-                    .appTextStyle(.body).lineSpacing(2).foregroundStyle(theme.colors.ink).messageTextSelection()
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                Group {
+                    if let handoff = said.handoff {
+                        ChatHandOffLine(handoff: handoff)
+                    } else {
+                        ProjectMessageText(text: said.text, targets: targets)
+                            .appTextStyle(.body).lineSpacing(2).foregroundStyle(theme.colors.ink).messageTextSelection()
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
@@ -390,5 +406,34 @@ struct ChatNoteView: View {
 extension View {
     func chatColumn() -> some View {
         frame(maxWidth: 760).frame(maxWidth: .infinity)
+    }
+}
+
+/// A message that handed the agent the work of the agent of another terminal.
+struct ChatHandOffLine: View {
+    @Environment(\.theme) private var theme
+    let handoff: ChatMention
+    var style: AppTextStyle = .body
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 7) {
+            AgentMark(kind: AgentKind(program: handoff.agent), size: style == .body ? 18 : 15).accessibilityHidden(true)
+            Text("Hand-off from \(Text(verbatim: handoff.name).fontWeight(.semibold))", bundle: .module)
+                .appTextStyle(style).foregroundStyle(theme.colors.ink).lineLimit(2)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+extension ChatSaid {
+    /// The agents that the words name, as chips; a chip opens its terminal while the chat reaches
+    /// that agent.
+    func targets(in peers: [ChatPeer]) -> [ProjectMention] {
+        mentions.map { mention in
+            ProjectMention(
+                id: peers.first { $0.name == mention.name }?.terminal ?? "", name: mention.name,
+                kind: .terminal(AgentKind(program: mention.agent)),
+            )
+        }
     }
 }

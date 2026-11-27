@@ -4,7 +4,7 @@ import KodosiBridge
 /// run of steps between two texts folds into a single row.
 struct ChatRow: Identifiable, Equatable {
     enum Kind: Equatable {
-        case person(text: String, by: ChatPerson?)
+        case person(ChatSaid, by: ChatPerson?)
         case answer(text: String, live: Bool)
         case plan(text: String, live: Bool)
         /// The tool calls of a turn between two of the agent's texts, as far as they have arrived.
@@ -57,9 +57,9 @@ struct ChatRow: Identifiable, Equatable {
         }
         for item in items {
             switch item.body {
-            case let .person(text, by):
+            case let .person(said, by):
                 fold(ended: true)
-                rows.append(ChatRow(id: item.id, kind: .person(text: text, by: by), at: item.at))
+                rows.append(ChatRow(id: item.id, kind: .person(said, by: by), at: item.at))
             case .text, .tool:
                 turn.append(item)
             case let .turn(end, ms):

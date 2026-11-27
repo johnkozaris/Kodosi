@@ -122,12 +122,14 @@ private struct MessageCopy: ViewModifier {
 struct PersonBubble: View {
     @Environment(\.theme) private var theme
     let text: String
+    /// The agents and people that the words name with `@`, drawn as chips.
+    var targets: [ProjectMention] = []
     var copies = false
 
     var body: some View {
         HStack(spacing: 0) {
             Spacer(minLength: 56)
-            let bubble = Text(ProjectMessageText.formatted(text))
+            let bubble = ProjectMessageText(text: text, targets: targets)
                 .appTextStyle(.body).lineSpacing(2).foregroundStyle(theme.colors.ink).messageTextSelection()
                 .projectBubble()
             if copies {

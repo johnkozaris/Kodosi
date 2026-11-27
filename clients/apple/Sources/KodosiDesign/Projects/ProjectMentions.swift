@@ -33,7 +33,17 @@ public struct ProjectMention: Identifiable, Equatable, Sendable {
     }
 
     public var link: URL? {
-        isTerminal ? ProjectMentions.terminalLink(id) : nil
+        isTerminal && !id.isEmpty ? ProjectMentions.terminalLink(id) : nil
+    }
+}
+
+public extension ProjectMention {
+    /// The agent of another terminal, as a chat's `@` list shows it.
+    init(peer: ChatPeer) {
+        self.init(
+            id: peer.terminal, name: peer.name, detail: peer.place.isEmpty ? nil : peer.place,
+            kind: .terminal(AgentKind(program: peer.agent)),
+        )
     }
 }
 
@@ -157,5 +167,14 @@ public enum ProjectMentions {
             }
         }
         return nil
+    }
+}
+
+public extension TerminalChat {
+    /// Names `peer` at the end of the draft, whose field then takes the focus for the rest of the
+    /// message.
+    func mention(_ peer: ChatPeer) {
+        draft = ProjectMentions.complete(ProjectMentions.start(draft), with: ProjectMention(peer: peer))
+        drafted += 1
     }
 }
