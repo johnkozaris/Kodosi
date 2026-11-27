@@ -1,10 +1,7 @@
 //! The main thread: `AppKit`'s run loop, the notice in the menu bar while people watch, and the
 //! pointer that viewers see.
 
-use std::{
-    cell::{OnceCell, RefCell},
-    path::PathBuf,
-};
+use std::cell::{OnceCell, RefCell};
 
 use dispatch2::DispatchQueue;
 use objc2::{
@@ -45,7 +42,7 @@ struct Shell {
     hand: RefCell<Option<Tap>>,
 }
 
-pub(super) fn run(main: MainThreadMarker, link: PathBuf, token: String) {
+pub(super) fn run(main: MainThreadMarker, link: String, token: String) {
     let app = NSApplication::sharedApplication(main);
     app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
     let (say, saying) = mpsc::channel(session::MESSAGES);

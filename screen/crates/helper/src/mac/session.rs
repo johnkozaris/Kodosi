@@ -1,7 +1,7 @@
 //! The link to the host: what it asks of the capture, the input that it passes on, and what the
 //! helper tells it back.
 
-use std::{path::Path, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use bytes::Bytes;
 use objc2_core_foundation::CGPoint;
@@ -9,7 +9,10 @@ use objc2_core_graphics::{
     CGPreflightPostEventAccess, CGPreflightScreenCaptureAccess, CGRequestPostEventAccess,
     CGRequestScreenCaptureAccess,
 };
-use screen::link::{self, Access, Away, FromHelper, Message, Source, Sources, ToHelper, VERSION};
+use screen::{
+    handover,
+    link::{self, Access, Away, FromHelper, Message, Source, Sources, ToHelper, VERSION},
+};
 use stream::viewer::{Input, KeyAction, MouseAction};
 use stream_encode::{Encoder, Settings};
 use tokio::{
@@ -30,6 +33,7 @@ use super::{
     power::{self, Power},
     raise,
     sources::{self, Content},
+    trust,
 };
 
 /// Messages on their way to the host: frames, the pointer and what the helper says.
@@ -40,6 +44,8 @@ const LOOK_EVERY: Duration = Duration::from_secs(2);
 const RAISING: Duration = Duration::from_millis(50);
 /// How often the helper looks whether something was copied, while the screen is captured.
 const COPIES_EVERY: Duration = Duration::from_millis(500);
+/// The host hands over the link once Launch Services says that the helper opened.
+const HANDOVER_LIMIT: Duration = Duration::from_secs(15);
 
 pub(super) enum Event {
     /// The person at the computer stopped the sharing.
@@ -53,15 +59,22 @@ pub(super) enum Event {
     Changed,
 }
 
-/// Connects to the host and serves it until the link closes.
+/// Takes the link from the host and serves it until the link closes, or quits before it says
+/// anything when another program handed the link over.
 pub(super) fn serve(
-    link: &Path,
+    link: &str,
     token: String,
     say: mpsc::Sender<Bytes>,
     saying: mpsc::Receiver<Bytes>,
     events: mpsc::UnboundedSender<Event>,
     hearing: mpsc::UnboundedReceiver<Event>,
 ) {
+    let Ok((link, host)) = handover::take(link, HANDOVER_LIMIT) else {
+        return;
+    };
+    if !trust::serves(&host) {
+        return;
+    }
     let Ok(runtime) = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -69,7 +82,11 @@ pub(super) fn serve(
         return;
     };
     runtime.block_on(async move {
-        let Ok(socket) = UnixStream::connect(link).await else {
+        let link = std::os::unix::net::UnixStream::from(link);
+        let Ok(socket) = link
+            .set_nonblocking(true)
+            .and_then(|()| UnixStream::from_std(link))
+        else {
             return;
         };
         let (reader, writer) = socket.into_split();

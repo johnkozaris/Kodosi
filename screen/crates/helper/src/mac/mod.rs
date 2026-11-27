@@ -18,6 +18,7 @@ mod power;
 mod raise;
 mod session;
 mod sources;
+mod trust;
 
 use std::{
     ffi::OsString,
@@ -41,15 +42,15 @@ pub(crate) fn run() {
     ) else {
         return;
     };
-    app::run(main, link.into(), token);
+    app::run(main, link, token);
 }
 
-/// `--link <socket> --token <token>`; Launch Services may add arguments of its own.
-fn arguments(mut arguments: impl Iterator<Item = OsString>) -> Option<(OsString, String)> {
+/// `--link <name> --token <token>`; Launch Services may add arguments of its own.
+fn arguments(mut arguments: impl Iterator<Item = OsString>) -> Option<(String, String)> {
     let (mut link, mut token) = (None, None);
     while let Some(argument) = arguments.next() {
         if argument == "--link" {
-            link = arguments.next();
+            link = arguments.next().and_then(|link| link.into_string().ok());
         } else if argument == "--token" {
             token = arguments.next().and_then(|token| token.into_string().ok());
         }

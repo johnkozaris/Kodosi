@@ -21,6 +21,8 @@ use tokio::{
     sync::{Mutex, mpsc, oneshot},
 };
 
+#[cfg(target_os = "macos")]
+use crate::handover;
 use crate::{
     link::{self, Access, Away, FromHelper, Message, Notice, VERSION},
     live::{Calls, Event, Live, Mailbox, Wanted},
@@ -40,8 +42,6 @@ static SEATS: AtomicU64 = AtomicU64::new(1);
 pub struct Settings {
     /// The `Kodosi Screen` app on a Mac, its program elsewhere.
     pub helper: PathBuf,
-    /// On a Mac, a private folder with a short path for the helper's socket.
-    pub sockets: PathBuf,
     /// Passed on to the helper.
     pub arguments: Vec<OsString>,
     /// Tells the person at the computer who watches.
@@ -204,38 +204,39 @@ pub(crate) struct Started {
 }
 
 /// Opens the helper through Launch Services, so that macOS asks for its permissions in its own
-/// name rather than in the name of the app that started the host.
+/// name rather than in the name of the app that started the host, and hands it the link.
 #[cfg(target_os = "macos")]
 async fn start(settings: &Settings) -> Result<Started, Error> {
     let token = token()?;
-    tokio::fs::create_dir_all(&settings.sockets).await?;
-    let path = settings
-        .sockets
-        .join(format!("screen-{}.sock", &token[..12]));
-    drop(tokio::fs::remove_file(&path).await);
-    let listener = tokio::net::UnixListener::bind(&path)?;
+    let name = format!("com.kodosi.screen.{}", &token[..12]);
+    let offer = handover::Offer::new(&name)?;
+    let (link, helper_end) = std::os::unix::net::UnixStream::pair()?;
     let opened = Command::new("/usr/bin/open")
         .args(["-g", "-n", "-a"])
         .arg(&settings.helper)
         .arg("--args")
         .arg("--link")
-        .arg(&path)
+        .arg(&name)
         .arg("--token")
         .arg(&token)
         .args(&settings.arguments)
         .status()
-        .await;
-    let accepted = match opened {
-        Ok(status) if status.success() => tokio::time::timeout(CONNECT_LIMIT, listener.accept())
-            .await
-            .map_err(|_| Error::Helper("it did not connect".to_owned()))
-            .and_then(|accepted| accepted.map_err(Error::from)),
-        Ok(status) => Err(Error::Helper(format!("it did not open: {status}"))),
-        Err(error) => Err(error.into()),
-    };
-    drop(listener);
-    drop(tokio::fs::remove_file(&path).await);
-    let (reader, writer) = accepted?.0.into_split();
+        .await?;
+    if !opened.success() {
+        return Err(Error::Helper(format!("it did not open: {opened}")));
+    }
+    tokio::task::spawn_blocking(move || offer.hand(helper_end.into(), CONNECT_LIMIT))
+        .await
+        .map_err(|_| Error::Stopped)?
+        .map_err(|error| {
+            if error.kind() == io::ErrorKind::TimedOut {
+                Error::Helper("it did not connect".to_owned())
+            } else {
+                error.into()
+            }
+        })?;
+    link.set_nonblocking(true)?;
+    let (reader, writer) = tokio::net::UnixStream::from_std(link)?.into_split();
     hello(Box::new(reader), Box::new(writer), None, &token).await
 }
 
