@@ -1,8 +1,8 @@
 //! Messages between a stream and a viewer.
 //!
-//! Each message starts with a tag byte: JSON control messages, or a frame with a 7-byte header
-//! (tag, id, flags, codec), then the region it shows as four 32-bit floats when its flags say so,
-//! then its Annex B data.
+//! Each message starts with a tag byte: JSON control messages, a frame with a 7-byte header (tag,
+//! id, flags, codec), then the region it shows as four 32-bit floats when its flags say so, then
+//! its Annex B data, or the tag alone that says the stream has nothing new.
 
 use bytes::{BufMut, Bytes, BytesMut};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -11,6 +11,9 @@ use crate::{Codec, FrameKind, Region};
 
 pub const JSON: u8 = 0;
 pub const FRAME: u8 = 1;
+/// Tells a viewer that has each frame the stream sent it that nothing came since: its picture is
+/// the stream's newest.
+pub const UNCHANGED: u8 = 2;
 const FRAME_HEADER: usize = 1 + 4 + 1 + 1;
 pub(crate) const KEY: u8 = 1;
 pub(crate) const ANCHOR: u8 = 2;
@@ -121,6 +124,10 @@ impl Frame {
             data: message.slice(start..),
         })
     }
+}
+
+pub const fn unchanged() -> Bytes {
+    Bytes::from_static(&[UNCHANGED])
 }
 
 pub fn json(value: &impl Serialize) -> Bytes {
