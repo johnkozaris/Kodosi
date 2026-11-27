@@ -33,12 +33,11 @@ use objc2_video_toolbox::{
 };
 use stream::{Codec, Format};
 
-use super::{Gate, sps};
+use super::Gate;
 use crate::FRAME_RATE;
 
 pub(super) const RECOVERY: usize = 1;
 const START_CODE: [u8; 4] = [0, 0, 0, 1];
-const H264_SEQUENCE: u8 = 7;
 /// Low-latency rate control never asks for keyframes on its own; this only bounds a stream that
 /// nobody asked to repair.
 const KEY_INTERVAL: i64 = 3600;
@@ -62,7 +61,6 @@ pub(super) struct Coded {
 struct Context {
     gate: Arc<Gate>,
     codec: Codec,
-    anchors: bool,
 }
 
 pub(super) struct Session {
@@ -156,7 +154,6 @@ impl Session {
         let context = Arc::into_raw(Arc::new(Context {
             gate: Arc::clone(gate),
             codec: format.codec,
-            anchors: format.anchors,
         }));
         let specification = low_latency();
         let mut raw = ptr::null_mut();
@@ -352,7 +349,7 @@ unsafe extern "C-unwind" fn encoded(
     let coded = NonNull::new(sample)
         .filter(|_| status == 0)
         // SAFETY: the sample is valid during the callback.
-        .and_then(|sample| unsafe { coded(sample.as_ref(), context.codec, context.anchors) });
+        .and_then(|sample| unsafe { coded(sample.as_ref(), context.codec) });
     context.gate.encoded(
         marker.addr(),
         status,
@@ -367,14 +364,14 @@ unsafe extern "C-unwind" fn encoded(
 /// # Safety
 ///
 /// `sample` must be a valid compressed `CMSampleBuffer`.
-unsafe fn coded(sample: &CMSampleBuffer, codec: Codec, anchors: bool) -> Option<Coded> {
+unsafe fn coded(sample: &CMSampleBuffer, codec: Codec) -> Option<Coded> {
     // SAFETY: the caller guarantees a valid sample.
     let (key, mark) = unsafe { sync_and_mark(sample) };
     // SAFETY: as above.
     let (description, block) = unsafe { (sample.format_description()?, sample.data_buffer()?) };
     let mut out = Vec::new();
     // SAFETY: the description belongs to the sample.
-    let length_size = unsafe { parameter_sets(&description, codec, key, anchors, &mut out)? };
+    let length_size = unsafe { parameter_sets(&description, codec, key, &mut out)? };
     // SAFETY: the block belongs to the sample, and `data` has room for its length.
     let data = unsafe {
         let length = block.data_length();
@@ -436,7 +433,6 @@ unsafe fn parameter_sets(
     description: &CMFormatDescription,
     codec: Codec,
     key: bool,
-    anchors: bool,
     out: &mut Vec<u8>,
 ) -> Option<usize> {
     let read = |index: usize,
@@ -490,12 +486,8 @@ unsafe fn parameter_sets(
             }
             // SAFETY: the set has `size` bytes owned by the description.
             let set = unsafe { std::slice::from_raw_parts(set, size) };
-            let gaps = (codec == Codec::H264 && anchors)
-                .then(|| set.first().filter(|header| *header & 0x1f == H264_SEQUENCE))
-                .flatten()
-                .and_then(|_| sps::allowing_gaps(set));
             out.extend_from_slice(&START_CODE);
-            out.extend_from_slice(gaps.as_deref().unwrap_or(set));
+            out.extend_from_slice(set);
         }
     }
     usize::try_from(length_size).ok()

@@ -48,8 +48,6 @@ enum Holds {
 }
 
 impl Holds {
-    /// Non-`VideoToolbox` decoders can lose long-term references after an anchor, so viewers
-    /// without anchor support drop back to `Nothing` and wait for a keyframe.
     const fn after_a_miss(anchors: bool) -> Self {
         if anchors { Self::Gap } else { Self::Nothing }
     }

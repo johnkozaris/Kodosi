@@ -1,7 +1,5 @@
 //! Writes the bits of the headers that the encoder writes itself, H.264's and HEVC's alike.
 
-use crate::nal::escape;
-
 /// A payload's bits, the most significant first.
 #[derive(Default)]
 pub(super) struct Bits {
@@ -65,5 +63,33 @@ impl Bits {
     pub(super) fn ended(mut self, header: &[u8]) -> Vec<u8> {
         self.align();
         self.unit(header).0
+    }
+}
+
+/// A unit of `header` and `rbsp`, with an escape before each byte that would make a start code.
+fn escape(header: &[u8], rbsp: &[u8]) -> Vec<u8> {
+    let mut nal = header.to_vec();
+    let mut zeros = 0;
+    for &byte in rbsp {
+        if zeros >= 2 && byte <= 3 {
+            nal.push(3);
+            zeros = 0;
+        }
+        zeros = if byte == 0 { zeros + 1 } else { 0 };
+        nal.push(byte);
+    }
+    nal
+}
+
+#[cfg(test)]
+mod tests {
+    use super::escape;
+
+    #[test]
+    fn the_bytes_that_would_look_like_a_start_code_get_an_escape() {
+        assert_eq!(
+            escape(&[0x67], &[0x42, 0, 0, 0, 1, 0, 0, 3]),
+            [0x67, 0x42, 0, 0, 3, 0, 1, 0, 0, 3, 3]
+        );
     }
 }
