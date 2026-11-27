@@ -18,7 +18,8 @@ default: build
 
 # Build the viewer runtime for Android as a shared library in app/build/runtime/<profile>.
 runtime-build profile="dev":
-    cd "{{ root }}/runtime" && cargo ndk --target arm64-v8a --platform {{ min_sdk }} \
+    cd "{{ root }}/runtime" && {{ if profile == "release" { 'CARGO_ENCODED_RUSTFLAGS="--remap-path-prefix=$HOME=~"' } else { "" } }} \
+        cargo ndk --target arm64-v8a --platform {{ min_sdk }} \
         --output-dir "{{ justfile_directory() }}/app/build/runtime/{{ profile }}" \
         {{ runtime_rustc }} --profile {{ profile }} -- -C link-arg=-Wl,-soname,libkodosi_ffi_c.so
 
