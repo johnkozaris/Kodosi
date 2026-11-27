@@ -13,6 +13,7 @@ if [[ $1 == Debug ]]; then
     options=(--debug)
 else
     options=(--notices "$3/ScreenNotices")
+    export CARGO_ENCODED_RUSTFLAGS="--remap-path-prefix=$HOME=~"
 fi
 app=$(python3 "$repository/screen/build/build-helper.py" \
     --target aarch64-apple-darwin \
