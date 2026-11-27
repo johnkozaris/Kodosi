@@ -1,3 +1,6 @@
+#if os(macOS)
+    import AppKit
+#endif
 import CoreGraphics
 import Foundation
 import ImageIO
@@ -204,8 +207,15 @@ public extension CommandSink {
         try await ScreenSharing(request("screen.status"))
     }
 
-    /// Turning the sharing on also has Kodosi Screen ask macOS for what it may not do yet.
+    /// Turning the sharing on has Kodosi Screen ask the person at this Mac whether the devices of
+    /// this account may see and control it, in an alert that comes to the front because this app
+    /// lets Kodosi Screen take its place there. Then it asks macOS for what it may not do yet.
     func shareScreen(_ allowed: Bool) async throws -> ScreenSharing {
-        try await ScreenSharing(request("screen.allow", ["allowed": .bool(allowed)]))
+        #if os(macOS)
+            if allowed {
+                NSApp.yieldActivation(toApplicationWithBundleIdentifier: "com.kodosi.screen")
+            }
+        #endif
+        return try await ScreenSharing(request("screen.allow", ["allowed": .bool(allowed)]))
     }
 }
