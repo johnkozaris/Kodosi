@@ -68,6 +68,7 @@ typedef struct {
     GhosttyTerminal terminal;
     GhosttyRenderState render;
     GhosttyKeyEncoder keys;
+    GhosttyMouseEncoder mouse;
     uint64_t next_sequence;
     bool admitted;
     bool light;
@@ -367,9 +368,11 @@ static GhosttyResult configure(GhosttyTerminal terminal, bool console, Kernel *k
 
 static void release(Kernel *kernel) {
     ghostty_key_encoder_free(kernel->keys);
+    ghostty_mouse_encoder_free(kernel->mouse);
     ghostty_render_state_free(kernel->render);
     ghostty_terminal_free(kernel->terminal);
     kernel->keys = NULL;
+    kernel->mouse = NULL;
     kernel->render = NULL;
     kernel->terminal = NULL;
     kernel->admitted = false;
@@ -390,7 +393,9 @@ static jint install(Kernel *kernel, const uint8_t *snapshot, size_t size, uint64
     GhosttyTerminal terminal = NULL;
     GhosttyRenderState render = NULL;
     GhosttyKeyEncoder keys = NULL;
+    GhosttyMouseEncoder mouse = NULL;
     const bool compress = true;
+    const bool track_last_cell = true;
     const uint64_t image_limit = KODOSI_TERMINAL_IMAGE_STORAGE_MAX_BYTES;
     GhosttyResult result = ghostty_snapshot_decoder_new_buf(NULL, &decoder, snapshot, size);
     if (result == GHOSTTY_SUCCESS) {
@@ -429,9 +434,16 @@ static jint install(Kernel *kernel, const uint8_t *snapshot, size_t size, uint64
     if (result == GHOSTTY_SUCCESS) {
         result = ghostty_key_encoder_new(NULL, &keys);
     }
+    if (result == GHOSTTY_SUCCESS) {
+        result = ghostty_mouse_encoder_new(NULL, &mouse);
+    }
+    if (result == GHOSTTY_SUCCESS) {
+        result = ghostty_mouse_encoder_set(mouse, GHOSTTY_MOUSE_ENCODER_OPT_TRACK_LAST_CELL, &track_last_cell);
+    }
     ghostty_snapshot_decoder_free(decoder);
     if (result != GHOSTTY_SUCCESS) {
         ghostty_key_encoder_free(keys);
+        ghostty_mouse_encoder_free(mouse);
         ghostty_render_state_free(render);
         ghostty_terminal_free(terminal);
         return KERNEL_REJECTED;
@@ -440,6 +452,7 @@ static jint install(Kernel *kernel, const uint8_t *snapshot, size_t size, uint64
     kernel->terminal = terminal;
     kernel->render = render;
     kernel->keys = keys;
+    kernel->mouse = mouse;
     kernel->next_sequence = next_sequence;
     kernel->admitted = true;
     return KERNEL_OK;
@@ -1063,10 +1076,9 @@ JNIEXPORT jbyteArray JNICALL Java_com_kodosi_mobile_terminals_TerminalKernel_nat
     Kernel *kernel = kernel_of(handle);
     pthread_mutex_lock(&kernel->lock);
     GhosttyMouseEvent event = NULL;
-    GhosttyMouseEncoder encoder = NULL;
     jbyteArray result = NULL;
-    if (kernel->admitted && ghostty_mouse_event_new(NULL, &event) == GHOSTTY_SUCCESS &&
-        ghostty_mouse_encoder_new(NULL, &encoder) == GHOSTTY_SUCCESS) {
+    if (kernel->admitted && ghostty_mouse_event_new(NULL, &event) == GHOSTTY_SUCCESS) {
+        GhosttyMouseEncoder encoder = kernel->mouse;
         ghostty_mouse_encoder_set_from_terminal(encoder, kernel->terminal);
         GhosttyMouseEncoderSize size = {.size = sizeof(size), .screen_width = (uint32_t)width,
             .screen_height = (uint32_t)height, .cell_width = (uint32_t)cell_width, .cell_height = (uint32_t)cell_height};
@@ -1087,7 +1099,6 @@ JNIEXPORT jbyteArray JNICALL Java_com_kodosi_mobile_terminals_TerminalKernel_nat
         }
     }
     ghostty_mouse_event_free(event);
-    ghostty_mouse_encoder_free(encoder);
     pthread_mutex_unlock(&kernel->lock);
     return result;
 }
