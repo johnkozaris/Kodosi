@@ -20,7 +20,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKSPACE = ROOT / "screen"
-APP = "Kodosi Screen"
+APP = "Kodosi"
 APP_ID = "com.kodosi.screen"
 EXECUTABLE = "kodosi-screen"
 

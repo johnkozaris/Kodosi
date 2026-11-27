@@ -13,7 +13,7 @@ app=${1:-build/export/Kodosi.app}
 /usr/bin/codesign --verify --deep --strict --verbose=4 "$app"
 "$ROOT/scripts/release/verify-developer-id-signature.sh" "$app" "$KODOSI_TEAM_ID"
 "$ROOT/scripts/release/verify-developer-id-signature.sh" "$app/Contents/MacOS/agent-browser" "$KODOSI_TEAM_ID"
-"$ROOT/scripts/release/verify-developer-id-signature.sh" "$app/Contents/Helpers/Kodosi Screen.app" "$KODOSI_TEAM_ID"
+"$ROOT/scripts/release/verify-developer-id-signature.sh" "$app/Contents/Helpers/Kodosi.app" "$KODOSI_TEAM_ID"
 "$ROOT/scripts/release/verify-provisioning-profile.sh" "$app" "$KODOSI_TEAM_ID"
-"$ROOT/scripts/release/verify-provisioning-profile.sh" "$app/Contents/Helpers/Kodosi Screen.app" "$KODOSI_TEAM_ID" "$app"
+"$ROOT/scripts/release/verify-provisioning-profile.sh" "$app/Contents/Helpers/Kodosi.app" "$KODOSI_TEAM_ID" "$app"
 /usr/bin/codesign --display --verbose=4 "$app" 2>&1

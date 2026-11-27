@@ -164,7 +164,7 @@ with each desktop app, which builds it with `screen/build/build-helper.py`:
   `libclang-dev` on Ubuntu), also for `just screen-check`.
 
 A host that does not run from an app, such as `just rust-cli-build`, finds the helper through
-`KODOSI_SCREEN_HELPER`: the `Kodosi Screen.app` folder on a Mac, the program elsewhere.
+`KODOSI_SCREEN_HELPER`: the helper's `Kodosi.app` folder on a Mac, the program elsewhere.
 
 ## Texts and languages
 

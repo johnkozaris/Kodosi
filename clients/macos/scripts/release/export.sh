@@ -34,7 +34,7 @@ xcodebuild -exportArchive \
 app="$folder/Kodosi.app"
 /usr/bin/codesign --display --extract-certificates="$options/certificate" "$app" 2>/dev/null
 identity=$(/usr/bin/openssl x509 -inform DER -in "$options/certificate0" -noout -fingerprint -sha1 | sed 's/^.*=//; s/://g')
-"$ROOT/scripts/build/sign-screen-helper.sh" "$app/Contents/Helpers/Kodosi Screen.app" "$identity" "$KODOSI_TEAM_ID" \
+"$ROOT/scripts/build/sign-screen-helper.sh" "$app/Contents/Helpers/Kodosi.app" "$identity" "$KODOSI_TEAM_ID" \
     "$app/Contents/embedded.provisionprofile" --timestamp
 /usr/bin/codesign --display --entitlements "$options/entitlements.plist" --xml "$app" 2>/dev/null
 /usr/bin/codesign --force --sign "$identity" --options runtime --timestamp --entitlements "$options/entitlements.plist" "$app"

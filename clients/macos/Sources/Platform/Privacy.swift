@@ -78,7 +78,7 @@ enum PrivacyApp {
     var url: URL {
         switch self {
         case .kodosi: Bundle.main.bundleURL
-        case .screen: Bundle.main.bundleURL.appending(path: "Contents/Helpers/Kodosi Screen.app")
+        case .screen: Bundle.main.bundleURL.appending(path: "Contents/Helpers/Kodosi.app")
         }
     }
 
