@@ -398,6 +398,15 @@ impl Live {
             }
             ToScreen::Ack { frame } => self.flow.ack(viewer, frame, now),
             ToScreen::Rate { bitrate } => self.flow.rate(viewer, bitrate),
+            ToScreen::Lost { frame } => {
+                self.flow.lost(viewer, frame, now);
+                let seats = &self.seats;
+                if self.capture.is_some()
+                    && let Some(ask) = self.flow.ask(now, |viewer| queued(seats, viewer))
+                {
+                    self.ask(ask);
+                }
+            }
             ToScreen::Keyframe => {
                 let seats = &self.seats;
                 if let Some(ask) = self.flow.reset(viewer, now, |viewer| queued(seats, viewer)) {
@@ -1002,14 +1011,26 @@ mod tests {
             decoders: Vec<Decoder>,
             opened: bool,
         ) -> Arc<Mailbox> {
+            let (outgoing, incoming) = mpsc::channel(64);
+            std::mem::forget(incoming);
+            self.watch_with(id, size, decoders, opened, outgoing).await
+        }
+
+        /// Watches, with the frames for the viewer going to `outgoing`.
+        async fn watch_with(
+            &self,
+            id: &str,
+            size: Size,
+            decoders: Vec<Decoder>,
+            opened: bool,
+            outgoing: mpsc::Sender<Bytes>,
+        ) -> Arc<Mailbox> {
             let viewer = Viewer {
                 id: id.to_owned(),
                 person: "ana".to_owned(),
                 name: "Ana".to_owned(),
                 local: false,
             };
-            let (outgoing, incoming) = mpsc::channel(64);
-            std::mem::forget(incoming);
             let mailbox = Arc::new(Mailbox::default());
             self.events
                 .send(Event::Join {
@@ -1090,6 +1111,37 @@ mod tests {
             })
             .await
         }
+    }
+
+    #[tokio::test]
+    async fn a_keyframe_that_the_transport_lost_is_asked_for_again() {
+        let mut computer = Computer::start().await;
+        let (outgoing, mut frames) = mpsc::channel(64);
+        computer
+            .watch_with("phone", view(390, 844, 3.0), vec![HEVC], true, outgoing)
+            .await;
+        let keyframe = |said| matches!(said, ToHelper::Keyframe).then_some(());
+        computer.next(keyframe).await;
+        let picture = Encoded {
+            codec: Codec::Hevc,
+            kind: stream::FrameKind::Key,
+            mark: None,
+            region: None,
+            data: Bytes::from_static(&[0, 0, 0, 1, 0x26]),
+        };
+        computer
+            .helper
+            .write_all(&link::frame(&picture))
+            .await
+            .unwrap();
+        let sent = frames.recv().await.unwrap();
+        let frame = stream::media::frame_id(&sent).unwrap();
+        computer.say("phone", ToScreen::Lost { frame }).await;
+        let asked = tokio::time::timeout(Duration::from_secs(3), computer.next(keyframe)).await;
+        assert!(
+            asked.is_ok(),
+            "the host asks the helper for a keyframe again"
+        );
     }
 
     #[tokio::test]

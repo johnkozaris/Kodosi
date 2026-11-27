@@ -58,7 +58,9 @@ const SERVER_NAME: &str = "kodosi.invalid";
 const PORTS: std::ops::RangeInclusive<u16> = 47360..=47379;
 const TAKEN: u8 = 1;
 const MOST_RESETS: u32 = 64;
-const DATAGRAMS_WAITING: usize = 64 * 1024;
+/// A few packets: shards wait in the video sender, where their time and drop rules apply, and
+/// the connection's queue only keeps the pacer fed.
+const DATAGRAMS_WAITING: usize = 8 * 1024;
 const DATAGRAMS_ARRIVING: usize = 4 * 1024 * 1024;
 /// The viewer acknowledges every ninth packet, or after `ACK_DELAY`, which is often enough for
 /// `SCReAMv2` and spares slow uplinks.
@@ -118,7 +120,7 @@ struct Joined {
     #[cfg(feature = "host")]
     next_flow: AtomicU16,
     #[cfg(feature = "host")]
-    carried: Locked<Option<Arc<scream::Carried>>>,
+    rates: Locked<Option<Arc<scream::Rates>>>,
 }
 
 impl Joined {
@@ -133,7 +135,7 @@ impl Joined {
             #[cfg(feature = "host")]
             next_flow: AtomicU16::new(0),
             #[cfg(feature = "host")]
-            carried: Locked::new(None),
+            rates: Locked::new(None),
         });
         let sorting = tokio::spawn(sort_datagrams(Arc::downgrade(&joined), connection));
         if let Ok(mut kept) = joined.sorting.lock() {
@@ -223,10 +225,22 @@ impl Media {
         })
     }
 
-    /// Sends a datagram unless that would push out earlier ones that still wait.
-    pub(super) fn send(&self, datagram: Bytes) -> bool {
-        self.0.connection.datagram_send_buffer_space() >= datagram.len()
-            && self.0.connection.send_datagram(datagram).is_ok()
+    /// Sends a datagram once the connection has room for it without pushing out earlier ones
+    /// that wait, and returns false when the connection takes no datagrams any more. Dropped
+    /// before then, it sent nothing.
+    #[cfg(feature = "host")]
+    pub(super) async fn send_when_room(&self, datagram: Bytes) -> bool {
+        match self.0.connection.send_datagram_wait(datagram).await {
+            // A shard larger than the path now takes is lost like any other.
+            Ok(()) | Err(noq::SendDatagramError::TooLarge) => true,
+            Err(_) => false,
+        }
+    }
+
+    /// Sends a viewer's report, before shards that wait when the queue is full: the other side
+    /// repairs by it, and a pushed-out shard is a loss that it repairs.
+    pub(super) fn report(&self, report: Bytes) {
+        drop(self.0.connection.send_datagram(report));
     }
 
     pub(super) fn datagram_bytes(&self) -> usize {
@@ -246,11 +260,28 @@ impl Media {
     /// The bitrate that the path carries, in bits per second.
     #[cfg(feature = "host")]
     pub(super) fn carried(&self) -> Option<u64> {
-        let mut kept = self.0.carried.lock().ok()?;
-        if kept.is_none() {
-            *kept = scream::carried(self.0.connection.congestion_state(noq::PathId::ZERO)?);
+        self.rates().map(|rates| rates.carried())
+    }
+
+    /// The path as one of this device's flows sees it: its share of the pacing, and the bytes
+    /// that the connection holds to send.
+    #[cfg(feature = "host")]
+    pub(super) fn link(&self) -> media::Link {
+        let hosted = u64::try_from(self.hosted().max(1)).unwrap_or(1);
+        media::Link {
+            rtt: self.rtt(),
+            pacing: self.rates().map_or(0, |rates| rates.pacing()) / hosted,
+            ahead: DATAGRAMS_WAITING.saturating_sub(self.0.connection.datagram_send_buffer_space()),
         }
-        kept.as_ref().map(|carried| carried.get())
+    }
+
+    #[cfg(feature = "host")]
+    fn rates(&self) -> Option<Arc<scream::Rates>> {
+        let mut kept = self.0.rates.lock().ok()?;
+        if kept.is_none() {
+            *kept = scream::rates(self.0.connection.congestion_state(noq::PathId::ZERO)?);
+        }
+        kept.as_ref().map(Arc::clone)
     }
 
     pub(super) fn same(&self, other: &Self) -> bool {

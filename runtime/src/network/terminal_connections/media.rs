@@ -38,7 +38,7 @@ async fn unpack(
 ) {
     let mut unpacker = media::Unpacker::new(flow);
     let greeting = media::greeting(flow);
-    media.send(greeting.clone());
+    media.report(greeting.clone());
     let mut greeted_at = Instant::now();
     let mut heard = false;
     let mut tick = tokio::time::interval(RECEIVE_EVERY);
@@ -59,19 +59,21 @@ async fn unpack(
             _ = tick.tick(), if ticking => {
                 let now = Instant::now();
                 if !heard && now.saturating_duration_since(greeted_at) >= GREET_EVERY {
-                    media.send(greeting.clone());
+                    media.report(greeting.clone());
                     greeted_at = now;
                 }
                 let (handed, report) = unpacker.tick(now, media.rtt(), media.datagram_bytes());
                 if let Some(report) = report {
-                    media.send(report);
+                    media.report(report);
                 }
                 handed
             }
         };
         for frame in handed {
-            // A full queue drops the frame, and the viewer asks for a keyframe or anchor.
-            if let Err(mpsc::error::TrySendError::Closed(_)) = frames.try_send(frame.to_vec()) {
+            // A frame put together reaches the app, which acknowledges it, however long the app
+            // takes: meanwhile the flow's shards wait in its queue or are dropped there, and the
+            // host hears that those frames did not arrive.
+            if frames.send(frame.to_vec()).await.is_err() {
                 return;
             }
         }
