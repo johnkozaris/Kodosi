@@ -368,10 +368,8 @@ public final class ScreenFeed {
             }
         case let .region(region):
             followed = region
-        case .repairing:
-            if picture == .live {
-                picture = .kept
-            }
+        case let .stale(stale):
+            picture = picture.stale(stale)
         case .news(.open), .news(.closed):
             break
         }

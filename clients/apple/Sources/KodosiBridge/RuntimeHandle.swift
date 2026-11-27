@@ -75,7 +75,7 @@ public final class RuntimeHandle: Sendable {
                 on_terminal_checkpoint: Self.onTerminalCheckpoint,
                 on_video_frame: Self.onVideoFrame,
                 on_video_message: Self.onVideoMessage,
-                on_video_repair: Self.onVideoRepair,
+                on_video_stale: Self.onVideoStale,
             )
             let handle = withUnsafePointer(to: &callbacks) {
                 kodosi_start($0, UInt(MemoryLayout<kodosi_callbacks_t>.size), retained.toOpaque())

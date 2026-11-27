@@ -79,8 +79,9 @@ public final class VideoPipes: Sendable {
         link(pipe)?.message(json)
     }
 
-    public func repair(_ pipe: String) {
-        link(pipe)?.repair()
+    /// True when the picture is not the stream's newest any more, false when it is again.
+    public func stale(_ pipe: String, _ stale: Bool) {
+        link(pipe)?.stale(stale)
     }
 
     private func link(_ pipe: String) -> DocumentLink? {

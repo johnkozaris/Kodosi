@@ -28,10 +28,10 @@ extension RuntimeHandle {
         }
     }
 
-    static let onVideoRepair: kodosi_video_repair_cb_t = { pipe, ud in
+    static let onVideoStale: kodosi_video_stale_cb_t = { pipe, stale, ud in
         autoreleasepool {
             guard let pipe, let runtime = resolve(ud) else { return }
-            runtime.videoPipes.repair(String(cString: pipe))
+            runtime.videoPipes.stale(String(cString: pipe), stale)
         }
     }
 }

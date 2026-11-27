@@ -172,8 +172,8 @@ final class FeedRuntime {
         try pipes.message(pipe, JSONSerialization.data(withJSONObject: message))
     }
 
-    func repair(_ pipe: String) {
-        pipes.repair(pipe)
+    func stale(_ pipe: String, _ stale: Bool) {
+        pipes.stale(pipe, stale)
     }
 
     /// The fields of the next message that the feed sends of `type`.

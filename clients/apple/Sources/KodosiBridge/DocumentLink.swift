@@ -5,7 +5,7 @@ import Synchronization
 struct VideoCalls {
     var frame: @Sendable (VideoFrame) -> Bool = { _ in true }
     var message: @Sendable (Data) -> Void = { _ in }
-    var repair: @Sendable () -> Void = {}
+    var stale: @Sendable (Bool) -> Void = { _ in }
 }
 
 /// Manages a runtime document pipe, which the runtime reopens after each drop until the view
@@ -82,8 +82,8 @@ public final class DocumentLink: Sendable {
         video.message(json)
     }
 
-    func repair() {
-        video.repair()
+    func stale(_ stale: Bool) {
+        video.stale(stale)
     }
 
     /// The decoder started over, so it waits for a keyframe that the runtime asks for.

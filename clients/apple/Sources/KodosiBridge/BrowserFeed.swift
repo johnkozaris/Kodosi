@@ -307,10 +307,10 @@ public final class BrowserFeed {
                 picture = .live
                 still = nil
             }
-        case .repairing:
+        case let .stale(stale):
             // A browser that renders as a layer here is live without frames.
-            if picture == .live, window.layer == nil {
-                picture = .kept
+            if window.layer == nil {
+                picture = picture.stale(stale)
             }
         case .news(.open), .news(.closed), .region:
             break

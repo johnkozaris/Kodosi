@@ -19,7 +19,7 @@ import Testing
 }
 
 @MainActor
-@Test func `a picture that waits for a repair rests, and the next frame makes it live again`() async throws {
+@Test func `a picture that is not the stream's newest rests until it is again or the next frame comes`() async throws {
     let runtime = FeedRuntime()
     runtime.screen.show(on: NSObject(), Shown())
     let watching = Task { await runtime.screen.watch() }
@@ -28,9 +28,15 @@ import Testing
     runtime.send(FeedRuntime.keyFrame, on: pipe)
     await eventually { runtime.screen.showing == .live }
 
-    runtime.repair(pipe)
+    runtime.stale(pipe, true)
     await eventually { runtime.screen.showing == .resting }
     #expect(runtime.screen.showing == .resting)
+    runtime.stale(pipe, false)
+    await eventually { runtime.screen.showing == .live }
+    #expect(runtime.screen.showing == .live)
+
+    runtime.stale(pipe, true)
+    await eventually { runtime.screen.showing == .resting }
     runtime.send(FeedRuntime.frame(), on: pipe)
     await eventually { runtime.screen.showing == .live }
     #expect(runtime.screen.showing == .live)

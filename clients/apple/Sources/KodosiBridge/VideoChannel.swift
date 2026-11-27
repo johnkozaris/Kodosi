@@ -11,6 +11,16 @@ public enum VideoPicture: Sendable {
     case live
     /// Retains the last rendered frame while reconnecting until a fresh frame arrives.
     case kept
+
+    /// A live picture rests while it is not the stream's newest, and a kept one is live again once
+    /// it is.
+    func stale(_ stale: Bool) -> Self {
+        switch (self, stale) {
+        case (.live, true): .kept
+        case (.kept, false): .live
+        default: self
+        }
+    }
 }
 
 /// The one state that a view of a canvas video shows, on its picture. Kodosi handles what comes
@@ -75,8 +85,9 @@ final class VideoChannel<Message: Decodable & Sendable>: Sendable {
         case shown(Int)
         /// The part of the source that the frames show from now on, or `nil` for all of it.
         case region(CGRect?)
-        /// The picture waits for a repair, so it is no longer live until the next frame.
-        case repairing
+        /// True: the picture is not the stream's newest, so it is no longer live until it is again
+        /// or the next frame comes. False: it is the newest again.
+        case stale(Bool)
     }
 
     private struct State {
@@ -106,7 +117,7 @@ final class VideoChannel<Message: Decodable & Sendable>: Sendable {
         link.video = VideoCalls(
             frame: { [weak self] in self?.frame($0) ?? true },
             message: { [weak self] in self?.receive($0) },
-            repair: { [weak self] in self?.repair() },
+            stale: { [weak self] in self?.stale($0) },
         )
         return heard
     }
@@ -171,9 +182,11 @@ final class VideoChannel<Message: Decodable & Sendable>: Sendable {
         tell(.news(news))
     }
 
-    private func repair() {
-        state.withLock { $0.shown = false }
-        tell(.repairing)
+    private func stale(_ stale: Bool) {
+        if stale {
+            state.withLock { $0.shown = false }
+        }
+        tell(.stale(stale))
     }
 
     private func tell(_ heard: Heard) {
