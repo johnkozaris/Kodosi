@@ -947,6 +947,10 @@
         <translation>%1 lo lee antes de su siguiente paso.</translation>
     </message>
     <message>
+        <source>%1 reads this after its turn.</source>
+        <translation>%1 lo lee cuando termina su turno.</translation>
+    </message>
+    <message>
         <source>Waiting for %1</source>
         <translation>Esperando a %1</translation>
     </message>
@@ -957,6 +961,10 @@
     <message>
         <source>Commands</source>
         <translation>Comandos</translation>
+    </message>
+    <message>
+        <source>Picture</source>
+        <translation>Imagen</translation>
     </message>
     <message>
         <source>Or say what to do instead</source>
@@ -1029,6 +1037,13 @@
     <message>
         <source>Hand off</source>
         <translation>Traspasar</translation>
+    </message>
+</context>
+<context>
+    <name>ChatPictures</name>
+    <message>
+        <source>Picture</source>
+        <translation>Imagen</translation>
     </message>
 </context>
 <context>
@@ -5767,6 +5782,14 @@
 </context>
 <context>
     <name>kodosi::TerminalChat</name>
+    <message>
+        <source>Kodosi cannot read this picture.</source>
+        <translation>Kodosi no puede leer esta imagen.</translation>
+    </message>
+    <message>
+        <source>A message takes up to 8 pictures, 32 MB in all.</source>
+        <translation>Un mensaje admite hasta 8 imágenes, 32 MB en total.</translation>
+    </message>
     <message>
         <source>Approve</source>
         <translation>Aprobar</translation>

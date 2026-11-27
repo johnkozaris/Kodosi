@@ -947,6 +947,10 @@
         <translation>Το %1 το διαβάζει πριν από το επόμενο βήμα του.</translation>
     </message>
     <message>
+        <source>%1 reads this after its turn.</source>
+        <translation>Το %1 το διαβάζει όταν τελειώσει τη σειρά του.</translation>
+    </message>
+    <message>
         <source>Waiting for %1</source>
         <translation>Περιμένει το %1</translation>
     </message>
@@ -957,6 +961,10 @@
     <message>
         <source>Commands</source>
         <translation>Εντολές</translation>
+    </message>
+    <message>
+        <source>Picture</source>
+        <translation>Εικόνα</translation>
     </message>
     <message>
         <source>Or say what to do instead</source>
@@ -1029,6 +1037,13 @@
     <message>
         <source>Hand off</source>
         <translation>Παράδοση</translation>
+    </message>
+</context>
+<context>
+    <name>ChatPictures</name>
+    <message>
+        <source>Picture</source>
+        <translation>Εικόνα</translation>
     </message>
 </context>
 <context>
@@ -5767,6 +5782,14 @@
 </context>
 <context>
     <name>kodosi::TerminalChat</name>
+    <message>
+        <source>Kodosi cannot read this picture.</source>
+        <translation>Το Kodosi δεν μπορεί να διαβάσει αυτή την εικόνα.</translation>
+    </message>
+    <message>
+        <source>A message takes up to 8 pictures, 32 MB in all.</source>
+        <translation>Ένα μήνυμα παίρνει έως 8 εικόνες, συνολικά έως 32 MB.</translation>
+    </message>
     <message>
         <source>Approve</source>
         <translation>Έγκριση</translation>

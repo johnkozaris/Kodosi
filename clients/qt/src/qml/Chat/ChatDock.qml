@@ -18,7 +18,9 @@ Item {
     readonly property real askRoom: room - 16 - composerArea.implicitHeight - factsRow.implicitHeight - 2 * dock.spacing
         - (tasks.visible ? tasks.implicitHeight + dock.spacing : 0) - (helpers.visible ? helpers.implicitHeight + dock.spacing : 0)
     readonly property bool typed: chat.draft.trim().length > 0
-    readonly property bool stops: chat.working && !typed
+    // Only words answer a question of the agent; the pictures wait in the draft.
+    readonly property bool sendable: typed || (chat.pictures.length > 0 && !chat.asking)
+    readonly property bool stops: chat.working && !sendable
     readonly property bool away: chat.loaded && chat.state === "away"
     readonly property real column: Math.min(760, width - 20)
     readonly property var suggestions: {
@@ -48,7 +50,7 @@ Item {
         field.forceActiveFocus()
     }
     function send(): void {
-        if (!root.typed || !root.chat.canWrite)
+        if (!root.sendable || !root.chat.canWrite)
             return
         const control = root.chat.control(root.chat.draft)
         if (control.length > 0) {
@@ -497,14 +499,19 @@ Item {
                 required property var modelData
                 readonly property string refusal: modelData.refused || ""
                 readonly property bool terminal: modelData.terminal === true
-                readonly property bool given: modelData.given === true
-                readonly property real wordsWidth: handed.active ? handed.implicitWidth : queuedWords.implicitWidth
+                readonly property string given: modelData.given || ""
+                readonly property string words: modelData.text || ""
+                readonly property int pictures: modelData.pictures || 0
+                readonly property real widest: width - (given.length > 0 ? 40 : 68)
+                readonly property real gap: words.length > 0 && pictures > 0 ? 6 : 0
+                readonly property real wordsWidth: handed.active ? handed.implicitWidth
+                    : (words.length > 0 ? queuedText.implicitWidth : 0) + gap + (pictures > 0 ? tiles.implicitWidth : 0)
 
                 Layout.fillWidth: true
                 implicitHeight: queuedColumn.implicitHeight
 
                 KIconButton {
-                    visible: !waiting.given
+                    visible: waiting.given.length === 0
                     x: queuedColumn.x + bubble.x - width - 6
                     y: (bubble.height - height) / 2
                     glyph: "close"
@@ -519,16 +526,19 @@ Item {
                     id: queuedColumn
 
                     anchors.right: parent.right
-                    width: Math.min(parent.width - (waiting.given ? 40 : 68), Math.max(waiting.wordsWidth + 40,
+                    width: Math.min(waiting.widest, Math.max(waiting.wordsWidth + 40,
                         showTerminal.visible ? showTerminal.implicitWidth : 0))
                     spacing: 4
 
                     Rectangle {
                         id: bubble
 
+                        readonly property real lineHeight: queuedText.contentHeight / Math.max(1, queuedText.lineCount)
+
                         anchors.right: parent.right
                         width: Math.min(waiting.wordsWidth + 40, parent.width)
-                        height: (handed.active ? handed.height : queuedWords.height) + 16
+                        height: (handed.active ? handed.height : Math.max(queuedWords.visible ? queuedWords.height : 0,
+                            tiles.visible ? tiles.y - 8 + tiles.height : 0)) + 16
                         radius: 16
                         bottomRightRadius: 6
                         color: root.look.accentSoft
@@ -546,28 +556,37 @@ Item {
                             width: 10
                             height: 10
                             name: waiting.terminal ? "terminal" : waiting.refusal.length > 0 ? "warning"
-                                : waiting.given ? "check" : "history"
+                                : waiting.given.length > 0 ? "check" : "history"
                             strokeWidth: 2.4
                             color: !waiting.terminal && waiting.refusal.length > 0 ? root.look.caution : root.look.inkFaint
                             Accessible.role: Accessible.StaticText
                             Accessible.name: waiting.terminal ? qsTr("Command needs terminal view")
                                 : waiting.refusal.length > 0 ? waiting.refusal
-                                : waiting.given ? qsTr("%1 reads this before its next step.").arg(root.agent)
+                                : waiting.given === "step" ? qsTr("%1 reads this before its next step.").arg(root.agent)
+                                : waiting.given === "turn" ? qsTr("%1 reads this after its turn.").arg(root.agent)
                                 : qsTr("Waiting for %1").arg(root.agent)
                         }
-                        PlainLabel {
+                        Item {
                             id: queuedWords
 
                             x: 28
                             y: 8
-                            visible: !handed.active
-                            width: Math.min(implicitWidth, bubble.parent.width - 40)
-                            text: waiting.modelData.text
-                            color: root.look.ink
-                            font.pixelSize: KodosiTheme.fontFootnote
-                            wrapMode: Text.WordWrap
-                            maximumLineCount: 2
-                            elide: Text.ElideRight
+                            visible: !handed.active && waiting.words.length > 0
+                            width: Math.max(0, bubble.width - 40 - waiting.gap - (tiles.visible ? tiles.width : 0))
+                            height: queuedText.lineCount > 2 ? Math.ceil(bubble.lineHeight * 2) : queuedText.contentHeight
+                            clip: true
+
+                            KReadOnlyText {
+                                id: queuedText
+
+                                width: parent.width
+                                text: waiting.words
+                                color: root.look.ink
+                                font.pixelSize: KodosiTheme.fontFootnote
+                                selectionColor: root.look.accent
+                                selectedTextColor: root.look.accentInk
+                                objectName: "chat.queued.words." + waiting.modelData.id
+                            }
                         }
                         Loader {
                             id: handed
@@ -578,10 +597,29 @@ Item {
                             sourceComponent: ChatHandOff {
                                 handoff: waiting.modelData.handoff
                                 look: root.look
-                                widest: waiting.width - (waiting.given ? 40 : 68) - 40
+                                widest: waiting.widest - 40
                                 pixelSize: KodosiTheme.fontFootnote
                                 markSize: 15
                             }
+                        }
+                        ChatPictures {
+                            id: tiles
+
+                            x: queuedWords.visible ? queuedWords.x + queuedWords.width + waiting.gap : 28
+                            y: 8 + Math.max(0, (bubble.lineHeight - height) / 2)
+                            visible: !handed.active && waiting.pictures > 0
+                            count: waiting.pictures
+                            size: 16
+                            look: root.look
+                        }
+                        CopyKey {
+                            x: bubble.width - width
+                            y: -10
+                            enabled: queuedWords.visible
+                            message: waiting.words
+                            shown: bubbleHover.hovered
+                            look: root.look
+                            objectName: "chat.queued.copy." + waiting.modelData.id
                         }
                     }
                     AbstractButton {
@@ -647,26 +685,33 @@ Item {
                 onLinkActivated: link => root.linkActivated(link)
             }
         }
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.leftMargin: 6
-            visible: root.chat.failure.length > 0
-            spacing: 7
+        Repeater {
+            model: [root.chat.failure, root.chat.pictureRefusal].filter(words => words.length > 0)
 
-            Rectangle {
-                implicitWidth: 6
-                implicitHeight: 6
-                radius: 3
-                color: root.look.caution
-            }
-            PlainLabel {
+            RowLayout {
+                id: failure
+
+                required property string modelData
+
                 Layout.fillWidth: true
-                text: root.chat.failure
-                color: root.look.inkMuted
-                font.pixelSize: KodosiTheme.fontFootnote
-                wrapMode: Text.WordWrap
-                maximumLineCount: 2
-                elide: Text.ElideRight
+                Layout.leftMargin: 6
+                spacing: 7
+
+                Rectangle {
+                    implicitWidth: 6
+                    implicitHeight: 6
+                    radius: 3
+                    color: root.look.caution
+                }
+                PlainLabel {
+                    Layout.fillWidth: true
+                    text: failure.modelData
+                    color: root.look.inkMuted
+                    font.pixelSize: KodosiTheme.fontFootnote
+                    wrapMode: Text.WordWrap
+                    maximumLineCount: 2
+                    elide: Text.ElideRight
+                }
             }
         }
         PlainLabel {
@@ -810,9 +855,11 @@ Item {
         Item {
             id: composerArea
 
+            readonly property real picturesHeight: drafted.visible ? drafted.height + 4 : 0
+
             Layout.fillWidth: true
             visible: !root.away
-            implicitHeight: Math.min(176, Math.max(40, field.implicitHeight + 10))
+            implicitHeight: Math.min(176, Math.max(40, field.implicitHeight + 10)) + picturesHeight
 
             Behavior on implicitHeight { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
 
@@ -824,9 +871,122 @@ Item {
             TapHandler {
                 onTapped: field.forceActiveFocus()
             }
+            Flow {
+                id: drafted
+
+                x: 11
+                y: 7
+                width: parent.width - 22
+                visible: root.chat.pictures.length > 0
+                spacing: 8
+
+                Repeater {
+                    model: root.chat.pictures
+
+                    Item {
+                        id: draftPicture
+
+                        required property var modelData
+                        required property int index
+
+                        width: 52
+                        height: 52
+                        objectName: "chat.draft.picture." + index
+                        Accessible.role: Accessible.Graphic
+                        Accessible.name: qsTr("Picture")
+
+                        Rectangle {
+                            id: frame
+
+                            y: 4
+                            width: 48
+                            height: 48
+                            radius: KodosiTheme.radiusMd
+                            color: root.look.raised
+
+                            KIcon {
+                                anchors.centerIn: parent
+                                visible: thumbnail.status !== Image.Ready
+                                width: 20
+                                height: 20
+                                name: "picture"
+                                strokeWidth: 1.9
+                                color: root.look.inkMuted
+                            }
+                            Image {
+                                id: thumbnail
+
+                                anchors.fill: parent
+                                source: draftPicture.modelData.thumbnail
+                                fillMode: Image.PreserveAspectCrop
+                                smooth: true
+                            }
+                            // Qt Quick draws no picture with round corners, so the composer's own
+                            // face covers its corners.
+                            Rectangle {
+                                anchors.fill: parent
+                                anchors.margins: -5
+                                radius: frame.radius + 5
+                                color: "transparent"
+                                border.width: 5
+                                border.color: root.look.lifted
+                            }
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: frame.radius
+                                color: "transparent"
+                                border.width: 1
+                                border.color: KodosiTheme.alpha(root.look.hairline, 0.8)
+                            }
+                        }
+                        AbstractButton {
+                            id: removeKey
+
+                            x: frame.width - width + 4
+                            width: 20
+                            height: 20
+                            hoverEnabled: true
+                            // A click leaves the focus in the composer; Tab still reaches the key.
+                            focusPolicy: Qt.TabFocus
+                            objectName: "chat.draft.picture.remove." + draftPicture.index
+                            Accessible.name: qsTr("Remove")
+                            ToolTip.visible: hovered
+                            ToolTip.text: Accessible.name
+                            ToolTip.delay: Tip.delay
+                            onClicked: root.chat.removePicture(draftPicture.index)
+
+                            background: Raised {
+                                radius: height / 2
+                                look: root.look
+                                fill: removeKey.hovered ? KodosiTheme.mix(root.look.lifted, root.look.ink, 0.1) : root.look.lifted
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    anchors.margins: -2
+                                    radius: width / 2
+                                    color: "transparent"
+                                    border.width: removeKey.visualFocus ? 1.5 : 0
+                                    border.color: root.look.accentStrong
+                                }
+                            }
+                            contentItem: Item {
+                                KIcon {
+                                    anchors.centerIn: parent
+                                    width: 8
+                                    height: 8
+                                    name: "close"
+                                    strokeWidth: 2.6
+                                    color: removeKey.hovered ? root.look.ink : root.look.inkMuted
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             RowLayout {
                 anchors.fill: parent
                 anchors.margins: 5
+                anchors.topMargin: 5 + composerArea.picturesHeight
                 spacing: 4
 
                 ScrollView {
@@ -854,6 +1014,10 @@ Item {
                         Accessible.name: placeholderText
                         Component.onCompleted: text = root.chat.draft
                         onTextChanged: root.chat.draft = text
+                        Keys.onPressed: event => {
+                            if (event.matches(StandardKey.Paste))
+                                event.accepted = root.chat.pastePictures()
+                        }
                         Keys.onReturnPressed: event => {
                             if (event.modifiers & (Qt.ShiftModifier | Qt.AltModifier)) {
                                 event.accepted = false
@@ -919,7 +1083,7 @@ Item {
                         anchors.fill: parent
                         visible: opacity > 0
                         opacity: root.stops ? 0 : 1
-                        ready: root.typed && root.chat.canWrite
+                        ready: root.sendable && root.chat.canWrite
                         look: root.look
                         objectName: "chat.send"
                         Accessible.id: objectName

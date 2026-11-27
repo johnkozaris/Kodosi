@@ -12,6 +12,8 @@
 
 #include <optional>
 
+class QMimeData;
+
 namespace kodosi {
 class CanvasDocuments;
 class SessionCatalogModel;
@@ -39,6 +41,8 @@ class TerminalChat final : public QObject {
     Q_PROPERTY(QVariantList settings READ settings NOTIFY settingsChanged FINAL)
     Q_PROPERTY(QVariantList peers READ peers NOTIFY peersChanged FINAL)
     Q_PROPERTY(QString draft READ draft WRITE setDraft NOTIFY draftChanged FINAL)
+    Q_PROPERTY(QVariantList pictures READ pictures NOTIFY picturesChanged FINAL)
+    Q_PROPERTY(QString pictureRefusal READ pictureRefusal NOTIFY picturesChanged FINAL)
     Q_PROPERTY(QStringList opened READ opened NOTIFY openedChanged FINAL)
 
 public:
@@ -71,14 +75,23 @@ public:
     [[nodiscard]] QVariantList peers() const { return m_peers; }
     [[nodiscard]] QString draft() const { return m_draft; }
     void setDraft(const QString& draft);
+    // The pictures that go with the draft, each with a small picture of it to show.
+    [[nodiscard]] QVariantList pictures() const;
+    // Why a picture that the person added last did not join the draft.
+    [[nodiscard]] QString pictureRefusal() const { return m_pictureRefusal; }
     [[nodiscard]] QStringList opened() const { return m_opened; }
 
     // Reference-counted subscription; multiple views share a single pipe.
     Q_INVOKABLE void watch();
     Q_INVOKABLE void unwatch();
-    // Sends the draft; if an ask is pending, submits the draft as a text denial instead. Returns
-    // true if sent.
+    // Sends the draft with its pictures; if an ask is pending, submits the draft's words as a text
+    // denial instead and keeps the pictures. Returns true if sent.
     Q_INVOKABLE bool submit();
+    // Adds the pictures of the clipboard to the draft. False when it holds none, so that the text
+    // field pastes its text.
+    Q_INVOKABLE bool pastePictures();
+    Q_INVOKABLE void addPictures(const QList<QUrl>& files);
+    Q_INVOKABLE void removePicture(int index);
     // Expects `kind`: "allow", "always", "deny" (optional `text`), "answers" (`answers` label
     // lists), or "plan" (`choice`).
     Q_INVOKABLE void answer(const QString& ask, const QVariantMap& answer);
@@ -114,6 +127,7 @@ signals:
     void settingsChanged();
     void peersChanged();
     void draftChanged();
+    void picturesChanged();
     void openedChanged();
     void linkQuestionRequested(const QUrl& link, const QString& target);
     void linkRefused(const QString& target, const QString& reason);
@@ -137,9 +151,15 @@ private:
         QString folder;
         QVariantList blocks;
     };
+    struct Picture {
+        QByteArray bytes;
+        QString thumbnail;
+    };
 
     [[nodiscard]] static std::optional<Snapshot> snapshotFrom(const QJsonObject& value);
     [[nodiscard]] static bool apply(Snapshot& chat, const QJsonObject& change);
+    [[nodiscard]] bool addPicturesOf(const QMimeData& mime);
+    void addPicture(QByteArray bytes);
     void request(const QJsonObject& request);
     void renew();
     void shape();
@@ -163,6 +183,8 @@ private:
     // Locally submitted answers kept until the host clears the ask or sends a fresh snapshot.
     QHash<QString, QJsonObject> m_answers;
     QString m_draft;
+    QList<Picture> m_pictures;
+    QString m_pictureRefusal;
     QStringList m_opened;
     QHash<QString, Prose> m_prose;
     QVariantList m_lines;

@@ -6,16 +6,26 @@
 #include "presentation/Link.hpp"
 #include "presentation/SessionCatalogModel.hpp"
 
+#include <QBuffer>
+#include <QClipboard>
 #include <QDateTime>
 #include <QDebug>
 #include <QDesktopServices>
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QGuiApplication>
+#include <QImage>
+#include <QImageReader>
 #include <QJsonDocument>
 #include <QLocale>
+#include <QMimeData>
+#include <QMimeDatabase>
 #include <QSet>
 
 #include <algorithm>
 #include <cmath>
+#include <numeric>
 
 namespace kodosi {
 namespace {
@@ -24,6 +34,67 @@ constexpr qint64 longTurn = 30000;
 constexpr qsizetype longCommand = 96;
 constexpr qsizetype mostChangeLines = 40;
 constexpr qsizetype mostAskLines = 14;
+constexpr qsizetype mostPictures = 8;
+constexpr qsizetype mostPictureBytes = 32 * 1024 * 1024;
+// Three times the size at which the draft shows a picture.
+constexpr int thumbnailPixels = 144;
+
+QString unreadablePicture()
+{
+    return TerminalChat::tr("Kodosi cannot read this picture.");
+}
+
+QString tooManyPictures()
+{
+    return TerminalChat::tr("A message takes up to 8 pictures, 32 MB in all.");
+}
+
+// The host knows a picture by its first bytes.
+QByteArray agentFormat(const QByteArray& bytes)
+{
+    if (bytes.startsWith(QByteArrayView("\x89PNG\r\n\x1a\n")))
+        return QByteArrayLiteral("png");
+    if (bytes.startsWith(QByteArrayView("\xff\xd8\xff")))
+        return QByteArrayLiteral("jpeg");
+    if (bytes.startsWith(QByteArrayView("GIF87a")) || bytes.startsWith(QByteArrayView("GIF89a")))
+        return QByteArrayLiteral("gif");
+    if (bytes.size() >= 12 && bytes.startsWith(QByteArrayView("RIFF")) && bytes.sliced(8, 4) == QByteArrayView("WEBP"))
+        return QByteArrayLiteral("webp");
+    return {};
+}
+
+QByteArray png(const QImage& image)
+{
+    QByteArray bytes;
+    QBuffer buffer(&bytes);
+    buffer.open(QIODevice::WriteOnly);
+    image.save(&buffer, "PNG");
+    return bytes;
+}
+
+// The picture of `bytes`, read only as large as its thumbnail needs.
+QImage smallPicture(const QByteArray& bytes)
+{
+    QBuffer buffer;
+    buffer.setData(bytes);
+    buffer.open(QIODevice::ReadOnly);
+    QImageReader reader(&buffer);
+    reader.setAutoTransform(true);
+    const auto size = reader.size();
+    if (size.width() > thumbnailPixels && size.height() > thumbnailPixels)
+        reader.setScaledSize(size.scaled(thumbnailPixels, thumbnailPixels, Qt::KeepAspectRatioByExpanding));
+    return reader.read();
+}
+
+// The middle square of a picture as the address of a small PNG.
+QString thumbnail(const QImage& picture)
+{
+    const auto side = std::min(picture.width(), picture.height());
+    auto square = picture.copy((picture.width() - side) / 2, (picture.height() - side) / 2, side, side);
+    if (side > thumbnailPixels)
+        square = square.scaled(thumbnailPixels, thumbnailPixels, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    return QStringLiteral("data:image/png;base64,") + QString::fromLatin1(png(square).toBase64());
+}
 
 QString text(const QJsonObject& object, const char* key)
 {
@@ -375,14 +446,141 @@ void TerminalChat::unwatch()
 bool TerminalChat::submit()
 {
     const auto words = m_draft.trimmed();
-    if (words.isEmpty() || !canWrite())
+    if (!canWrite())
         return false;
-    setDraft({});
-    if (const auto waiting = question(); !waiting.isEmpty())
+    if (const auto waiting = question(); !waiting.isEmpty()) {
+        if (words.isEmpty())
+            return false;
+        setDraft({});
         answer(waiting, { { QStringLiteral("kind"), QStringLiteral("deny") }, { QStringLiteral("text"), words } });
-    else
-        request({ { QStringLiteral("do"), QStringLiteral("send") }, { QStringLiteral("text"), words } });
+        return true;
+    }
+    if (words.isEmpty() && m_pictures.isEmpty())
+        return false;
+    QJsonObject message { { QStringLiteral("do"), QStringLiteral("send") }, { QStringLiteral("text"), words } };
+    if (!m_pictures.isEmpty()) {
+        QJsonArray pictures;
+        for (const auto& picture : std::as_const(m_pictures))
+            pictures.append(QString::fromLatin1(picture.bytes.toBase64()));
+        message.insert(QStringLiteral("pictures"), pictures);
+    }
+    const bool pictured = !m_pictures.isEmpty() || !m_pictureRefusal.isEmpty();
+    m_pictures.clear();
+    m_pictureRefusal.clear();
+    setDraft({});
+    if (pictured)
+        emit picturesChanged();
+    request(message);
     return true;
+}
+
+QVariantList TerminalChat::pictures() const
+{
+    QVariantList shown;
+    for (const auto& picture : m_pictures)
+        shown.append(QVariantMap { { QStringLiteral("thumbnail"), picture.thumbnail } });
+    return shown;
+}
+
+bool TerminalChat::pastePictures()
+{
+    const auto* mime = QGuiApplication::clipboard()->mimeData();
+    return mime != nullptr && addPicturesOf(*mime);
+}
+
+// Picture files come first, then a picture, then words: a browser's copy of a picture also holds
+// its address as words.
+bool TerminalChat::addPicturesOf(const QMimeData& mime)
+{
+    QList<QUrl> files;
+    for (const auto& url : mime.urls()) {
+        if (url.isLocalFile())
+            files.append(url);
+    }
+    const QMimeDatabase types;
+    if (std::ranges::any_of(files, [&types](const QUrl& file) {
+            return types.mimeTypeForFile(file.toLocalFile()).name().startsWith(QStringLiteral("image/"));
+        })) {
+        addPictures(files);
+        return true;
+    }
+    QByteArray picture;
+    for (const auto* type : { "image/png", "image/jpeg", "image/gif", "image/webp" }) {
+        picture = mime.data(QString::fromLatin1(type));
+        if (!picture.isEmpty())
+            break;
+    }
+    if (picture.isEmpty() && mime.hasImage())
+        picture = png(qvariant_cast<QImage>(mime.imageData()));
+    if (picture.isEmpty())
+        return false;
+    m_pictureRefusal.clear();
+    addPicture(std::move(picture));
+    emit picturesChanged();
+    return true;
+}
+
+void TerminalChat::addPictures(const QList<QUrl>& files)
+{
+    m_pictureRefusal.clear();
+    for (const auto& file : files) {
+        const auto path = file.toLocalFile();
+        QFile picture(path);
+        if (!file.isLocalFile() || !QFileInfo(path).isFile() || !picture.open(QIODevice::ReadOnly)) {
+            m_pictureRefusal = unreadablePicture();
+            continue;
+        }
+        auto bytes = picture.read(mostPictureBytes + 1);
+        if (bytes.size() > mostPictureBytes)
+            m_pictureRefusal = tooManyPictures();
+        else
+            addPicture(std::move(bytes));
+    }
+    emit picturesChanged();
+}
+
+// The agents read PNG, JPEG, GIF and WebP pictures as they are; any other picture goes as PNG.
+void TerminalChat::addPicture(QByteArray bytes)
+{
+    if (m_pictures.size() >= mostPictures) {
+        m_pictureRefusal = tooManyPictures();
+        return;
+    }
+    QString shown;
+    if (const auto format = agentFormat(bytes); !format.isEmpty()) {
+        const auto picture = smallPicture(bytes);
+        // Without its plugin Qt reads no WebP, which the agents still read.
+        if (picture.isNull() && QImageReader::supportedImageFormats().contains(format)) {
+            m_pictureRefusal = unreadablePicture();
+            return;
+        }
+        if (!picture.isNull())
+            shown = thumbnail(picture);
+    } else {
+        const auto picture = QImage::fromData(bytes);
+        if (picture.isNull()) {
+            m_pictureRefusal = unreadablePicture();
+            return;
+        }
+        bytes = png(picture);
+        shown = thumbnail(picture);
+    }
+    const auto held = std::accumulate(m_pictures.cbegin(), m_pictures.cend(), qsizetype(0),
+        [](qsizetype sum, const Picture& picture) { return sum + picture.bytes.size(); });
+    if (held + bytes.size() > mostPictureBytes) {
+        m_pictureRefusal = tooManyPictures();
+        return;
+    }
+    m_pictures.append(Picture { .bytes = std::move(bytes), .thumbnail = std::move(shown) });
+}
+
+void TerminalChat::removePicture(int index)
+{
+    if (index < 0 || index >= m_pictures.size())
+        return;
+    m_pictures.removeAt(index);
+    m_pictureRefusal.clear();
+    emit picturesChanged();
 }
 
 void TerminalChat::answer(const QString& ask, const QVariantMap& answer)
@@ -834,7 +1032,8 @@ void TerminalChat::shape()
             const auto values = body(row.item);
             const auto by = values.value(QStringLiteral("by")).toObject();
             line.insert({ { QStringLiteral("text"), text(values, "text") }, { QStringLiteral("byId"), text(by, "id") },
-                { QStringLiteral("byName"), text(by, "name") } });
+                { QStringLiteral("byName"), text(by, "name") },
+                { QStringLiteral("pictures"), static_cast<int>(values.value(QStringLiteral("pictures")).toArray().size()) } });
             insertMentions(line, values);
         } else if (row.kind == QStringLiteral("answer") || row.kind == QStringLiteral("plan")) {
             kept.insert(row.id);
@@ -908,7 +1107,8 @@ void TerminalChat::shape()
         QVariantMap entry { { QStringLiteral("id"), text(waiting, "id") }, { QStringLiteral("text"), text(waiting, "text") },
             { QStringLiteral("refused"), text(waiting, "refused") },
             { QStringLiteral("terminal"), waiting.value(QStringLiteral("terminal")).toBool() },
-            { QStringLiteral("given"), waiting.value(QStringLiteral("given")).toBool() } };
+            { QStringLiteral("given"), text(waiting, "given") },
+            { QStringLiteral("pictures"), static_cast<int>(waiting.value(QStringLiteral("pictures")).toArray().size()) } };
         insertMentions(entry, waiting);
         queued.append(entry);
     }
