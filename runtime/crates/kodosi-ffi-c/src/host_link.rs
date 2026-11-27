@@ -273,7 +273,7 @@ impl Link {
             tokio::select! {
                 biased;
                 () = watch.cancel.cancelled() => {}
-                () = stream_video(&root, state, pipe, &watch) => {}
+                () = keep_video(&root, &state, pipe, &watch) => {}
             }
             watch.retire();
         })
@@ -621,38 +621,63 @@ async fn write_frames<W: tokio::io::AsyncWrite + Unpin>(
     }
 }
 
-async fn stream_video(root: &Path, state: Arc<State>, pipe: Uuid, watch: &Arc<video::Watch>) {
+/// A video connection that ends while the app still watches, as when the host restarts or gave up
+/// on a write, connects again; the host holds the pipe's messages meanwhile. A pipe that the host
+/// no longer has ends the watch.
+async fn keep_video(root: &Path, state: &Arc<State>, pipe: Uuid, watch: &Arc<video::Watch>) {
+    let mut delay = RECONNECT_FIRST;
+    loop {
+        match local_host::VideoClient::connect(root, pipe).await {
+            Ok(client) => {
+                delay = RECONNECT_FIRST;
+                stream_video(client, Arc::clone(state), watch).await;
+                tracing::info!(%pipe, "the video connection ended, so the app connects again");
+            }
+            Err(Error::NotFound) => return,
+            Err(error) => tracing::info!(%pipe, %error, "the app could not watch a video"),
+        }
+        tokio::time::sleep(delay).await;
+        delay = (delay * 2).min(RECONNECT_LAST);
+    }
+}
+
+async fn stream_video(
+    client: local_host::VideoClient,
+    state: Arc<State>,
+    watch: &Arc<video::Watch>,
+) {
     let local_host::VideoClient {
         mut reader,
         mut writer,
-    } = match local_host::VideoClient::connect(root, pipe).await {
-        Ok(client) => client,
-        Err(error) => {
-            tracing::info!(%pipe, %error, "the app could not watch a video");
-            return;
-        }
-    };
+    } = client;
     let (arrived, shown) = mpsc::channel(VIDEO_QUEUE);
     let (took, mut answers) = mpsc::channel(VIDEO_QUEUE);
-    let reading = async {
+    let reading = async move {
         while let Ok(next) = local_host::read_shown(&mut reader).await {
             if arrived.send(next).await.is_err() {
                 return;
             }
         }
     };
-    let writing = async {
+    let writing = async move {
         while let Some(answer) = answers.recv().await {
             if local_host::write_took(&mut writer, answer).await.is_err() {
                 return;
             }
         }
     };
-    tokio::select! {
-        () = video::serve(state, Arc::clone(watch), shown, took) => {}
-        () = reading => {}
-        () = writing => {}
-    }
+    // A broken connection ends `reading`, which ends what `serve` gets, so `serve` returns only
+    // after the pipe's thread made its last call.
+    let carrying = async move {
+        tokio::select! {
+            () = reading => {}
+            () = writing => {}
+        }
+    };
+    tokio::join!(
+        video::serve(state, Arc::clone(watch), shown, took),
+        carrying
+    );
 }
 
 fn restore(

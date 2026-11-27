@@ -2,7 +2,7 @@
 //! take to the app, on a thread of its own, and the app answers each frame.
 
 use kodosi_runtime::video::{Frame, FrameKind, Shown, Took};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 
 use super::{
     Arc, CString, CancellationToken, KODOSI_FFI_BUSY, KODOSI_FFI_DESER_FAILED,
@@ -51,8 +51,9 @@ impl Watch {
     }
 }
 
-/// Runs a watch until it ends: the pipe's thread calls the app with what `shown` brings and sends
-/// the decoder's answers to `took`.
+/// Carries one connection of a watch until `shown` ends or the watch does: the pipe's thread calls
+/// the app with what `shown` brings and sends the decoder's answers to `took`. It returns once that
+/// thread made its last call, so the next connection's thread never calls the app at the same time.
 pub(super) async fn serve(
     state: Arc<State>,
     watch: Arc<Watch>,
@@ -61,28 +62,33 @@ pub(super) async fn serve(
 ) {
     *lock(&watch.took) = Some(took.clone());
     let (items, mut inbox) = mpsc::channel(THREAD_QUEUE);
+    let (called, finished) = oneshot::channel::<()>();
     let thread = {
         let watch = Arc::clone(&watch);
         std::thread::Builder::new()
             .name("kodosi-video".into())
-            .spawn(move || call(&state, &watch, &mut inbox, &took))
+            .spawn(move || {
+                call(&state, &watch, &mut inbox, &took);
+                drop(called);
+            })
     };
     if let Err(error) = thread {
         tracing::warn!(%error, "a video could not get its thread");
-    } else {
-        loop {
-            let next = tokio::select! {
-                biased;
-                () = watch.cancel.cancelled() => break,
-                next = shown.recv() => next,
-            };
-            let Some(next) = next else { break };
-            if items.send(next).await.is_err() {
-                break;
-            }
+        return;
+    }
+    loop {
+        let next = tokio::select! {
+            biased;
+            () = watch.cancel.cancelled() => break,
+            next = shown.recv() => next,
+        };
+        let Some(next) = next else { break };
+        if items.send(next).await.is_err() {
+            break;
         }
     }
-    watch.retire();
+    drop(items);
+    drop(finished.await);
 }
 
 fn call(

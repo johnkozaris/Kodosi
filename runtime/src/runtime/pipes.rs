@@ -583,6 +583,8 @@ impl Video {
                         attempt,
                         decides: true,
                     });
+                } else {
+                    self.viewing.missed(Instant::now());
                 }
             }
             Arrival::Drop { ask } => {
@@ -599,7 +601,9 @@ impl Video {
         match took {
             None => {
                 self.outlet = None;
-                self.at_app = None;
+                if self.at_app.take().is_some() {
+                    self.viewing.missed(now);
+                }
             }
             Some(Took::Restart) => {
                 if let Some(handed) = &mut self.at_app {

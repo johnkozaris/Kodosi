@@ -129,6 +129,15 @@ impl Viewing {
         self.told = false;
     }
 
+    /// The app may not have got the frame that it had when its watch broke. The host counts that
+    /// frame as lost, so the viewer waits for a keyframe or an anchor too.
+    pub(crate) fn missed(&mut self, now: Instant) {
+        if self.holds == Holds::Stream {
+            self.wait(Holds::Gap, now);
+            self.asked_at = Some(now);
+        }
+    }
+
     /// The decoder failed or started over, so the viewer asks for a keyframe at once.
     pub(crate) fn failed(&mut self, now: Instant) {
         self.wait(Holds::Nothing, now);

@@ -299,3 +299,59 @@ fn no_video_call_runs_once_the_app_ended_its_watch() {
     drop(state);
     executor.shutdown_timeout(Duration::from_secs(1));
 }
+
+unsafe extern "C" fn counted_frame(
+    _: *const c_char,
+    _: *const KodosiVideoFrame,
+    userdata: *mut c_void,
+) -> i32 {
+    let count = unsafe { &*userdata.cast::<AtomicUsize>() };
+    count.fetch_add(1, Ordering::SeqCst);
+    KODOSI_VIDEO_TAKEN
+}
+#[test]
+fn a_watch_goes_on_with_its_next_connection_after_one_ends() {
+    use kodosi_runtime::video::{Codec, Frame, FrameKind, Shown, Took};
+    let executor = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1)
+        .enable_all()
+        .build()
+        .unwrap();
+    let count = AtomicUsize::new(0);
+    let mut state = state();
+    state.callbacks.on_video_frame = Some(counted_frame);
+    state.userdata = UserData(std::ptr::from_ref(&count).cast_mut().cast());
+    let state = Arc::new(state);
+    let watch = Arc::new(video::Watch::new(
+        CString::new(Uuid::now_v7().to_string()).unwrap(),
+        CancellationToken::new(),
+    ));
+    let frame = Frame {
+        id: 1,
+        codec: Codec::H264,
+        kind: FrameKind::Key,
+        region: None,
+        data: Bytes::from_static(&[0, 0, 0, 1, 0x65]),
+    }
+    .encode();
+    for connection in 1..=2 {
+        let (shown, watched) = tokio::sync::mpsc::channel(4);
+        let (took, mut answers) = tokio::sync::mpsc::channel(4);
+        let serving = executor.spawn(video::serve(
+            Arc::clone(&state),
+            Arc::clone(&watch),
+            watched,
+            took,
+        ));
+        shown.blocking_send(Shown::Frame(frame.clone())).unwrap();
+        assert_eq!(
+            answers.blocking_recv(),
+            Some(Took::Taken),
+            "connection {connection} reaches the app"
+        );
+        drop(shown);
+        executor.block_on(serving).unwrap();
+    }
+    assert_eq!(count.load(Ordering::SeqCst), 2);
+    executor.shutdown_timeout(Duration::from_secs(1));
+}

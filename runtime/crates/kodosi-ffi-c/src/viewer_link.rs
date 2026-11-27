@@ -92,12 +92,12 @@ impl Link {
                 watched = runtime.watch_video(pipe) => watched,
             };
             match watched {
-                Ok(watched) => video::serve(state, watch, watched.shown, watched.took).await,
-                Err(error) => {
-                    tracing::info!(%pipe, %error, "the app could not watch a video");
-                    watch.retire();
+                Ok(watched) => {
+                    video::serve(state, Arc::clone(&watch), watched.shown, watched.took).await;
                 }
+                Err(error) => tracing::info!(%pipe, %error, "the app could not watch a video"),
             }
+            watch.retire();
         })
     }
 }
