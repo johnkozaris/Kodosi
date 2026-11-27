@@ -129,7 +129,7 @@ fun ScreenView(model: AppModel, session: String, computer: String, shared: Boole
                 }
             }
             Box(Modifier.weight(1f))
-            ActionIcon(AppSymbol.KEYBOARD, R.string.keyboard, { view?.keyboard() }, enabled = picture && controls)
+            KeyboardButton(view, enabled = picture && controls)
         }
         Box(Modifier.weight(1f).fillMaxWidth().background(DarkColors.terminal).onSizeChanged { area = it }) {
             AndroidView(

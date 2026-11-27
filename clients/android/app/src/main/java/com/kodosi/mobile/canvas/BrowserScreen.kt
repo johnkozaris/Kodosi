@@ -366,7 +366,7 @@ fun BrowserScreen(
                     Text(stringResource(R.string.shared), style = KodosiType.footnote, color = colors.inkMuted)
                 }
             }
-            ActionIcon(AppSymbol.KEYBOARD, R.string.keyboard, { view?.keyboard() }, enabled = awake)
+            KeyboardButton(view, enabled = awake)
         }
         window.objects("downloads").firstOrNull { !it.flag("done") }?.let {
             ProgressCaption(it.string("name").orEmpty())

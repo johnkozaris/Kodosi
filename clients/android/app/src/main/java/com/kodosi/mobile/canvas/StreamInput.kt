@@ -16,7 +16,13 @@ import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
 import android.widget.OverScroller
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.runtime.Composable
+import com.kodosi.mobile.R
 import com.kodosi.mobile.runtime.fields
+import com.kodosi.mobile.ui.ActionIcon
+import com.kodosi.mobile.ui.AppSymbol
 import kotlin.math.hypot
 
 // Touches, a mouse and a keyboard on a stream's video: a tap clicks, a long press clicks with the right
@@ -278,9 +284,13 @@ internal abstract class StreamInput(context: Context, private val feed: VideoFee
         return super.onGenericMotionEvent(event)
     }
 
-    fun keyboard() {
+    fun showKeyboard() {
         requestFocus()
         context.getSystemService(InputMethodManager::class.java).showSoftInput(this, 0)
+    }
+
+    fun hideKeyboard() {
+        context.getSystemService(InputMethodManager::class.java).hideSoftInputFromWindow(windowToken, 0)
     }
 
     private fun modifiers(state: Int): Int = (if (state and KeyEvent.META_ALT_MASK != 0) 1 else 0) or
@@ -395,5 +405,14 @@ internal abstract class StreamInput(context: Context, private val feed: VideoFee
 
     private companion object {
         const val CONTROL = 2
+    }
+}
+
+@Composable
+internal fun KeyboardButton(input: StreamInput?, enabled: Boolean) {
+    if (WindowInsets.isImeVisible) {
+        ActionIcon(AppSymbol.HIDE_KEYBOARD, R.string.hide_keyboard, { input?.hideKeyboard() })
+    } else {
+        ActionIcon(AppSymbol.KEYBOARD, R.string.keyboard, { input?.showKeyboard() }, enabled = enabled)
     }
 }
