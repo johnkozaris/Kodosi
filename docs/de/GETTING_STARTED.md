@@ -270,9 +270,10 @@ und **Browser**, jeweils mit einem kupferfarbenen Punkt bei neuen Inhalten:
     ein separater Teil von Kodosi bekommt diese Berechtigungen, die Programme in deinen Terminals
     also nicht. Fragt macOS nicht nach, zeigt **Erlauben…** in denselben Einstellungen, wo du sie
     einschaltest.
-  - Unter Linux funktioniert das Teilen mit KDE Plasma 6 und GNOME unter Wayland. Unter KDE genügt
-    es, das Teilen einzuschalten; GNOME fragt einmal, ob Kodosi den Bildschirm teilen darf, und
-    merkt sich deine Antwort.
+  - Unter Linux funktioniert das Teilen mit KDE Plasma 6 und GNOME unter Wayland sowie mit jedem
+    Desktop unter X11, etwa Xfce, auch einem, den du über RDP oder VNC erreichst. Unter KDE und
+    unter X11 genügt es, das Teilen einzuschalten; GNOME fragt einmal, ob Kodosi den Bildschirm
+    teilen darf, und merkt sich deine Antwort.
   - Windows braucht keine Berechtigung. Programme, die als Administrator laufen, kann Kodosi nicht
     steuern, und solange Windows um die Zustimmung eines Administrators bittet, erscheint der
     Bildschirm als gesperrt. Das Symbol, das zeigt, wer zusieht, kann sich hinter dem ^ in der

@@ -101,9 +101,11 @@ Ende-zu-Ende-verschlüsselt übertragen wie die Terminals selbst. Ein separater 
 übernimmt die Aufnahme und die Eingaben. Auf einem Mac hat dieser Teil die Berechtigungen für
 Bildschirmaufnahme und Bedienungshilfen, die das braucht, damit die Programme in deinen Terminals
 sie nicht bekommen. Unter Linux erlaubt der Desktop Kodosi das Teilen über sein Portal zur
-Bildschirmfreigabe und zeigt einen eigenen Hinweis an, während der Bildschirm geteilt wird. Solange
-jemand zusieht, zeigt die Menüleiste oder der Infobereich des Computers, welche Geräte zusehen. Wenn
-du das Teilen ausschaltest oder dort auf **Teilen beenden** klickst, endet jede Ansicht.
+Bildschirmfreigabe und zeigt einen eigenen Hinweis an, während der Bildschirm geteilt wird. Ein
+Desktop unter X11 hat kein solches Portal und lässt jedes Programm deiner Sitzung den Bildschirm
+sehen und bedienen; dort genügt es, das Teilen in Kodosi einzuschalten. Solange jemand zusieht,
+zeigt die Menüleiste oder der Infobereich des Computers, welche Geräte zusehen. Wenn du das Teilen
+ausschaltest oder dort auf **Teilen beenden** klickst, endet jede Ansicht.
 
 Auf einem Mac fragt dieser Teil von Kodosi außerdem die Person am Mac in einer eigenen Meldung,
 bevor er ein Konto bedient: einmal für jedes Konto, wenn das Teilen eingeschaltet wird. Kein

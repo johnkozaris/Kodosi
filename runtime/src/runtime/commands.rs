@@ -705,7 +705,6 @@ impl Runtime {
                 vouch,
                 ..
             } => {
-                screen.offered().map_err(Error::Text)?;
                 let account = self.network.account().unwrap_or_default();
                 let server = self.config.foreign_server();
                 question = Some((
@@ -719,15 +718,20 @@ impl Runtime {
         self.job_capacity()?;
         let command = command.clone();
         self.spawn(async move {
-            if let Some((question, vouch)) = question {
-                screen.turn_on(question, vouch).await;
+            let result = async {
+                if let Some((question, vouch)) = question {
+                    screen.offered().await?;
+                    screen.turn_on(question, vouch).await;
+                }
+                let access = screen.access().await;
+                let available = screen.available().await;
+                Ok::<_, crate::text::Text>(json!({
+                    "allowed": *screen.allowed().borrow(),
+                    "available": available,
+                    "access": access,
+                }))
             }
-            let access = screen.access().await;
-            let result = Ok(json!({
-                "allowed": *screen.allowed().borrow(),
-                "available": screen.available(),
-                "access": access,
-            }));
+            .await;
             Completion::Settings { command, result }
         });
         Ok(())

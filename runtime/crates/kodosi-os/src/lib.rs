@@ -7,6 +7,8 @@ pub mod network;
 #[cfg(any(target_os = "macos", target_os = "linux", windows))]
 pub mod power;
 pub mod process;
+#[cfg(target_os = "linux")]
+pub mod screen;
 pub mod secrets;
 
 #[cfg(target_os = "linux")]

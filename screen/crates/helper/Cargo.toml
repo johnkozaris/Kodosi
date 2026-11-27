@@ -38,13 +38,14 @@ futures-util = { version = "0.3.34", default-features = false, features = ["std"
 pipewire = { version = "0.10.1", features = ["v0_3_33"] }
 png = { workspace = true }
 reis = { version = "0.7.1", features = ["tokio"] }
-rustix = { version = "1.1.2", features = ["time"] }
+rustix = { version = "1.1.2", features = ["event", "fs", "mm", "time"] }
 screen = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 stream = { workspace = true }
 stream-encode = { workspace = true }
 tokio = { workspace = true, features = ["fs", "io-std"] }
+x11rb = { version = "0.14.0", features = ["damage", "randr", "screensaver", "shm", "xfixes", "xtest"] }
 xkbcommon-dl = "0.4.2"
 xkeysym = "0.2.1"
 zbus = { version = "6.5.0", default-features = false, features = ["proxy", "service", "tokio"] }

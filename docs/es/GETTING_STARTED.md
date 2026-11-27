@@ -262,7 +262,8 @@ En cuanto el lienzo tiene contenido, la cabecera del terminal añade los botones
     parte independiente de Kodosi tiene estos permisos, así que los programas de tus terminales no
     los reciben. Si macOS no te lo pide, **Permitir…** en los mismos ajustes te muestra dónde
     activarlos.
-  - En Linux, compartir funciona con KDE Plasma 6 y GNOME en Wayland. En KDE basta con activar la
+  - En Linux, compartir funciona con KDE Plasma 6 y GNOME en Wayland, y con cualquier escritorio en
+    X11, como Xfce, también uno al que accedes por RDP o VNC. En KDE y en X11 basta con activar la
     función de compartir; GNOME pregunta una vez si Kodosi puede compartir la pantalla y recuerda tu
     respuesta.
   - Windows no necesita ningún permiso. Kodosi no puede controlar los programas que se ejecutan como

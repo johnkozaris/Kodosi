@@ -237,7 +237,8 @@ copper dot whenever something is new:
   - On a Mac, macOS then asks you to let Kodosi record and control the screen. A separate part of
     Kodosi alone holds these permissions, so the programs in your terminals don't get them. If
     macOS doesn't ask, **Allow…** in the same settings shows where to turn them on.
-  - On Linux, sharing works with KDE Plasma 6 and GNOME on Wayland. On KDE, turning sharing on is
+  - On Linux, sharing works with KDE Plasma 6 and GNOME on Wayland, and with every desktop on X11,
+    such as Xfce, also one that you reach over RDP or VNC. On KDE and on X11, turning sharing on is
     all it takes; GNOME asks once whether Kodosi may share the screen and remembers your answer.
   - Windows needs no permission. Kodosi can't control programs that run as administrator, and
     the screen shows as locked while Windows asks for administrator approval. The icon that says

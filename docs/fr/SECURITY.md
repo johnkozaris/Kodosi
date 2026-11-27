@@ -105,9 +105,11 @@ en bout comme les terminaux eux-mêmes. Une partie distincte de Kodosi se charge
 saisies. Sur un Mac, elle détient les autorisations d'enregistrement de l'écran et d'accessibilité
 nécessaires, afin que les programmes de vos terminaux ne les obtiennent pas. Sous Linux, le bureau
 accorde le partage à Kodosi via son portail de partage d'écran et affiche sa propre notification
-pendant que l'écran est partagé. Tant que quelqu'un regarde, la barre des menus ou la zone de
-notification de l'ordinateur indique quels appareils regardent ; désactiver le partage, ou cliquer
-sur **Arrêter le partage** à cet endroit, met fin à chaque affichage.
+pendant que l'écran est partagé. Un bureau sous X11 n'a pas ce portail et laisse chaque programme de
+votre session voir et contrôler l'écran ; il suffit alors d'activer le partage dans Kodosi. Tant que
+quelqu'un regarde, la barre des menus ou la zone de notification de l'ordinateur indique quels
+appareils regardent ; désactiver le partage, ou cliquer sur **Arrêter le partage** à cet endroit,
+met fin à chaque affichage.
 
 Sur un Mac, cette partie de Kodosi demande en outre à la personne devant le Mac, dans sa propre
 alerte, avant de servir un compte : une fois pour chaque compte, quand le partage est activé. Aucun

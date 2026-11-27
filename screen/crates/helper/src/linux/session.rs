@@ -18,10 +18,11 @@ use tokio::{io::AsyncWriteExt as _, sync::mpsc, time::Instant};
 use zbus::OwnedObjectPath;
 
 use super::{
-    Arguments,
+    Arguments, Told,
     away::Watch,
-    capture::{Frames, Video, Wanted},
+    capture::{Video, Wanted},
     clipboard::Clipboard,
+    frames::Frames,
     hand::Hand,
     input::{Hands, Placed},
     notice::Tray,
@@ -31,7 +32,7 @@ use super::{
 /// Messages on their way to the host: frames, the pointer and what the helper says.
 pub(super) const MESSAGES: usize = 64;
 /// How often the helper looks again whether it can share the screen while someone watches.
-const LOOK_EVERY: Duration = Duration::from_secs(2);
+pub(super) const LOOK_EVERY: Duration = Duration::from_secs(2);
 /// How long the desktop may take to start a session that it granted before. Longer means that
 /// it asks the person at the computer again, because the grant no longer holds.
 const RESTORE_LIMIT: Duration = Duration::from_secs(20);
@@ -42,7 +43,7 @@ const ASK_LIMIT: Duration = Duration::from_mins(5);
 const LOCKING: Duration = Duration::from_secs(1);
 /// How long the desktop's services may take to answer the helper's first look, well within the
 /// time that the host waits for the helper's first message.
-const FIRST_LOOK: Duration = Duration::from_secs(3);
+pub(super) const FIRST_LOOK: Duration = Duration::from_secs(3);
 /// How long the desktop may take to show the pointer where the helper put it, before the helper
 /// tells the host itself.
 const POINTER_SHOWING: Duration = Duration::from_millis(100);
@@ -76,6 +77,24 @@ pub(super) enum Event {
     /// Where the desktop's libei server places the displays, and their scales, first and after
     /// each change of them.
     Placed(Vec<Placed>),
+}
+
+impl Told for Event {
+    fn stopped() -> Self {
+        Self::Stopped
+    }
+
+    fn changed() -> Self {
+        Self::Changed
+    }
+
+    fn failed(problem: String) -> Self {
+        Self::Failed(problem)
+    }
+
+    fn redraw() -> Self {
+        Self::Redraw
+    }
 }
 
 /// Serves the host on standard input and output until it quits or goes away.
@@ -124,7 +143,7 @@ async fn reach() -> Option<(Portal, bool)> {
     Some((portal, preauthorized))
 }
 
-async fn write(mut saying: mpsc::Receiver<Bytes>) {
+pub(super) async fn write(mut saying: mpsc::Receiver<Bytes>) {
     let mut output = tokio::io::stdout();
     while let Some(message) = saying.recv().await {
         if output.write_all(&message).await.is_err() || output.flush().await.is_err() {
@@ -133,7 +152,7 @@ async fn write(mut saying: mpsc::Receiver<Bytes>) {
     }
 }
 
-async fn read(heard: mpsc::Sender<ToHelper>) {
+pub(super) async fn read(heard: mpsc::Sender<ToHelper>) {
     let mut input = tokio::io::stdin();
     while let Ok(Some(message)) = link::read::<ToHelper>(&mut input).await {
         if let Message::Said(said) = message
@@ -809,7 +828,7 @@ impl Session {
 }
 
 /// Letting go of what a viewer holds goes through even while the person at the computer uses it.
-const fn lets_go(input: &Input) -> bool {
+pub(super) const fn lets_go(input: &Input) -> bool {
     matches!(
         input,
         Input::Mouse {
@@ -871,7 +890,7 @@ fn scale(points: (f64, f64), pixels: (u32, u32)) -> f64 {
 }
 
 /// The host's sizes come back from its JSON, which may round a point's last bit.
-fn same_size(one: (f64, f64), other: (f64, f64)) -> bool {
+pub(super) fn same_size(one: (f64, f64), other: (f64, f64)) -> bool {
     const ROUNDING: f64 = 0.001;
     (one.0 - other.0).abs() < ROUNDING && (one.1 - other.1).abs() < ROUNDING
 }

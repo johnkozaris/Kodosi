@@ -102,9 +102,11 @@ extremo a extremo como los propios terminales. Una parte independiente de Kodosi
 captura y de la entrada. En un Mac tiene los permisos de grabación de pantalla y de accesibilidad
 que esto necesita, así que los programas de tus terminales no los obtienen. En Linux, el escritorio
 autoriza a Kodosi a compartir la pantalla mediante su portal de pantalla compartida y muestra su
-propio aviso cuando la pantalla se está compartiendo. Mientras alguien mira, la barra de menús o la
-bandeja del sistema del ordenador indica qué dispositivos están mirando; desactivar la función, o
-pulsar **Dejar de compartir** allí, termina todas las vistas.
+propio aviso cuando la pantalla se está compartiendo. Un escritorio en X11 no tiene ese portal y
+deja que cualquier programa de tu sesión vea y controle la pantalla, así que allí basta con activar
+la función en Kodosi. Mientras alguien mira, la barra de menús o la bandeja del sistema del
+ordenador indica qué dispositivos están mirando; desactivar la función, o pulsar **Dejar de
+compartir** allí, termina todas las vistas.
 
 En un Mac, esta parte de Kodosi además pregunta a quien está frente al Mac, en un aviso propio,
 antes de atender una cuenta: una vez por cada cuenta, cuando se activa la función. Ningún programa

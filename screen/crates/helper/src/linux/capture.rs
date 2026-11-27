@@ -10,7 +10,7 @@ use std::{
     os::fd::{BorrowedFd, OwnedFd},
     ptr::NonNull,
     rc::Rc,
-    sync::{Arc, Mutex, MutexGuard, PoisonError},
+    sync::Arc,
     thread::JoinHandle,
 };
 
@@ -37,10 +37,11 @@ use pipewire::{
     sys as pw_sys,
 };
 use screen::link::{self, FromHelper, Pointer, Shape};
-use stream::{Encoded, Region};
-use stream_encode::{Crop, Dmabuf, Encoder, Imported, Output, Picture, Settings};
+use stream::Region;
+use stream_encode::{Crop, Dmabuf, Imported, Picture};
 use tokio::sync::mpsc;
 
+use super::frames::Frames;
 use super::{hand::Hand, session::Event};
 
 /// Frames a second at most, as viewers show them.
@@ -1038,7 +1039,7 @@ fn straight(picture: &Bitmap<'_>) -> Option<Vec<u8>> {
 }
 
 /// Desktops hand pointer pictures over with their colors multiplied by their alpha.
-fn unpremultiplied(color: u8, alpha: u8) -> u8 {
+pub(super) fn unpremultiplied(color: u8, alpha: u8) -> u8 {
     if alpha == 0 {
         return 0;
     }
@@ -1046,7 +1047,7 @@ fn unpremultiplied(color: u8, alpha: u8) -> u8 {
     u8::try_from(straight).unwrap_or(u8::MAX)
 }
 
-fn png(rgba: &[u8], width: u32, height: u32) -> Option<Vec<u8>> {
+pub(super) fn png(rgba: &[u8], width: u32, height: u32) -> Option<Vec<u8>> {
     let mut bytes = Vec::new();
     let mut encoder = png::Encoder::new(&mut bytes, width, height);
     encoder.set_color(png::ColorType::Rgba);
@@ -1202,98 +1203,6 @@ fn serialize(object: Object) -> Option<Vec<u8>> {
     PodSerializer::serialize(std::io::Cursor::new(Vec::new()), &Value::Object(object))
         .ok()
         .map(|(bytes, _)| bytes.into_inner())
-}
-
-/// The encoder, which the capture's thread feeds and the link steers.
-pub(super) struct Frames {
-    encoding: Mutex<Encoding>,
-}
-
-struct Encoding {
-    encoder: Encoder,
-    settings: Settings,
-}
-
-impl Frames {
-    pub(super) fn new(
-        settings: Settings,
-        say: mpsc::Sender<Bytes>,
-        events: mpsc::UnboundedSender<Event>,
-    ) -> Arc<Self> {
-        Arc::new(Self {
-            encoding: Mutex::new(Encoding {
-                encoder: Encoder::new(settings, Arc::new(Sent { say, events })),
-                settings,
-            }),
-        })
-    }
-
-    fn lock(&self) -> MutexGuard<'_, Encoding> {
-        self.encoding.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-
-    pub(super) fn encode_as(&self, settings: Settings) {
-        let mut encoding = self.lock();
-        if settings.format != encoding.settings.format {
-            encoding.encoder.set_format(settings.format);
-        }
-        if settings.bitrate != encoding.settings.bitrate {
-            encoding.encoder.set_bitrate(settings.bitrate);
-        }
-        if settings.pace != encoding.settings.pace {
-            encoding.encoder.set_pace(settings.pace);
-        }
-        encoding.settings = settings;
-    }
-
-    pub(super) fn encoder(&self, work: impl FnOnce(&mut Encoder)) {
-        work(&mut self.lock().encoder);
-    }
-
-    fn encode(&self, picture: Picture<'_>, region: Option<Region>, changed: f64) {
-        self.lock().encoder.encode(picture, region, changed);
-    }
-
-    fn imports(&self) -> bool {
-        self.lock().encoder.imports()
-    }
-
-    fn import(&self, buffer: &Dmabuf<'_>) -> Option<Imported> {
-        self.lock().encoder.import(buffer)
-    }
-
-    fn encode_imported(
-        &self,
-        frame: &Imported,
-        crop: Crop,
-        size: (usize, usize),
-        region: Option<Region>,
-        changed: f64,
-    ) -> bool {
-        self.lock()
-            .encoder
-            .encode_imported(frame, crop, size, region, changed)
-    }
-}
-
-/// Sends encoded frames to the host. A full link drops a frame, which the encoder repairs.
-struct Sent {
-    say: mpsc::Sender<Bytes>,
-    events: mpsc::UnboundedSender<Event>,
-}
-
-impl Output for Sent {
-    fn frame(&self, frame: Encoded) -> bool {
-        self.say.try_send(link::frame(&frame)).is_ok()
-    }
-
-    fn failed(&self, problem: String) {
-        drop(self.events.send(Event::Failed(problem)));
-    }
-
-    fn redraw(&self) {
-        drop(self.events.send(Event::Redraw));
-    }
 }
 
 #[cfg(test)]

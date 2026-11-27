@@ -10,7 +10,7 @@
     reason = "the tray calls these methods of its D-Bus interfaces with what they declare"
 )]
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use screen::link::Notice;
 use tokio::{
@@ -19,7 +19,7 @@ use tokio::{
 };
 use zbus::{Connection, ObjectPath, OwnedVariant, Type, Variant, object_server::SignalEmitter};
 
-use super::{portal::CALL_LIMIT, session::Event};
+use super::{Told, portal::CALL_LIMIT};
 
 const ITEM_PATH: &str = "/StatusNotifierItem";
 const MENU_PATH: &str = "/MenuBar";
@@ -39,7 +39,8 @@ pub(super) struct Tray {
 }
 
 impl Tray {
-    pub(super) fn start(events: mpsc::UnboundedSender<Event>) -> Self {
+    pub(super) fn start<E: Told>(events: mpsc::UnboundedSender<E>) -> Self {
+        let stopped: Stopped = Arc::new(move || drop(events.send(E::stopped())));
         let (notice, mut changes) = watch::channel(None);
         let task = tokio::spawn(async move {
             let mut shown: Option<Shown> = None;
@@ -50,7 +51,7 @@ impl Tray {
                         shown.update(&notice).await;
                         Some(shown)
                     }
-                    (Some(notice), None) => Shown::show(&notice, events.clone()).await,
+                    (Some(notice), None) => Shown::show(&notice, Arc::clone(&stopped)).await,
                     (None, _) => None,
                 };
             }
@@ -77,7 +78,7 @@ struct Shown {
 
 impl Shown {
     /// `None` where the desktop has no tray.
-    async fn show(notice: &Notice, events: mpsc::UnboundedSender<Event>) -> Option<Self> {
+    async fn show(notice: &Notice, stopped: Stopped) -> Option<Self> {
         let name = format!("org.kde.StatusNotifierItem-{}-1", std::process::id());
         let bus = zbus::connection::Builder::session()
             .method_timeout(CALL_LIMIT)
@@ -94,7 +95,7 @@ impl Shown {
                     revision: 1,
                     watching: notice.watching.clone(),
                     stop: notice.stop.clone(),
-                    events,
+                    stopped,
                 },
             )
             .build()
@@ -195,8 +196,11 @@ struct Menu {
     revision: u32,
     watching: String,
     stop: String,
-    events: mpsc::UnboundedSender<Event>,
+    stopped: Stopped,
 }
+
+/// Tells the session that the person at the computer stopped the sharing.
+type Stopped = Arc<dyn Fn() + Send + Sync>;
 
 /// A menu item with its children, as `com.canonical.dbusmenu` lays them out.
 #[derive(Debug, Clone, serde::Serialize, Type, Variant, OwnedVariant)]
@@ -298,14 +302,14 @@ impl Menu {
 
     fn event(&self, id: i32, event: &str, _data: Variant<'_>, _timestamp: u32) {
         if id == STOP && event == "clicked" {
-            drop(self.events.send(Event::Stopped));
+            (self.stopped)();
         }
     }
 
     fn event_group(&self, events: Vec<(i32, String, OwnedVariant, u32)>) -> Vec<i32> {
         for (id, event, _, _) in &events {
             if *id == STOP && event == "clicked" {
-                drop(self.events.send(Event::Stopped));
+                (self.stopped)();
             }
         }
         Vec::new()

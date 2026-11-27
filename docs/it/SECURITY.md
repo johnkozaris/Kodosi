@@ -101,9 +101,11 @@ terminali stessi. Una parte separata di Kodosi si occupa della cattura e dell'in
 autorizzazioni di registrazione dello schermo e di accessibilità necessarie, così i programmi nei
 tuoi terminali non le ottengono. Su Linux il desktop concede la condivisione a Kodosi tramite il
 proprio portale di condivisione dello schermo e mostra un suo avviso finché lo schermo è condiviso.
-Mentre qualcuno guarda, la barra dei menu o l'area di notifica del computer indica quali dispositivi
-stanno guardando; disattivare la condivisione, o premere lì **Interrompi la condivisione**, chiude
-ogni visualizzazione.
+Un desktop su X11 non ha questo portale e lascia che ogni programma della tua sessione veda e
+controlli lo schermo, quindi lì basta attivare la condivisione in Kodosi. Mentre qualcuno guarda, la
+barra dei menu o l'area di notifica del computer indica quali dispositivi stanno guardando;
+disattivare la condivisione, o premere lì **Interrompi la condivisione**, chiude ogni
+visualizzazione.
 
 Su un Mac, inoltre, questa parte di Kodosi chiede alla persona davanti al Mac, in un suo avviso,
 prima di servire un account: una volta per ogni account, quando la condivisione viene attivata.
