@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $# -ne 5 ]]; then
-    echo "usage: $0 <Kodosi Screen.app> <signing-identity> <team-id> <provisioning-profile> <codesign-timestamp-option>" >&2
+    echo "usage: $0 <Helpers/Kodosi.app> <signing-identity> <team-id> <provisioning-profile> <codesign-timestamp-option>" >&2
     exit 64
 fi
 app=$1

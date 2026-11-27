@@ -122,7 +122,7 @@ fn beside_the_host() -> Option<PathBuf> {
     let program = kodosi_os::fs::canonicalize(&program).unwrap_or(program);
     let folder = program.parent()?;
     Some(if cfg!(target_os = "macos") {
-        folder.parent()?.join("Helpers/Kodosi Screen.app")
+        folder.parent()?.join("Helpers/Kodosi.app")
     } else {
         folder.join(format!("kodosi-screen{}", std::env::consts::EXE_SUFFIX))
     })

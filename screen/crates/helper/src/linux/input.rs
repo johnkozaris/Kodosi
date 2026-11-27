@@ -99,7 +99,7 @@ async fn run(
         return;
     };
     let Ok((connection, mut events)) = context
-        .handshake_tokio("Kodosi Screen", ei::handshake::ContextType::Sender)
+        .handshake_tokio("Kodosi", ei::handshake::ContextType::Sender)
         .await
     else {
         return;

@@ -88,19 +88,19 @@ get its cookies there, so it can't recognize you across the sites you visit.
 Turning on screen sharing in a computer's Kodosi settings lets each of your approved devices see
 and control that computer's whole screen, not only its terminals, from the canvas of its terminals.
 Friends never see it, even in a terminal that you share with them, and the video, the input and the
-clipboard text travel end to end encrypted like the terminals themselves. Kodosi Screen, a helper
-of Kodosi's, does the capture and the input. On a Mac it holds the Screen Recording and
-Accessibility permissions that this takes, so the programs in your terminals do not gain them. On
-Linux the desktop grants the sharing to Kodosi through its screen sharing portal and shows its own
-notice while the screen is shared. While someone watches, the computer's menu bar or system tray
-says which devices watch; turning the sharing off, or **Stop sharing** there, ends every view.
+clipboard text travel end to end encrypted like the terminals themselves. A separate part of Kodosi
+does the capture and the input. On a Mac it holds the Screen Recording and Accessibility
+permissions that this takes, so the programs in your terminals do not gain them. On Linux the
+desktop grants the sharing to Kodosi through its screen sharing portal and shows its own notice
+while the screen is shared. While someone watches, the computer's menu bar or system tray says
+which devices watch; turning the sharing off, or **Stop sharing** there, ends every view.
 
-On a Mac, Kodosi Screen also asks the person at the Mac in its own alert before it serves an
+On a Mac, this part of Kodosi also asks the person at the Mac in its own alert before it serves an
 account: once for each account, when the sharing is turned on. No program can make this alert
 appear; only the person's own click on the switch in Kodosi can. The alert names the account, and
 its server when that is not Kodosi's, so a program on the Mac that starts its own Kodosi with
-another account gets nothing unless the person there allows that account. Only Kodosi Screen can
-read or change the answers, which stay on that Mac, and turning the sharing off, or **Stop
+another account gets nothing unless the person there allows that account. Only this part of Kodosi
+can read or change the answers, which stay on that Mac, and turning the sharing off, or **Stop
 sharing**, takes them all back.
 
 While a device controls the screen, text copied on the computer goes to that device, and a paste on

@@ -62,8 +62,8 @@ other keystrokes go directly to the program running in the terminal.
 Programs running inside Kodosi inherit the macOS permissions granted to Kodosi, just like any
 other terminal app. Settings displays permission status and triggers macOS permission prompts.
 Sharing this Mac's screen with your other devices is off until you turn it on in Settings or on
-the canvas, and Kodosi Screen, a helper inside the app, holds the permissions that it takes, so
-terminals do not gain them. Turning it on brings Kodosi Screen's own question to the front, once for
+the canvas, and a separate part of Kodosi inside the app holds the permissions that it takes, so
+terminals do not gain them. Turning it on brings that part's own question to the front, once for
 each account, and the switch waits for the answer: on **Don't Allow** it goes back off. Turning it
 off takes back every answer.
 

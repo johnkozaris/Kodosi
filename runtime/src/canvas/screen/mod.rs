@@ -182,10 +182,10 @@ pub fn vouch() -> std::io::Result<String> {
 pub(crate) fn question(account: &str, server: Option<&str>) -> screen::Question {
     let language = crate::text::language();
     let detail = server.map_or_else(
-        || text!("Kodosi Screen asks once for each account."),
+        || text!("Kodosi asks once for each account."),
         |server| {
             text!(
-                "This account is from {server}. Kodosi Screen asks once for each account.",
+                "This account is from {server}. Kodosi asks once for each account.",
                 server = server
             )
         },

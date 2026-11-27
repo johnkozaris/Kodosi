@@ -266,10 +266,10 @@ und **Browser**, jeweils mit einem kupferfarbenen Punkt bei neuen Inhalten:
   schalte auf diesem Computer das Teilen ein: auf einem Mac **Meine anderen Geräte diesen Mac sehen
   und steuern lassen** unter **Einstellungen › Allgemein**, auf Linux- und Windows-Computern **Meine
   anderen Geräte diesen Computer sehen und steuern lassen** unter **Einstellungen › Konto**.
-  - Auf einem Mac fragt dich macOS dann, ob Kodosi Screen, ein Teil von Kodosi, den Bildschirm
-    aufnehmen und steuern darf. Nur Kodosi Screen bekommt diese Berechtigungen, die Programme in
-    deinen Terminals also nicht. Fragt macOS nicht nach, zeigt **Erlauben…** in denselben
-    Einstellungen, wo du sie einschaltest.
+  - Auf einem Mac fragt dich macOS dann, ob Kodosi den Bildschirm aufnehmen und steuern darf. Nur
+    ein separater Teil von Kodosi bekommt diese Berechtigungen, die Programme in deinen Terminals
+    also nicht. Fragt macOS nicht nach, zeigt **Erlauben…** in denselben Einstellungen, wo du sie
+    einschaltest.
   - Unter Linux funktioniert das Teilen mit KDE Plasma 6 und GNOME unter Wayland. Unter KDE genügt
     es, das Teilen einzuschalten; GNOME fragt einmal, ob Kodosi den Bildschirm teilen darf, und
     merkt sich deine Antwort.

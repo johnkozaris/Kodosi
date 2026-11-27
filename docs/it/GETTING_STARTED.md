@@ -258,10 +258,10 @@ Quando il canvas contiene qualcosa, nell'intestazione del terminale compaiono i 
   su quel computer: su un Mac, **Consenti ai miei altri dispositivi di vedere e controllare questo
   Mac** in **Impostazioni › Generale**; su Linux e Windows, **Consenti ai miei altri dispositivi di
   vedere e controllare questo computer** in **Impostazioni › Account**.
-  - Su un Mac, macOS ti chiede allora di consentire a Kodosi Screen, una parte di Kodosi, di
-    registrare e controllare lo schermo. Solo Kodosi Screen riceve queste autorizzazioni, quindi i
-    programmi nei tuoi terminali non le ricevono. Se macOS non te lo chiede, **Consenti…** nelle
-    stesse impostazioni ti mostra dove attivarle.
+  - Su un Mac, macOS ti chiede allora di consentire a Kodosi di registrare e controllare lo schermo.
+    Solo una parte separata di Kodosi riceve queste autorizzazioni, quindi i programmi nei tuoi
+    terminali non le ricevono. Se macOS non te lo chiede, **Consenti…** nelle stesse impostazioni ti
+    mostra dove attivarle.
   - Su Linux, la condivisione funziona con KDE Plasma 6 e GNOME su Wayland. Su KDE basta attivare la
     condivisione; GNOME chiede una sola volta se Kodosi può condividere lo schermo e ricorda la tua
     risposta.

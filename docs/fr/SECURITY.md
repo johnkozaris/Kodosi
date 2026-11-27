@@ -101,21 +101,21 @@ Activer le partage d'écran dans les réglages Kodosi d'un ordinateur permet à 
 approuvés de voir et de contrôler tout l'écran de cet ordinateur, pas seulement ses terminaux,
 depuis le canvas de ses terminaux. Vos amis ne le voient jamais, même dans un terminal que vous
 partagez avec eux, et la vidéo, les saisies et le texte du presse-papiers circulent chiffrés de bout
-en bout comme les terminaux eux-mêmes. Kodosi Screen, un assistant de Kodosi, se charge de la
-capture et des saisies. Sur un Mac, il détient les autorisations d'enregistrement de l'écran et
-d'accessibilité nécessaires, afin que les programmes de vos terminaux ne les obtiennent pas. Sous
-Linux, le bureau accorde le partage à Kodosi via son portail de partage d'écran et affiche sa propre
-notification pendant que l'écran est partagé. Tant que quelqu'un regarde, la barre des menus ou la
-zone de notification de l'ordinateur indique quels appareils regardent ; désactiver le partage, ou
-cliquer sur **Arrêter le partage** à cet endroit, met fin à chaque affichage.
+en bout comme les terminaux eux-mêmes. Une partie distincte de Kodosi se charge de la capture et des
+saisies. Sur un Mac, elle détient les autorisations d'enregistrement de l'écran et d'accessibilité
+nécessaires, afin que les programmes de vos terminaux ne les obtiennent pas. Sous Linux, le bureau
+accorde le partage à Kodosi via son portail de partage d'écran et affiche sa propre notification
+pendant que l'écran est partagé. Tant que quelqu'un regarde, la barre des menus ou la zone de
+notification de l'ordinateur indique quels appareils regardent ; désactiver le partage, ou cliquer
+sur **Arrêter le partage** à cet endroit, met fin à chaque affichage.
 
-Sur un Mac, Kodosi Screen demande en outre à la personne devant le Mac, dans sa propre alerte, avant
-de servir un compte : une fois pour chaque compte, quand le partage est activé. Aucun programme ne
-peut faire apparaître cette alerte : seul votre propre clic sur l'interrupteur de Kodosi le peut.
-L'alerte nomme le compte, et son serveur quand ce n'est pas celui de Kodosi : un programme du Mac
-qui lance son propre Kodosi avec un autre compte n'obtient donc rien tant que cette personne
-n'autorise pas ce compte. Seul Kodosi Screen peut lire ou modifier les réponses, qui restent sur ce
-Mac, et désactiver le partage, ou **Arrêter le partage**, les retire toutes.
+Sur un Mac, cette partie de Kodosi demande en outre à la personne devant le Mac, dans sa propre
+alerte, avant de servir un compte : une fois pour chaque compte, quand le partage est activé. Aucun
+programme ne peut faire apparaître cette alerte : seul votre propre clic sur l'interrupteur de
+Kodosi le peut. L'alerte nomme le compte, et son serveur quand ce n'est pas celui de Kodosi : un
+programme du Mac qui lance son propre Kodosi avec un autre compte n'obtient donc rien tant que cette
+personne n'autorise pas ce compte. Seule cette partie de Kodosi peut lire ou modifier les réponses,
+qui restent sur ce Mac, et désactiver le partage, ou **Arrêter le partage**, les retire toutes.
 
 Pendant qu'un appareil contrôle l'écran, le texte copié sur l'ordinateur va vers cet appareil, et un
 collage sur celui-ci donne à l'ordinateur le texte de cet appareil. Le texte qu'un gestionnaire de

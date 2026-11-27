@@ -170,7 +170,7 @@ fn open(events: mpsc::UnboundedSender<Event>) -> Option<Window> {
         CreateWindowExW(
             WINDOW_EX_STYLE::default(),
             CLASS,
-            w!("Kodosi Screen"),
+            w!("Kodosi"),
             WS_POPUP,
             0,
             0,

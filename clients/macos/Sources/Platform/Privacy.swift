@@ -78,7 +78,7 @@ enum PrivacyApp {
     var url: URL {
         switch self {
         case .kodosi: Bundle.main.bundleURL
-        case .screen: Bundle.main.bundleURL.appending(path: "Contents/Helpers/Kodosi Screen.app")
+        case .screen: Bundle.main.bundleURL.appending(path: "Contents/Helpers/Kodosi.app")
         }
     }
 
@@ -163,20 +163,18 @@ private struct PrivacyCard: View {
     let close: () -> Void
 
     private var lines: (title: String, then: String) {
-        switch (pane, app) {
-        case (.fullDiskAccess, _):
+        switch pane {
+        case .fullDiskAccess:
             (String(localized: "Drag Kodosi into the list"), String(localized: "Then turn it on, and let macOS open Kodosi again."))
-        case (_, .kodosi):
+        case .appManagement, .accessibility, .screenRecording:
             (String(localized: "Turn on Kodosi in the list"), String(localized: "If it is not there, drag this icon into the list."))
-        case (_, .screen):
-            (String(localized: "Turn on Kodosi Screen in the list"), String(localized: "If it is not there, drag this icon into the list."))
         }
     }
 
     var body: some View {
         HStack(spacing: 14) {
             AppIconDrag(app: app).frame(width: 48, height: 48)
-                .help(app == .screen ? String(localized: "Drag Kodosi Screen into the list") : String(localized: "Drag Kodosi into the list"))
+                .help(String(localized: "Drag Kodosi into the list"))
             VStack(alignment: .leading, spacing: 3) {
                 Text(lines.title).appTextStyle(.headline).foregroundStyle(theme.colors.ink)
                 Text(lines.then).appTextStyle(.footnote)
