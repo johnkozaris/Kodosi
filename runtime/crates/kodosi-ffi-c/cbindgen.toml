@@ -22,6 +22,11 @@ include = []
 "TerminalConnectResultCb" = "kodosi_terminal_connect_result_cb_t"
 "TerminalCheckpointCb" = "kodosi_terminal_checkpoint_cb_t"
 "ActivationCb" = "kodosi_activation_cb_t"
+"KodosiVideoFrame" = "kodosi_video_frame_t"
+"KodosiVideoRegion" = "kodosi_video_region_t"
+"VideoFrameCb" = "kodosi_video_frame_cb_t"
+"VideoMessageCb" = "kodosi_video_message_cb_t"
+"VideoRepairCb" = "kodosi_video_repair_cb_t"
 
 [parse]
 parse_deps = false

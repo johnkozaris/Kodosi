@@ -310,13 +310,27 @@ fn invalid(message: impl Into<String>) -> Error {
 fn rendered() -> Result<String> {
     let value = json!({
         "protocolVersion":protocol::VERSION,
-        "ffiAbiVersion":11,
+        "ffiAbiVersion":12,
         "commands":schema::<protocol::CommandEnvelope>(Direction::Input)?,
         "events":shape::<protocol::Event>()?,
         "chat":{"pipe":kodosi_runtime::chat::CHAT_PIPE,"frames":shape::<kodosi_runtime::chat::ChatFrame>()?,"requests":schema::<kodosi_runtime::chat::ChatRequest>(Direction::Input)?},
+        "video":video(),
         "terminal":{"checkpointSchema":kodosi_runtime::terminal::TERMINAL_CHECKPOINT_SCHEMA_VERSION,"checkpointMaxBytes":kodosi_runtime::terminal::TERMINAL_SNAPSHOT_MAX_BYTES,"imageStorageMaxBytes":kodosi_runtime::terminal::TERMINAL_IMAGE_STORAGE_MAX_BYTES,"rawInputMaxBytes":kodosi_runtime::terminal::TERMINAL_INPUT_MAX_BYTES},
     });
     Ok(serde_json::to_string_pretty(&value)? + "\n")
+}
+
+fn video() -> Value {
+    use kodosi_runtime::video::Codec;
+    json!({
+        "codecs":{"h264":Codec::H264.wire(),"hevc":Codec::Hevc.wire()},
+        "kinds":{"delta":0,"key":1,"anchor":2},
+        "results":{"taken":0,"failed":1},
+        "calls":"after kodosi_video_watch the runtime calls on_video_message and on_video_frame of the pipe in pipe order, on a thread of that pipe and never two at once, and on_video_frame only with frames that the decoder can take; the app waits for a slow decoder up to about a second and returns failed only when the decoder cannot go on",
+        "acknowledgements":"the runtime acknowledges each frame of the pipe in arrival order: a frame that the decoder cannot take when it arrives, a frame handed to the app when on_video_frame returns; it asks for a keyframe after failed and kodosi_video_restart, and once a second while it waits and frames keep coming",
+        "repair":"on_video_repair says that the picture waited for a repair longer than a moment; the next on_video_frame ends the wait",
+        "connection":"a desktop app watches each pipe on its own local connection whose hello names the pipe: the host sends the stream's messages as it got them (0 and JSON, 1 and a frame) and 2 for a repair; the app answers each frame with 3 (taken) or 4 (failed) and sends 5 when its decoder starts over",
+    })
 }
 
 fn contract_file() -> PathBuf {

@@ -17,12 +17,13 @@ use super::{
     KODOSI_FFI_DESER_FAILED, KODOSI_FFI_OK, KODOSI_FFI_PAYLOAD_TOO_LARGE,
     KODOSI_FFI_RUNTIME_STOPPED, KODOSI_FFI_SESSION_NOT_FOUND,
     KODOSI_FFI_TERMINAL_CHECKPOINT_REJECTED, KodosiStartFailure, Mutex, Ordering, State,
-    SubscriptionState, Uuid, code, lock, start_error, terminal,
+    SubscriptionState, Uuid, code, lock, start_error, terminal, video,
 };
 
 const COMMAND_QUEUE: usize = 128;
 const MAX_PENDING: usize = 256;
 const TERMINAL_QUEUE: usize = 64;
+const VIDEO_QUEUE: usize = 4;
 const RECONNECT_FIRST: Duration = Duration::from_millis(250);
 const RECONNECT_LAST: Duration = Duration::from_secs(30);
 const SWEEP: Duration = Duration::from_secs(1);
@@ -255,6 +256,26 @@ impl Link {
             subscription.retire();
             lock(&subscription.connected).take();
             state.remove(session, &subscription);
+        })
+    }
+}
+
+impl Link {
+    pub(super) fn watch_video(
+        &self,
+        instance: &Instance,
+        pipe: Uuid,
+        watch: Arc<video::Watch>,
+    ) -> bool {
+        let root = self.root.clone();
+        let state = Arc::clone(&instance.state);
+        instance.spawn(async move {
+            tokio::select! {
+                biased;
+                () = watch.cancel.cancelled() => {}
+                () = stream_video(&root, state, pipe, &watch) => {}
+            }
+            watch.retire();
         })
     }
 }
@@ -600,6 +621,40 @@ async fn write_frames<W: tokio::io::AsyncWrite + Unpin>(
     }
 }
 
+async fn stream_video(root: &Path, state: Arc<State>, pipe: Uuid, watch: &Arc<video::Watch>) {
+    let local_host::VideoClient {
+        mut reader,
+        mut writer,
+    } = match local_host::VideoClient::connect(root, pipe).await {
+        Ok(client) => client,
+        Err(error) => {
+            tracing::info!(%pipe, %error, "the app could not watch a video");
+            return;
+        }
+    };
+    let (arrived, shown) = mpsc::channel(VIDEO_QUEUE);
+    let (took, mut answers) = mpsc::channel(VIDEO_QUEUE);
+    let reading = async {
+        while let Ok(next) = local_host::read_shown(&mut reader).await {
+            if arrived.send(next).await.is_err() {
+                return;
+            }
+        }
+    };
+    let writing = async {
+        while let Some(answer) = answers.recv().await {
+            if local_host::write_took(&mut writer, answer).await.is_err() {
+                return;
+            }
+        }
+    };
+    tokio::select! {
+        () = video::serve(state, Arc::clone(watch), shown, took) => {}
+        () = reading => {}
+        () = writing => {}
+    }
+}
+
 fn restore(
     state: &State,
     token: &SubscriptionState,
@@ -639,12 +694,16 @@ mod tests {
                 on_terminal_control: None,
                 on_terminal_connect_result: None,
                 on_terminal_checkpoint: None,
+                on_video_frame: None,
+                on_video_message: None,
+                on_video_repair: None,
             },
             userdata: UserData(std::ptr::from_ref(events).cast_mut().cast()),
             gate: Gate::default(),
             serial: Mutex::new(()),
             cancel: CancellationToken::new(),
             subscriptions: Mutex::new(Subscriptions::default()),
+            watches: Mutex::new(HashMap::new()),
         }
     }
 

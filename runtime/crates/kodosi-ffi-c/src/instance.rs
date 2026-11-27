@@ -131,6 +131,9 @@ pub unsafe extern "C" fn kodosi_start(
                 || callbacks.on_terminal_control.is_none()
                 || callbacks.on_terminal_connect_result.is_none()
                 || callbacks.on_terminal_checkpoint.is_none()
+                || callbacks.on_video_frame.is_none()
+                || callbacks.on_video_message.is_none()
+                || callbacks.on_video_repair.is_none()
             {
                 return Err(start_failure(
                     KODOSI_START_INVALID_CALLBACKS,
@@ -230,6 +233,7 @@ fn run_executor(
                     serial: Mutex::new(()),
                     cancel: CancellationToken::new(),
                     subscriptions: Mutex::new(Subscriptions::default()),
+                    watches: Mutex::new(HashMap::new()),
                 }),
                 executor: executor.handle().clone(),
                 tasks: Mutex::new(Some(JoinSet::new())),

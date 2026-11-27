@@ -6,7 +6,7 @@ use super::{
     Arc, Bytes, CommandEnvelope, Config, Error, Instance, KODOSI_FFI_OK,
     KODOSI_FFI_RUNTIME_STOPPED, KODOSI_FFI_TERMINAL_CHECKPOINT_REJECTED, KODOSI_START_FAILED,
     KODOSI_START_REJECTED, KodosiStartFailure, State, SubscriptionState, Uuid, code, lock,
-    start_failure, terminal,
+    start_failure, terminal, video,
 };
 
 pub(super) struct Link {
@@ -72,6 +72,32 @@ impl Link {
                     .await;
             }
             state.remove(session, &subscription);
+        })
+    }
+}
+
+impl Link {
+    pub(super) fn watch_video(
+        &self,
+        instance: &Instance,
+        pipe: Uuid,
+        watch: Arc<video::Watch>,
+    ) -> bool {
+        let runtime = self.runtime.clone();
+        let state = Arc::clone(&instance.state);
+        instance.spawn(async move {
+            let watched = tokio::select! {
+                biased;
+                () = watch.cancel.cancelled() => return,
+                watched = runtime.watch_video(pipe) => watched,
+            };
+            match watched {
+                Ok(watched) => video::serve(state, watch, watched.shown, watched.took).await,
+                Err(error) => {
+                    tracing::info!(%pipe, %error, "the app could not watch a video");
+                    watch.retire();
+                }
+            }
         })
     }
 }

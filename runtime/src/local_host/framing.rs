@@ -11,6 +11,15 @@ pub(super) const RESIZE: u8 = 5;
 pub(super) const INPUT_ACK: u8 = 6;
 pub(super) const REFRESH: u8 = 7;
 
+/// A video connection carries the stream's own messages to the app, JSON after
+/// `stream::viewer::JSON` and frames after `stream::viewer::FRAME`, and these; the app answers
+/// each frame with `TAKEN` or `FAILED`.
+const REPAIR: u8 = 2;
+const TAKEN: u8 = 3;
+const FAILED: u8 = 4;
+const RESTART: u8 = 5;
+pub(super) const VIDEO_FRAME_MAX: usize = crate::canvas::MOST_PIPE_FRAME + 1;
+
 #[derive(Debug)]
 pub enum TerminalFrame {
     /// `ended` means the target terminal no longer exists; `shown` means the terminal already
@@ -144,6 +153,49 @@ pub async fn read_terminal<R: AsyncRead + Unpin>(
             }
         }
         _ => Err(Error::Invalid("malformed terminal frame".into())),
+    }
+}
+pub async fn read_shown<R: AsyncRead + Unpin>(
+    reader: &mut FrameReader<R>,
+) -> Result<crate::video::Shown> {
+    let bytes = Bytes::from(read_frame(reader).await?);
+    match bytes.first() {
+        Some(&stream::viewer::JSON) => Ok(crate::video::Shown::Message(bytes)),
+        Some(&stream::viewer::FRAME) => Ok(crate::video::Shown::Frame(bytes)),
+        Some(&REPAIR) if bytes.len() == 1 => Ok(crate::video::Shown::Repair),
+        _ => Err(Error::Invalid("malformed video frame".into())),
+    }
+}
+pub(super) async fn write_shown<W: AsyncWrite + Unpin>(
+    writer: &mut W,
+    shown: &crate::video::Shown,
+) -> Result<()> {
+    match shown {
+        crate::video::Shown::Message(bytes) | crate::video::Shown::Frame(bytes) => {
+            write_frame(writer, bytes).await
+        }
+        crate::video::Shown::Repair => write_frame(writer, &[REPAIR]).await,
+    }
+}
+pub async fn write_took<W: AsyncWrite + Unpin>(
+    writer: &mut W,
+    took: crate::video::Took,
+) -> Result<()> {
+    let byte = match took {
+        crate::video::Took::Taken => TAKEN,
+        crate::video::Took::Failed => FAILED,
+        crate::video::Took::Restart => RESTART,
+    };
+    write_frame(writer, &[byte]).await
+}
+pub(super) async fn read_took<R: AsyncRead + Unpin>(
+    reader: &mut FrameReader<R>,
+) -> Result<crate::video::Took> {
+    match read_frame(reader).await?.as_slice() {
+        [TAKEN] => Ok(crate::video::Took::Taken),
+        [FAILED] => Ok(crate::video::Took::Failed),
+        [RESTART] => Ok(crate::video::Took::Restart),
+        _ => Err(Error::Invalid("malformed video answer".into())),
     }
 }
 pub(super) fn number<T: TryFrom<u64>>(value: &Value, key: &str) -> Result<T> {
