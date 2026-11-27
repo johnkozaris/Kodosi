@@ -116,6 +116,7 @@
 "Only the computer that hosts a terminal can add it.": "ターミナルを追加できるのは、そのターミナルをホストしているコンピュータだけです。",
 "Only the computer that hosts this terminal can change it.": "このターミナルを変更できるのは、ホストしているコンピュータだけです。",
 "Only the devices of this computer's owner watch its screen.": "このコンピュータの画面を見られるのは、その持ち主のデバイスだけです。",
+"Only the other devices of this computer's owner watch its screen.": "このコンピュータの画面を見られるのは、その持ち主のほかのデバイスだけです。",
 "Only the owner can change this terminal.": "このターミナルを変更できるのはオーナーだけです。",
 "Only the owner can share this terminal.": "このターミナルを共有できるのはオーナーだけです。",
 "Only your own devices can use this computer.": "このコンピュータを使えるのは、あなた自身のデバイスだけです。",
