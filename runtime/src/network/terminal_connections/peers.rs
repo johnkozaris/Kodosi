@@ -32,6 +32,8 @@ use super::{
     channel::{ChannelKeys, device_key},
     scream, *,
 };
+#[cfg(feature = "host")]
+use crate::protocol::ComputerSystem;
 
 mod relay;
 #[cfg(test)]
@@ -863,16 +865,19 @@ impl Expected {
             .ok()?
             .get(&self.key.0)
             .is_some_and(|joined| joined.open());
-        let targets = usable(theirs, &(self.peers.networks)(), dual);
+        let targets = punched(
+            &usable(theirs, &(self.peers.networks)(), dual),
+            ComputerSystem::this(),
+        );
         let relay = async {
             self.peers.relay_route(self.key.1, &bound).await;
             std::future::pending::<()>().await;
         };
         let punch = async {
-            if !joined {
+            if !joined && !targets.is_empty() {
                 let until = tokio::time::Instant::now() + DIAL;
                 while tokio::time::Instant::now() < until {
-                    for (address, _) in &targets {
+                    for address in &targets {
                         bound.socket.send_to(*address, &[0]);
                     }
                     tokio::time::sleep(PUNCH_SPACING).await;
@@ -886,6 +891,21 @@ impl Expected {
             () = relay => None,
         }
     }
+}
+
+/// The addresses of the device that asks which this computer sends to before it hears from them.
+#[cfg(feature = "host")]
+fn punched(usable: &[(SocketAddr, bool)], system: ComputerSystem) -> Vec<SocketAddr> {
+    usable
+        .iter()
+        // macOS refuses a program's first send to its own network when the person did not allow
+        // it (or when macOS lost the answer), and then drops that device's packets on the same
+        // pair of ports; a Mac's firewall decides by program, so a first send opens nothing there.
+        // The device that asks sends first to a Mac's own network, and the Mac answers its packet.
+        // Linux and Windows firewalls let a device in only after the computer sent to it.
+        .filter(|(_, own_network)| !own_network || system != ComputerSystem::Mac)
+        .map(|(address, _)| *address)
+        .collect()
 }
 
 #[cfg(feature = "host")]
@@ -1145,6 +1165,7 @@ struct Shared {
     leftover: Locked<Option<relay::Leftover>>,
     broken: AtomicBool,
     resets: AtomicU32,
+    refusal_told: AtomicBool,
 }
 
 impl Demux {
@@ -1158,6 +1179,7 @@ impl Demux {
             leftover: Locked::new(None),
             broken: AtomicBool::new(false),
             resets: AtomicU32::new(0),
+            refusal_told: AtomicBool::new(false),
         })))
     }
 
@@ -1240,6 +1262,19 @@ impl Demux {
 
 impl Shared {
     fn try_send(&self, transmit: &Transmit<'_>) -> io::Result<()> {
+        let sent = self.send_as_routed(transmit);
+        if let Err(error) = &sent
+            && kodosi_os::network::refused_on_local_network(error)
+            && !self.refusal_told.swap(true, Ordering::Relaxed)
+        {
+            tracing::warn!(
+                "macOS does not let Kodosi send to a device on this network before that device sends to it. Turn on Kodosi in System Settings, Privacy & Security, Local Network."
+            );
+        }
+        sent
+    }
+
+    fn send_as_routed(&self, transmit: &Transmit<'_>) -> io::Result<()> {
         let relayed = self
             .relays
             .lock()
