@@ -1163,16 +1163,17 @@ fn always_allows_the_commands_of_copilot_for_the_session_and_the_next_one_asks_n
 }
 
 #[test]
-fn copilot_shows_its_effort_context_and_plan_from_its_link_and_follows_their_later_changes() {
+fn copilot_shows_its_effort_mode_context_and_plan_from_its_link_and_follows_their_changes() {
     let mut play = Play::new(Box::new(Copilot::default()));
     play.take(&json!({
         "k": "hello", "agent": "copilot", "version": "1.0.117", "cwd": "/home/sam/shop",
         "model": "claude-opus-5.5", "effort": "max", "mode": "interactive",
-        "context": {"currentTokens": 52_000, "tokenLimit": 100_000},
+        "permissions": "allow-all", "context": {"currentTokens": 52_000, "tokenLimit": 100_000},
     }));
     play.take(&json!({"k": "history", "events": [
         {"type": "session.model_change", "data": {"newModel": "gpt-5.4", "reasoningEffort": "low"}, "at": 1},
         {"type": "session.mode_changed", "data": {"newMode": "plan"}, "at": 2},
+        {"type": "session.permissions_changed", "data": {"mode": "manual"}, "at": 3},
     ]}));
     play.take(&json!({"k": "quota", "quota": {
         "remainingPercentage": 35.4, "isUnlimitedEntitlement": false,
@@ -1182,7 +1183,11 @@ fn copilot_shows_its_effort_context_and_plan_from_its_link_and_follows_their_lat
     let facts = &play.view.facts;
     assert_eq!(
         (facts.model.as_deref(), facts.effort.as_deref(), facts.mode),
-        (Some("claude-opus-5.5"), Some("max"), None),
+        (
+            Some("claude-opus-5.5"),
+            Some("max"),
+            Some(ChatMode::Unrestricted)
+        ),
         "the history's older changes leave the facts of the hello"
     );
     assert_eq!(
@@ -1221,6 +1226,25 @@ fn copilot_shows_its_effort_context_and_plan_from_its_link_and_follows_their_lat
             tokens: 61_000,
             window: 128_000
         })
+    );
+
+    let modes = [
+        ("session.mode_changed", json!({"newMode": "plan"})),
+        ("session.permissions_changed", json!({"mode": "manual"})),
+        ("session.mode_changed", json!({"newMode": "interactive"})),
+    ]
+    .map(|(kind, data)| {
+        play.take(&json!({"k": "event", "type": kind, "data": data}));
+        play.view.facts.mode
+    });
+    assert_eq!(
+        modes,
+        [
+            Some(ChatMode::Plan),
+            Some(ChatMode::Plan),
+            Some(ChatMode::Ask)
+        ],
+        "plan mode shows over the permission mode, which shows again after it"
     );
 }
 

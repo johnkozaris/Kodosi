@@ -38,6 +38,7 @@ const READ = {
   'session.usage_info': ['tokenLimit', 'currentTokens'],
   'session.model_change': ['newModel', 'reasoningEffort'],
   'session.mode_changed': ['newMode'],
+  'session.permissions_changed': ['mode'],
 }
 const QUOTA = ['remainingPercentage', 'isUnlimitedEntitlement', 'usageAllowedWithExhaustedQuota', 'resetDateEpochMs']
 
@@ -194,6 +195,12 @@ async function hello(early) {
     facts.mode = typeof mode === 'string' ? mode : mode && mode.mode
   } catch (error) {
     facts.mode = undefined
+  }
+  try {
+    const permissions = await session.rpc.permissions.getMode()
+    facts.permissions = permissions && permissions.mode
+  } catch (error) {
+    facts.permissions = undefined
   }
   // Copilot reports `session.usage_info` only with a model request, so the link reads the
   // measure that /context shows.

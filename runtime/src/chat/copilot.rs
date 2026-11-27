@@ -45,6 +45,9 @@ pub(super) struct Copilot {
     /// Pending refusal feedback stashed in `decision` and emitted as a user message in
     /// `answered`, since Copilot does not emit a `user.message` event for rejection feedback.
     said: Option<(String, Option<ChatPerson>)>,
+    /// Copilot's plan mode, which the chat shows in place of its permission mode.
+    planning: bool,
+    permissions: Option<ChatMode>,
 }
 
 #[derive(Default)]
@@ -125,6 +128,8 @@ impl Copilot {
         chat.reset();
         *self = Self {
             linked: true,
+            planning: text(event, "mode") == "plan",
+            permissions: permissions(text(event, "permissions")),
             ..Self::default()
         };
         chat.change_facts(|facts| {
@@ -133,13 +138,21 @@ impl Copilot {
                 version: words(event, "version").map(|version| start_of(&version, 32).to_owned()),
                 model: words(event, "model"),
                 effort: words(event, "effort"),
-                mode: mode(text(event, "mode")),
+                mode: self.mode(),
                 folder: words(event, "cwd"),
                 context: context(&event["context"]),
                 ..super::ChatFacts::default()
             };
         });
         closed
+    }
+
+    const fn mode(&self) -> Option<ChatMode> {
+        if self.planning {
+            Some(ChatMode::Plan)
+        } else {
+            self.permissions
+        }
     }
 
     /// Replays chunked pre-link session history. Copilot's history omits `session.idle`
@@ -149,7 +162,10 @@ impl Copilot {
         for earlier in list(event, "events") {
             if matches!(
                 text(earlier, "type"),
-                "session.model_change" | "session.mode_changed" | "session.usage_info"
+                "session.model_change"
+                    | "session.mode_changed"
+                    | "session.permissions_changed"
+                    | "session.usage_info"
             ) {
                 continue;
             }
@@ -240,7 +256,14 @@ impl Copilot {
                 facts.effort = words(data, "reasoningEffort");
             }),
             "session.mode_changed" => {
-                chat.change_facts(|facts| facts.mode = mode(text(data, "newMode")));
+                self.planning = text(data, "newMode") == "plan";
+                chat.change_facts(|facts| facts.mode = self.mode());
+            }
+            "session.permissions_changed" => {
+                if let Some(changed) = permissions(text(data, "mode")) {
+                    self.permissions = Some(changed);
+                    chat.change_facts(|facts| facts.mode = self.mode());
+                }
             }
             "abort" => {
                 if let Some(turn) = &mut self.turn {
@@ -1069,9 +1092,13 @@ fn plan_choice(action: &str) -> Option<PlanChoice> {
     }
 }
 
-/// Only `plan` maps to a fixed `ChatMode`; Copilot's other modes follow its permission rules.
-fn mode(name: &str) -> Option<ChatMode> {
-    (name == "plan").then_some(ChatMode::Plan)
+fn permissions(mode: &str) -> Option<ChatMode> {
+    Some(match mode {
+        "manual" => ChatMode::Ask,
+        "assisted" => ChatMode::Auto,
+        "allow-all" => ChatMode::Unrestricted,
+        _ => return None,
+    })
 }
 
 fn context(usage: &Value) -> Option<ChatContext> {
