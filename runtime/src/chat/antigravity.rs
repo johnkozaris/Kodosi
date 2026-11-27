@@ -856,7 +856,7 @@ impl Agent for Antigravity {
                 let queued = chat.queued().first()?;
                 Some((
                     Some(queued.id.clone()),
-                    queued.text.clone(),
+                    queued.said.clone(),
                     queued.by.clone(),
                 ))
             });

@@ -11,6 +11,7 @@ use super::{
     claude::Claude,
     codex::Codex,
     copilot::Copilot,
+    mention::Message,
     state::{Chat, ends_of, start_of},
 };
 use crate::terminal::TerminalFace;
@@ -123,10 +124,15 @@ pub(super) fn list<'a>(value: &'a Value, key: &str) -> impl Iterator<Item = &'a 
         .flatten()
 }
 
-pub(super) fn person(words: &str, by: Option<ChatPerson>) -> ChatBody {
+/// A message as the agent got it, which the chat shows as the person's words with the agents that
+/// they name apart.
+pub(super) fn person(said: &str, by: Option<ChatPerson>) -> ChatBody {
+    let heard = Message::heard(said);
     ChatBody::Person {
-        text: ends_of(words, MOST_TEXT),
+        text: ends_of(&heard.words, MOST_TEXT),
         by,
+        mentions: heard.mentions,
+        handoff: heard.handoff,
     }
 }
 

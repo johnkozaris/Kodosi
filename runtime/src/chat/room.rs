@@ -9,6 +9,7 @@ use tokio::{
 use super::{
     ChatFrame, ChatPerson, ChatRequest, MOST_MESSAGE,
     agent::{self, Agent, Stop},
+    mention::{Message, Peer, Peers},
     state::{Chat, ends_of},
 };
 use crate::{
@@ -86,10 +87,13 @@ pub(crate) struct ChatHandle {
 }
 
 impl ChatHandle {
-    pub(super) fn spawn() -> Self {
+    /// The chat of the terminal `id`, whose agent can reach the agents of `peers` but its own.
+    pub(super) fn spawn(id: String, peers: Option<watch::Receiver<Peers>>) -> Self {
         let (jobs, receiver) = mpsc::channel(JOBS);
         let (linked, linking) = watch::channel(None);
-        let room = Room {
+        let mut room = Room {
+            id,
+            peers,
             jobs: receiver,
             own: jobs.downgrade(),
             linked,
@@ -111,6 +115,7 @@ impl ChatHandle {
             viewers: HashMap::new(),
             made: 0,
         };
+        room.know_peers();
         tokio::spawn(room.run());
         Self {
             jobs,
@@ -171,6 +176,9 @@ struct Viewer {
 }
 
 struct Room {
+    /// The terminal's ID.
+    id: String,
+    peers: Option<watch::Receiver<Peers>>,
     jobs: mpsc::Receiver<Job>,
     own: mpsc::WeakSender<Job>,
     linked: watch::Sender<Option<ChatAgent>>,
@@ -207,9 +215,41 @@ impl Room {
                         None => std::future::pending().await,
                     }
                 } => self.lose(),
+                changed = changed(self.peers.as_mut()) => {
+                    if changed {
+                        self.know_peers();
+                    } else {
+                        self.peers = None;
+                    }
+                }
             }
             self.tell();
         }
+    }
+
+    /// Shows the agents of other terminals that this terminal's agent can reach now.
+    fn know_peers(&mut self) {
+        let Some(peers) = &mut self.peers else {
+            return;
+        };
+        let shown = peers
+            .borrow_and_update()
+            .iter()
+            .filter(|peer| peer.shown.terminal != self.id)
+            .map(|peer| peer.shown.clone())
+            .collect();
+        self.chat.set_peers(shown);
+    }
+
+    fn peers(&self) -> Vec<Peer> {
+        self.peers.as_ref().map_or_else(Vec::new, |peers| {
+            peers
+                .borrow()
+                .iter()
+                .filter(|peer| peer.shown.terminal != self.id)
+                .cloned()
+                .collect()
+        })
     }
 
     fn check_at(&self) -> Option<Instant> {
@@ -369,23 +409,36 @@ impl Room {
     }
 
     fn request(&mut self, viewer: u64, request: ChatRequest) {
+        let peers = match &request {
+            ChatRequest::Send { .. } | ChatRequest::HandOff { .. } => self.peers(),
+            _ => Vec::new(),
+        };
         let Some(agent) = &mut self.agent else {
             return;
         };
+        let by = self
+            .viewers
+            .get(&viewer)
+            .map(|viewer| viewer.person.clone());
         match request {
             ChatRequest::Send { text } => {
                 let text = text.trim();
                 if text.is_empty() || !agent.is_linked() {
                     return;
                 }
-                let by = self
-                    .viewers
-                    .get(&viewer)
-                    .map(|viewer| viewer.person.clone());
-                if let Some(id) = self.chat.queue(ends_of(text, MOST_MESSAGE), by) {
+                let message = Message::naming(ends_of(text, MOST_MESSAGE), &peers);
+                if let Some(id) = self.chat.queue(message, by) {
                     if !agent.takes(text) {
                         self.chat.in_terminal(&id);
                     }
+                    agent.retry();
+                }
+            }
+            ChatRequest::HandOff { terminal } => {
+                let Some(peer) = peers.iter().find(|peer| peer.shown.terminal == terminal) else {
+                    return;
+                };
+                if agent.is_linked() && self.chat.queue(Message::handing(peer), by).is_some() {
                     agent.retry();
                 }
             }
@@ -395,8 +448,7 @@ impl Room {
                 }
             }
             ChatRequest::Answer { ask, answer } => {
-                let by = self.viewers.get(&viewer).map(|viewer| &viewer.person);
-                if let Some(decision) = agent.decision(&ask, &answer, by) {
+                if let Some(decision) = agent.decision(&ask, &answer, by.as_ref()) {
                     self.decide(ask, decision);
                 }
             }
@@ -517,4 +569,12 @@ impl Room {
 
 fn encoded(frame: &ChatFrame) -> Vec<u8> {
     serde_json::to_vec(frame).unwrap_or_default()
+}
+
+/// Whether the agents of `peers` changed; a room without them never hears of a change.
+async fn changed(peers: Option<&mut watch::Receiver<Peers>>) -> bool {
+    match peers {
+        Some(peers) => peers.changed().await.is_ok(),
+        None => std::future::pending().await,
+    }
 }

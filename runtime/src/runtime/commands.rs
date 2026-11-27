@@ -32,6 +32,8 @@ use crate::{
 #[cfg(feature = "host")]
 use std::sync::Arc;
 
+/// How long a terminal's chat takes at most to give its conversation.
+const CONVERSATION_WAIT: Duration = Duration::from_secs(10);
 /// What an agent hears when someone lets it go on with the task that a restart cut off.
 pub(super) const GO_ON: &str = "Continue";
 
@@ -580,6 +582,7 @@ impl Runtime {
             session_id,
             expected_runtime_incarnation_id,
             history,
+            conversation,
             ..
         } = command
         else {
@@ -589,7 +592,20 @@ impl Runtime {
         self.check_incarnation(id, parse_id(expected_runtime_incarnation_id)?)?;
         self.reachable(id)?;
         self.job_capacity()?;
-        let read = self.target(id)?.read(*history);
+        let target = self.target(id)?;
+        let read: std::pin::Pin<Box<dyn Future<Output = Result<String>> + Send>> = if *conversation
+        {
+            let chat = target.document(
+                Uuid::now_v7(),
+                crate::chat::CHAT_PIPE.to_owned(),
+                self.person.clone().unwrap_or_else(|| "Someone".to_owned()),
+                self.scope.user.clone(),
+                Uuid::now_v7(),
+            );
+            Box::pin(read_conversation(chat))
+        } else {
+            target.read(*history)
+        };
         let command = command.clone();
         self.spawn(async move {
             Completion::Read {
@@ -2738,4 +2754,26 @@ async fn provider_reply(
         _ => return Err(Error::Invalid("expected provider request".to_owned())),
     };
     Ok(result)
+}
+
+/// Reads the conversation of a terminal's chat from the first frame of its pipe, which closes
+/// again: the chat's agent gets nothing.
+async fn read_conversation(
+    chat: impl Future<Output = Result<crate::canvas::PipeEnds>>,
+) -> Result<String> {
+    let mut ends = chat.await?;
+    let frame = tokio::time::timeout(CONVERSATION_WAIT, ends.receiver.recv())
+        .await
+        .map_err(|_| Error::Busy)?
+        .ok_or(Error::Stopped)?;
+    match serde_json::from_slice(&frame) {
+        Ok(crate::chat::ChatFrame::Snapshot(chat)) => crate::chat::transcript(&chat),
+        _ => None,
+    }
+    .ok_or_else(|| {
+        Error::Invalid(
+            "The agent in this terminal reports no conversation to Kodosi. Read its screen without --conversation."
+                .to_owned(),
+        )
+    })
 }

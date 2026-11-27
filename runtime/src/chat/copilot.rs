@@ -991,14 +991,14 @@ impl Agent for Copilot {
             return Vec::new();
         };
         if let Some(turn) = &self.turn
-            && (turn.stopped || turn.refuses_messages || queued.text.trim_start().starts_with('/'))
+            && (turn.stopped || turn.refuses_messages || queued.said.trim_start().starts_with('/'))
         {
             return Vec::new();
         }
         let into_turn = self.turn.is_some();
         self.sent += 1;
-        let plan = plan_command(&queued.text);
-        let text = plan.unwrap_or(&queued.text);
+        let plan = plan_command(&queued.said);
+        let text = plan.unwrap_or(&queued.said);
         self.handed.push_back(Handed {
             n: self.sent,
             queued: queued.id.clone(),

@@ -861,8 +861,48 @@
                                   }
                                 ]
                               },
+                              "handoff": {
+                                "anyOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "agent": {
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "name"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
                               "kind": {
                                 "const": "person"
+                              },
+                              "mentions": {
+                                "items": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "agent": {
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "name"
+                                  ],
+                                  "type": "object"
+                                },
+                                "type": "array"
                               },
                               "text": {
                                 "type": "string"
@@ -1443,6 +1483,32 @@
                     }
                   ]
                 },
+                "peers": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "agent": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "place": {
+                        "type": "string"
+                      },
+                      "terminal": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "terminal",
+                      "name",
+                      "agent"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
                 "queued": {
                   "items": {
                     "additionalProperties": false,
@@ -1473,8 +1539,48 @@
                       "given": {
                         "type": "boolean"
                       },
+                      "handoff": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "agent": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "name"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
                       "id": {
                         "type": "string"
+                      },
+                      "mentions": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "agent": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
                       },
                       "refused": {
                         "anyOf": [
@@ -1677,8 +1783,48 @@
                                           }
                                         ]
                                       },
+                                      "handoff": {
+                                        "anyOf": [
+                                          {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "agent": {
+                                                "type": "string"
+                                              },
+                                              "name": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "name"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
                                       "kind": {
                                         "const": "person"
+                                      },
+                                      "mentions": {
+                                        "items": {
+                                          "additionalProperties": false,
+                                          "properties": {
+                                            "agent": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "name"
+                                          ],
+                                          "type": "object"
+                                        },
+                                        "type": "array"
                                       },
                                       "text": {
                                         "type": "string"
@@ -2861,8 +3007,48 @@
                                 "given": {
                                   "type": "boolean"
                                 },
+                                "handoff": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "agent": {
+                                          "type": "string"
+                                        },
+                                        "name": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "name"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
                                 "id": {
                                   "type": "string"
+                                },
+                                "mentions": {
+                                  "items": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "agent": {
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "name"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "type": "array"
                                 },
                                 "refused": {
                                   "anyOf": [
@@ -3064,6 +3250,45 @@
                         "required": [
                           "change",
                           "settings"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "change": {
+                            "const": "peers"
+                          },
+                          "peers": {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "agent": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "place": {
+                                  "type": "string"
+                                },
+                                "terminal": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "terminal",
+                                "name",
+                                "agent"
+                              ],
+                              "type": "object"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "change",
+                          "peers"
                         ],
                         "type": "object"
                       },
@@ -3424,6 +3649,22 @@
           "required": [
             "do",
             "text"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "do": {
+              "const": "handOff"
+            },
+            "terminal": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "do",
+            "terminal"
           ],
           "type": "object"
         },
@@ -6444,6 +6685,9 @@
                 "type": "null"
               }
             ]
+          },
+          "conversation": {
+            "type": "boolean"
           },
           "expectedRuntimeIncarnationId": {
             "type": "string"
@@ -19877,7 +20121,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 116,
+  "protocolVersion": 117,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

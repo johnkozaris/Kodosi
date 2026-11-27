@@ -21,7 +21,7 @@ and inside a Kodosi terminal it detects your current terminal and project automa
 - `kodosi terminal list`: lists all accessible terminals with host computer and status. Add
   `--json` to include agent, directory, and live-changeable settings.
 - `kodosi terminal read <terminal>`: prints the visible terminal screen (`--history` includes
-  scrollback).
+  scrollback). `--conversation` prints its agent's conversation instead.
 - `kodosi terminal start --agent claude --prompt "task"`: launches a terminal with an agent on
   that task, immediately visible in the app. Useful flags: `--directory <folder>`, `--branch
   <name>` (creates a new Git worktree), `--computer <name>` (another of the user's machines from

@@ -1355,10 +1355,10 @@ impl Agent for Claude {
         self.handed.push_back(Handed {
             n: self.sent,
             queued: queued.id.clone(),
-            text: queued.text.clone(),
+            text: queued.said.clone(),
             by: queued.by.clone(),
         });
-        vec![json!({"do": "prompt", "n": self.sent, "text": queued.text})]
+        vec![json!({"do": "prompt", "n": self.sent, "text": queued.said})]
     }
 
     fn change(&mut self, line: &str) -> Option<Value> {

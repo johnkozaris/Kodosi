@@ -1156,6 +1156,18 @@ fn calls(entry: &SessionEntry) -> bool {
     entry.is_owner || connected(entry)
 }
 
+/// The name of a folder as a list shows it: `~` for the home folder.
+#[cfg(feature = "host")]
+fn folder_word(folder: &Path, home: Option<&Path>) -> String {
+    if home == Some(folder) {
+        return "~".to_owned();
+    }
+    folder.file_name().map_or_else(
+        || folder.display().to_string(),
+        |name| name.to_string_lossy().into_owned(),
+    )
+}
+
 /// The host of one of the person's terminals on another computer keeps its mark.
 fn reported_by_host(entry: &SessionEntry) -> bool {
     entry.kind == SessionKind::Remote && entry.is_owner
@@ -1757,6 +1769,8 @@ impl Runtime {
         self.share_marks();
         #[cfg(feature = "host")]
         self.follow_agents(&entries);
+        #[cfg(feature = "host")]
+        self.tell_peers(&entries);
         let listing = self.listing(entries);
         self.send_list(|catalog, now| catalog.changed(listing, now));
         self.call_started();
@@ -2593,7 +2607,7 @@ impl Runtime {
             };
             let text = message["text"].as_str().unwrap_or_default();
             let author = message["authorId"].as_str().unwrap_or_default();
-            for terminal in messages::named(text, &terminals).into_iter().flatten() {
+            for terminal in crate::names::named(text, &terminals).into_iter().flatten() {
                 let allowed = Some(author) == self.scope.user.as_deref()
                     || self.local.get(&terminal).is_some_and(|local| {
                         local.entry.shared_with.iter().any(|user| user == author)
@@ -2695,6 +2709,41 @@ impl Runtime {
             name: entry.name.clone(),
             folder: entry.working_dir.clone(),
         })
+    }
+
+    /// Each chat lists the agents that its agent can reach: those of the other terminals that run
+    /// here or that this computer can open, this computer's first.
+    #[cfg(feature = "host")]
+    fn tell_peers(&self, entries: &[SessionEntry]) {
+        let home = kodosi_os::fs::home_dir().ok();
+        let mut peers = entries
+            .iter()
+            .filter(|entry| !entry.hidden && entry.status == SessionStatus::Running)
+            .filter_map(|entry| {
+                let agent = crate::agents::Agent::named(entry.program.as_deref()?)?;
+                let here = Uuid::parse_str(&entry.id).is_ok_and(|id| self.local.contains_key(&id));
+                let place = if here {
+                    entry
+                        .working_dir
+                        .as_deref()
+                        .map_or_else(String::new, |folder| {
+                            folder_word(Path::new(folder), home.as_deref())
+                        })
+                } else {
+                    entry.host_name.clone().unwrap_or_default()
+                };
+                let shown = crate::chat::ChatPeer {
+                    terminal: entry.id.clone(),
+                    name: entry.name.clone(),
+                    agent: agent.name().to_owned(),
+                    place,
+                };
+                Some((!here, messages::peer(shown, agent)))
+            })
+            .collect::<Vec<_>>();
+        peers.sort_by_cached_key(|(away, peer)| (*away, peer.shown.name.to_lowercase()));
+        self.links
+            .reach(peers.into_iter().map(|(_, peer)| peer).collect());
     }
 
     #[cfg(feature = "host")]

@@ -318,12 +318,12 @@ impl Codex {
             .queued()
             .iter()
             .find(|queued| !queued.terminal)
-            .filter(|queued| !queued.text.trim_start().starts_with(['/', '!']))?;
+            .filter(|queued| !queued.said.trim_start().starts_with(['/', '!']))?;
         self.sent += 1;
         self.handed.push_back(Handed {
             n: self.sent,
             queued: Some(queued.id.clone()),
-            text: queued.text.clone(),
+            text: queued.said.clone(),
             by: queued.by.clone(),
             steering: true,
         });
@@ -334,7 +334,7 @@ impl Codex {
             "p": {
                 "threadId": thread,
                 "expectedTurnId": turn,
-                "input": [{"type": "text", "text": queued.text, "text_elements": []}],
+                "input": [{"type": "text", "text": queued.said, "text_elements": []}],
             },
         }))
     }
@@ -1205,7 +1205,7 @@ impl Agent for Codex {
                 let queued = chat.queued().iter().find(|queued| !queued.terminal)?;
                 Some((
                     Some(queued.id.clone()),
-                    queued.text.clone(),
+                    queued.said.clone(),
                     queued.by.clone(),
                 ))
             });

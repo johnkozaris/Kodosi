@@ -132,44 +132,6 @@ impl Mentions {
     }
 }
 
-/// Matches case-insensitive `@name` mentions on word boundaries to stay in sync with client
-/// highlight parsing.
-pub(super) fn named<T: Copy>(text: &str, terminals: &[(T, &str)]) -> Vec<T> {
-    let mut found = Vec::new();
-    for (index, _) in text.match_indices('@') {
-        if text[..index].chars().next_back().is_some_and(in_a_word) {
-            continue;
-        }
-        let rest = &text[index + 1..];
-        let best = terminals
-            .iter()
-            .filter(|(_, name)| {
-                !name.is_empty()
-                    && after_name(rest, name)
-                        .is_some_and(|after| !after.chars().next().is_some_and(in_a_word))
-            })
-            .max_by_key(|(_, name)| name.len());
-        if let Some((terminal, _)) = best {
-            found.push(*terminal);
-        }
-    }
-    found
-}
-
-fn in_a_word(character: char) -> bool {
-    character.is_alphanumeric() || character == '_'
-}
-
-fn after_name<'text>(text: &'text str, name: &str) -> Option<&'text str> {
-    let mut rest = text.chars();
-    for expected in name.chars() {
-        if !rest.next()?.to_lowercase().eq(expected.to_lowercase()) {
-            return None;
-        }
-    }
-    Some(rest.as_str())
-}
-
 pub(super) fn takes_messages(program: Option<&str>, status: Option<&ProgramStatus>) -> bool {
     program.is_some_and(crate::agents::is_agent_name)
         && status.is_some_and(|status| status.state != ProgramState::Blocked)
@@ -221,6 +183,15 @@ pub(super) fn message_line(from: &Sender, text: &str) -> String {
         describe(from),
         plain(text, crate::protocol::MESSAGE_MAX_BYTES)
     )
+}
+
+/// The agent of another terminal as a chat names it to its own agent.
+pub(super) fn peer(shown: crate::chat::ChatPeer, agent: crate::agents::Agent) -> crate::chat::Peer {
+    crate::chat::Peer {
+        name: plain(&shown.name, MOST_NAME),
+        shown,
+        agent,
+    }
 }
 
 fn describe(from: &Sender) -> String {

@@ -221,6 +221,9 @@ enum TerminalAction {
         /// Also print the earlier lines that scrolled away.
         #[arg(long)]
         history: bool,
+        /// Print the conversation of the terminal's agent, as its chat shows it, in place of the screen. That agent gets no message.
+        #[arg(long, conflicts_with = "history")]
+        conversation: bool,
     },
     /// Press keys in a terminal, for example enter, escape, up or ctrl-c. It stops with a message while a person types there.
     Keys {
@@ -1197,9 +1200,16 @@ fn on_terminal(action: TerminalAction) -> Result<(String, &'static str, bool, Va
             )?;
             (terminal, "session.run", false, json!({"agent":agent}))
         }
-        TerminalAction::Read { terminal, history } => {
-            (terminal, "session.read", true, json!({"history":history}))
-        }
+        TerminalAction::Read {
+            terminal,
+            history,
+            conversation,
+        } => (
+            terminal,
+            "session.read",
+            true,
+            json!({"history":history,"conversation":conversation}),
+        ),
         TerminalAction::Keys { terminal, keys } => {
             let text = keys.iter().map(|key| key_text(key));
             let text = text.collect::<Result<String>>()?;

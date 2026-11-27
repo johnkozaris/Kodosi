@@ -191,6 +191,7 @@ impl Play {
                 ChatChange::Tasks { tasks } => self.view.tasks.clone_from(tasks),
                 ChatChange::Commands { commands } => self.view.commands.clone_from(commands),
                 ChatChange::Settings { settings } => self.view.settings.clone_from(settings),
+                ChatChange::Peers { peers } => self.view.peers.clone_from(peers),
                 ChatChange::Facts { facts } => self.view.facts = (**facts).clone(),
                 ChatChange::State { state, now } => {
                     self.view.state = *state;
@@ -731,7 +732,7 @@ async fn frame(ends: &mut crate::canvas::PipeEnds) -> ChatFrame {
 
 #[tokio::test]
 async fn the_chat_tells_the_terminal_how_many_helpers_work() {
-    let chat = ChatHandle::spawn();
+    let chat = ChatHandle::spawn(String::new(), None);
     let record = record!("helper");
     let ended = record
         .find("{\"k\":\"turnEnd\"")
@@ -752,7 +753,7 @@ async fn an_answer_of_a_viewer_reaches_the_agent_before_or_after_the_agent_asks_
         .split_once("{\"answer\"")
         .expect("the record has a question");
     for waits_first in [true, false] {
-        let chat = ChatHandle::spawn();
+        let chat = ChatHandle::spawn(String::new(), None);
         assert!(report(&chat, "one", 1, events(record!("text"))).await);
         assert!(report(&chat, "one", 2, events(asking)).await);
         let mut viewer = chat
@@ -1185,7 +1186,7 @@ fn a_message_goes_into_the_turn_of_copilot_at_once_and_a_command_waits_for_its_e
         .iter()
         .rev()
         .find_map(|item| match &item.body {
-            ChatBody::Person { text, by } => Some((text.as_str(), by.clone())),
+            ChatBody::Person { text, by, .. } => Some((text.as_str(), by.clone())),
             _ => None,
         });
     assert_eq!(said, Some(("Also count the pens.", Some(sam()))));
@@ -1387,4 +1388,212 @@ fn a_restored_antigravity_loads_its_conversation_with_its_history() {
         ]
     );
     assert_eq!(play.answers(), ["a.txt now says two."]);
+}
+
+fn timber_elk() -> Peer {
+    Peer {
+        shown: ChatPeer {
+            terminal: "b".to_owned(),
+            name: "Timber Elk".to_owned(),
+            agent: "copilot".to_owned(),
+            place: "site".to_owned(),
+        },
+        name: "Timber Elk".to_owned(),
+        agent: crate::agents::Agent::Copilot,
+    }
+}
+
+/// A chat of the terminal `a` with Claude Code linked and idle, which reaches the agent of
+/// Timber Elk, and a viewer of Sam that saw the chat as it is.
+async fn chat_that_reaches_timber_elk() -> (
+    ChatHandle,
+    tokio::sync::watch::Sender<mention::Peers>,
+    crate::canvas::PipeEnds,
+) {
+    let itself = Peer {
+        shown: ChatPeer {
+            terminal: "a".to_owned(),
+            name: "Sandy Condor".to_owned(),
+            ..timber_elk().shown
+        },
+        ..timber_elk()
+    };
+    let (peers, known) =
+        tokio::sync::watch::channel(std::sync::Arc::new(vec![timber_elk(), itself]));
+    let chat = ChatHandle::spawn("a".to_owned(), Some(known));
+    assert!(report(&chat, "one", 1, events(record!("text"))).await);
+    let mut viewer = chat
+        .attach("sam".to_owned(), "Sam".to_owned())
+        .await
+        .expect("the chat opens");
+    let ChatFrame::Snapshot(snapshot) = frame(&mut viewer).await else {
+        panic!("the chat as it is comes first");
+    };
+    assert_eq!(
+        snapshot.peers,
+        [timber_elk().shown],
+        "the chat lists the agents of the other terminals, not its own"
+    );
+    (chat, peers, viewer)
+}
+
+async fn send(viewer: &crate::canvas::PipeEnds, request: &ChatRequest) {
+    let request = serde_json::to_vec(request).expect("a request");
+    viewer.sender.send(request).await.expect("the pipe is open");
+}
+
+/// The text of the prompt that the link takes next.
+async fn prompted(chat: &ChatHandle) -> String {
+    let (reply, commands) = tokio::sync::oneshot::channel();
+    let next = Job::Next {
+        link: "one".to_owned(),
+        reply,
+    };
+    chat.jobs()
+        .upgrade()
+        .expect("the chat")
+        .send(next)
+        .await
+        .ok();
+    let commands = commands.await.expect("the chat answers").expect("commands");
+    let [command] = commands.as_slice() else {
+        panic!("one command: {commands:?}");
+    };
+    assert_eq!(command["do"], "prompt");
+    command["text"].as_str().expect("the text").to_owned()
+}
+
+/// The person's message that the viewer sees once the agent recorded `text` as its prompt.
+async fn recorded(chat: &ChatHandle, viewer: &mut crate::canvas::PipeEnds, text: &str) -> ChatBody {
+    let row = json!({
+        "k": "row",
+        "t": 1_795_226_800_000_u64,
+        "door": "prompt",
+        "origin": {"kind": "plugin", "name": "kodosi", "asUser": true},
+        "uuid": "5f1e2d3c-4b5a-4968-8776-655443322110",
+        "content": [{"type": "text", "text": text}],
+    });
+    assert!(report(chat, "one", 2, vec![row]).await);
+    loop {
+        if let ChatFrame::Update(update) = frame(viewer).await {
+            for change in update.changes {
+                if let ChatChange::Item { item } = change
+                    && matches!(item.body, ChatBody::Person { .. })
+                {
+                    return item.body;
+                }
+            }
+        }
+    }
+}
+
+#[tokio::test]
+async fn an_agent_learns_who_a_message_names_and_the_chat_shows_the_words_alone() {
+    let (chat, _peers, mut viewer) = chat_that_reaches_timber_elk().await;
+    let words = "Ask @timber elk for the schema.";
+    send(
+        &viewer,
+        &ChatRequest::Send {
+            text: words.to_owned(),
+        },
+    )
+    .await;
+
+    let said = prompted(&chat).await;
+    assert_eq!(
+        said,
+        format!(
+            "{words}\n\n[Kodosi] @Timber Elk is Copilot CLI in a Kodosi terminal. Details: kodosi terminal info \"Timber Elk\""
+        )
+    );
+    assert_eq!(
+        recorded(&chat, &mut viewer, &said).await,
+        ChatBody::Person {
+            text: words.to_owned(),
+            by: Some(sam()),
+            mentions: vec![ChatMention {
+                name: "Timber Elk".to_owned(),
+                agent: "copilot".to_owned(),
+            }],
+            handoff: None,
+        }
+    );
+}
+
+#[tokio::test]
+async fn a_hand_off_gives_the_agent_the_work_of_another_and_the_chat_shows_whose() {
+    let (chat, _peers, mut viewer) = chat_that_reaches_timber_elk().await;
+    send(
+        &viewer,
+        &ChatRequest::HandOff {
+            terminal: "a".to_owned(),
+        },
+    )
+    .await;
+    send(
+        &viewer,
+        &ChatRequest::HandOff {
+            terminal: "b".to_owned(),
+        },
+    )
+    .await;
+
+    let said = prompted(&chat).await;
+    assert_eq!(
+        said,
+        "[Kodosi] Hand-off: continue the work of @Timber Elk, Copilot CLI in a Kodosi terminal. Read its conversation: kodosi terminal read \"Timber Elk\" --conversation",
+        "the work of the agent itself is no hand-off"
+    );
+    assert_eq!(
+        recorded(&chat, &mut viewer, &said).await,
+        ChatBody::Person {
+            text: String::new(),
+            by: Some(sam()),
+            mentions: Vec::new(),
+            handoff: Some(ChatMention {
+                name: "Timber Elk".to_owned(),
+                agent: "copilot".to_owned(),
+            }),
+        }
+    );
+}
+
+#[tokio::test]
+async fn the_chat_follows_the_agents_that_its_agent_can_reach() {
+    let (_chat, peers, mut viewer) = chat_that_reaches_timber_elk().await;
+    peers.send_replace(std::sync::Arc::new(Vec::new()));
+    let ChatFrame::Update(update) = frame(&mut viewer).await else {
+        panic!("a change");
+    };
+    assert_eq!(update.changes, [ChatChange::Peers { peers: Vec::new() }]);
+}
+
+#[test]
+fn a_command_keeps_its_words_and_a_message_that_names_nobody_reaches_the_agent_as_written() {
+    for words in [
+        "/review @Timber Elk",
+        "Email @timberelk about it",
+        "Ask @Timber Elkhound",
+    ] {
+        assert_eq!(
+            mention::Message::naming(words.to_owned(), &[timber_elk()]),
+            words.to_owned().into(),
+            "{words}"
+        );
+    }
+}
+
+#[test]
+fn another_agent_reads_the_conversation_as_its_chat_shows_it() {
+    let hello = record!("text").lines().next().expect("the link says hello");
+    let mut play = Play::of(hello, &[]);
+    play.more(record!("command-allow"), &[ChatAnswer::Allow]);
+
+    assert_eq!(
+        transcript(&play.view).as_deref(),
+        Some(
+            "User: Run python3 app.py and tell me the total in one short sentence.\n  ran python3 app.py\n\nClaude Code: The total is 33.83, which is 22.00 with the 1.24 tax applied twice (the correct single-tax total would be 27.28)."
+        )
+    );
+    assert_eq!(transcript(&ChatSnapshot::default()), None);
 }
