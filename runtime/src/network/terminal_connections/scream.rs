@@ -8,12 +8,35 @@
 //! route. Classic ECN marks count as congestion; L4S marking needs per-acknowledgement mark counts
 //! that noq does not report.
 //!
-//! A screen sends a burst and is then still, and the draft is made for a source that sends all the
-//! time. While noq has nothing to send, the window does not grow and the round trip that the
-//! bitrate is published with falls only slowly, as in libwebrtc's `SCReAM` and the draft's section
-//! 6: a burst's acknowledgements come in as the queue that it built drains, and the window was
-//! measured against that queue, so a round trip that falls back at once would publish more than
-//! the path carried.
+//! The draft also counts a loss as congestion once the loss rate passes a threshold, with or
+//! without a queue. A radio that loses packets by itself, or a policer that drops what exceeds its
+//! rate, would then hold the window at its floor, although the video's parity and resends repair
+//! such loss. Here only a loss while a queue builds takes the draft's cut. Without a queue, the
+//! window gives up only the share that the path loses beyond what repair carries: a radio that
+//! loses little costs nothing, and behind a policer, where that share is the overshoot, the window
+//! settles just above the policer's rate. Such a cut does not slow the growth that follows, as a
+//! cut for congestion does: it says what repair costs, not that the window reached what the path
+//! carries, and growth that slows after each one would hold a long path far below what it carries.
+//!
+//! A screen sends a burst and is then still, and even a video source that sends at its bitrate
+//! runs dry after each frame, as the pacer sends faster than that bitrate: noq then tells the
+//! controller that it has nothing to send at most acknowledgements. So the window grows by the
+//! acknowledged bytes whatever noq tells, as in the draft, and the draft's bound on bytes in flight
+//! keeps it near what the source showed: a still screen sends nothing and grows nothing. A packet
+//! that waited in a queue does not count: a burst builds a queue that the queue delay average reads
+//! low, and a packet that waited is no proof of room. Its own time on a slow link is no wait,
+//! though: the base round trip comes from the smallest packets. While noq has nothing to send, the
+//! round trip that the bitrate is published with falls only slowly, as in libwebrtc's `SCReAM` and
+//! the draft's section 6: a burst's acknowledgements come in as the queue that it built drains, and
+//! the window was measured against that queue, so a round trip that falls back at once would
+//! publish more than the path carried.
+//!
+//! The draft grows the window by a share of itself each round trip, so a long path needs as many
+//! round trips to start as a short one, and so far more time. Until the window first reacts, that
+//! share follows time instead, as on a path of `VIRTUAL_RTT`. Only until then: such growth at every
+//! round trip lets a queue stand on a long path and raises the loss behind a policer, and growth by
+//! time also of the window's fixed step, or again after each reaction, makes slow and lossy long
+//! paths overshoot.
 
 use std::{
     any::Any,
@@ -44,6 +67,8 @@ const BETA_ECN: f64 = 0.8;
 const POST_CONGESTION_DELAY_RTTS: f64 = 100.0;
 const MUL_INCREASE_FACTOR: f64 = 0.02;
 const VIRTUAL_RTT: f64 = 0.025;
+/// The longest round trip whose start grows as fast in time as a path of `VIRTUAL_RTT`.
+const START_RTT_MOST: f64 = 0.2;
 const REF_WND_I_UPDATE_MAX_HOLD_RTTS: f64 = 50.0;
 const REF_WND_OVERHEAD_MIN: f64 = 1.5;
 const REF_WND_OVERHEAD_MAX: f64 = 3.0;
@@ -52,7 +77,10 @@ const PACKET_PACING_HEADROOM: f64 = 1.5;
 const MAX_RELAXED_PACING_FACTOR: f64 = 4.0;
 const RELAXED_PACING_LIMIT_LOW: f64 = 0.8;
 const PACKET_OVERHEAD: f64 = 20.0;
-const LOSS_RATE_THRESHOLD: f64 = 0.01;
+const LOSS_RATE_GAIN: f64 = 0.0025;
+/// The share of packets that a path may lose without a queue at no cost to the window: the
+/// video's parity and resends repair it.
+const LOSS_TOLERATED: f64 = 0.02;
 const ACKED_BITRATE_MARGIN: f64 = 0.8;
 const BACKOFF_SCALE_LOW_TARGET_RATE: f64 = 0.25;
 /// The bitrate that all video on one connection may reach, which bounds how far the window grows
@@ -123,6 +151,19 @@ pub(crate) fn rates(controller: Box<dyn Controller>) -> Option<Arc<Rates>> {
 struct Seen {
     loss: bool,
     ecn: bool,
+}
+
+/// How the window answers the congestion signals of a round trip.
+#[derive(Debug, Clone, Copy)]
+enum Reaction {
+    /// A loss while a queue builds: the queue overflowed.
+    Overflow,
+    /// Losses without a queue, more than the tolerated share: the window gives up the share
+    /// beyond it.
+    PathLoss(f64),
+    Ecn,
+    /// A queue that grows beyond half its target: the share of the way to halving the window.
+    Queue(f64),
 }
 
 #[derive(Debug, Clone)]
@@ -240,6 +281,10 @@ impl Window {
         (self.mss / self.ref_wnd).min(1.0)
     }
 
+    fn loss_rate_gain(&self) -> f64 {
+        LOSS_RATE_GAIN.min(self.mss / self.ref_wnd / 2.0)
+    }
+
     /// The acknowledged bitrate over the last two round trips.
     fn acked_bitrate(&mut self, now: Instant) -> f64 {
         let span = Duration::from_secs_f64((2.0 * self.s_rtt).max(0.04));
@@ -340,38 +385,36 @@ impl Window {
         if self.ref_wnd > self.ref_wnd_i && scl < 1.0 {
             scl = (scl * latency_scale).max(0.2);
         }
-        if self.seen.loss || self.seen.ecn {
-            self.last_congestion_detected = Some(now);
-        }
-        let mut is_loss = false;
-        let mut is_ce = false;
-        let mut virtual_alpha = None;
+        let mut reaction = None;
         if Self::since(self.last_reaction, now) >= self.s_rtt {
-            if self.seen.loss
-                && (self.loss_rate > LOSS_RATE_THRESHOLD
-                    || self.qdelay_avg > self.qdelay_target / 4.0)
-            {
-                is_loss = true;
+            let loss_beyond = self.loss_rate - LOSS_TOLERATED;
+            reaction = if self.seen.loss && self.qdelay_avg > self.qdelay_target / 4.0 {
+                Some(Reaction::Overflow)
+            } else if self.seen.loss && loss_beyond > 0.0 {
+                Some(Reaction::PathLoss(loss_beyond.min(1.0 - BETA_LOSS)))
             } else if self.seen.ecn {
-                is_ce = true;
+                Some(Reaction::Ecn)
             } else if self.qdelay_avg > self.qdelay_target / 2.0
                 && self.qdelay_avg >= self.qdelay_avg_prev
             {
-                virtual_alpha = Some(
+                Some(Reaction::Queue(
                     ((self.qdelay_avg - self.qdelay_target / 2.0) / (self.qdelay_target / 2.0))
                         .clamp(0.0, 1.0),
-                );
-                self.last_congestion_detected = Some(now);
-            }
+                ))
+            } else {
+                None
+            };
+            let lost = matches!(reaction, Some(Reaction::Overflow | Reaction::PathLoss(_)));
             self.loss_event_rate =
-                0.99f64.mul_add(self.loss_event_rate, if is_loss { 0.01 } else { 0.0 });
-            self.seen.loss = false;
-            self.seen.ecn = false;
+                0.99f64.mul_add(self.loss_event_rate, if lost { 0.01 } else { 0.0 });
+            self.seen = Seen::default();
         }
         self.qdelay_avg_prev = self.qdelay_avg;
-        let reacts = is_loss || is_ce || virtual_alpha.is_some();
-        if reacts {
+        if reaction.is_some() {
             self.congested = true;
+            if !matches!(reaction, Some(Reaction::PathLoss(_))) {
+                self.last_congestion_detected = Some(now);
+            }
             if self.ref_wnd > (self.ref_wnd_lowest + self.mss).max(self.ref_wnd_lowest * 1.05)
                 || Self::since(self.ref_wnd_i_update_time, now)
                     > REF_WND_I_UPDATE_MAX_HOLD_RTTS * self.s_rtt
@@ -396,19 +439,16 @@ impl Window {
                 backoff
             }
         };
-        if is_loss {
-            self.ref_wnd *= BETA_LOSS;
-        }
-        if is_ce {
-            self.ref_wnd *= BETA_ECN;
-        }
-        if let Some(alpha) = virtual_alpha {
-            let backoff = soften(alpha / 2.0, self);
-            self.ref_wnd *= 1.0 - backoff;
+        match reaction {
+            Some(Reaction::Overflow) => self.ref_wnd *= BETA_LOSS,
+            Some(Reaction::PathLoss(share)) => self.ref_wnd *= 1.0 - share,
+            Some(Reaction::Ecn) => self.ref_wnd *= BETA_ECN,
+            Some(Reaction::Queue(alpha)) => self.ref_wnd *= 1.0 - soften(alpha / 2.0, self),
+            None => {}
         }
         self.ref_wnd = self.ref_wnd.max(MIN_REF_WND);
         self.ref_wnd_lowest = self.ref_wnd;
-        if reacts {
+        if reaction.is_some() {
             self.last_reaction = Some(now);
         }
         self.grow(now, scl, latency_scale);
@@ -416,7 +456,7 @@ impl Window {
 
     /// Grows the window by the bytes acknowledged without marks, more while no congestion has been
     /// seen for a while and less near the last window that met congestion (draft section 4.2.2.2),
-    /// and not while the connection has nothing to send.
+    /// and until it first reacts as fast in time on a long path as on a short one.
     fn grow(&mut self, now: Instant, scl: f64, latency_scale: f64) {
         let post_congestion = (Self::since(self.last_congestion_detected, now)
             / (POST_CONGESTION_DELAY_RTTS * VIRTUAL_RTT.max(self.s_rtt)))
@@ -427,8 +467,13 @@ impl Window {
         let mut increment = self.bytes_newly_acked * self.ref_wnd_ratio() / increment_scale;
         increment *= (self.s_rtt / VIRTUAL_RTT).min(1.0);
         increment *= scl;
+        let by_time = if self.last_reaction.is_none() {
+            (self.s_rtt.min(START_RTT_MOST) / VIRTUAL_RTT).max(1.0)
+        } else {
+            1.0
+        };
         let multiplier = if scale_factor > 1.0 {
-            (scale_factor - 1.0).mul_add(post_congestion, 1.0)
+            (scale_factor - 1.0).mul_add(post_congestion * by_time, 1.0)
         } else {
             scale_factor
         };
@@ -438,7 +483,7 @@ impl Window {
             .max(self.max_bytes_in_flight_prev)
             .mul_add(BYTES_IN_FLIGHT_HEAD_ROOM, self.mss);
         let grown = self.ref_wnd + increment;
-        if grown <= allowed && self.target_bitrate < TARGET_BITRATE_MAX && !self.idle {
+        if grown <= allowed && self.target_bitrate < TARGET_BITRATE_MAX {
             self.ref_wnd = grown;
         }
         self.bytes_newly_acked = 0.0;
@@ -483,10 +528,12 @@ impl Window {
         }
         self.sample_base(now, round);
         self.qdelay = (round - self.base_rtt().unwrap_or(round)).max(0.0);
-        self.bytes_newly_acked += bytes;
+        let own_time = 8.0 * bytes / self.target_bitrate.max(RATE_PACE_MIN);
+        if self.qdelay < self.qdelay_target / 4.0 + own_time {
+            self.bytes_newly_acked += bytes;
+        }
         self.acked.push_back((now, bytes));
-        let alpha = (LOSS_RATE_THRESHOLD / 4.0).min(self.mss / self.ref_wnd / 2.0);
-        self.loss_rate *= 1.0 - alpha;
+        self.loss_rate *= 1.0 - self.loss_rate_gain();
     }
 
     /// Follows the path's round trip, except that it falls only slowly while the connection has
@@ -572,8 +619,8 @@ impl Controller for Window {
     }
 
     fn on_packet_lost(&mut self, lost_bytes: u16, _pn: u64, _now: Instant) {
-        let alpha = (LOSS_RATE_THRESHOLD / 4.0).min(self.mss / self.ref_wnd / 2.0);
-        self.loss_rate = (1.0 - alpha).mul_add(self.loss_rate, alpha);
+        let gain = self.loss_rate_gain();
+        self.loss_rate = (1.0 - gain).mul_add(self.loss_rate, gain);
         self.bytes_in_flight = (self.bytes_in_flight - f64::from(lost_bytes)).max(0.0);
     }
 
@@ -640,18 +687,123 @@ mod tests {
         f64::from(u32::try_from(rate).unwrap())
     }
 
-    /// A sender that follows the published bitrate, through a bottleneck that serves `capacity`
-    /// bits per second from one queue, on a path with a 20 ms round trip without queue.
+    /// A video sender behind noq, through a bottleneck that serves `capacity` bits per second
+    /// from one queue, on a path with a round trip without queue of 20 ms or the one that a test
+    /// sets. The source makes a frame each sixtieth of a second at the published bitrate, or a
+    /// burst of several frame times at once. noq sends what waits at the published pacing rate
+    /// with its own pacer and tells the controller that it had nothing to send whenever nothing
+    /// waited and neither the window nor the pacer held a packet back.
+    ///
+    /// A test can also add a radio after the bottleneck that loses packets at random, a policer
+    /// before it that drops what exceeds its rate, and a limit on the time that a packet may wait
+    /// in the queue. As in noq, the controller hears of a lost packet once a packet sent three
+    /// later is acknowledged, or a later one is and the lost one left 9/8 of a round trip ago.
     struct Path {
         window: Window,
         start: Instant,
         capacity: f64,
-        credit: f64,
+        round_trip: Duration,
+        radio_loss: f64,
+        policer: Option<Policer>,
+        queue_limit: Option<Duration>,
+        random: u64,
+        waiting: VecDeque<u16>,
+        next_frame: Duration,
+        pacer: Pacer,
+        app_limited: bool,
         served_until: Instant,
-        flying: VecDeque<(Instant, Instant)>,
+        flying: VecDeque<Flight>,
+        in_flight: u64,
+        sent_packets: u64,
+        largest_acked: Option<u64>,
         smoothed: f64,
-        queued_most: Duration,
         sent_bits: f64,
+        measured: Measured,
+    }
+
+    struct Flight {
+        number: u64,
+        sent: Instant,
+        bytes: u16,
+        /// `None` for a packet that the path dropped.
+        acked: Option<Instant>,
+    }
+
+    /// noq's pacer for a controller that sets a pacing rate: a bucket filled at that rate, which
+    /// holds 2 ms of it, at least 10 and at most 256 packets, and never more than 10 ms of it.
+    struct Pacer {
+        tokens: f64,
+        at: Option<Instant>,
+    }
+
+    impl Pacer {
+        /// Takes a packet of `bytes` when the bucket has room for a whole one, at `rate` bytes
+        /// per second.
+        fn take(&mut self, rate: f64, bytes: u16, now: Instant) -> bool {
+            let packet = f64::from(MTU);
+            let capacity = (rate * 0.002)
+                .clamp(10.0 * packet, 256.0 * packet)
+                .min((rate * 0.01).max(packet));
+            let filled = self.at.map_or(f64::MAX, |at| {
+                rate * now.saturating_duration_since(at).as_secs_f64()
+            });
+            self.tokens = (self.tokens + filled).min(capacity);
+            self.at = Some(now);
+            let takes = self.tokens >= packet.min(capacity);
+            if takes {
+                self.tokens = (self.tokens - f64::from(bytes)).max(0.0);
+            }
+            takes
+        }
+    }
+
+    /// Drops each packet for which its bucket, filled at `rate` bits per second up to 20 ms of
+    /// that rate, has no room.
+    struct Policer {
+        rate: f64,
+        tokens: f64,
+        at: Option<Instant>,
+    }
+
+    impl Policer {
+        fn passes(&mut self, bytes: u16, now: Instant) -> bool {
+            let filled = self.at.map_or(f64::MAX, |at| {
+                self.rate / 8.0 * now.saturating_duration_since(at).as_secs_f64()
+            });
+            self.tokens = (self.tokens + filled).min(self.rate / 8.0 * 0.02);
+            self.at = Some(now);
+            let passes = self.tokens >= f64::from(bytes);
+            if passes {
+                self.tokens -= f64::from(bytes);
+            }
+            passes
+        }
+    }
+
+    /// What the path did from `from` on.
+    #[derive(Default)]
+    struct Measured {
+        from: Duration,
+        published_sum: f64,
+        samples: u32,
+        published_least: Option<f64>,
+        sent: u32,
+        lost: u32,
+        queued_most: Duration,
+    }
+
+    impl Measured {
+        fn published_mean(&self) -> f64 {
+            self.published_sum / f64::from(self.samples)
+        }
+
+        fn published_least(&self) -> f64 {
+            self.published_least.unwrap()
+        }
+
+        fn lost_share(&self) -> f64 {
+            f64::from(self.lost) / f64::from(self.sent)
+        }
     }
 
     impl Path {
@@ -661,61 +813,257 @@ mod tests {
                 window: Window::new(start, MTU),
                 start,
                 capacity,
-                credit: 0.0,
+                round_trip: Duration::from_millis(20),
+                radio_loss: 0.0,
+                policer: None,
+                queue_limit: None,
+                random: 0x9e37_79b9_7f4a_7c15,
+                waiting: VecDeque::new(),
+                next_frame: Duration::ZERO,
+                pacer: Pacer {
+                    tokens: 0.0,
+                    at: None,
+                },
+                app_limited: true,
                 served_until: start,
                 flying: VecDeque::new(),
+                in_flight: 0,
+                sent_packets: 0,
+                largest_acked: None,
                 smoothed: 0.02,
-                queued_most: Duration::ZERO,
                 sent_bits: 0.0,
+                measured: Measured::default(),
             }
         }
 
-        fn run(&mut self, from: Duration, to: Duration) {
-            self.send(from, to, 1.0);
+        fn with_round_trip(mut self, round_trip: Duration) -> Self {
+            self.round_trip = round_trip;
+            self
         }
 
-        /// Sends at `factor` times the published bitrate, or nothing when it is 0, which noq
-        /// tells the controller as a connection with nothing to send.
-        fn send(&mut self, from: Duration, to: Duration, factor: f64) {
-            let idle = factor == 0.0;
+        /// The handshake measures the round trip before the source starts.
+        fn handshake(&mut self) {
+            if self.window.path_rtt.is_some() {
+                return;
+            }
+            self.smoothed = self.round_trip.as_secs_f64();
+            let answered = self.start + self.round_trip;
+            self.window
+                .acked_packet(answered, self.start, 0, self.round_trip);
+            self.window.on_end_acks(answered, 0, true, None);
+        }
+
+        fn with_radio_loss(mut self, share: f64) -> Self {
+            self.radio_loss = share;
+            self
+        }
+
+        fn with_policer(mut self, rate: f64) -> Self {
+            self.policer = Some(Policer {
+                rate,
+                tokens: 0.0,
+                at: None,
+            });
+            self
+        }
+
+        fn with_queue_limit(mut self, limit: Duration) -> Self {
+            self.queue_limit = Some(limit);
+            self
+        }
+
+        /// Starts from the window's floor, as after cuts.
+        fn at_the_floor(mut self) -> Self {
+            self.handshake();
+            self.window.ref_wnd = MIN_REF_WND;
+            self.window.ref_wnd_lowest = MIN_REF_WND;
+            self.window.publish();
+            self
+        }
+
+        fn measure_from(&mut self, from: Duration) {
+            self.measured = Measured {
+                from,
+                ..Measured::default()
+            };
+        }
+
+        fn published(&self) -> f64 {
+            bits(self.window.rates.carried()) / 1.2
+        }
+
+        /// A fixed pseudo-random sequence (xorshift), evenly between 0 and 1.
+        fn chance(&mut self) -> f64 {
+            self.random ^= self.random << 13;
+            self.random ^= self.random >> 7;
+            self.random ^= self.random << 17;
+            f64::from(u32::try_from(self.random >> 32).unwrap()) / f64::from(u32::MAX)
+        }
+
+        /// The source makes a frame each sixtieth of a second.
+        fn run(&mut self, from: Duration, to: Duration) {
+            self.next_frame = self.next_frame.max(from);
+            self.advance(from, to, true);
+        }
+
+        /// The source makes nothing, while what waits still goes.
+        fn still(&mut self, from: Duration, to: Duration) {
+            self.advance(from, to, false);
+        }
+
+        /// The source makes `frame_times` frames' worth of bitrate at once.
+        fn burst(&mut self, frame_times: f64) {
+            self.handshake();
+            self.make(frame_times * self.published() / 60.0 / 8.0);
+        }
+
+        fn make(&mut self, bytes: f64) {
+            #[expect(
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "a frame of a few megabytes at most"
+            )]
+            let bytes = bytes as u64;
+            let (full, rest) = (bytes / u64::from(MTU), bytes % u64::from(MTU));
+            self.waiting.extend((0..full).map(|_| MTU));
+            if rest > 0 {
+                self.waiting.push_back(u16::try_from(rest).unwrap());
+            }
+        }
+
+        fn advance(&mut self, from: Duration, to: Duration, frames: bool) {
+            self.handshake();
             let mut at = from;
             while at < to {
                 let now = self.start + at;
-                while let Some(&(sent, acked)) = self.flying.front()
-                    && acked <= now
-                {
-                    self.flying.pop_front();
-                    self.smoothed =
-                        0.125f64.mul_add((acked - sent).as_secs_f64(), 0.875 * self.smoothed);
-                    let smoothed = Duration::from_secs_f64(self.smoothed);
-                    self.window
-                        .acked_packet(acked, sent, u64::from(MTU), smoothed);
-                    let in_flight = (self.flying.len() * usize::from(MTU)) as u64;
-                    self.window.on_end_acks(acked, in_flight, idle, None);
+                self.acknowledge(now);
+                let published = self.published();
+                let measuring = at >= self.measured.from;
+                if measuring {
+                    self.measured.published_sum += published;
+                    self.measured.samples += 1;
+                    self.measured.published_least = Some(
+                        self.measured
+                            .published_least
+                            .map_or(published, |least| least.min(published)),
+                    );
                 }
-                let rate = (bits(self.window.rates.carried()) / 1.2).max(500_000.0);
-                self.credit += factor * rate * STEP.as_secs_f64() / 8.0;
-                let window = usize::try_from(self.window.window()).unwrap();
-                while self.credit >= f64::from(MTU)
-                    && (self.flying.len() + 1) * usize::from(MTU) <= window
-                {
-                    self.credit -= f64::from(MTU);
-                    self.window.on_packet_sent(now, MTU, 0);
-                    self.sent_bits = f64::from(MTU).mul_add(8.0, self.sent_bits);
-                    let reaches = now + Duration::from_millis(5);
-                    let served = reaches.max(self.served_until)
-                        + Duration::from_secs_f64(f64::from(MTU) * 8.0 / self.capacity);
-                    self.served_until = served;
-                    if at > from + to.saturating_sub(from) / 2 {
-                        self.queued_most = self
-                            .queued_most
-                            .max(served.saturating_duration_since(reaches));
-                    }
-                    self.flying
-                        .push_back((now, served + Duration::from_millis(15)));
+                if frames && at >= self.next_frame {
+                    self.make(published / 60.0 / 8.0);
+                    self.next_frame += Duration::from_secs(1) / 60;
                 }
-                self.credit = self.credit.min(4.0 * f64::from(MTU));
+                self.transmit(now, measuring);
                 at += STEP;
+            }
+        }
+
+        /// Sends what waits, as far as the window and the pacer let it go.
+        fn transmit(&mut self, now: Instant, measuring: bool) {
+            #[expect(clippy::cast_precision_loss, reason = "rates are small")]
+            let rate = self.window.metrics().pacing_rate.unwrap() as f64;
+            let mut held = false;
+            while let Some(&bytes) = self.waiting.front() {
+                if self.in_flight + u64::from(MTU) > self.window.window()
+                    || !self.pacer.take(rate, bytes, now)
+                {
+                    held = true;
+                    break;
+                }
+                self.waiting.pop_front();
+                self.window.on_packet_sent(now, bytes, 0);
+                self.in_flight += u64::from(bytes);
+                self.sent_bits = f64::from(bytes).mul_add(8.0, self.sent_bits);
+                let acked = self.carry(now, bytes, measuring);
+                if measuring {
+                    self.measured.sent += 1;
+                    self.measured.lost += u32::from(acked.is_none());
+                }
+                self.flying.push_back(Flight {
+                    number: self.sent_packets,
+                    sent: now,
+                    bytes,
+                    acked,
+                });
+                self.sent_packets += 1;
+            }
+            self.app_limited = !held;
+        }
+
+        /// When the acknowledgement of a packet sent at `now` arrives, or `None` when the path
+        /// drops it.
+        fn carry(&mut self, now: Instant, bytes: u16, measuring: bool) -> Option<Instant> {
+            let reaches = now + self.round_trip / 4;
+            if let Some(policer) = &mut self.policer
+                && !policer.passes(bytes, reaches)
+            {
+                return None;
+            }
+            if self
+                .queue_limit
+                .is_some_and(|limit| self.served_until.saturating_duration_since(reaches) > limit)
+            {
+                return None;
+            }
+            let served = reaches.max(self.served_until)
+                + Duration::from_secs_f64(f64::from(bytes) * 8.0 / self.capacity);
+            self.served_until = served;
+            if measuring {
+                self.measured.queued_most = self
+                    .measured
+                    .queued_most
+                    .max(served.saturating_duration_since(reaches));
+            }
+            (self.chance() >= self.radio_loss).then(|| served + self.round_trip * 3 / 4)
+        }
+
+        fn acknowledge(&mut self, now: Instant) {
+            let mut index = 0;
+            while let Some(flight) = self.flying.get(index) {
+                match flight.acked {
+                    None => index += 1,
+                    Some(acked) if acked <= now => {
+                        let (sent, bytes) = (flight.sent, flight.bytes);
+                        self.largest_acked = Some(flight.number);
+                        self.flying.remove(index);
+                        self.in_flight -= u64::from(bytes);
+                        self.smoothed =
+                            0.125f64.mul_add((acked - sent).as_secs_f64(), 0.875 * self.smoothed);
+                        let smoothed = Duration::from_secs_f64(self.smoothed);
+                        self.window
+                            .acked_packet(acked, sent, u64::from(bytes), smoothed);
+                        self.window
+                            .on_end_acks(acked, self.in_flight, self.app_limited, None);
+                        self.detect_lost(acked);
+                        index = 0;
+                    }
+                    Some(_) => break,
+                }
+            }
+            self.detect_lost(now);
+        }
+
+        /// Every packet before the largest acknowledged one that is still in flight was dropped,
+        /// and these come first in `flying`.
+        fn detect_lost(&mut self, now: Instant) {
+            let Some(largest) = self.largest_acked else {
+                return;
+            };
+            let delay = Duration::from_secs_f64(self.smoothed * 9.0 / 8.0);
+            let mut lost: u64 = 0;
+            while let Some(flight) = self.flying.front()
+                && flight.number < largest
+                && (flight.number + 3 <= largest
+                    || now.saturating_duration_since(flight.sent) >= delay)
+            {
+                let bytes = flight.bytes;
+                self.flying.pop_front();
+                self.in_flight -= u64::from(bytes);
+                self.window.on_packet_lost(bytes, 0, now);
+                lost += u64::from(bytes);
+            }
+            if lost > 0 {
+                self.window
+                    .on_congestion_event(now, now, false, false, lost, 0);
             }
         }
     }
@@ -725,6 +1073,7 @@ mod tests {
         let mut path = Path::new(10_000_000.0);
         path.run(Duration::ZERO, Duration::from_secs(10));
         let settled_from = path.sent_bits;
+        path.measure_from(Duration::from_secs(15));
         path.run(Duration::from_secs(10), Duration::from_secs(20));
         let sent = (path.sent_bits - settled_from) / 10.0;
         assert!(
@@ -732,9 +1081,9 @@ mod tests {
             "uses most of a 10 Mbps bottleneck: {sent}"
         );
         assert!(
-            path.queued_most < Duration::from_millis(60),
+            path.measured.queued_most < Duration::from_millis(60),
             "keeps the queue short: {:?}",
-            path.queued_most
+            path.measured.queued_most
         );
     }
 
@@ -743,7 +1092,7 @@ mod tests {
         let mut path = Path::new(10_000_000.0);
         path.run(Duration::ZERO, Duration::from_secs(10));
         path.capacity = 3_000_000.0;
-        path.queued_most = Duration::ZERO;
+        path.measure_from(Duration::from_secs(15));
         path.run(Duration::from_secs(10), Duration::from_secs(20));
         let published = bits(path.window.rates.carried()) / 1.2;
         assert!(
@@ -751,58 +1100,153 @@ mod tests {
             "follows the narrower path: {published}"
         );
         assert!(
-            path.queued_most < Duration::from_millis(60),
+            path.measured.queued_most < Duration::from_millis(60),
             "drains the queue: {:?}",
-            path.queued_most
+            path.measured.queued_most
         );
     }
 
-    /// A screen sends a frame of a few frame times of bitrate at once, paced at 1.5 times the
-    /// bitrate, and is then still until the next change. Its bursts are its only probes: the
-    /// published bitrate must not rise while it is still, nor settle above what the path carries.
+    /// A video source at the published bitrate runs dry after each frame, and noq then tells the
+    /// controller that it has nothing to send: from the floor, the window still grows to what the
+    /// path carries, on a slow link and on a short and a long path.
+    #[test]
+    fn a_source_at_its_bitrate_grows_from_the_floor_to_what_the_path_carries() {
+        for (capacity, round_trip) in [(1e6, 50), (8e6, 20), (20e6, 120)] {
+            let mut path = Path::new(capacity)
+                .with_round_trip(Duration::from_millis(round_trip))
+                .at_the_floor();
+            path.measure_from(Duration::from_secs(20));
+            path.run(Duration::ZERO, Duration::from_secs(40));
+            let mean = path.measured.published_mean();
+            assert!(
+                mean > 0.8 * capacity,
+                "{} Mbit/s, {round_trip} ms: {mean}",
+                capacity / 1e6
+            );
+        }
+    }
+
+    /// A long path starts in about as much time as a short one: until the window first reacts,
+    /// its growth follows time rather than round trips.
+    #[test]
+    fn a_long_path_reaches_most_of_the_capacity_within_seconds() {
+        let capacity = 20e6;
+        for (round_trip, within) in [(120, 6), (200, 8)] {
+            let mut path = Path::new(capacity).with_round_trip(Duration::from_millis(round_trip));
+            let mut at = Duration::ZERO;
+            while at < Duration::from_secs(within) && path.published() < 0.8 * capacity {
+                path.run(at, at + Duration::from_millis(10));
+                at += Duration::from_millis(10);
+            }
+            assert!(
+                path.published() >= 0.8 * capacity,
+                "{round_trip} ms: {} after {within} s",
+                path.published()
+            );
+        }
+    }
+
+    /// A screen sends a frame of a few frame times of bitrate at once, which the pacer sends at
+    /// 1.5 times the bitrate, and is then still until the next change. Its bursts are its only
+    /// probes: the published bitrate must not settle above what the path carries, nor fall far
+    /// below it on a path that loses packets by itself, nor rise once the burst's
+    /// acknowledgements have come.
     #[test]
     fn a_source_that_sends_in_bursts_publishes_no_more_than_the_path_carries() {
-        for (capacity, budgets) in [(3e6, 4.0), (8e6, 4.0), (8e6, 2.0), (20e6, 4.0)] {
-            let mut path = Path::new(capacity);
+        for (capacity, budgets, loss) in [
+            (3e6, 4.0, 0.0),
+            (8e6, 4.0, 0.0),
+            (8e6, 2.0, 0.0),
+            (20e6, 4.0, 0.0),
+            (8e6, 4.0, 0.02),
+        ] {
+            let mut path = Path::new(capacity).with_radio_loss(loss);
             let mut rise: f64 = 1.0;
             let (mut least, mut most) = (f64::MAX, 0.0f64);
             for second in 0..30 {
-                let from = Duration::from_secs(second);
-                let burst = Duration::from_secs_f64(budgets / 60.0 / 1.5);
-                path.send(from, from + burst, 1.5);
-                let after_burst = bits(path.window.rates.carried()) / 1.2;
-                path.send(from + burst, from + Duration::from_secs(1), 0.0);
-                let still = bits(path.window.rates.carried()) / 1.2;
+                let (mut at, end) = (Duration::from_secs(second), Duration::from_secs(second + 1));
+                path.burst(budgets);
+                while at < end && !(path.waiting.is_empty() && path.flying.is_empty()) {
+                    path.still(at, at + STEP);
+                    at += STEP;
+                }
+                let answered = path.published();
+                path.still(at, end);
+                let still = path.published();
                 if second >= 10 {
-                    rise = rise.max(still / after_burst);
+                    rise = rise.max(still / answered);
                     (least, most) = (least.min(still), most.max(still));
                 }
             }
-            let case = format!("{} Mbit/s, {budgets} frame times", capacity / 1e6);
+            let case = format!(
+                "{} Mbit/s, {budgets} frame times, {}% lost",
+                capacity / 1e6,
+                loss * 100.0
+            );
             assert!(rise < 1.02, "{case}: rises {rise} while still");
             assert!(
-                least > 0.4 * capacity && most < 1.35 * capacity,
+                least > 0.4 * capacity && most < 1.1 * capacity,
                 "{case}: from {least} to {most}"
             );
         }
     }
 
-    /// Wi-Fi loses packets now and then without any queue; only losses with a queue mean
-    /// congestion.
+    /// A radio loses packets by itself, without a queue, and the video's parity and resends
+    /// repair them: the bitrate stays near what the path carries and never falls to the floor.
     #[test]
-    fn a_rare_loss_without_a_queue_keeps_the_window() {
-        let mut path = Path::new(1_000_000_000.0);
-        path.run(Duration::ZERO, Duration::from_secs(5));
-        let before = path.window.ref_wnd;
-        let now = path.start + Duration::from_secs(5);
-        path.window.on_packet_lost(MTU, 0, now);
-        path.window
-            .on_congestion_event(now, now, false, false, u64::from(MTU), 0);
-        path.window.react(now + Duration::from_secs(1));
+    fn a_path_that_loses_packets_by_itself_keeps_the_bitrate() {
+        for (capacity, round_trip, loss) in [
+            (6e6, 60, 0.01),
+            (6e6, 60, 0.02),
+            (20e6, 120, 0.01),
+            (20e6, 120, 0.02),
+        ] {
+            let mut path = Path::new(capacity)
+                .with_round_trip(Duration::from_millis(round_trip))
+                .with_radio_loss(loss);
+            path.measure_from(Duration::from_secs(10));
+            path.run(Duration::ZERO, Duration::from_secs(40));
+            let (mean, least) = (
+                path.measured.published_mean(),
+                path.measured.published_least(),
+            );
+            let case = format!(
+                "{} Mbit/s, {round_trip} ms, {}% lost",
+                capacity / 1e6,
+                loss * 100.0
+            );
+            assert!(
+                mean > 0.5 * capacity && least > 0.15 * capacity,
+                "{case}: {mean} on average, {least} at least"
+            );
+        }
+    }
+
+    /// A policer drops what exceeds its rate at once, without a queue: the bitrate settles just
+    /// above that rate and loses little, instead of sawing below it.
+    #[test]
+    fn a_policer_holds_the_bitrate_near_its_rate() {
+        let rate = 3e6;
+        let mut path = Path::new(100e6)
+            .with_round_trip(Duration::from_millis(60))
+            .with_policer(rate);
+        path.measure_from(Duration::from_secs(10));
+        path.run(Duration::ZERO, Duration::from_secs(40));
+        let (least, lost) = (path.measured.published_least(), path.measured.lost_share());
         assert!(
-            path.window.ref_wnd >= before * 0.99,
-            "{before} -> {}",
-            path.window.ref_wnd
+            least > 0.8 * rate && lost < 0.05,
+            "{least} at least, {lost} lost"
         );
+    }
+
+    /// A short queue that overflows before the queue delay reaches its target: losses with a
+    /// queue still cut the window, so they stay rare.
+    #[test]
+    fn a_queue_that_overflows_early_loses_little() {
+        let mut path = Path::new(10e6).with_queue_limit(Duration::from_millis(15));
+        path.measure_from(Duration::from_secs(10));
+        path.run(Duration::ZERO, Duration::from_secs(40));
+        let lost = path.measured.lost_share();
+        assert!(lost < 0.01, "{lost} lost");
     }
 }
