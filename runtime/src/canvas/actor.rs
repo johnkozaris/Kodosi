@@ -36,12 +36,17 @@ pub(crate) struct CanvasServices {
 }
 
 impl CanvasServices {
-    pub(crate) fn new(data_root: &Path, isolated: bool) -> Self {
+    /// `screen_owner` names the account that owns the host, for Kodosi Screen.
+    pub(crate) fn new(
+        data_root: &Path,
+        isolated: bool,
+        screen_owner: watch::Receiver<Option<String>>,
+    ) -> Self {
         Self {
             documents: DocumentHost::new(data_root),
             browsers: BrowserHost::new(data_root, isolated),
             agent_browser: browser::agent_browser(),
-            screen: ScreenHost::new(data_root),
+            screen: ScreenHost::new(data_root, screen_owner),
         }
     }
 

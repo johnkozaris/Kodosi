@@ -124,6 +124,7 @@ async fn logout_cancels_credentials_without_deleting_device_identity() {
         Credentials {
             user_id: user.clone(),
             display_name: "You".to_owned(),
+            handle: String::new(),
             token: Zeroizing::new("secret".into()),
             keys: Arc::new(DeviceKeys::load_or_create(&state.secrets, &user).unwrap()),
             enrolled: true,
@@ -477,6 +478,7 @@ async fn approved_at(address: &str) -> (tempfile::TempDir, BackendClient, Identi
     let credentials = Credentials {
         user_id: bundle.user_id.clone(),
         display_name: "You".to_owned(),
+        handle: String::new(),
         token: Zeroizing::new("token".into()),
         keys: Arc::new(keys),
         enrolled: true,
@@ -764,6 +766,7 @@ pub(super) async fn signed_in_at(address: &str) -> (tempfile::TempDir, BackendCl
         Credentials {
             user_id: user.clone(),
             display_name: "You".to_owned(),
+            handle: String::new(),
             token: Zeroizing::new("token".into()),
             keys: Arc::new(DeviceKeys::load_or_create(&state.secrets, &user).unwrap()),
             enrolled: true,
@@ -838,6 +841,7 @@ async fn friends_kept_at(
     let credentials = Credentials {
         user_id: bundle.user_id.clone(),
         display_name: "You".to_owned(),
+        handle: String::new(),
         token: Zeroizing::new("token".into()),
         keys: Arc::new(keys),
         enrolled: true,

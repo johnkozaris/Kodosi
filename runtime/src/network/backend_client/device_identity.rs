@@ -1,4 +1,6 @@
 use super::*;
+#[cfg(feature = "host")]
+use crate::identity::pins::owner_key;
 use crate::identity::pins::{Anchor, Root, root_of};
 
 impl BackendClient {
@@ -156,8 +158,26 @@ impl BackendClient {
         }
         credentials.enrolled = enrolled;
         credentials.notice = (!enrolled).then_some(notice);
+        #[cfg(feature = "host")]
+        let user = credentials.user_id.clone();
         *self.inner.credentials.write().map_err(|_| Error::Closed)? = Some(credentials);
+        #[cfg(feature = "host")]
+        self.name_owner(&user).await?;
         Ok(enrolled)
+    }
+
+    /// Tells Kodosi Screen which account owns this host, by the identity that it pinned.
+    #[cfg(feature = "host")]
+    async fn name_owner(&self, user: &str) -> Result<()> {
+        let pins = Arc::clone(&self.inner.state.lock().await.pins);
+        let root = pins.lock().map_err(|_| Error::Closed)?.root(user);
+        let key = root.map(|root| owner_key(&self.inner.config.issuer, user, &root));
+        self.inner.owner.send_if_modified(|owner| {
+            let changed = *owner != key;
+            *owner = key;
+            changed
+        });
+        Ok(())
     }
 
     async fn own_standing(

@@ -74,6 +74,9 @@ pub(crate) struct Inner {
     app_login: std::sync::Mutex<Option<AppLogin>>,
     sign_ins: std::sync::Mutex<Option<mpsc::Sender<SignIn>>>,
     projects: Mutex<projects::ProjectCache>,
+    /// The key of the account that owns this host, once its identity is known here.
+    #[cfg(feature = "host")]
+    owner: tokio::sync::watch::Sender<Option<String>>,
 }
 
 /// A sign-in that waits to hear whether its account may take the terminals of this computer.
@@ -190,6 +193,8 @@ impl BackendClient {
                 app_login: std::sync::Mutex::new(None),
                 sign_ins: std::sync::Mutex::new(None),
                 projects: Mutex::new(projects::ProjectCache::default()),
+                #[cfg(feature = "host")]
+                owner: tokio::sync::watch::channel(None).0,
             }),
         })
     }
@@ -250,6 +255,30 @@ impl BackendClient {
                 event["credentialFolder"] = json!(folder.display().to_string());
             }
         }
+    }
+
+    /// The key of the account that owns this host for Kodosi Screen, `None` while nobody is signed
+    /// in or this device does not know the account's identity.
+    #[cfg(feature = "host")]
+    pub(crate) fn owner(&self) -> tokio::sync::watch::Receiver<Option<String>> {
+        self.inner.owner.subscribe()
+    }
+
+    /// The signed-in account as its friends see it: the name, and the user name that is its own.
+    #[cfg(feature = "host")]
+    pub(crate) fn account(&self) -> Option<String> {
+        let (name, handle) = self
+            .inner
+            .credentials
+            .read()
+            .ok()?
+            .as_ref()
+            .map(|credentials| (credentials.display_name.clone(), credentials.handle.clone()))?;
+        Some(match (name.trim(), handle.as_str()) {
+            (name, "") => name.to_owned(),
+            ("", handle) => format!("@{handle}"),
+            (name, handle) => format!("{name} (@{handle})"),
+        })
     }
 
     pub fn identity(&self) -> Option<Identity> {
@@ -1269,6 +1298,7 @@ impl BackendClient {
         *self.inner.credentials.write().expect("credentials") = Some(Credentials {
             user_id: identity.user_id,
             display_name: identity.display_name,
+            handle: String::new(),
             token: Zeroizing::new(String::new()),
             keys: Arc::new(keys),
             enrolled: identity.enrolled,

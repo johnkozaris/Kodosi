@@ -51,6 +51,21 @@ pub(crate) fn root_of(certificate_body: &[u8]) -> Root {
     root
 }
 
+/// Names the account of a sign-in server whose identity has `root`, for Kodosi Screen. A host of
+/// a stranger can name any server and account id, but not this identity, whose root binds the
+/// devices that may watch.
+#[cfg(feature = "host")]
+pub(crate) fn owner_key(issuer: &str, user_id: &str, root: &Root) -> String {
+    let mut hash = Context::new(&SHA256);
+    hash.update(b"kodosi-screen-owner");
+    for part in [issuer.as_bytes(), user_id.as_bytes()] {
+        hash.update(&u64::try_from(part.len()).unwrap_or(u64::MAX).to_be_bytes());
+        hash.update(part);
+    }
+    hash.update(root);
+    crate::hex::hex(hash.finish().as_ref())
+}
+
 impl IdentityBundle {
     pub(crate) fn root(&self) -> Result<Root> {
         let mut root = None;

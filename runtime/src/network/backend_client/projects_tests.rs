@@ -173,6 +173,7 @@ async fn a_device_with_new_keys_registers_its_own_project_key() {
     let credentials = Credentials {
         user_id: Uuid::now_v7().to_string(),
         display_name: "You".to_owned(),
+        handle: String::new(),
         token: Zeroizing::new("token".into()),
         keys: Arc::new(DeviceKeys::generate().unwrap()),
         enrolled: true,
@@ -342,6 +343,7 @@ async fn a_key_made_by_someone_who_left_is_replaced_before_anyone_writes_with_it
     let credentials = Credentials {
         user_id: owner.clone(),
         display_name: "You".to_owned(),
+        handle: String::new(),
         token: Zeroizing::new("token".into()),
         keys: Arc::clone(&alice),
         enrolled: true,
@@ -472,6 +474,7 @@ async fn a_device_keeps_the_project_state_that_it_signed_when_the_server_withhol
     let credentials = Credentials {
         user_id: owner.clone(),
         display_name: "You".to_owned(),
+        handle: String::new(),
         token: Zeroizing::new("token".into()),
         keys: Arc::clone(&alice),
         enrolled: true,
@@ -548,6 +551,7 @@ async fn a_check_that_read_an_older_project_history_takes_the_newer_one_that_con
     let credentials = Credentials {
         user_id: user,
         display_name: "You".to_owned(),
+        handle: String::new(),
         token: Zeroizing::new("token".into()),
         keys: Arc::new(keys),
         enrolled: true,
@@ -798,6 +802,7 @@ async fn fake_project() -> (
     let credentials = Credentials {
         user_id: fake.user.clone(),
         display_name: "You".to_owned(),
+        handle: String::new(),
         token: Zeroizing::new("token".into()),
         keys: Arc::clone(&fake.keys),
         enrolled: true,

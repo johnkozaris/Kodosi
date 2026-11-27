@@ -1,7 +1,7 @@
 //! One helper's capture and the viewers that share it.
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     sync::{Arc, PoisonError},
     time::{Duration, Instant},
 };
@@ -13,14 +13,14 @@ use stream::{
 };
 use tokio::{
     io::AsyncWriteExt as _,
-    sync::{Notify, mpsc, oneshot},
+    sync::{Notify, mpsc, oneshot, watch},
 };
 
 use crate::{
-    host::{Reading, Started},
+    host::{Error, Reading, Started},
     link::{
-        self, Access, Away, FromHelper, MOST_CLIPBOARD, Message, Notice, Pointer, Shape, Source,
-        Sources, ToHelper, Window,
+        self, Access, Away, FromHelper, MOST_CLIPBOARD, Message, Notice, Pointer, Question, Shape,
+        Source, Sources, ToHelper, Window,
     },
     wire::{State, ToScreen},
 };
@@ -61,6 +61,12 @@ pub(crate) enum Event {
     Show(Wanted),
     Access(oneshot::Sender<Access>),
     Ask,
+    Allow {
+        question: Question,
+        reply: oneshot::Sender<Result<bool, Error>>,
+    },
+    /// Ends the screen after the helper forgot every account.
+    Forget,
     Stop,
 }
 
@@ -221,6 +227,15 @@ pub(crate) struct Calls {
 
 pub(crate) struct Live {
     helper: mpsc::Sender<Bytes>,
+    /// The account that this screen serves, which ends it when another one signs in.
+    owner: Option<String>,
+    owners: watch::Receiver<Option<String>>,
+    /// The helper said whether it serves the account, or the host named none. Until then what
+    /// the helper may do waits, so that the sharing that it turns off reads off.
+    owned: bool,
+    waiting_for_owner: Vec<oneshot::Sender<Access>>,
+    /// The switch's asks, in order, until the helper answers each.
+    asking: VecDeque<oneshot::Sender<Result<bool, Error>>>,
     /// The helper where it runs as the host's child.
     child: Option<tokio::process::Child>,
     encodable: Vec<Codec>,
@@ -256,7 +271,13 @@ pub(crate) struct Live {
 }
 
 impl Live {
-    pub(crate) fn new(started: Started, wanted: Wanted, calls: Calls) -> (Self, Reading) {
+    pub(crate) fn new(
+        started: Started,
+        wanted: Wanted,
+        calls: Calls,
+        owner: Option<String>,
+        owners: watch::Receiver<Option<String>>,
+    ) -> (Self, Reading) {
         let (helper, mut writing) = mpsc::channel::<Bytes>(HELPER_MESSAGES);
         let mut writer = started.writer;
         tokio::spawn(async move {
@@ -269,6 +290,11 @@ impl Live {
         let now = tokio_now();
         let live = Self {
             helper,
+            owned: owner.is_none(),
+            owner,
+            owners,
+            waiting_for_owner: Vec::new(),
+            asking: VecDeque::new(),
             child: started.child,
             encodable: started.encodable,
             largest: (f64::from(started.largest.0), f64::from(started.largest.1)),
@@ -293,6 +319,9 @@ impl Live {
             dirty: false,
             idle_since: Some(now),
         };
+        if let Some(key) = &live.owner {
+            live.say(&ToHelper::Owner { key: key.clone() });
+        }
         (live, started.reader)
     }
 
@@ -307,11 +336,17 @@ impl Live {
         });
         let mut tick = tokio::time::interval(TICK);
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        let mut owners = self.owners.clone();
+        let mut owners_open = true;
         loop {
             let going = tokio::select! {
                 event = events.recv() => event.is_some_and(|event| self.handle(event)),
                 message = hearing.recv() => message.is_some_and(|message| self.hear(message)),
                 _ = tick.tick() => self.tick(),
+                changed = owners.changed(), if owners_open => {
+                    owners_open = changed.is_ok();
+                    *owners.borrow_and_update() == self.owner
+                }
             };
             if !going {
                 break;
@@ -375,8 +410,29 @@ impl Live {
                 self.chosen = false;
                 self.show(self.pick());
             }
-            Event::Access(reply) => drop(reply.send(self.access)),
+            Event::Access(reply) => {
+                if self.owned {
+                    let _ = reply.send(self.access);
+                } else {
+                    self.waiting_for_owner.push(reply);
+                }
+            }
             Event::Ask => self.say(&ToHelper::Ask),
+            Event::Allow { question, reply } => {
+                if self
+                    .helper
+                    .try_send(link::json(&ToHelper::Allow { question }))
+                    .is_ok()
+                {
+                    self.asking.push_back(reply);
+                } else {
+                    drop(reply.send(Err(Error::Stopped)));
+                }
+            }
+            Event::Forget => {
+                self.say(&ToHelper::Forget);
+                return false;
+            }
             Event::Stop => return false,
         }
         true
@@ -580,6 +636,22 @@ impl Live {
                 FromHelper::Failed { .. } => {
                     self.capture = None;
                     self.capture_failed_at = Some(tokio_now());
+                }
+                FromHelper::Owner { allowed } => {
+                    if !allowed {
+                        (self.calls.stopped)();
+                    }
+                    self.owned = true;
+                    for reply in std::mem::take(&mut self.waiting_for_owner) {
+                        let _ = reply.send(self.access);
+                    }
+                }
+                FromHelper::Allowed { allowed, problem } => {
+                    if let Some(reply) = self.asking.pop_front() {
+                        drop(reply.send(
+                            problem.map_or(Ok(allowed), |problem| Err(Error::Helper(problem))),
+                        ));
+                    }
                 }
             },
         }
@@ -1029,10 +1101,18 @@ mod tests {
     struct Computer {
         helper: DuplexStream,
         events: mpsc::Sender<Event>,
+        owner: watch::Sender<Option<String>>,
+        /// How often the host heard that the sharing ended at the computer.
+        stopped: Arc<std::sync::atomic::AtomicUsize>,
     }
 
     impl Computer {
         async fn start() -> Self {
+            Self::serving(None).await
+        }
+
+        /// A screen of the account that `owner` names.
+        async fn serving(owner: Option<&str>) -> Self {
             let (host, mut helper) = tokio::io::duplex(1 << 20);
             let (reader, writer) = tokio::io::split(host);
             let started = Started {
@@ -1047,14 +1127,22 @@ mod tests {
                 },
                 away: None,
             };
+            let stopped = Arc::new(std::sync::atomic::AtomicUsize::new(0));
             let calls = Calls {
                 notice: Arc::new(|names| Notice {
                     watching: names.join(", "),
                     stop: "Stop".to_owned(),
                 }),
-                stopped: Arc::new(|| {}),
+                stopped: Arc::new({
+                    let stopped = Arc::clone(&stopped);
+                    move || {
+                        stopped.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    }
+                }),
             };
-            let (live, reader) = Live::new(started, Wanted::Screen, calls);
+            let owner = owner.map(str::to_owned);
+            let (owners, watching) = watch::channel(owner.clone());
+            let (live, reader) = Live::new(started, Wanted::Screen, calls, owner, watching);
             let (events, receiver) = mpsc::channel(16);
             tokio::spawn(live.run(reader, receiver));
             let display = Display {
@@ -1071,7 +1159,16 @@ mod tests {
                 .write_all(&link::json(&FromHelper::Sources { sources }))
                 .await
                 .unwrap();
-            Self { helper, events }
+            Self {
+                helper,
+                events,
+                owner: owners,
+                stopped,
+            }
+        }
+
+        fn stops(&self) -> usize {
+            self.stopped.load(std::sync::atomic::Ordering::Relaxed)
         }
 
         async fn watch(
@@ -1200,6 +1297,85 @@ mod tests {
             })
             .await
         }
+    }
+
+    fn question() -> Question {
+        Question {
+            message: "Let the devices of Maya see and control this Mac?".to_owned(),
+            detail: "Kodosi Screen asks once for each account.".to_owned(),
+            allow: "Allow".to_owned(),
+            refuse: "Don't Allow".to_owned(),
+        }
+    }
+
+    #[tokio::test]
+    async fn a_helper_that_does_not_serve_the_account_turns_the_sharing_off_before_it_says_more() {
+        let mut computer = Computer::serving(Some("maya")).await;
+        let key = computer
+            .next(|said| match said {
+                ToHelper::Owner { key } => Some(key),
+                _ => None,
+            })
+            .await;
+        assert_eq!(key, "maya");
+        let (reply, access) = oneshot::channel();
+        computer.events.send(Event::Access(reply)).await.unwrap();
+        computer.tell(FromHelper::Owner { allowed: false }).await;
+        access.await.unwrap();
+        assert_eq!(computer.stops(), 1);
+    }
+
+    #[tokio::test]
+    async fn the_switch_waits_for_the_answer_of_the_person_at_the_computer() {
+        let mut computer = Computer::serving(Some("maya")).await;
+        let mut answers = Vec::new();
+        for _ in 0..2 {
+            let (reply, answer) = oneshot::channel();
+            computer
+                .events
+                .send(Event::Allow {
+                    question: question(),
+                    reply,
+                })
+                .await
+                .unwrap();
+            answers.push(answer);
+            computer
+                .next(|said| matches!(said, ToHelper::Allow { .. }).then_some(()))
+                .await;
+        }
+        computer
+            .tell(FromHelper::Allowed {
+                allowed: true,
+                problem: None,
+            })
+            .await;
+        computer
+            .tell(FromHelper::Allowed {
+                allowed: false,
+                problem: Some("the keychain refused the answer".to_owned()),
+            })
+            .await;
+        let mut answers = answers.into_iter();
+        assert!(matches!(answers.next().unwrap().await, Ok(Ok(true))));
+        assert!(matches!(
+            answers.next().unwrap().await,
+            Ok(Err(Error::Helper(_)))
+        ));
+        assert_eq!(computer.stops(), 0);
+    }
+
+    #[tokio::test]
+    async fn another_account_that_signs_in_ends_the_screen_of_the_last_one() {
+        let mut computer = Computer::serving(Some("maya")).await;
+        computer
+            .watch("phone", view(390, 844, 3.0), vec![HEVC], true)
+            .await;
+        computer.capture().await;
+        computer.owner.send_replace(Some("ana".to_owned()));
+        computer
+            .next(|said| matches!(said, ToHelper::Quit).then_some(()))
+            .await;
     }
 
     #[tokio::test]

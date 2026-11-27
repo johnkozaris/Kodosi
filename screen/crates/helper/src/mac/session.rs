@@ -11,7 +11,7 @@ use objc2_core_graphics::{
 };
 use screen::{
     handover,
-    link::{self, Access, Away, FromHelper, Message, Source, Sources, ToHelper, VERSION},
+    link::{self, Access, Away, FromHelper, Message, Question, Source, Sources, ToHelper, VERSION},
     signature::Signer,
 };
 use stream::viewer::{Input, KeyAction, MouseAction};
@@ -26,9 +26,12 @@ use tokio::{
 };
 
 use super::{
+    alert,
+    answers::Answers,
     app,
     capture::{Capture, Frames, Wanted},
     clipboard::{self, Clipboard},
+    gate::{Gate, Step},
     hand,
     input::Hands,
     power::{self, Power},
@@ -46,6 +49,8 @@ const RAISING: Duration = Duration::from_millis(50);
 const COPIES_EVERY: Duration = Duration::from_millis(500);
 /// The host hands over the link once Launch Services says that the helper opened.
 const HANDOVER_LIMIT: Duration = Duration::from_secs(15);
+/// Kodosi Screen's bundle, which after the team names the keychain group of its signature.
+const BUNDLE: &str = "com.kodosi.screen";
 
 pub(super) enum Event {
     /// The person at the computer stopped the sharing.
@@ -57,6 +62,11 @@ pub(super) enum Event {
     /// The screen locked or unlocked, the displays slept or woke, or the account on the display
     /// changed.
     Changed,
+    /// The person at the computer answered alert `alert`, or it could not show.
+    Answered {
+        alert: u64,
+        answer: Result<bool, String>,
+    },
 }
 
 /// Takes the link from the host and serves it until the link closes, or quits before it says
@@ -75,6 +85,10 @@ pub(super) fn serve(
     let Ok(link) = handover::take(link, HANDOVER_LIMIT, &signer) else {
         return;
     };
+    let answers = match &signer {
+        Signer::Team(team) => Some(Answers::new(&format!("{team}.{BUNDLE}"))),
+        Signer::NoTeam => None,
+    };
     let Ok(runtime) = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -91,7 +105,7 @@ pub(super) fn serve(
         };
         let (reader, writer) = socket.into_split();
         tokio::spawn(write(writer, saying));
-        let mut session = Session::new(say, events);
+        let mut session = Session::new(say, events, answers);
         session.hello(token).await;
         session.run(reader, hearing).await;
     });
@@ -118,6 +132,9 @@ async fn read(mut reader: OwnedReadHalf, heard: mpsc::Sender<ToHelper>) {
 struct Session {
     say: mpsc::Sender<Bytes>,
     events: mpsc::UnboundedSender<Event>,
+    gate: Gate,
+    /// Where a Kodosi Screen of a team keeps the accounts that the person allowed.
+    answers: Option<Answers>,
     access: Access,
     away: Option<Away>,
     /// The display slept at the last look, which woke it while someone watched.
@@ -134,10 +151,16 @@ struct Session {
 }
 
 impl Session {
-    fn new(say: mpsc::Sender<Bytes>, events: mpsc::UnboundedSender<Event>) -> Self {
+    fn new(
+        say: mpsc::Sender<Bytes>,
+        events: mpsc::UnboundedSender<Event>,
+        answers: Option<Answers>,
+    ) -> Self {
         Self {
             say,
             events,
+            gate: Gate::new(answers.is_some()),
+            answers,
             access: Access::default(),
             away: None,
             slept: false,
@@ -194,6 +217,9 @@ impl Session {
 
     /// Returns false when the host wants the helper to quit.
     async fn hear(&mut self, said: ToHelper) -> bool {
+        if !self.gate.admits(&said) {
+            return true;
+        }
         match said {
             ToHelper::Capture {
                 source,
@@ -246,9 +272,83 @@ impl Session {
                     CGRequestPostEventAccess();
                 }
             }
+            ToHelper::Owner { key } => self.own(key).await,
+            ToHelper::Allow { question } => self.allow(question).await,
+            ToHelper::Forget => self.forget().await,
             ToHelper::Quit => return false,
         }
         true
+    }
+
+    async fn own(&mut self, key: String) {
+        let answers = self.answers.as_ref();
+        let known = |key: &str| answers.is_some_and(|answers| answers.known(key));
+        if let Some(allowed) = self.gate.own(key, known) {
+            self.tell(FromHelper::Owner { allowed }).await;
+            if allowed {
+                self.look().await;
+            }
+        }
+    }
+
+    async fn allow(&mut self, question: Question) {
+        match self.gate.ask() {
+            Step::Answer(allowed) => {
+                self.tell(FromHelper::Allowed {
+                    allowed,
+                    problem: None,
+                })
+                .await;
+            }
+            Step::Join => {}
+            Step::Show(shown) => match alert::intact() {
+                Ok(()) => alert::show(question, shown, self.events.clone()),
+                Err(problem) => self.answer(shown, Err(problem)).await,
+            },
+        }
+    }
+
+    /// Keeps the account right after the person allowed it in this program's alert, and answers
+    /// each ask that waited for it. Without a keeping the answer is no, as the host learns why.
+    async fn answer(&mut self, shown: u64, answer: Result<bool, String>) {
+        let Some(key) = self.gate.standing(shown) else {
+            return;
+        };
+        let kept = match (answer, &self.answers) {
+            (Ok(true), Some(answers)) => answers.keep(key).map(|()| true),
+            (answer, _) => answer,
+        };
+        let (allowed, problem) = match kept {
+            Ok(allowed) => (allowed, None),
+            Err(problem) => (false, Some(problem)),
+        };
+        for _ in 0..self.gate.settle(allowed) {
+            self.tell(FromHelper::Allowed {
+                allowed,
+                problem: problem.clone(),
+            })
+            .await;
+        }
+        if allowed {
+            self.look().await;
+        }
+    }
+
+    /// Off means nobody: every account that the person allowed needs their answer again.
+    async fn forget(&mut self) {
+        // The keychain refuses only a helper that cannot read the answers either.
+        if let Some(answers) = &self.answers {
+            drop(answers.forget());
+        }
+        for _ in 0..self.gate.forget() {
+            self.tell(FromHelper::Allowed {
+                allowed: false,
+                problem: None,
+            })
+            .await;
+        }
+        self.stop().await;
+        app::notice(None);
     }
 
     async fn capture(&mut self, wanted: Wanted, settings: Settings) -> Result<(), String> {
@@ -305,9 +405,10 @@ impl Session {
     async fn event(&mut self, event: Event) {
         match event {
             Event::Stopped => {
-                self.stop().await;
+                self.forget().await;
                 self.tell(FromHelper::Stopped).await;
             }
+            Event::Answered { alert, answer } => self.answer(alert, answer).await,
             Event::Failed(problem) => {
                 if self.capture.is_some() {
                     self.fail(problem).await;
@@ -375,6 +476,7 @@ impl Session {
         let away = self.away_now();
         if away.is_none()
             && self.access.screen
+            && self.gate.serves()
             && let Ok(content) = Content::now().await
         {
             let sources = content.sources();

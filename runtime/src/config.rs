@@ -3,6 +3,9 @@ use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::path::{Component, Path, PathBuf};
 
+const BUILT_IN_BACKEND: &str = "https://api.kodosi.com";
+const BUILT_IN_ISSUER: &str = "https://auth.kodosi.com/realms/kodosi";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum HostKind {
@@ -42,8 +45,8 @@ impl Config {
             }
             None => (production, None, false),
         };
-        let backend = std::env::var("KODOSI__BACKEND__API")
-            .unwrap_or_else(|_| "https://api.kodosi.com".to_owned());
+        let backend =
+            std::env::var("KODOSI__BACKEND__API").unwrap_or_else(|_| BUILT_IN_BACKEND.to_owned());
         let backend_url =
             Url::parse(&backend).map_err(|error| Error::Invalid(error.to_string()))?;
         crate::identity::oidc::validate_url(&backend_url)?;
@@ -52,8 +55,8 @@ impl Config {
                 "backend URL must not contain a query".to_owned(),
             ));
         }
-        let oidc_issuer = std::env::var("KODOSI__AUTH__ISSUER")
-            .unwrap_or_else(|_| "https://auth.kodosi.com/realms/kodosi".to_owned());
+        let oidc_issuer =
+            std::env::var("KODOSI__AUTH__ISSUER").unwrap_or_else(|_| BUILT_IN_ISSUER.to_owned());
         let issuer = Url::parse(&oidc_issuer).map_err(|error| Error::Invalid(error.to_string()))?;
         crate::identity::oidc::validate_url(&issuer)?;
         if issuer.query().is_some() {
@@ -79,6 +82,26 @@ impl Config {
             secret_service: "com.kodosi.local".to_owned(),
             host: HostKind::Background,
         })
+    }
+
+    /// The server that the account comes from, as host and port, when it is not Kodosi's own: the
+    /// sign-in server, or else the Kodosi server. Anyone may run either and name any account there.
+    #[cfg(feature = "host")]
+    pub(crate) fn foreign_server(&self) -> Option<String> {
+        let place = |url: &Url| {
+            let host = url.host_str()?;
+            Some(
+                url.port()
+                    .map_or_else(|| host.to_owned(), |port| format!("{host}:{port}")),
+            )
+        };
+        if self.oidc_issuer != BUILT_IN_ISSUER {
+            Url::parse(&self.oidc_issuer).ok().as_ref().and_then(place)
+        } else if Url::parse(BUILT_IN_BACKEND).is_ok_and(|built_in| self.backend_url != built_in) {
+            place(&self.backend_url)
+        } else {
+            None
+        }
     }
 
     #[cfg(feature = "host")]
@@ -241,5 +264,22 @@ mod tests {
             assert!(validate_isolated(candidate, &production, home).is_err());
         }
         assert!(validate_isolated(Path::new("/tmp/kodosi-test"), &production, home).is_ok());
+    }
+
+    #[cfg(feature = "host")]
+    #[test]
+    fn an_account_of_a_server_that_is_not_kodosis_names_that_server() {
+        let root = tempfile::tempdir().unwrap();
+        let mut config = Config::isolated(root.path()).unwrap();
+        config.oidc_issuer = "http://localhost:8284/realms/kodosi".to_owned();
+        assert_eq!(config.foreign_server().as_deref(), Some("localhost:8284"));
+        config.oidc_issuer = BUILT_IN_ISSUER.to_owned();
+        config.backend_url = Url::parse("https://kodosi.example.org/").unwrap();
+        assert_eq!(
+            config.foreign_server().as_deref(),
+            Some("kodosi.example.org")
+        );
+        config.backend_url = Url::parse(BUILT_IN_BACKEND).unwrap();
+        assert_eq!(config.foreign_server(), None);
     }
 }

@@ -526,7 +526,11 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             pipes: HashMap::new(),
             direct: HashMap::new(),
             #[cfg(feature = "host")]
-            services: crate::canvas::CanvasServices::new(&config.data_root, true),
+            services: crate::canvas::CanvasServices::new(
+                &config.data_root,
+                true,
+                watch::channel(None).1,
+            ),
             #[cfg(feature = "host")]
             links: crate::chat::Links::unserved(),
             #[cfg(feature = "host")]
@@ -5854,7 +5858,7 @@ async fn a_deleted_message_takes_back_the_mentions_that_wait_for_its_agents() {
 #[cfg(all(unix, feature = "host"))]
 fn stand_in_canvas() -> crate::canvas::CanvasHandle {
     let folder = std::env::temp_dir();
-    let services = crate::canvas::CanvasServices::new(&folder, true);
+    let services = crate::canvas::CanvasServices::new(&folder, true, watch::channel(None).1);
     crate::canvas::CanvasHandle::spawn(Uuid::now_v7(), &folder, services)
 }
 

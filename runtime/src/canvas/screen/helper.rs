@@ -7,6 +7,7 @@ use std::{
 
 use bytes::Bytes;
 use shared_browser::Viewer;
+use tokio::sync::watch;
 
 use crate::{
     canvas::{
@@ -25,6 +26,7 @@ impl Screens {
     /// development. On Linux it keeps what the desktop granted it in the data root.
     pub(super) fn new(
         data_root: &Path,
+        owner: watch::Receiver<Option<String>>,
         stopped: impl Fn() + Send + Sync + 'static,
     ) -> Option<Self> {
         let helper = std::env::var_os("KODOSI_SCREEN_HELPER")
@@ -57,6 +59,7 @@ impl Screens {
                 }
             }),
             stopped: Arc::new(stopped),
+            owner,
         })))
     }
 
@@ -92,6 +95,21 @@ impl Screens {
     pub(super) async fn ask(self) {
         if let Err(problem) = self.0.ask().await {
             tracing::warn!(%problem, "Kodosi Screen could not ask for its permissions");
+        }
+    }
+
+    /// Whether the person at the computer allowed the account, which is no when Kodosi Screen
+    /// could not ask them.
+    pub(super) async fn allow(&self, question: screen::Question) -> bool {
+        self.0.allow(question).await.unwrap_or_else(|problem| {
+            tracing::warn!(%problem, "Kodosi Screen did not allow this account");
+            false
+        })
+    }
+
+    pub(super) async fn forget(self) {
+        if let Err(problem) = self.0.forget().await {
+            tracing::warn!(%problem, "Kodosi Screen could not forget the accounts that were allowed");
         }
     }
 }

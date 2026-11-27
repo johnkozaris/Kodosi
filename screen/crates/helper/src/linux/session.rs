@@ -295,6 +295,16 @@ impl Session {
                 }
             }
             ToHelper::Ask => self.ask().await,
+            // The desktop's portal asks the person at the computer before it shares the screen.
+            ToHelper::Owner { .. } => self.tell(FromHelper::Owner { allowed: true }).await,
+            ToHelper::Allow { .. } => {
+                self.tell(FromHelper::Allowed {
+                    allowed: true,
+                    problem: None,
+                })
+                .await;
+            }
+            ToHelper::Forget => {}
             ToHelper::Quit => return false,
         }
         true

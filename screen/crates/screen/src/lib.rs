@@ -16,7 +16,7 @@ mod wire;
 
 #[cfg(feature = "host")]
 pub use host::{Error, Pipe, Screens, Settings};
-pub use link::Notice;
+pub use link::{Notice, Question};
 #[cfg(feature = "host")]
 pub use live::Wanted;
 pub use stream::viewer::Viewer;

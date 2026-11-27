@@ -444,3 +444,17 @@ fn a_removed_device_cannot_approve_a_new_device() {
     pins.verify(&approved_by(&fixture.b), Anchor::Pinned, 2000)
         .unwrap();
 }
+
+#[cfg(feature = "host")]
+#[test]
+fn kodosi_screen_tells_apart_accounts_whose_server_and_id_join_to_the_same_text() {
+    let root = [7; 32];
+    assert_ne!(
+        owner_key("https://auth.example.org/a", "bc", &root),
+        owner_key("https://auth.example.org/ab", "c", &root)
+    );
+    assert_ne!(
+        owner_key("https://auth.example.org", "maya", &root),
+        owner_key("https://auth.example.org", "maya", &[8; 32])
+    );
+}
