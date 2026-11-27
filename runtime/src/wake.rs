@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, io, net::Ipv4Addr, time::Duration};
+use std::{collections::BTreeSet, net::Ipv4Addr, time::Duration};
 
 use futures_util::{StreamExt as _, stream::FuturesUnordered};
 use kodosi_os::network::{Hardware, Link};
@@ -168,13 +168,7 @@ impl OwnNetwork {
         use crate::protocol::{ComputerSystem, WAKE_LINKS_MOST, WakeLink};
 
         WakeDetails {
-            system: if cfg!(target_os = "macos") {
-                ComputerSystem::Mac
-            } else if cfg!(windows) {
-                ComputerSystem::Windows
-            } else {
-                ComputerSystem::Linux
-            },
+            system: ComputerSystem::this(),
             links: self
                 .cards
                 .iter()
@@ -223,10 +217,7 @@ impl OwnNetwork {
                 Ok(()) => outcome = WakeSignal::Sent,
                 Err(error) => {
                     tracing::warn!(%error, "the wake signal did not leave this device");
-                    // macOS answers this to an app that the person did not allow on the local
-                    // network.
-                    if cfg!(target_os = "macos")
-                        && error.kind() == io::ErrorKind::HostUnreachable
+                    if kodosi_os::network::refused_on_local_network(&error)
                         && outcome == WakeSignal::Elsewhere
                     {
                         outcome = WakeSignal::Refused;

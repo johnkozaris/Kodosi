@@ -127,6 +127,12 @@ pub fn wake(from: &Link, sleepers: &[Hardware]) -> io::Result<()> {
     Ok(())
 }
 
+/// Whether the system refused a send because the person did not let this program onto the local
+/// network: macOS answers that the device is unreachable.
+pub fn refused_on_local_network(error: &io::Error) -> bool {
+    cfg!(target_os = "macos") && error.kind() == io::ErrorKind::HostUnreachable
+}
+
 const PLAIN: usize = 6 + 16 * 6;
 const PASSWORD: usize = 6;
 

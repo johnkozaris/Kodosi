@@ -443,6 +443,24 @@ fn a_private_address_counts_only_on_a_network_of_this_computer() {
 }
 
 #[cfg(feature = "host")]
+#[test]
+fn a_mac_leaves_its_own_networks_addresses_to_the_device_that_asks() {
+    let address = |text: &str| text.parse::<SocketAddr>().unwrap();
+    let theirs = [
+        (address("192.168.1.13:47360"), true),
+        (address("[2001:db8:1::13]:47360"), true),
+        (address("203.0.113.9:47360"), false),
+    ];
+    assert_eq!(
+        punched(&theirs, ComputerSystem::Mac),
+        [address("203.0.113.9:47360")]
+    );
+    for system in [ComputerSystem::Linux, ComputerSystem::Windows] {
+        assert_eq!(punched(&theirs, system), theirs.map(|(address, _)| address));
+    }
+}
+
+#[cfg(feature = "host")]
 #[tokio::test]
 async fn video_frames_go_as_datagrams_once_the_viewer_takes_the_flow() {
     let (host_keys, viewer_keys) = (

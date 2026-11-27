@@ -1947,6 +1947,19 @@ pub enum ComputerSystem {
     Linux,
 }
 
+#[cfg(feature = "host")]
+impl ComputerSystem {
+    pub(crate) const fn this() -> Self {
+        if cfg!(target_os = "macos") {
+            Self::Mac
+        } else if cfg!(windows) {
+            Self::Windows
+        } else {
+            Self::Linux
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum WakeMedium {
