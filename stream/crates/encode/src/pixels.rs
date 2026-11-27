@@ -1,6 +1,6 @@
 //! Encoders that take BGRA pixels on a worker thread, so encoding never blocks the source. New
 //! pictures replace a picture still waiting for the worker; two buffers are reused between the
-//! threads.
+//! threads. On Linux, the newest picture may instead be one that the GPU converted already.
 
 use std::{
     sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError},
@@ -22,9 +22,17 @@ pub(crate) struct Pixels {
 #[derive(Default)]
 pub(crate) struct Slot {
     pub(crate) picture: Option<Pixels>,
+    /// The newest picture in place of `picture`, when the GPU converted it.
+    #[cfg(target_os = "linux")]
+    pub(crate) converted: Option<crate::vaapi::Converted>,
     /// The share of the source that changed since the worker last took a picture.
     pub(crate) changed: f64,
     pub(crate) spare: Vec<u8>,
+    #[cfg(target_os = "linux")]
+    pub(crate) spare_surface: Option<crate::vaapi::Surface>,
+    /// The worker no longer encodes on the GPU, so pictures must come as pixels.
+    #[cfg(target_os = "linux")]
+    pub(crate) gpu_stopped: bool,
     pub(crate) key: bool,
     /// A new format for the stream, which `OpenH264` encodes as H.264 all the same.
     pub(crate) format: Option<Format>,
@@ -73,6 +81,11 @@ impl Encoder {
         Self { shared, worker }
     }
 
+    #[cfg(target_os = "linux")]
+    pub(crate) const fn shared(&self) -> &Shared {
+        &self.shared
+    }
+
     fn change<R>(&self, change: impl FnOnce(&mut Slot) -> R) -> R {
         let result = change(&mut lock(&self.shared));
         self.shared.1.notify_one();
@@ -112,6 +125,10 @@ impl Encoder {
         }
         let mut kept = {
             let mut slot = lock(&self.shared);
+            #[cfg(target_os = "linux")]
+            if let Some(waiting) = slot.converted.take() {
+                slot.spare_surface = Some(waiting.surface);
+            }
             match slot.picture.take() {
                 Some(waiting) => waiting.bgra,
                 None => std::mem::take(&mut slot.spare),

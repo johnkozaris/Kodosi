@@ -67,6 +67,8 @@ pub(super) enum Event {
     Copied(String),
     /// The capture or its encoder failed.
     Failed(String),
+    /// The encoder needs the newest picture again.
+    Redraw,
     /// The lock or the account in front of the display changed.
     Changed,
     /// The pixels of a display's stream, which tell its scale.
@@ -590,6 +592,11 @@ impl Session {
             Event::Failed(problem) => {
                 if self.linked().is_some() {
                     self.fail(problem).await;
+                }
+            }
+            Event::Redraw => {
+                if let Some(linked) = self.linked() {
+                    linked.video.redraw();
                 }
             }
             Event::Changed => self.look().await,

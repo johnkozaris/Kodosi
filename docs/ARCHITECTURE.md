@@ -330,7 +330,11 @@ macOS, VA-API on Linux graphics that encode H.264, OpenH264 elsewhere). The brow
 Kodosi Screen encode with it, and the host runs its flow control. libva is loaded at run time, so a
 Linux computer without it encodes in software, and a stream whose GPU fails continues in OpenH264.
 VA-API also encodes HEVC where the driver reports which coding tools its encoder uses, since the
-stream's own parameter sets must name them.
+stream's own parameter sets must name them. On Linux, Kodosi Screen takes the compositor's frames in
+the GPU's memory where VA-API can read them there, and the GPU converts, crops and scales each
+frame into a picture that the encoder owns before the compositor draws the next one into it; the
+pixels never pass through the processor. Computers whose encoder cannot read those frames, and
+those that encode in OpenH264, take frames in shared memory.
 
 Each viewer declares the codecs it decodes and which of them in hardware. A stream uses HEVC only
 while its source encodes it and every viewer decodes it in hardware, since decoding HEVC in

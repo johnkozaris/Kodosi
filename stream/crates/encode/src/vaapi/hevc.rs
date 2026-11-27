@@ -132,7 +132,7 @@ impl Capabilities {
     }
 
     /// What the coded width and height are multiples of.
-    fn block(self) -> (usize, usize) {
+    pub(super) fn block(self) -> (usize, usize) {
         let block = 1 << self.log2_min_block();
         (block.max(self.alignment.0), block.max(self.alignment.1))
     }

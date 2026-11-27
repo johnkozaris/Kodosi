@@ -1,12 +1,13 @@
 //! The shown display's frames: a `PipeWire` stream from the desktop's portal on a thread of its
-//! own, cropped and scaled to the size that the host asks for, then encoded. The pointer comes
-//! with the frames but apart from them, so that viewers draw it themselves.
+//! own, cropped and scaled to the size that the host asks for, then encoded. Frames stay in the
+//! GPU's memory when the encoder can read them there, and come in shared memory otherwise. The
+//! pointer comes with the frames but apart from them, so that viewers draw it themselves.
 
 use std::{
     cell::RefCell,
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     hash::{DefaultHasher, Hash as _, Hasher as _},
-    os::fd::OwnedFd,
+    os::fd::{BorrowedFd, OwnedFd},
     ptr::NonNull,
     rc::Rc,
     sync::{Arc, Mutex, MutexGuard, PoisonError},
@@ -37,7 +38,7 @@ use pipewire::{
 };
 use screen::link::{self, FromHelper, Pointer, Shape};
 use stream::{Encoded, Region};
-use stream_encode::{Encoder, Output, Picture, Settings};
+use stream_encode::{Crop, Dmabuf, Encoder, Imported, Output, Picture, Settings};
 use tokio::sync::mpsc;
 
 use super::{hand::Hand, session::Event};
@@ -50,6 +51,8 @@ const LARGEST_POINTER: i32 = 256;
 const DAMAGE_RECTANGLES: i32 = 16;
 /// A region this close to the whole display shows all of it.
 const WHOLE: f64 = 0.5;
+/// `DRM_FORMAT_MOD_LINEAR`: rows one after the other, which a GPU reads whichever GPU drew them.
+const LINEAR: u64 = 0;
 
 /// What the host asks the capture to show.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -77,6 +80,8 @@ enum Order {
     /// The helper put the pointer here, in the shown display's points, and the desktop did not
     /// show it there: `KWin` at times sends no picture for a move of the pointer alone.
     Point((f64, f64)),
+    /// The encoder needs the newest picture again.
+    Redraw,
     Hide,
     Quit,
 }
@@ -105,6 +110,10 @@ impl Video {
 
     pub(super) fn point(&self, at: (f64, f64)) {
         drop(self.orders.send(Order::Point(at)));
+    }
+
+    pub(super) fn redraw(&self) {
+        drop(self.orders.send(Order::Redraw));
     }
 
     pub(super) fn hide(&self) {
@@ -167,8 +176,8 @@ fn work(
         move |order| match order {
             Order::Show(wanted, frames) => {
                 let mut current = shown.borrow_mut();
-                if let Some(current) = current.as_mut().filter(|now| now.node == wanted.node) {
-                    current.drawing.borrow_mut().want(wanted, frames);
+                if let Some(current) = current.as_ref().filter(|now| now.node == wanted.node) {
+                    current.want(wanted, frames);
                     return;
                 }
                 *current = None;
@@ -181,6 +190,11 @@ fn work(
             Order::Point(at) => {
                 if let Some(current) = shown.borrow().as_ref() {
                     current.drawing.borrow_mut().pointer.place(at);
+                }
+            }
+            Order::Redraw => {
+                if let Some(current) = shown.borrow().as_ref() {
+                    current.change(Drawing::redraw);
                 }
             }
             Order::Hide => *shown.borrow_mut() = None,
@@ -224,6 +238,7 @@ impl Shown {
             },
         )
         .map_err(|error| error.to_string())?;
+        let imports = frames.imports();
         let drawing = Rc::new(RefCell::new(Drawing::new(wanted, frames, pointing, events)));
         let listener = stream
             .add_local_listener_with_user_data(Rc::clone(&drawing))
@@ -241,15 +256,25 @@ impl Shown {
             })
             .remove_buffer(|_, drawing, buffer| drawing.borrow_mut().removed(buffer))
             .process(|stream, drawing| {
-                if let Ok(mut drawing) = drawing.try_borrow_mut() {
+                let copies = drawing.try_borrow_mut().is_ok_and(|mut drawing| {
                     drawing.take(stream);
+                    drawing.wants_copies()
+                });
+                if copies {
+                    copy(stream);
                 }
             })
             .register()
             .map_err(|error| error.to_string())?;
         // The metadata comes with the format, so that the buffers are not made again later and the
         // first frame, which carries the only picture of the pointer until it changes, stays.
-        let params: Vec<Vec<u8>> = format().into_iter().chain(metas()).collect();
+        let params: Vec<Vec<u8>> = imports
+            .then(|| format(Some(LINEAR)))
+            .into_iter()
+            .chain([format(None)])
+            .flatten()
+            .chain(metas())
+            .collect();
         let mut params: Vec<&Pod> = params
             .iter()
             .filter_map(|param| Pod::from_bytes(param))
@@ -268,6 +293,33 @@ impl Shown {
             _listener: listener,
             stream,
         })
+    }
+
+    fn want(&self, wanted: Wanted, frames: Arc<Frames>) {
+        self.change(|drawing| drawing.want(wanted, frames));
+    }
+
+    /// Changes what the drawing shows, and asks the stream for frames in shared memory when the
+    /// encoder could not read the frame in the GPU's memory.
+    fn change(&self, change: impl FnOnce(&mut Drawing)) {
+        let copies = {
+            let mut drawing = self.drawing.borrow_mut();
+            change(&mut drawing);
+            drawing.wants_copies()
+        };
+        if copies {
+            copy(&self.stream);
+        }
+    }
+}
+
+/// Asks the stream for frames in shared memory, which the processor reads.
+fn copy(stream: &pw::stream::Stream) {
+    let Some(format) = format(None) else {
+        return;
+    };
+    if let Some(format) = Pod::from_bytes(&format) {
+        drop(stream.update_params(&mut [format]));
     }
 }
 
@@ -288,6 +340,9 @@ struct Format {
     height: u32,
     /// Red comes before blue, which the encoder takes the other way round.
     red_first: bool,
+    /// The stream states that frames in the GPU's memory lie there in rows one after the other,
+    /// the only layout that the encoder reads there.
+    linear: bool,
 }
 
 /// The frames of one stream, and what the helper draws of them for the encoder.
@@ -299,6 +354,12 @@ struct Drawing {
     /// The newest frame, which the stream lends until a newer one comes, so that a new size or
     /// region shows at once, even when the screen does not change.
     held: Option<NonNull<pw_sys::pw_buffer>>,
+    /// The encoder's GPU's surfaces of the stream's buffers in the GPU's memory.
+    imported: HashMap<NonNull<pw_sys::pw_buffer>, Imported>,
+    /// The encoder could not read a frame in the GPU's memory, so the rest come in shared
+    /// memory; `wants_copies` until the stream was asked for that.
+    unimportable: bool,
+    wants_copies: bool,
     resizer: Resizer,
     scaled: Vec<u8>,
     /// The next picture changes all of what viewers see.
@@ -319,6 +380,9 @@ impl Drawing {
             events,
             format: None,
             held: None,
+            imported: HashMap::new(),
+            unimportable: false,
+            wants_copies: false,
             resizer: Resizer::new(),
             scaled: Vec::new(),
             fresh: true,
@@ -332,10 +396,23 @@ impl Drawing {
 
     /// Shows the frame in another size or region.
     fn want(&mut self, wanted: Wanted, frames: Arc<Frames>) {
+        if !Arc::ptr_eq(&self.frames, &frames) {
+            self.imported.clear();
+        }
         self.wanted = wanted;
         self.frames = frames;
+        self.redraw();
+    }
+
+    /// Encodes the held frame again, as all new.
+    fn redraw(&mut self) {
         self.fresh = true;
         self.draw(1.0);
+    }
+
+    /// Once, after the encoder could not read a frame in the GPU's memory.
+    fn wants_copies(&mut self) -> bool {
+        std::mem::take(&mut self.wants_copies)
     }
 
     fn negotiated(&mut self, param: &Pod) {
@@ -356,6 +433,7 @@ impl Drawing {
             width: size.width,
             height: size.height,
             red_first,
+            linear: modifier(param, &info) == Some(LINEAR),
         });
         self.fresh = true;
         drop(self.events.send(Event::Sized {
@@ -368,6 +446,9 @@ impl Drawing {
     fn removed(&mut self, buffer: *mut pw_sys::pw_buffer) {
         if self.held.is_some_and(|held| held.as_ptr() == buffer) {
             self.held = None;
+        }
+        if let Some(buffer) = NonNull::new(buffer) {
+            self.imported.remove(&buffer);
         }
     }
 
@@ -419,6 +500,21 @@ impl Drawing {
         };
         // SAFETY: the stream lent the held buffer until the helper gives it back.
         let lent = unsafe { Lent::of(held) };
+        if let Some(buffer) = lent.dmabuf(format) {
+            if !self.unimportable {
+                let changed = if std::mem::take(&mut self.fresh) {
+                    1.0
+                } else {
+                    changed
+                };
+                self.unimportable = !self.draw_imported(held, &buffer, changed);
+                if self.unimportable {
+                    self.imported.clear();
+                    self.wants_copies = true;
+                }
+            }
+            return;
+        }
         let Some((pixels, stride)) = lent.pixels(format) else {
             return;
         };
@@ -467,6 +563,35 @@ impl Drawing {
         );
     }
 
+    /// Encodes the held frame in the GPU's memory as the host wants it; false when the encoder
+    /// cannot read it there.
+    fn draw_imported(
+        &mut self,
+        held: NonNull<pw_sys::pw_buffer>,
+        buffer: &Dmabuf<'_>,
+        changed: f64,
+    ) -> bool {
+        let Some(format) = self.format else {
+            return false;
+        };
+        if !self.imported.contains_key(&held) {
+            let Some(imported) = self.frames.import(buffer) else {
+                return false;
+            };
+            self.imported.insert(held, imported);
+        }
+        let Some(imported) = self.imported.get(&held) else {
+            return false;
+        };
+        let (crop, region) = crop(&self.wanted, format);
+        let size = (
+            usize::try_from(self.wanted.width).unwrap_or_default(),
+            usize::try_from(self.wanted.height).unwrap_or_default(),
+        );
+        self.frames
+            .encode_imported(imported, crop, size, region, changed)
+    }
+
     /// Scales `crop` of the frame into the wanted size.
     fn scale(&mut self, pixels: &[u8], stride: usize, format: Format, crop: Crop) -> bool {
         let Ok(row) = u32::try_from(stride / 4) else {
@@ -492,15 +617,6 @@ impl Drawing {
             .use_alpha(false);
         self.resizer.resize(&source, &mut scaled, &options).is_ok()
     }
-}
-
-/// The part of a frame to scale, in its pixels.
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct Crop {
-    left: f64,
-    top: f64,
-    width: f64,
-    height: f64,
 }
 
 /// The pixels of the frame that `wanted` shows, and the region of the display in its points,
@@ -591,6 +707,26 @@ impl Lent<'_> {
             && self.chunk().is_some_and(|chunk| {
                 chunk.size > 0 && chunk.flags & spa_sys::SPA_CHUNK_FLAG_CORRUPTED.cast_signed() == 0
             })
+    }
+
+    /// The frame in the GPU's memory, when it is there in the layout that the stream states.
+    fn dmabuf(&self, format: Format) -> Option<Dmabuf<'_>> {
+        let data = self.data()?;
+        if data.type_ != spa_sys::SPA_DATA_DmaBuf || !format.linear {
+            return None;
+        }
+        let chunk = self.chunk()?;
+        let fd = i32::try_from(data.fd).ok().filter(|fd| *fd >= 0)?;
+        Some(Dmabuf {
+            // SAFETY: the stream keeps the buffer's descriptor open while it lends the buffer.
+            fd: unsafe { BorrowedFd::borrow_raw(fd) },
+            width: format.width,
+            height: format.height,
+            offset: chunk.offset,
+            pitch: u32::try_from(chunk.stride).ok()?,
+            modifier: LINEAR,
+            red_first: format.red_first,
+        })
     }
 
     /// The bytes of the frame and the length of its rows.
@@ -898,10 +1034,10 @@ fn png(rgba: &[u8], width: u32, height: u32) -> Option<Vec<u8>> {
     Some(bytes)
 }
 
-/// The format that the helper takes: four bytes a pixel, at most as many frames as viewers
-/// show.
-fn format() -> Option<Vec<u8>> {
-    let object = spa::pod::object!(
+/// A format that the helper takes: four bytes a pixel, at most as many frames as viewers show; in
+/// the GPU's memory with `modifier`, else in shared memory.
+fn format(modifier: Option<u64>) -> Option<Vec<u8>> {
+    let mut object = spa::pod::object!(
         SpaTypes::ObjectParamFormat,
         ParamType::EnumFormat,
         spa::pod::property!(FormatProperties::MediaType, Id, MediaType::Video),
@@ -956,7 +1092,34 @@ fn format() -> Option<Vec<u8>> {
             }
         ),
     );
+    if let Some(modifier) = modifier.and_then(|modifier| i64::try_from(modifier).ok()) {
+        // A compositor without one of these modifiers takes the next format, in shared memory;
+        // one with them chooses among them.
+        object.properties.push(Property {
+            key: FormatProperties::VideoModifier.as_raw(),
+            flags: PropertyFlags::MANDATORY | PropertyFlags::DONT_FIXATE,
+            value: Value::Choice(ChoiceValue::Long(Choice(
+                ChoiceFlags::empty(),
+                ChoiceEnum::Enum {
+                    default: modifier,
+                    alternatives: vec![modifier],
+                },
+            ))),
+        });
+    }
     serialize(object)
+}
+
+/// The modifier that a negotiated format states for frames in the GPU's memory, as `info` read
+/// it from the format. A format without one leaves their layout to the compositor and the
+/// driver, which the encoder cannot know. Compositors state it as a choice of one value, which
+/// `info` reads as well as a plain value.
+fn modifier(format: &Pod, info: &VideoInfoRaw) -> Option<u64> {
+    format
+        .as_object()
+        .ok()?
+        .find_prop(Id(spa_sys::SPA_FORMAT_VIDEO_modifier))?;
+    Some(info.modifier())
 }
 
 /// The metadata that the helper reads: the header, the changed rectangles and the pointer.
@@ -1067,6 +1230,27 @@ impl Frames {
     fn encode(&self, picture: Picture<'_>, region: Option<Region>, changed: f64) {
         self.lock().encoder.encode(picture, region, changed);
     }
+
+    fn imports(&self) -> bool {
+        self.lock().encoder.imports()
+    }
+
+    fn import(&self, buffer: &Dmabuf<'_>) -> Option<Imported> {
+        self.lock().encoder.import(buffer)
+    }
+
+    fn encode_imported(
+        &self,
+        frame: &Imported,
+        crop: Crop,
+        size: (usize, usize),
+        region: Option<Region>,
+        changed: f64,
+    ) -> bool {
+        self.lock()
+            .encoder
+            .encode_imported(frame, crop, size, region, changed)
+    }
 }
 
 /// Sends encoded frames to the host. A full link drops a frame, which the encoder repairs.
@@ -1082,5 +1266,56 @@ impl Output for Sent {
 
     fn failed(&self, problem: String) {
         drop(self.events.send(Event::Failed(problem)));
+    }
+
+    fn redraw(&self) {
+        drop(self.events.send(Event::Redraw));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A negotiated format, with the modifier property when one is given.
+    fn negotiated(modifier: Option<Value>) -> Vec<u8> {
+        let mut object = spa::pod::object!(
+            SpaTypes::ObjectParamFormat,
+            ParamType::Format,
+            spa::pod::property!(FormatProperties::MediaType, Id, MediaType::Video),
+            spa::pod::property!(FormatProperties::MediaSubtype, Id, MediaSubtype::Raw),
+            spa::pod::property!(FormatProperties::VideoFormat, Id, VideoFormat::BGRx),
+        );
+        if let Some(value) = modifier {
+            object.properties.push(Property {
+                key: FormatProperties::VideoModifier.as_raw(),
+                flags: PropertyFlags::empty(),
+                value,
+            });
+        }
+        serialize(object).unwrap()
+    }
+
+    fn stated(modifier: Option<Value>) -> Option<u64> {
+        let format = negotiated(modifier);
+        let format = Pod::from_bytes(&format).unwrap();
+        let mut info = VideoInfoRaw::new();
+        info.parse(format).unwrap();
+        super::modifier(format, &info)
+    }
+
+    #[test]
+    fn only_a_layout_that_the_stream_states_reaches_the_gpu() {
+        let fixed = |modifier| {
+            Value::Choice(ChoiceValue::Long(Choice(
+                ChoiceFlags::empty(),
+                ChoiceEnum::None(modifier),
+            )))
+        };
+        assert_eq!(stated(Some(fixed(0))), Some(LINEAR));
+        assert_eq!(stated(Some(Value::Long(0))), Some(LINEAR));
+        assert_eq!(stated(None), None);
+        let x_tiled = 0x0100_0000_0000_0001;
+        assert_eq!(stated(Some(fixed(x_tiled))), Some(x_tiled.cast_unsigned()));
     }
 }

@@ -34,7 +34,7 @@ base64 = { workspace = true }
 bytes = { workspace = true }
 fast_image_resize = { workspace = true }
 futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
-pipewire = "0.10.1"
+pipewire = { version = "0.10.1", features = ["v0_3_33"] }
 png = { workspace = true }
 reis = { version = "0.7.1", features = ["tokio"] }
 rustix = { version = "1.1.2", features = ["time"] }
