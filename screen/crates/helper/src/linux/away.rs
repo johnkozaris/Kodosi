@@ -9,7 +9,7 @@ use screen::link::Away;
 use tokio::{sync::mpsc, task::JoinHandle};
 use zbus::{Connection, OwnedObjectPath, Proxy, connection::Builder};
 
-use super::{portal::CALL_LIMIT, session::Event};
+use super::{Told, portal::CALL_LIMIT};
 
 const LOGIN: &str = "org.freedesktop.login1";
 const LOGIN_PATH: &str = "/org/freedesktop/login1";
@@ -42,7 +42,7 @@ pub(super) struct Watch {
 }
 
 impl Watch {
-    pub(super) async fn start(events: mpsc::UnboundedSender<Event>) -> Self {
+    pub(super) async fn start<E: Told>(events: mpsc::UnboundedSender<E>) -> Self {
         let seen: Arc<Mutex<Seen>> = Arc::default();
         let mut savers = Vec::new();
         let mut tasks = Vec::new();
@@ -135,10 +135,10 @@ async fn login_session() -> Option<Proxy<'static>> {
     Proxy::new(&system, LOGIN, path, LOGIN_SESSION).await.ok()
 }
 
-async fn follow_login(
+async fn follow_login<E: Told>(
     session: Proxy<'static>,
     seen: Arc<Mutex<Seen>>,
-    events: mpsc::UnboundedSender<Event>,
+    events: mpsc::UnboundedSender<E>,
 ) {
     let mut active = session.receive_property_changed::<bool>("Active").await;
     let mut locked = session.receive_property_changed::<bool>("LockedHint").await;
@@ -156,16 +156,16 @@ async fn follow_login(
             }
             else => return,
         }
-        if events.send(Event::Changed).is_err() {
+        if events.send(E::changed()).is_err() {
             return;
         }
     }
 }
 
-async fn follow_saver(
+async fn follow_saver<E: Told>(
     saver: Proxy<'static>,
     seen: Arc<Mutex<Seen>>,
-    events: mpsc::UnboundedSender<Event>,
+    events: mpsc::UnboundedSender<E>,
 ) {
     let Ok(mut changes) = saver.receive_signal("ActiveChanged").await else {
         return;
@@ -173,7 +173,7 @@ async fn follow_saver(
     while let Some(change) = changes.next().await {
         if let Ok(active) = change.body().deserialize::<bool>() {
             note(&seen, |seen| seen.saver = active);
-            if events.send(Event::Changed).is_err() {
+            if events.send(E::changed()).is_err() {
                 return;
             }
         }

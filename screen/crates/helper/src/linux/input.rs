@@ -516,11 +516,11 @@ fn holds(region: &reis::event::Region, x: f64, y: f64) -> bool {
 }
 
 /// Text that a key types, rather than a control character such as Enter's.
-fn typed(text: &str) -> bool {
+pub(super) fn typed(text: &str) -> bool {
     !text.is_empty() && !text.chars().any(char::is_control)
 }
 
-fn single(text: &str) -> Option<char> {
+pub(super) fn single(text: &str) -> Option<char> {
     let mut characters = text.chars();
     characters.next().filter(|_| characters.next().is_none())
 }

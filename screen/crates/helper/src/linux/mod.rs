@@ -1,10 +1,12 @@
-//! The helper on Linux: the desktop's portal shares the displays and takes the input, `PipeWire`
-//! brings the frames on a thread of their own, and libei plays viewers' input. The host runs the
-//! helper as its child, linked through its standard input and output.
+//! The helper on Linux. On Wayland the desktop's portal shares the displays and takes the input,
+//! `PipeWire` brings the frames on a thread of their own, and libei plays viewers' input. On X11
+//! the X server itself shows and takes them. The host runs the helper as its child, linked through
+//! its standard input and output.
 
 mod away;
 mod capture;
 mod clipboard;
+mod frames;
 mod hand;
 mod input;
 mod keymap;
@@ -12,6 +14,7 @@ mod keys;
 mod notice;
 mod portal;
 mod session;
+mod x11;
 
 use std::{ffi::OsString, path::PathBuf, time::Duration};
 
@@ -25,8 +28,12 @@ pub(crate) fn run() {
     else {
         return;
     };
-    // libei's connection stays on the helper's thread.
-    tokio::task::LocalSet::new().block_on(&runtime, session::serve(arguments));
+    if screen::on_x11() {
+        runtime.block_on(x11::serve(arguments.token));
+    } else {
+        // libei's connection stays on the helper's thread.
+        tokio::task::LocalSet::new().block_on(&runtime, session::serve(arguments));
+    }
     // Reading the host's link blocks a thread, which would keep the helper from quitting.
     runtime.shutdown_timeout(Duration::ZERO);
 }
@@ -54,4 +61,16 @@ impl Arguments {
             grant: grant?,
         })
     }
+}
+
+/// What the parts that serve either session tell it.
+pub(super) trait Told: Send + 'static {
+    /// The person at the computer stopped the sharing in the notice.
+    fn stopped() -> Self;
+    /// The lock or the account in front of the display changed.
+    fn changed() -> Self;
+    /// The capture or its encoder failed.
+    fn failed(problem: String) -> Self;
+    /// The encoder needs the newest picture again.
+    fn redraw() -> Self;
 }
