@@ -20,13 +20,15 @@
 //!
 //! A screen sends a burst and is then still, and even a video source that sends at its bitrate
 //! runs dry after each frame, as the pacer sends faster than that bitrate: noq then tells the
-//! controller that it has nothing to send at most acknowledgements. So the window grows by every
-//! acknowledged byte, as in the draft, and only the draft's bound on bytes in flight keeps it near
-//! what the source showed: a still screen sends nothing and grows nothing. While noq has nothing to
-//! send, the round trip that the bitrate is published with falls only slowly, as in libwebrtc's
-//! `SCReAM` and the draft's section 6: a burst's acknowledgements come in as the queue that it
-//! built drains, and the window was measured against that queue, so a round trip that falls back
-//! at once would publish more than the path carried.
+//! controller that it has nothing to send at most acknowledgements. So the window grows by the
+//! acknowledged bytes whatever noq tells, as in the draft, and the draft's bound on bytes in flight
+//! keeps it near what the source showed: a still screen sends nothing and grows nothing. A packet
+//! that waited in a queue does not count: a burst builds a queue that the queue delay average reads
+//! low, and a packet that waited is no proof of room. While noq has nothing to send, the round trip
+//! that the bitrate is published with falls only slowly, as in libwebrtc's `SCReAM` and the
+//! draft's section 6: a burst's acknowledgements come in as the queue that it built drains, and
+//! the window was measured against that queue, so a round trip that falls back at once would
+//! publish more than the path carried.
 
 use std::{
     any::Any,
@@ -510,7 +512,9 @@ impl Window {
         }
         self.sample_base(now, round);
         self.qdelay = (round - self.base_rtt().unwrap_or(round)).max(0.0);
-        self.bytes_newly_acked += bytes;
+        if self.qdelay < self.qdelay_target / 4.0 {
+            self.bytes_newly_acked += bytes;
+        }
         self.acked.push_back((now, bytes));
         self.loss_rate *= 1.0 - self.loss_rate_gain();
     }
@@ -1135,7 +1139,7 @@ mod tests {
             );
             assert!(rise < 1.02, "{case}: rises {rise} while still");
             assert!(
-                least > 0.4 * capacity && most < 1.35 * capacity,
+                least > 0.4 * capacity && most < 1.25 * capacity,
                 "{case}: from {least} to {most}"
             );
         }
