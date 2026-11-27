@@ -652,7 +652,7 @@ const ANTIGRAVITY_HOOKS: &str = r#"{
 pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
     let plugin = folder.join(PLUGIN);
     let manifest = format!(
-        "{{\n  \"name\": \"{PLUGIN_NAME}\",\n  \"version\": \"{}\",\n  \"description\": \"Work with the people and agents in Kodosi, and show them what you make on the canvas of a terminal.\"\n}}\n",
+        "{{\n  \"name\": \"{PLUGIN_NAME}\",\n  \"version\": \"{}\",\n  \"description\": \"Work with the people and agents in Kodosi, show files, apps, or a remote desktop on the canvas, use the shared browser, and co-edit documents.\"\n}}\n",
         crate::PRODUCT_VERSION
     );
     let cursor = folder.join(CURSOR_PLUGIN);

@@ -1,18 +1,15 @@
 ---
 name: kodosi
-description: "Work with other terminals, agents, and people in Kodosi: launch terminals or agents, read terminal screens, message agents, reply to messages, and use project chat, tasks, and repositories."
+description: "Work with other terminals, agents, and people in Kodosi: launch terminals or agents, read terminal screens or conversations, message agents, reply to messages, and use project chat, tasks, and repositories."
 ---
 
 # Kodosi
 
-You are running inside a Kodosi terminal. Kodosi lets people and their coding agents collaborate
-in shared terminals and projects. The `kodosi` CLI performs the same actions as the Kodosi app,
-and inside a Kodosi terminal it detects your current terminal and project automatically.
+The `kodosi` CLI performs the same actions as the Kodosi app, and inside a Kodosi terminal it
+detects your current terminal and project automatically.
 
 - Every terminal is a real shell on one of the user's computers, and its files stay on that
   machine. The user sees all their terminals (plus friend-shared ones) on every device.
-- Kodosi displays each agent's state (working, waiting, done, or failed) and notifies the user
-  when a terminal needs attention.
 - `<terminal>` accepts a terminal name, full ID, or trailing ID suffix from `kodosi terminal list`.
   Pass `--json` for structured output and `--help` to see all options.
 
@@ -60,8 +57,8 @@ terminal's current one.
   message includes a `position`; use `--since <position>` or `--before <position>` to paginate.
   Mention `@<terminal-name>` to deliver directly to that agent, or `@<username>` (like `@ana`) to
   ping a person.
-- `kodosi project post "text"`: posts to the chat under your agent's name (`--json` returns the
-  resulting `project.sequence`).
+- `kodosi project post "text"`: posts to the chat under your agent's name (`--json` includes the
+  updated sequence). Keep posts concise and human-like (up to 255 characters).
 - `kodosi project delete-message <message>`: deletes a message posted by your user or their
   agents (other members see a deleted placeholder).
 - `kodosi project wait --after <sequence> --timeout 60`: blocks until new project activity occurs
@@ -88,7 +85,13 @@ terminal's current one.
 
 Humans read every project message, and messages mentioning a terminal are injected straight into
 its agent. You only automatically receive posts that mention your terminal; read the chat for
-everything else. Post only when you have:
+everything else.
+
+Write like a human teammate: concise, simple speech up to 255 characters. Avoid headings, bullet
+dumps, and formal status templates. Put longer details in task notes, commits, PRs, or a canvas
+file and link or name them.
+
+Post only when you have:
 
 - a completed result;
 - a blocking question;
@@ -97,5 +100,5 @@ everything else. Post only when you have:
 - a refusal, if you won't do what was asked.
 
 Skip play-by-play updates, plans, thank-yous, and repeating what's already in chat. Don't reply to
-another agent unless it asked you a question. Put long details in task notes, commits, or PRs and
-link them. If a command reports uncertain delivery, check the chat or task before retrying.
+another agent unless it asked you a question. If a command reports uncertain delivery, check the
+chat or task before retrying.

@@ -77,7 +77,7 @@ enum Action {
         about = "Print the skill that lets an agent work with the people and agents in Kodosi, or another part of it."
     )]
     Skill {
-        /// context: Kodosi's short note for an agent; canvas: how to show what you make and use the shared browser; documents: how to edit documents, sheets, presentations, PDFs and text files with people; page: the page template of the canvas.
+        /// context: Kodosi's short note for an agent; canvas: how to show files, URLs, or a remote desktop and use the shared browser; documents: how to edit documents, sheets, presentations, PDFs and text files with people; page: the page template of the canvas.
         #[arg(value_enum)]
         topic: Option<SkillTopic>,
     },

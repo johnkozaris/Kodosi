@@ -16,7 +16,7 @@ pub(super) enum CanvasAction {
     List,
     /// Remove items from this terminal's canvas by name, or pass --all.
     Remove {
-        /// File name or path of each item to remove, or "browser" for the shared browser.
+        /// File name or path of each item to remove, or "browser" or "screen".
         names: Vec<String>,
         /// Remove all files from the canvas.
         #[arg(long, conflicts_with = "names")]
