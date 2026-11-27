@@ -163,6 +163,7 @@ async fn project_notifications_use_the_renewed_token_on_the_existing_connection(
         Credentials {
             user_id: user.clone(),
             display_name: "You".to_owned(),
+            handle: String::new(),
             token: Zeroizing::new("expired-token".into()),
             keys: Arc::new(DeviceKeys::load_or_create(&state.secrets, &user).unwrap()),
             enrolled: true,

@@ -18,13 +18,13 @@ use stream::viewer::{self, Viewer};
 use tokio::{
     io::{AsyncRead, AsyncWrite},
     process::Command,
-    sync::{Mutex, mpsc, oneshot},
+    sync::{Mutex, mpsc, oneshot, watch},
 };
 
 #[cfg(target_os = "macos")]
 use crate::{handover, signature::Signer};
 use crate::{
-    link::{self, Access, Away, FromHelper, Message, Notice, VERSION},
+    link::{self, Access, Away, FromHelper, Message, Notice, Question, VERSION},
     live::{Calls, Event, Live, Mailbox, Wanted},
     wire::ToScreen,
 };
@@ -46,8 +46,12 @@ pub struct Settings {
     pub arguments: Vec<OsString>,
     /// Tells the person at the computer who watches.
     pub notice: Arc<dyn Fn(&[String]) -> Notice + Send + Sync>,
-    /// Called when the person at the computer stops the sharing there.
+    /// Called when the sharing ends at the computer: the person stopped it there, or the helper
+    /// does not serve the host's account.
     pub stopped: Arc<dyn Fn() + Send + Sync>,
+    /// The key of the account that the host serves, `None` while nobody is signed in. A helper
+    /// that guards the computer serves it only once the person at the computer allowed it.
+    pub owner: watch::Receiver<Option<String>>,
 }
 
 #[derive(Debug)]
@@ -84,8 +88,14 @@ pub struct Screens {
 
 struct Shared {
     settings: Settings,
-    live: Mutex<Option<mpsc::Sender<Event>>>,
+    live: Mutex<Option<Linked>>,
     wanted: std::sync::Mutex<Wanted>,
+}
+
+/// A running screen and the account that it serves.
+struct Linked {
+    events: mpsc::Sender<Event>,
+    owner: Option<String>,
 }
 
 impl Screens {
@@ -131,7 +141,13 @@ impl Screens {
             .wanted
             .lock()
             .unwrap_or_else(PoisonError::into_inner) = wanted.clone();
-        let live = self.shared.live.lock().await.clone();
+        let live = self
+            .shared
+            .live
+            .lock()
+            .await
+            .as_ref()
+            .map(|linked| linked.events.clone());
         if let Some(live) = live {
             drop(live.send(Event::Show(wanted)).await);
         }
@@ -154,18 +170,56 @@ impl Screens {
         events.send(Event::Ask).await.map_err(|_| Error::Stopped)
     }
 
+    /// Whether the person at the computer lets the devices of the host's account see and control
+    /// it. A helper that guards the computer asks them in `question`'s words unless they allowed
+    /// the account before, only with the `vouch` of Kodosi's app for their click, and this waits
+    /// for their answer as long as they take.
+    pub async fn allow(&self, question: Question, vouch: Option<String>) -> Result<bool, Error> {
+        let events = self.live().await?;
+        let (reply, answer) = oneshot::channel();
+        events
+            .send(Event::Allow {
+                question,
+                vouch,
+                reply,
+            })
+            .await
+            .map_err(|_| Error::Stopped)?;
+        answer.await.map_err(|_| Error::Stopped)?
+    }
+
+    /// Ends every view, has the helper forget every account that the person at the computer
+    /// allowed, and quits it. Only a Mac's helper keeps answers, which it is started for.
+    pub async fn forget(&self) -> Result<(), Error> {
+        if !cfg!(target_os = "macos") {
+            self.stop().await;
+            return Ok(());
+        }
+        let events = self.live().await?;
+        self.shared.live.lock().await.take();
+        events.send(Event::Forget).await.map_err(|_| Error::Stopped)
+    }
+
     /// Ends every view and quits the helper.
     pub async fn stop(&self) {
         let live = self.shared.live.lock().await.take();
         if let Some(live) = live {
-            drop(live.send(Event::Stop).await);
+            drop(live.events.send(Event::Stop).await);
         }
     }
 
+    /// The screen of the account that the host serves now, which starts the helper for it.
     async fn live(&self) -> Result<mpsc::Sender<Event>, Error> {
         let mut live = self.shared.live.lock().await;
-        if let Some(events) = live.as_ref().filter(|events| !events.is_closed()) {
-            return Ok(events.clone());
+        let owner = self.shared.settings.owner.borrow().clone();
+        if let Some(linked) = live
+            .as_ref()
+            .filter(|linked| !linked.events.is_closed() && linked.owner == owner)
+        {
+            return Ok(linked.events.clone());
+        }
+        if let Some(earlier) = live.take() {
+            drop(earlier.events.send(Event::Stop).await);
         }
         let started = start(&self.shared.settings).await?;
         let (events, receiver) = mpsc::channel(EVENTS);
@@ -179,9 +233,18 @@ impl Screens {
             notice: Arc::clone(&self.shared.settings.notice),
             stopped: Arc::clone(&self.shared.settings.stopped),
         };
-        let (session, reader) = Live::new(started, wanted, calls);
+        let (session, reader) = Live::new(
+            started,
+            wanted,
+            calls,
+            owner.clone(),
+            self.shared.settings.owner.clone(),
+        );
         tokio::spawn(session.run(reader, receiver));
-        *live = Some(events.clone());
+        *live = Some(Linked {
+            events: events.clone(),
+            owner,
+        });
         drop(live);
         Ok(events)
     }

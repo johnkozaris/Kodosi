@@ -1477,7 +1477,11 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         pipes: HashMap::new(),
         direct: HashMap::new(),
         #[cfg(feature = "host")]
-        services: crate::canvas::CanvasServices::new(&config.data_root, config.isolated),
+        services: crate::canvas::CanvasServices::new(
+            &config.data_root,
+            config.isolated,
+            network.owner(),
+        ),
         #[cfg(feature = "host")]
         links,
         #[cfg(feature = "host")]

@@ -6,9 +6,12 @@
     reason = "the link's thread runs its own futures, with Objective-C objects that stay there"
 )]
 
+mod alert;
+mod answers;
 mod app;
 mod capture;
 mod clipboard;
+mod gate;
 mod hand;
 mod input;
 mod keys;

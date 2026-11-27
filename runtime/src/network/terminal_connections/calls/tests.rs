@@ -55,6 +55,7 @@ async fn only_a_signed_device_of_this_person_can_call_this_computer() {
     let credentials = Credentials {
         user_id: user.clone(),
         display_name: "Ana".into(),
+        handle: String::new(),
         token: Zeroizing::new("token".into()),
         keys: Arc::new(DeviceKeys::generate().unwrap()),
         enrolled: true,

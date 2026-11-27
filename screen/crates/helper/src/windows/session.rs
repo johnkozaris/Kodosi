@@ -216,7 +216,16 @@ impl Session {
                 }
             }
             ToHelper::Clipboard { text } => self.clipboard.put(self.window, &text),
-            ToHelper::Ask => {}
+            ToHelper::Ask | ToHelper::Forget => {}
+            // Every program of the person's account sees and controls the screen anyway.
+            ToHelper::Owner { .. } => self.tell(FromHelper::Owner { allowed: true }).await,
+            ToHelper::Allow { .. } => {
+                self.tell(FromHelper::Allowed {
+                    allowed: true,
+                    problem: None,
+                })
+                .await;
+            }
             ToHelper::Quit => return false,
         }
         true

@@ -21,6 +21,7 @@ use screen::{Notice, link::Source};
 use tokio::sync::mpsc;
 
 use super::{
+    alert,
     hand::Tap,
     layout,
     pointer::Pointing,
@@ -160,7 +161,9 @@ impl Shell {
     }
 
     fn quit(&self) {
-        NSApplication::sharedApplication(self.main).terminate(None);
+        if !alert::quit_after() {
+            NSApplication::sharedApplication(self.main).terminate(None);
+        }
     }
 }
 

@@ -1,6 +1,10 @@
+#if os(macOS)
+    import AppKit
+#endif
 import CoreGraphics
 import Foundation
 import ImageIO
+import KodosiKit
 
 /// What the computer's screen can show: its displays, the main one first, and its windows.
 public struct ScreenSources: Decodable, Equatable, Sendable {
@@ -204,8 +208,30 @@ public extension CommandSink {
         try await ScreenSharing(request("screen.status"))
     }
 
-    /// Turning the sharing on also has Kodosi Screen ask macOS for what it may not do yet.
+    /// Turning the sharing on has Kodosi Screen ask the person at this Mac whether the devices of
+    /// this account may see and control it, in an alert that comes to the front because this app
+    /// lets Kodosi Screen take its place there. Then it asks macOS for what it may not do yet.
+    /// Only the person's click on the switch calls this with `true`: the app vouches for that
+    /// click, and Kodosi Screen shows its question to nobody else.
     func shareScreen(_ allowed: Bool) async throws -> ScreenSharing {
-        try await ScreenSharing(request("screen.allow", ["allowed": .bool(allowed)]))
+        var fields: [String: JSONValue] = ["allowed": .bool(allowed)]
+        #if os(macOS)
+            if allowed {
+                NSApp.yieldActivation(toApplicationWithBundleIdentifier: "com.kodosi.screen")
+                if let vouch = Self.vouchForClick() {
+                    fields["vouch"] = .string(vouch)
+                }
+            }
+        #endif
+        return try await ScreenSharing(request("screen.allow", fields))
     }
+
+    #if os(macOS)
+        private static func vouchForClick() -> String? {
+            var bytes = [UInt8](repeating: 0, count: Int(KODOSI_SCREEN_VOUCH_BYTES))
+            let length = kodosi_screen_vouch(&bytes, UInt(bytes.count))
+            guard length > 0, Int(length) <= bytes.count else { return nil }
+            return String(decoding: bytes.prefix(Int(length)), as: UTF8.self)
+        }
+    #endif
 }

@@ -12,7 +12,7 @@ use stream::{Codec, Encoded, Format, FrameKind, Pace, Region, viewer::Input};
 use tokio::io::{AsyncRead, AsyncReadExt as _};
 
 /// The helper ships inside the same app as the host, so both sides must match.
-pub const VERSION: u32 = 4;
+pub const VERSION: u32 = 5;
 /// The largest message either side takes.
 const MOST_MESSAGE: usize = 16 * 1024 * 1024;
 /// The most clipboard text that goes between a viewer and the computer.
@@ -73,7 +73,31 @@ pub enum ToHelper {
     Clipboard {
         text: String,
     },
+    /// The account that the host serves, as a key that names it, right after the hello. A helper
+    /// that guards the computer serves nothing until the person at it allowed that account.
+    Owner {
+        key: String,
+    },
+    /// The person at the computer turns the sharing on: the helper asks them in these words,
+    /// unless they allowed the account before. A helper that guards the computer asks only with
+    /// the vouch of Kodosi's app that came with the click, from `handover::vouch`.
+    Allow {
+        question: Question,
+        vouch: Option<String>,
+    },
+    /// The sharing went off, so the helper forgets every account that the person allowed.
+    Forget,
     Quit,
+}
+
+/// What the helper asks the person at the computer, in the language of its owner.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Question {
+    pub message: String,
+    pub detail: String,
+    pub allow: String,
+    pub refuse: String,
 }
 
 /// The notice on the computer, in the language of its owner.
@@ -129,6 +153,15 @@ pub enum FromHelper {
     Stopped,
     Failed {
         problem: String,
+    },
+    /// Whether the person at the computer allowed the account of `ToHelper::Owner` before.
+    Owner {
+        allowed: bool,
+    },
+    /// The answer to one `ToHelper::Allow`, and why it is no when the person did not say no.
+    Allowed {
+        allowed: bool,
+        problem: Option<String>,
     },
 }
 

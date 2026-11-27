@@ -35,7 +35,9 @@ struct Shared {
 }
 
 impl ScreenHost {
-    pub(crate) fn new(data_root: &Path) -> Self {
+    /// `owner` names the account that owns the host, which Kodosi Screen serves on a Mac only
+    /// once the person at it allowed that account.
+    pub(crate) fn new(data_root: &Path, owner: watch::Receiver<Option<String>>) -> Self {
         let file = data_root.join("screen.json");
         let setting: Setting = std::fs::read(&file)
             .ok()
@@ -44,9 +46,9 @@ impl ScreenHost {
         let saver = Saver::file(file, "whether the screen is shared");
         Self(Arc::new_cyclic(|host: &Weak<Shared>| {
             let host = Weak::clone(host);
-            let screens = Screens::new(data_root, move || {
+            let screens = Screens::new(data_root, owner, move || {
                 if let Some(host) = host.upgrade() {
-                    host.set(false);
+                    host.stop();
                 }
             });
             Shared {
@@ -65,17 +67,28 @@ impl ScreenHost {
         self.0.allowed.subscribe()
     }
 
-    /// The person at the computer turns the sharing on there, so it is the time for the system
-    /// to ask them for what Kodosi Screen may not do yet.
-    pub(crate) fn allow(&self, allowed: bool) -> Result<(), Text> {
-        if allowed {
-            self.offered()?;
+    /// The person at the computer turns the sharing on there. Kodosi Screen asks them first
+    /// whether the devices of this account may see and control the computer, unless they allowed
+    /// it before, and on a Mac only with the `vouch` of the app for their click. The command waits
+    /// for their answer. Then it is the time for the system to ask them for what Kodosi Screen may
+    /// not do yet.
+    pub(crate) async fn turn_on(&self, question: screen::Question, vouch: Option<String>) {
+        let Some(screens) = self.0.screens.clone() else {
+            return;
+        };
+        if screens.allow(question, vouch).await {
+            self.0.set(true);
+            screens.ask().await;
         }
-        self.0.set(allowed);
-        if let Some(screens) = self.0.screens.clone().filter(|_| allowed) {
-            tokio::spawn(screens.ask());
+    }
+
+    /// The person at the computer turns the sharing off there, which also takes back every
+    /// account that they allowed in Kodosi Screen.
+    pub(crate) fn turn_off(&self) {
+        self.0.set(false);
+        if let Some(screens) = self.0.screens.clone() {
+            tokio::spawn(screens.forget());
         }
-        Ok(())
     }
 
     /// What Kodosi Screen may do, while the sharing is on.
@@ -126,21 +139,66 @@ impl ScreenHost {
 }
 
 impl Shared {
-    /// Turning the sharing off also ends every view of the screen.
-    fn set(&self, allowed: bool) {
+    /// Returns whether the setting changed.
+    fn set(&self, allowed: bool) -> bool {
         let changed = self
             .allowed
             .send_if_modified(|now| std::mem::replace(now, allowed) != allowed);
-        if !changed {
-            return;
+        if changed {
+            match serde_json::to_vec(&Setting { allowed }) {
+                Ok(bytes) => self.saver.save(bytes),
+                Err(error) => tracing::warn!(%error, "could not save whether the screen is shared"),
+            }
         }
-        match serde_json::to_vec(&Setting { allowed }) {
-            Ok(bytes) => self.saver.save(bytes),
-            Err(error) => tracing::warn!(%error, "could not save whether the screen is shared"),
-        }
-        if !allowed && let Some(screens) = self.screens.clone() {
+        changed
+    }
+
+    /// The sharing ended at the computer: the person stopped it in Kodosi Screen, or Kodosi
+    /// Screen does not serve this account. Every view of the screen ends.
+    fn stop(&self) {
+        if self.set(false)
+            && let Some(screens) = self.screens.clone()
+        {
             tokio::spawn(screens.stop());
         }
+    }
+}
+
+/// How long Kodosi's app vouches for a click, which may wait for Kodosi Screen to start.
+#[cfg(target_os = "macos")]
+const VOUCH_LIFE: std::time::Duration = std::time::Duration::from_mins(1);
+
+/// Kodosi's app vouches that the person at this Mac just clicked its switch to share the screen.
+///
+/// Kodosi Screen asks them only with the vouch. Only the code that runs on that click calls this,
+/// through the C contract, and sends what it returns with `screen.allow`; no host makes an offer.
+#[cfg(target_os = "macos")]
+pub fn vouch() -> std::io::Result<String> {
+    ::screen::handover::vouch(VOUCH_LIFE)
+}
+
+/// What Kodosi Screen asks the person at the Mac before the devices of `account` see it. An
+/// account of another server than Kodosi's says which, as anyone can run one with any names.
+pub(crate) fn question(account: &str, server: Option<&str>) -> screen::Question {
+    let language = crate::text::language();
+    let detail = server.map_or_else(
+        || text!("Kodosi Screen asks once for each account."),
+        |server| {
+            text!(
+                "This account is from {server}. Kodosi Screen asks once for each account.",
+                server = server
+            )
+        },
+    );
+    screen::Question {
+        message: text!(
+            "Let the devices of {account} see and control this Mac?",
+            account = account
+        )
+        .in_language(language),
+        detail: detail.in_language(language),
+        allow: text!("Allow").in_language(language),
+        refuse: text!("Don't Allow").in_language(language),
     }
 }
 

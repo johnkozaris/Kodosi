@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define KODOSI_FFI_ABI_VERSION 12
+#define KODOSI_FFI_ABI_VERSION 13
 
 #define KODOSI_MAX_FRAME_BYTES 8388608
 
@@ -79,6 +79,8 @@
 #define KODOSI_APP_FAILED 3
 
 #define KODOSI_ACTIVATION_MAX_BYTES 16384
+
+#define KODOSI_SCREEN_VOUCH_BYTES 128
 
 #define KODOSI_LOG_INFO 0
 
@@ -226,6 +228,8 @@ int64_t kodosi_link_decision(const uint8_t *link,
                              uint8_t *out,
                              uintptr_t capacity)
 ;
+
+ int64_t kodosi_screen_vouch(uint8_t *out, uintptr_t capacity) ;
 
 
 int32_t kodosi_terminal_input(void *handle,

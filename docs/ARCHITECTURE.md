@@ -291,12 +291,29 @@ Launch Services, so that macOS grants Screen Recording and Accessibility to it a
 programs in terminals, which inherit Kodosi's permissions, do not get them. The host and the helper
 link only with a program signed by their own team, which the kernel names on each Mach message of
 the handover, so a program in a terminal that starts the helper or asks for the host's link gets
-nothing. On Linux and Windows the helper ships beside the `kodosi` program and runs as the host's
-child: on Linux the desktop's screen sharing portal asks the person at the computer once and
-remembers the grant, and on Windows no permission is needed. The host starts the helper only while
-the person at the computer allows the sharing, which only the computer's own app changes. While
-anyone watches, the helper shows which devices watch, in the menu bar or the tray, with a way to
-stop that turns the sharing off on every canvas.
+nothing.
+
+A host of the team can still run with any data folder and sign in to any account, so on a Mac the
+helper serves only an account that the person at the Mac allowed in the helper's own alert. The
+host names its account with a key over the sign-in server, the account and the account's identity
+root, which binds the devices that may watch. The helper keeps each allowed key in the data
+protection keychain, under an access group that only the team's signature with its provisioning
+profile opens, and until the host's key is there it lists, captures and plays nothing. Only turning
+the sharing on asks: the app lets the helper take the front for its alert, whose words come from the
+host and whose bundle must be whole on the disk. Any program can start a signed host that asks, but
+none can click, so the app vouches for the click: it offers a one-time vouch under a new Mach name,
+with a secret that reaches the helper only through the host, and the helper takes it before its
+alert shows, each side checking the other's team as in the hand-over. Any other start of a helper
+that does not know the key turns the host's sharing off without a question, and the sharing's end, in the app or in the
+helper, forgets every key. A helper without the team's signature, which macOS grants nothing of a
+released one, serves every account.
+
+On Linux and Windows the helper ships beside the `kodosi` program and runs as the host's child: on
+Linux the desktop's screen sharing portal asks the person at the computer once and remembers the
+grant, and on Windows no permission is needed. The host starts the helper only while the person at
+the computer allows the sharing and when they turn it on or, on a Mac, off, which only the
+computer's own app does. While anyone watches, the helper shows which devices watch, in the menu bar
+or the tray, with a way to stop that turns the sharing off on every canvas.
 
 One capture serves every viewer of a computer. It shows a display or one window, sized to the view
 that the person opened or used last, with as many pixels as that view shows, fewer while a phone

@@ -44,7 +44,7 @@ async fn shell_at(
         CanvasHandle::spawn(
             Uuid::now_v7(),
             &std::env::temp_dir(),
-            crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
+            crate::canvas::CanvasServices::new(&std::env::temp_dir(), true, watch::channel(None).1),
         ),
         TerminalChat::alone(),
         look,
@@ -603,7 +603,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
     let canvas = CanvasHandle::spawn(
         Uuid::now_v7(),
         &std::env::temp_dir(),
-        crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
+        crate::canvas::CanvasServices::new(&std::env::temp_dir(), true, watch::channel(None).1),
     );
     let chat = TerminalChat::alone().handle;
     let mut actor = LocalActor {
@@ -1027,7 +1027,7 @@ async fn a_command_runs_only_while_the_shell_is_at_its_prompt() {
         CanvasHandle::spawn(
             Uuid::now_v7(),
             &std::env::temp_dir(),
-            crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
+            crate::canvas::CanvasServices::new(&std::env::temp_dir(), true, watch::channel(None).1),
         ),
         TerminalChat::alone(),
         watch::channel(TerminalLook::Dark).1,
@@ -1083,7 +1083,7 @@ async fn a_terminal_shows_the_screen_it_starts_with_above_its_program() {
         CanvasHandle::spawn(
             Uuid::now_v7(),
             &std::env::temp_dir(),
-            crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
+            crate::canvas::CanvasServices::new(&std::env::temp_dir(), true, watch::channel(None).1),
         ),
         TerminalChat::alone(),
         watch::channel(TerminalLook::Dark).1,
@@ -1133,7 +1133,7 @@ async fn interactive_shell() -> (
         CanvasHandle::spawn(
             Uuid::now_v7(),
             &std::env::temp_dir(),
-            crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
+            crate::canvas::CanvasServices::new(&std::env::temp_dir(), true, watch::channel(None).1),
         ),
         TerminalChat::alone(),
         watch::channel(TerminalLook::Dark).1,

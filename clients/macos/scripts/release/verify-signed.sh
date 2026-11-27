@@ -7,7 +7,7 @@ cd "$ROOT"
 
 : "${KODOSI_TEAM_ID:?Set KODOSI_TEAM_ID to the Apple Developer team identifier}"
 
-app=${1:-build/archive/KodosiDesktop.xcarchive/Products/Applications/Kodosi.app}
+app=${1:-build/export/Kodosi.app}
 "$ROOT/scripts/release/verify-publishable.sh" "$app"
 
 /usr/bin/codesign --verify --deep --strict --verbose=4 "$app"
@@ -15,4 +15,5 @@ app=${1:-build/archive/KodosiDesktop.xcarchive/Products/Applications/Kodosi.app}
 "$ROOT/scripts/release/verify-developer-id-signature.sh" "$app/Contents/MacOS/agent-browser" "$KODOSI_TEAM_ID"
 "$ROOT/scripts/release/verify-developer-id-signature.sh" "$app/Contents/Helpers/Kodosi Screen.app" "$KODOSI_TEAM_ID"
 "$ROOT/scripts/release/verify-provisioning-profile.sh" "$app" "$KODOSI_TEAM_ID"
+"$ROOT/scripts/release/verify-provisioning-profile.sh" "$app/Contents/Helpers/Kodosi Screen.app" "$KODOSI_TEAM_ID" "$app"
 /usr/bin/codesign --display --verbose=4 "$app" 2>&1

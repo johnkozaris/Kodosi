@@ -25,6 +25,10 @@ mod tests;
 pub(crate) use actor::{CanvasHandle, CanvasServices, Show, close_left, keep_profiles};
 #[cfg(feature = "host")]
 pub(crate) use browser::{answer_alone, answers_alone};
+#[cfg(feature = "host")]
+pub(crate) use screen::question as screen_question;
+#[cfg(all(feature = "host", target_os = "macos"))]
+pub use screen::vouch as screen_vouch;
 
 pub const MOST_ITEMS: usize = 20;
 pub const MOST_FILE_BYTES: u64 = 32 * 1024 * 1024;

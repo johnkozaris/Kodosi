@@ -8487,6 +8487,16 @@
           },
           "type": {
             "const": "screen.allow"
+          },
+          "vouch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -20120,8 +20130,8 @@
       }
     ]
   },
-  "ffiAbiVersion": 12,
-  "protocolVersion": 118,
+  "ffiAbiVersion": 13,
+  "protocolVersion": 119,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

@@ -48,7 +48,11 @@ async fn a_person_adds_a_file_in_parts_and_a_taken_name_gets_a_number() {
     let canvas = CanvasHandle::spawn(
         uuid::Uuid::now_v7(),
         folder.path(),
-        crate::canvas::CanvasServices::new(folder.path(), true),
+        crate::canvas::CanvasServices::new(
+            folder.path(),
+            true,
+            tokio::sync::watch::channel(None).1,
+        ),
     );
     canvas.moved_to(folder.path().to_owned());
     let attach = |upload: uuid::Uuid, offset, data: &[u8], last| CanvasRequest::Attach {
@@ -84,7 +88,11 @@ async fn a_lost_part_or_a_file_of_no_kind_leaves_nothing_behind() {
     let canvas = CanvasHandle::spawn(
         uuid::Uuid::now_v7(),
         folder.path(),
-        crate::canvas::CanvasServices::new(folder.path(), true),
+        crate::canvas::CanvasServices::new(
+            folder.path(),
+            true,
+            tokio::sync::watch::channel(None).1,
+        ),
     );
     canvas.moved_to(folder.path().to_owned());
     let attach = |name: &str, upload: uuid::Uuid, offset| CanvasRequest::Attach {
@@ -129,7 +137,11 @@ async fn the_browser_of_a_terminal_that_becomes_shared_says_it_keeps_its_own_sig
     let canvas = CanvasHandle::spawn(
         uuid::Uuid::now_v7(),
         folder.path(),
-        crate::canvas::CanvasServices::new(folder.path(), true),
+        crate::canvas::CanvasServices::new(
+            folder.path(),
+            true,
+            tokio::sync::watch::channel(None).1,
+        ),
     );
     canvas.restore(
         Vec::new(),

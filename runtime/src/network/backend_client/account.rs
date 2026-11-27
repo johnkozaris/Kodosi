@@ -156,6 +156,11 @@ impl BackendClient {
                 .and_then(Value::as_str)
                 .unwrap_or("You")
                 .to_owned(),
+            handle: profile
+                .get("handle")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned(),
             token: Zeroizing::new(tokens.access_token.clone()),
             keys,
             enrolled: false,
@@ -341,6 +346,8 @@ impl BackendClient {
             .map_err(|_| Error::Closed)?
             .clone();
         self.inner.identity_settled.store(false, Ordering::Release);
+        #[cfg(feature = "host")]
+        self.inner.owner.send_replace(None);
         self.inner.restore_pending.store(false, Ordering::Release);
         self.inner.generation.fetch_add(1, Ordering::AcqRel);
         let mut state = self.inner.state.lock().await;

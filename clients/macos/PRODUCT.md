@@ -63,7 +63,9 @@ Programs running inside Kodosi inherit the macOS permissions granted to Kodosi, 
 other terminal app. Settings displays permission status and triggers macOS permission prompts.
 Sharing this Mac's screen with your other devices is off until you turn it on in Settings or on
 the canvas, and Kodosi Screen, a helper inside the app, holds the permissions that it takes, so
-terminals do not gain them.
+terminals do not gain them. Turning it on brings Kodosi Screen's own question to the front, once for
+each account, and the switch waits for the answer: on **Don't Allow** it goes back off. Turning it
+off takes back every answer.
 
 The app can preview an agent's saved provider conversations read-only without modifying them, and
 resume any conversation in a new terminal via the provider's CLI.

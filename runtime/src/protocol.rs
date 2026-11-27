@@ -37,7 +37,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 118;
+pub const VERSION: u32 = 119;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 /// The words that name a window for `kodosi show window`, at most.
@@ -668,6 +668,10 @@ pub enum Command {
         #[serde(rename = "requestId")]
         request_id: String,
         allowed: bool,
+        /// A Mac's app vouches with it that the person clicked to turn the sharing on, from
+        /// `kodosi_screen_vouch`. Kodosi Screen asks them only with it.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        vouch: Option<String>,
     },
     /// The runtime keeps the pipe for the client until it closes it, and opens it again after
     /// each loss.

@@ -26,6 +26,7 @@ mod instance;
 #[cfg_attr(not(feature = "host"), path = "viewer_link.rs")]
 mod link;
 mod links;
+mod screen;
 mod subscriptions;
 mod terminal_bridge;
 mod video;
@@ -39,7 +40,7 @@ use subscriptions::{SubscriptionState, Subscriptions};
 pub use terminal_bridge::*;
 pub use video::{kodosi_video_restart, kodosi_video_unwatch, kodosi_video_watch};
 
-pub const KODOSI_FFI_ABI_VERSION: u32 = 12;
+pub const KODOSI_FFI_ABI_VERSION: u32 = 13;
 pub const KODOSI_MAX_FRAME_BYTES: usize = 8_388_608;
 pub const KODOSI_TERMINAL_SNAPSHOT_MAX_BYTES: usize = 281_018_368;
 pub const KODOSI_TERMINAL_IMAGE_STORAGE_MAX_BYTES: u64 = 67_108_864;
@@ -75,6 +76,8 @@ pub const KODOSI_APP_SECONDARY: i32 = 1;
 pub const KODOSI_APP_FORWARDED: i32 = 2;
 pub const KODOSI_APP_FAILED: i32 = 3;
 pub const KODOSI_ACTIVATION_MAX_BYTES: usize = 16_384;
+/// Room for what `kodosi_screen_vouch` writes.
+pub const KODOSI_SCREEN_VOUCH_BYTES: usize = 128;
 pub const KODOSI_LOG_INFO: i32 = 0;
 pub const KODOSI_LOG_WARNING: i32 = 1;
 pub const KODOSI_LOG_ERROR: i32 = 2;

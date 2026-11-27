@@ -33,6 +33,15 @@ struct DeviceSession {
 pub(crate) struct Credentials {
     pub(crate) user_id: String,
     pub(crate) display_name: String,
+    /// The user name, which no other account of the server has.
+    #[cfg_attr(
+        not(feature = "host"),
+        expect(
+            dead_code,
+            reason = "only a host's Kodosi Screen names the account by it"
+        )
+    )]
+    pub(crate) handle: String,
     pub(crate) token: Zeroizing<String>,
     pub(crate) keys: Arc<DeviceKeys>,
     pub(crate) enrolled: bool,

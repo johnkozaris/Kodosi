@@ -698,12 +698,30 @@ impl Runtime {
     #[cfg(feature = "host")]
     fn use_screen(&mut self, command: &Command) -> Result<()> {
         let screen = self.services.screen.clone();
-        if let Command::ScreenAllow { allowed, .. } = command {
-            screen.allow(*allowed).map_err(Error::Text)?;
+        let mut question = None;
+        match command {
+            Command::ScreenAllow {
+                allowed: true,
+                vouch,
+                ..
+            } => {
+                screen.offered().map_err(Error::Text)?;
+                let account = self.network.account().unwrap_or_default();
+                let server = self.config.foreign_server();
+                question = Some((
+                    crate::canvas::screen_question(&account, server.as_deref()),
+                    vouch.clone(),
+                ));
+            }
+            Command::ScreenAllow { allowed: false, .. } => screen.turn_off(),
+            _ => {}
         }
         self.job_capacity()?;
         let command = command.clone();
         self.spawn(async move {
+            if let Some((question, vouch)) = question {
+                screen.turn_on(question, vouch).await;
+            }
             let access = screen.access().await;
             let result = Ok(json!({
                 "allowed": *screen.allowed().borrow(),

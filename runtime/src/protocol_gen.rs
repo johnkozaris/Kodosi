@@ -310,7 +310,7 @@ fn invalid(message: impl Into<String>) -> Error {
 fn rendered() -> Result<String> {
     let value = json!({
         "protocolVersion":protocol::VERSION,
-        "ffiAbiVersion":12,
+        "ffiAbiVersion":13,
         "commands":schema::<protocol::CommandEnvelope>(Direction::Input)?,
         "events":shape::<protocol::Event>()?,
         "chat":{"pipe":kodosi_runtime::chat::CHAT_PIPE,"frames":shape::<kodosi_runtime::chat::ChatFrame>()?,"requests":schema::<kodosi_runtime::chat::ChatRequest>(Direction::Input)?},

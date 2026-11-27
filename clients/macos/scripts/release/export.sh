@@ -27,3 +27,14 @@ xcodebuild -exportArchive \
            -archivePath "$archive" \
            -exportOptionsPlist "$options/ExportOptions.plist" \
            -exportPath "$folder"
+
+# Xcode's export gives a nested app a provisioning profile only when the profile names that app's
+# identifier. Kodosi Screen carries the profile of the app that contains it, so it gets the profile
+# here, from the certificate that Xcode signed the app with, and the app's seal is made again over it.
+app="$folder/Kodosi.app"
+/usr/bin/codesign --display --extract-certificates="$options/certificate" "$app" 2>/dev/null
+identity=$(/usr/bin/openssl x509 -inform DER -in "$options/certificate0" -noout -fingerprint -sha1 | sed 's/^.*=//; s/://g')
+"$ROOT/scripts/build/sign-screen-helper.sh" "$app/Contents/Helpers/Kodosi Screen.app" "$identity" "$KODOSI_TEAM_ID" \
+    "$app/Contents/embedded.provisionprofile" --timestamp
+/usr/bin/codesign --display --entitlements "$options/entitlements.plist" --xml "$app" 2>/dev/null
+/usr/bin/codesign --force --sign "$identity" --options runtime --timestamp --entitlements "$options/entitlements.plist" "$app"
