@@ -12,7 +12,6 @@ import com.kodosi.mobile.runtime.RuntimeJson
 import com.kodosi.mobile.runtime.fields
 import com.kodosi.mobile.runtime.string
 import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
@@ -32,9 +31,9 @@ import kotlinx.serialization.json.JsonObject
 // The part of a stream's source that a frame shows, in the source's points.
 data class FrameRegion(val x: Float, val y: Float, val width: Float, val height: Float)
 
-// A feed of a video pipe: the shared browser's or the screen's. All mutable state is confined to the
-// single-threaded VideoPipes executor to preserve ordering between UI calls and pipe events.
-// `decoders` tells the host what this device decodes.
+// A feed of a video pipe: the shared browser's or the screen's. The runtime hands its messages and frames over on the
+// pipe's own thread: a frame goes straight to the decoder there, and the rest goes on to the single-threaded VideoPipes
+// executor, in pipe order, which keeps all other state. `decoders` tells the host what this device decodes.
 abstract class VideoFeed(
     private val pipes: VideoPipes,
     internal val session: String,
@@ -69,7 +68,7 @@ abstract class VideoFeed(
     val copies: SharedFlow<String>
         field = MutableSharedFlow<String>(extraBufferCapacity = 8)
     protected val work = CoroutineScope(scope.coroutineContext + pipes.dispatcher)
-    private val link = pipes.link(session, key)
+    private val link = pipes.link(this, key)
     private var joining: Job? = null
     private var active = false
     private var shared = true
@@ -78,9 +77,10 @@ abstract class VideoFeed(
     private var open = false
     protected var watching = false
         private set
-    private var behind = true
-    private var last: Long? = null
     private var surface: Surface? = null
+
+    // Read on the pipe's thread.
+    @Volatile
     private var decoder: VideoDecoder? = null
     private var pixels = IntSize.Zero
     private var density = 1f
@@ -90,7 +90,6 @@ abstract class VideoFeed(
     private var holding = false
 
     init {
-        link.onFrame = ::receive
         link.onNews = ::heard
         pipes.execute { pipes.follow(this) }
     }
@@ -217,15 +216,17 @@ abstract class VideoFeed(
         stream()
     }
 
+    // The runtime lets go of the pipe before its decoder closes, so that no frame's call still runs on it.
     private fun stream() {
-        resetDecoder()
         if (streaming) {
+            resetDecoder()
             join()
         } else {
             open = false
             watching = false
             joining?.cancel()
             link.detach()
+            resetDecoder()
             live.value = false
         }
     }
@@ -290,8 +291,6 @@ abstract class VideoFeed(
         when (news) {
             DocumentLink.News.Open -> {
                 failure.value = null
-                behind = true
-                last = null
                 open = true
                 opened()
                 watch()
@@ -330,48 +329,38 @@ abstract class VideoFeed(
     // The stream heard this viewer's watch.
     protected open fun watched() = Unit
 
-    private fun receive(bytes: ByteArray) {
-        if (!streaming || bytes.isEmpty()) return
-        if (bytes[0] == 0.toByte()) {
-            val message = runCatching {
-                RuntimeJson.parseToJsonElement(bytes.copyOfRange(1, bytes.size).decodeToString()) as? JsonObject
-            }.getOrNull() ?: return
-            message.string("copied")?.let(copies::tryEmit)
-            take(message)
-            return
+    // On the pipe's thread: hands the frame to the decoder, and returns false when the decoder cannot go on. The bytes
+    // are valid only during the call.
+    internal fun frame(codec: VideoCodec, key: Boolean, shows: FrameRegion?, bytes: ByteBuffer): Boolean {
+        val decoder = decoder
+        val took = decoder?.frame(bytes, key, codec) ?: true
+        execute {
+            pipes.wake(this)
+            if (took && decoder != null && this.decoder === decoder) {
+                region.value = shows
+                live.value = true
+            }
         }
-        if (bytes[0] != 1.toByte() || bytes.size <= HEADER) return
-        pipes.wake(this)
-        val id = ByteBuffer.wrap(bytes, 1, 4).order(ByteOrder.BIG_ENDIAN).int.toLong() and 0xffffffffL
-        val flags = bytes[5].toInt()
-        val key = flags and KEY != 0
-        post(fields("type" to "ack", "frame" to id))
-        val codec = VideoCodec.of(bytes[6].toInt()) ?: return
-        var start = HEADER
-        var shows: FrameRegion? = null
-        if (flags and REGION != 0) {
-            if (bytes.size <= HEADER + REGION_BYTES) return
-            val values = ByteBuffer.wrap(bytes, HEADER, REGION_BYTES).order(ByteOrder.BIG_ENDIAN)
-            shows = FrameRegion(values.float, values.float, values.float, values.float)
-            start += REGION_BYTES
-        }
-        if (!key && !behind && id != (last?.plus(1)?.and(0xffffffffL))) restart()
-        last = id
-        if (behind && !key) return
-        if (decoder?.frame(ByteBuffer.wrap(bytes, start, bytes.size - start), key, codec) != true) {
-            restart()
-            return
-        }
-        region.value = shows
-        behind = false
-        live.value = true
+        return took
     }
 
-    // Drop frames until the next keyframe; request one per break (the host rate-limits keyframes to
-    // 1/s because they cost bandwidth for all viewers).
+    // On the pipe's thread.
+    internal fun message(json: ByteArray) {
+        val message = runCatching { RuntimeJson.parseToJsonElement(json.decodeToString()) as? JsonObject }.getOrNull()
+            ?: return
+        execute {
+            if (!streaming) return@execute
+            message.string("copied")?.let(copies::tryEmit)
+            take(message)
+        }
+    }
+
+    // On the pipe's thread: the picture waits for a repair, which the next frame brings.
+    internal fun repair() = execute { if (streaming) stale() }
+
+    // The decoder starts over, so the runtime waits for a keyframe and asks for one.
     private fun restart() {
-        behind = true
-        if (decoder != null) post(fields("type" to "keyframe"))
+        if (decoder != null) link.pipe?.let(pipes::restart)
     }
 
     protected fun post(value: JsonObject) {
@@ -395,10 +384,6 @@ abstract class VideoFeed(
     private fun shows() = pipes.shows(this, active && decoder != null)
 
     private companion object {
-        const val HEADER = 7
-        const val REGION_BYTES = 16
-        const val KEY = 1
-        const val REGION = 4
         const val SETTLE_MS = 250L
         const val DETACH_MS = 1000L
     }

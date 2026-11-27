@@ -3,7 +3,7 @@ package com.kodosi.mobile.runtime
 import android.content.Context
 import java.nio.ByteBuffer
 
-/** The runtime calls these on its own threads. Each call must return quickly. */
+/** The runtime calls these on its own threads. Each call must return quickly, except [onVideoFrame]. */
 interface RuntimeCallbacks {
     fun onEvent(json: ByteArray)
 
@@ -25,6 +25,18 @@ interface RuntimeCallbacks {
         console: Boolean,
         snapshot: ByteBuffer
     ): Int
+
+    /**
+     * On the pipe's own thread, in pipe order with its messages; it may wait about a second for a slow decoder, never
+     * for the main thread. [region] is null when the frame shows the whole source, and the bytes are valid only during
+     * the call. Returns [Ffi.VIDEO_TAKEN], also when the pipe has no decoder now, or [Ffi.VIDEO_FAILED] when the decoder
+     * cannot go on.
+     */
+    fun onVideoFrame(pipe: String, codec: Int, kind: Int, region: FloatArray?, bytes: ByteBuffer): Int
+
+    fun onVideoMessage(pipe: String, json: ByteArray)
+
+    fun onVideoRepair(pipe: String)
 }
 
 internal object NativeRuntime {
@@ -70,6 +82,13 @@ internal object NativeRuntime {
         generation: Long,
         bytes: ByteArray
     ): Int
+
+    @JvmStatic external fun videoWatch(handle: Long, pipe: String): Int
+
+    @JvmStatic external fun videoRestart(handle: Long, pipe: String): Int
+
+    // Returns once no video callback of the pipe runs and none will come.
+    @JvmStatic external fun videoUnwatch(handle: Long, pipe: String): Int
 }
 
 object Ffi {
@@ -78,8 +97,12 @@ object Ffi {
     const val OK = 0
     const val RUNTIME_STOPPED = 5
     const val BUSY = 6
+    const val SESSION_NOT_FOUND = 7
     const val STALE_SUBSCRIPTION = 8
     const val CHECKPOINT_REJECTED = 9
     const val LOG_WARNING = 1
     const val LOG_ERROR = 2
+    const val VIDEO_TAKEN = 0
+    const val VIDEO_FAILED = 1
+    const val VIDEO_KEY = 1
 }

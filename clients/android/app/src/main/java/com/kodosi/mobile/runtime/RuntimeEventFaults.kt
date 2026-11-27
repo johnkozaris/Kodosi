@@ -23,12 +23,8 @@ class RuntimeEventFaults {
             "so it asks for its state again"
     )
 
-    fun videoBehind(events: Int, bytes: Long) = write(
-        Log.WARN,
-        Ffi.LOG_WARNING,
-        "the video pipes fell behind the runtime's events and dropped $events of them, $bytes bytes, " +
-            "so its pipes start again"
-    )
+    fun video(act: String, result: Int) =
+        write(Log.WARN, Ffi.LOG_WARNING, "the runtime refused to $act a video pipe with result $result")
 
     private fun write(priority: Int, level: Int, line: String) {
         Log.println(priority, TAG, line)

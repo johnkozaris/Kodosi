@@ -12,11 +12,12 @@ import java.util.Base64
 
 // The runtime owns each pipe and reconnects it after drops until closed. Each DocumentLink is
 // single-threaded: main thread for documents, the VideoPipes executor for the browser and the screen.
+// A video pipe's messages and frames go to its watch instead of onFrame.
 class DocumentLink(
     private val commands: CommandSink,
     val session: String,
     private val key: String,
-    private val onPipe: () -> Unit = {},
+    private val video: Watch? = null,
     private val onClose: (DocumentLink) -> Unit
 ) {
     sealed interface News {
@@ -29,11 +30,15 @@ class DocumentLink(
         data object Closed : News
     }
 
+    // The runtime's watch of a video pipe: from once the runtime has the pipe until before the link closes it.
+    interface Watch {
+        fun watch(pipe: String)
+
+        fun unwatch(pipe: String)
+    }
+
     var pipe: String? = null
-        private set(value) {
-            field = value
-            onPipe()
-        }
+        private set
 
     private var registering: String? = null
     private var next: Long? = null
@@ -100,6 +105,7 @@ class DocumentLink(
             "document.closed" -> {
                 this.pipe = null
                 filling.reset()
+                video?.unwatch(pipe)
                 onNews(News.Closed)
             }
 
@@ -133,6 +139,7 @@ class DocumentLink(
             while (true) {
                 try {
                     commands.request("document.open", fields("sessionId" to session, "pipe" to pipe, "key" to key))
+                    if (this.pipe == pipe) video?.watch(pipe)
                     return
                 } catch (lost: LostAnswer) {
                     if (this.pipe != pipe) throw lost
@@ -144,18 +151,23 @@ class DocumentLink(
         }
     }
 
+    // The runtime takes the app's commands and watches in the order that it made them, so the watch finds the
+    // pipe that this open makes.
     private fun renew(pipe: String) {
         shut(pipe)
         if (commands.send("document.open", fields("sessionId" to session, "pipe" to pipe, "key" to key)) != Ffi.OK) {
             this.pipe = null
             onNews(News.Closed)
+            return
         }
+        video?.watch(pipe)
     }
 
     // Clear next so in-flight frames are ignored until the pipe reopens.
     private fun shut(pipe: String) {
         filling.reset()
         next = null
+        video?.unwatch(pipe)
         commands.send("document.close", fields("pipe" to pipe))
     }
 
@@ -163,6 +175,7 @@ class DocumentLink(
         val current = pipe ?: return
         pipe = null
         filling.reset()
+        video?.unwatch(current)
         commands.send("document.close", fields("pipe" to current))
     }
 

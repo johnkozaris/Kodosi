@@ -132,7 +132,7 @@ class AppModel(
 
     fun start() {
         if (runtime != null || phase.value is Phase.Failed) return
-        val handle = RuntimeHandle(video::claims)
+        val handle = RuntimeHandle(video)
         runtime = handle
         val previous = stopping
         consuming = scope.launch {
@@ -148,7 +148,7 @@ class AppModel(
             when (outcome) {
                 RuntimeHandle.Start.Started -> {
                     commands.transport = handle::send
-                    launch(video.dispatcher) { video.consume(handle.videoEvents) }
+                    video.runtime = handle
                     consume(handle)
                 }
 
@@ -277,6 +277,7 @@ class AppModel(
     private fun catchUp() {
         commands.abandonPending()
         canvas.renewPipes()
+        video.renewPipes()
         // The runtime asks its open questions again after the resync, without those that ended meanwhile.
         sharing.reset()
         commands.send("app.resync")
@@ -370,7 +371,10 @@ class AppModel(
 
             "dosi" -> dosi.receive(event)
 
-            "document" -> canvas.receive(event)
+            "document" -> {
+                canvas.receive(event)
+                video.receive(event)
+            }
         }
     }
 
@@ -383,6 +387,7 @@ class AppModel(
     private fun stop() {
         commands.cancelPending()
         commands.transport = null
+        video.runtime = null
         val handle = runtime ?: return
         runtime = null
         val consumer = consuming

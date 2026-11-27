@@ -132,8 +132,7 @@ class ScreenFeedTest {
     }
 
     private fun say(pipe: String, message: String) {
-        val data = Base64.getEncoder().encodeToString(byteArrayOf(0) + message.encodeToByteArray())
-        pipes.receive(event("document.frame", """"pipe":"$pipe","sequence":0,"more":false,"data":"$data""""))
+        pipes.message(pipe, message.encodeToByteArray())
     }
 
     private fun sent(): JsonObject {
