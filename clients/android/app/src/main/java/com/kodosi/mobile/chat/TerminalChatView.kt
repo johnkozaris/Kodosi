@@ -26,6 +26,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -114,7 +116,7 @@ fun TerminalChatView(
         chat.draft = draft.text.toString()
     }
     CompositionLocalProvider(LocalLinkOpener provides opener, LocalProseFolder provides view.facts.folder) {
-        Box(modifier, contentAlignment = Alignment.TopCenter) {
+        Box(modifier.semantics { testTagsAsResourceId = true }, contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = 760.dp).fillMaxSize()) {
                 val writer = AgentKind.of(view.facts.agent).takeIf { it.isAgent } ?: session.agent
                 ChatThread(

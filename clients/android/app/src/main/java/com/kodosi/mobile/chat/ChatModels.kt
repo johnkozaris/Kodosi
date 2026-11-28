@@ -127,8 +127,9 @@ data class ChatItem(val id: String, val at: Long, val body: ChatBody)
 @JsonClassDiscriminator("kind")
 sealed interface ChatBody {
     /**
-     * [text] holds only the person's own words, and [handoff] the agent whose work the message handed
-     * to this one. A null sender means the message was typed directly in the terminal.
+     * [text] holds only the person's own words, [handoff] the agent whose work the message handed to
+     * this one, and [pictures] the pictures that came with the words. A null sender means the message
+     * was typed directly in the terminal.
      */
     @Serializable
     @SerialName("person")
@@ -136,7 +137,8 @@ sealed interface ChatBody {
         val text: String,
         val by: ChatPerson? = null,
         val mentions: List<ChatMention> = emptyList(),
-        val handoff: ChatMention? = null
+        val handoff: ChatMention? = null,
+        val pictures: List<ChatPicture> = emptyList()
     ) : ChatBody
 
     @Serializable
@@ -321,6 +323,7 @@ data class ChatQueued(
     val text: String,
     val mentions: List<ChatMention> = emptyList(),
     val handoff: ChatMention? = null,
+    val pictures: List<ChatPicture> = emptyList(),
     val by: ChatPerson? = null,
     val refused: String? = null,
     /**
@@ -328,12 +331,30 @@ data class ChatQueued(
      * or only the terminal has it.
      */
     val terminal: Boolean = false,
-    /**
-     * The agent has this message, so it can no longer be removed: the turn that runs reads it
-     * before its next step, or the agent's terminal shows the command.
-     */
-    val given: Boolean = false
+    /** The agent has this message, so it can no longer be removed, and when it reads it. */
+    val given: ChatGiven? = null
 )
+
+@Serializable
+enum class ChatGiven {
+    /** The turn that runs reads it before its next step. */
+    @SerialName("step")
+    STEP,
+
+    /**
+     * The agent keeps it for its next turn, which starts when the one that runs ends, or its terminal
+     * shows the command.
+     */
+    @SerialName("turn")
+    TURN
+}
+
+/**
+ * A picture that came with a person's message, saved on the terminal's computer. [name] is the name
+ * of its file there, empty for a picture that the agent's terminal took.
+ */
+@Serializable
+data class ChatPicture(val name: String = "")
 
 /** A slash command of the agent, as its own menu lists it. */
 @Serializable

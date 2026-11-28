@@ -124,15 +124,24 @@ struct PersonBubble: View {
     let text: String
     /// The agents and people that the words name with `@`, drawn as chips.
     var targets: [ProjectMention] = []
+    /// The pictures that came with the words.
+    var pictures = 0
     var copies = false
 
     var body: some View {
         HStack(spacing: 0) {
             Spacer(minLength: 56)
-            let bubble = ProjectMessageText(text: text, targets: targets)
-                .appTextStyle(.body).lineSpacing(2).foregroundStyle(theme.colors.ink).messageTextSelection()
-                .projectBubble()
-            if copies {
+            let bubble = VStack(alignment: .trailing, spacing: 6) {
+                if !text.isEmpty {
+                    ProjectMessageText(text: text, targets: targets)
+                        .appTextStyle(.body).lineSpacing(2).foregroundStyle(theme.colors.ink).messageTextSelection()
+                }
+                if pictures > 0 {
+                    ChatPictureTiles(count: pictures)
+                }
+            }
+            .projectBubble()
+            if copies, !text.isEmpty {
                 bubble.copiesMessage(text, preview: ProjectBubble())
             } else {
                 bubble

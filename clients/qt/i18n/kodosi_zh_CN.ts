@@ -944,6 +944,10 @@
         <translation>%1 会在下一步之前读取此消息。</translation>
     </message>
     <message>
+        <source>%1 reads this after its turn.</source>
+        <translation>%1 会在这一轮结束后读取此消息。</translation>
+    </message>
+    <message>
         <source>Waiting for %1</source>
         <translation>正在等待 %1</translation>
     </message>
@@ -954,6 +958,10 @@
     <message>
         <source>Commands</source>
         <translation>命令</translation>
+    </message>
+    <message>
+        <source>Picture</source>
+        <translation>图片</translation>
     </message>
     <message>
         <source>Or say what to do instead</source>
@@ -1025,6 +1033,13 @@
     <message>
         <source>Hand off</source>
         <translation>交接</translation>
+    </message>
+</context>
+<context>
+    <name>ChatPictures</name>
+    <message>
+        <source>Picture</source>
+        <translation>图片</translation>
     </message>
 </context>
 <context>
@@ -5725,6 +5740,14 @@
 </context>
 <context>
     <name>kodosi::TerminalChat</name>
+    <message>
+        <source>Kodosi cannot read this picture.</source>
+        <translation>Kodosi 无法读取此图片。</translation>
+    </message>
+    <message>
+        <source>A message takes up to 8 pictures, 32 MB in all.</source>
+        <translation>一条消息最多可包含 8 张图片，合计不超过 32 MB。</translation>
+    </message>
     <message>
         <source>Approve</source>
         <translation>批准</translation>

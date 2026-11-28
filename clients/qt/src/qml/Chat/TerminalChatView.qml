@@ -103,6 +103,27 @@ FocusScope {
             onLinkActivated: link => root.open(link)
         }
     }
+    DropArea {
+        id: pictureDrop
+
+        anchors.fill: parent
+        anchors.margins: 6
+        enabled: root.chat.canWrite
+        keys: ["text/uri-list"]
+        objectName: root.objectName + ".pictures"
+
+        onDropped: drop => {
+            drop.accept(Qt.CopyAction)
+            root.chat.addPictures(drop.urls)
+            dock.focusComposer()
+        }
+
+        DropSlot {
+            anchors.fill: parent
+            shown: pictureDrop.containsDrag
+            radius: KodosiTheme.radiusLg
+        }
+    }
     TerminalDropArea {
         id: chatDrop
 

@@ -9,7 +9,9 @@ const VERSION = 1
 // consecutive empty responses returning faster than QUICK_MS indicate a dead connection.
 const QUICK_MS = 200
 const FAILURES = 3
-const HISTORY = 400
+// The events of the session that a chat gets when it links: enough to fill the window of items
+// that the chat keeps, also after a restart of Kodosi or of Copilot.
+const HISTORY = 1000
 const HISTORY_PART = 40
 // Keep batches under the host's 8 MiB limit (each UTF-16 code unit in JS
 // string length can expand to up to 3 UTF-8 bytes).
@@ -150,6 +152,13 @@ function shaped(event) {
   if (!fields) return null
   const data = {}
   for (const field of fields) if (event.data && event.data[field] !== undefined) data[field] = brief(event.data[field], 0)
+  // Only the kind and the file of each attachment: the chat shows the pictures among them.
+  if (event.type === 'user.message' && Array.isArray(event.data && event.data.attachments)) {
+    data.attachments = event.data.attachments.slice(0, 16).map(attached => {
+      const { type, path } = attached || {}
+      return { type: String(type), path: typeof path === 'string' ? path : undefined }
+    })
+  }
   return { type: event.type, data, id: event.id, agent: event.agentId, at: Date.parse(event.timestamp) || undefined }
 }
 
@@ -211,17 +220,19 @@ async function hello(early) {
   } catch (error) {
     facts.context = undefined
   }
-  let earlier = []
+  let saved = []
   try {
-    earlier = (await session.getEvents()).map(shaped).filter(Boolean).slice(-HISTORY)
+    saved = (await session.getEvents()).map(shaped).filter(Boolean)
   } catch (error) {
-    earlier = []
+    saved = []
   }
+  // A finished message holds its whole text, so the history leaves out the pieces it came in.
+  const earlier = saved.filter(event => event.type !== 'assistant.message_delta').slice(-HISTORY)
   tell('hello', facts)
   for (let at = 0; at < earlier.length; at += HISTORY_PART) {
     tell('history', { events: earlier.slice(at, at + HISTORY_PART), more: at + HISTORY_PART < earlier.length })
   }
-  const known = new Set(earlier.map(event => event.id))
+  const known = new Set(saved.map(event => event.id))
   for (const event of early.splice(0)) if (!known.has(event.id)) tell('event', event)
   await readTasks()
   await readQuota()
@@ -257,9 +268,15 @@ async function run(command) {
   try {
     if (command.mode) await session.rpc.mode.set({ mode: String(command.mode) })
     // `immediate` gives the message to the turn that runs, as Enter does in Copilot's terminal.
-    if (command.text) {
-      const prompt = String(command.text)
-      const messageId = await session.send({ prompt, ...(command.steer && { mode: 'immediate' }) })
+    const pictures = Array.isArray(command.pictures) ? command.pictures.map(String) : []
+    if (command.text || pictures.length > 0) {
+      const prompt = String(command.text || '')
+      const attachments = pictures.map(path => ({ type: 'file', path, displayName: path.split(/[\\/]/).pop() }))
+      const messageId = await session.send({
+        prompt,
+        ...(attachments.length > 0 && { attachments }),
+        ...(command.steer && { mode: 'immediate' }),
+      })
       if (command.steer && messageId) steered.set(command.n, { messageId, expectedPrompt: prompt })
     }
     tell('did', { n: command.n })

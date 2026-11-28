@@ -1,14 +1,15 @@
 import Foundation
 
 /// A person's message: their own words, the agents of other terminals that the words name with `@`,
-/// and the agent whose work the message handed over.
+/// the agent whose work the message handed over, and the pictures that came with the words.
 public struct ChatSaid: Decodable, Equatable, Sendable {
     public let text: String
     public let mentions: [ChatMention]
     public let handoff: ChatMention?
+    public let pictures: [ChatPicture]
 
     private enum Key: String, CodingKey {
-        case text, mentions, handoff
+        case text, mentions, handoff, pictures
     }
 
     public init(from decoder: any Decoder) throws {
@@ -16,6 +17,22 @@ public struct ChatSaid: Decodable, Equatable, Sendable {
         text = try fields.decode(String.self, forKey: .text)
         mentions = try fields.decodeIfPresent([ChatMention].self, forKey: .mentions) ?? []
         handoff = try fields.decodeIfPresent(ChatMention.self, forKey: .handoff)
+        pictures = try fields.decodeIfPresent([ChatPicture].self, forKey: .pictures) ?? []
+    }
+}
+
+/// A picture that came with a person's message, kept on the terminal's computer.
+public struct ChatPicture: Decodable, Equatable, Sendable {
+    /// The name of its file there; empty for a picture that the agent's terminal took.
+    public let name: String
+
+    private enum Key: String, CodingKey {
+        case name
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let fields = try decoder.container(keyedBy: Key.self)
+        name = try fields.decodeIfPresent(String.self, forKey: .name) ?? ""
     }
 }
 

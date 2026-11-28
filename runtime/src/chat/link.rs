@@ -40,7 +40,7 @@ impl TerminalChat {
     #[cfg(test)]
     pub(crate) fn alone() -> Self {
         Self {
-            handle: ChatHandle::spawn(String::new(), None),
+            handle: ChatHandle::spawn(String::new(), None, None),
             variables: Vec::new(),
         }
     }
@@ -50,6 +50,8 @@ impl TerminalChat {
 pub(crate) struct Links {
     rooms: Rooms,
     peers: Arc<watch::Sender<Peers>>,
+    /// The folder of the pictures that the terminals of this computer keep.
+    pictures: Option<Arc<Path>>,
     addresses: Arc<[(&'static str, String)]>,
     codex: Option<CodexAddresses>,
     _served: Arc<tokio_util::sync::DropGuard>,
@@ -75,6 +77,7 @@ impl Links {
         Self {
             rooms,
             peers: Arc::new(watch::Sender::new(Peers::default())),
+            pictures: Some(crate::terminal::pictures_root(root).into()),
             addresses: addresses.into(),
             codex,
             _served: Arc::new(stop.drop_guard()),
@@ -87,6 +90,7 @@ impl Links {
         Self {
             rooms: Rooms::default(),
             peers: Arc::new(watch::Sender::new(Peers::default())),
+            pictures: None,
             addresses: Arc::new([]),
             codex: None,
             _served: Arc::new(stop.drop_guard()),
@@ -94,7 +98,13 @@ impl Links {
     }
 
     pub(crate) fn room(&self, terminal: Uuid) -> TerminalChat {
-        let handle = ChatHandle::spawn(terminal.to_string(), Some(self.peers.subscribe()));
+        let handle = ChatHandle::spawn(
+            terminal.to_string(),
+            Some(self.peers.subscribe()),
+            self.pictures
+                .as_ref()
+                .map(|pictures| pictures.join(terminal.to_string())),
+        );
         {
             let mut rooms = self.rooms.lock().unwrap_or_else(PoisonError::into_inner);
             rooms.retain(|_, room| room.upgrade().is_some());

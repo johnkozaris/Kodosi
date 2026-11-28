@@ -333,6 +333,7 @@ qt_add_qml_module(kodosi-ui
         qml/Chat/ChatFacts.qml
         qml/Chat/ChatHandOff.qml
         qml/Chat/ChatPeerMenu.qml
+        qml/Chat/ChatPictures.qml
         qml/Chat/ChatSettings.qml
         qml/Chat/ChatStep.qml
         qml/Chat/ChatThread.qml
@@ -381,6 +382,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/CountBadge.qml
         qml/Controls/CursorBlock.qml
         qml/Controls/DashedSlot.qml
+        qml/Controls/DropSlot.qml
         qml/Controls/EffortBars.qml
         qml/Controls/EmptyState.qml
         qml/Controls/HelperMarks.qml

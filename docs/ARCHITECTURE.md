@@ -208,13 +208,29 @@ The host turns these reports into structured chat state: user messages, agent re
 pending questions, the agent's task list, and session metadata. Replies, answers, and stops flow
 back over the same channel.
 
+The host keeps no copy of a conversation. When a chat links to its agent, as after the agent or the
+host starts again, the agent's extension or server reads the earlier messages back out of the
+agent's own record, so a view that opens again and every other device get the same chat.
+
+A message waits in the host's queue only until the agent's interface takes it. Codex and Copilot
+CLI take it into the running turn and read it before their next step. Claude Code takes a plugin's
+prompt into its own queue while it works, which its terminal shows, and gives the queued prompts to
+the model when the turn ends, while a prompt typed in its terminal joins the turn at the next step.
+
+The pictures of a message come with it from the app, and the terminal's computer keeps them as
+files for as long as its host runs. Codex and Copilot CLI get the files as their own picture input,
+and Antigravity CLI gets the pictures in the prompt where its ACP server takes images. Claude Code
+takes only text from a plugin, so the message names each file in a line from Kodosi, and Claude
+Code reads the picture with its Read tool.
+
 Each chat also lists the agents of the other terminals that its agent can reach, as its host's
 terminal list has them. A message that names one with `@` reaches the agent as the person wrote it,
 followed by one short Kodosi line for each named agent: its agent kind and the command that shows
 its details. A hand-off asks the agent to continue another agent's work and to read that agent's
 conversation with `kodosi terminal read <terminal> --conversation`, which takes it from the other
 terminal's chat without a message to its agent. The host reads its own lines back out of the agent's
-record, so the chat shows the person's words and the named agents apart, also after a restart.
+record, so the chat shows the person's words, the named agents and the pictures apart, also after a
+restart.
 
 The host also reports which view an agent primarily runs in (terminal vs. chat, such as
 Antigravity ACP chat, switching back to terminal while waiting for sign-in). Clients open on that

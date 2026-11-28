@@ -944,6 +944,10 @@
         <translation>%1이(가) 다음 단계 전에 이 메시지를 읽어요.</translation>
     </message>
     <message>
+        <source>%1 reads this after its turn.</source>
+        <translation>%1이(가) 지금 차례가 끝나면 이 메시지를 읽어요.</translation>
+    </message>
+    <message>
         <source>Waiting for %1</source>
         <translation>%1을(를) 기다리는 중</translation>
     </message>
@@ -954,6 +958,10 @@
     <message>
         <source>Commands</source>
         <translation>명령</translation>
+    </message>
+    <message>
+        <source>Picture</source>
+        <translation>이미지</translation>
     </message>
     <message>
         <source>Or say what to do instead</source>
@@ -1025,6 +1033,13 @@
     <message>
         <source>Hand off</source>
         <translation>인계</translation>
+    </message>
+</context>
+<context>
+    <name>ChatPictures</name>
+    <message>
+        <source>Picture</source>
+        <translation>이미지</translation>
     </message>
 </context>
 <context>
@@ -5725,6 +5740,14 @@
 </context>
 <context>
     <name>kodosi::TerminalChat</name>
+    <message>
+        <source>Kodosi cannot read this picture.</source>
+        <translation>Kodosi가 이 이미지를 읽을 수 없어요.</translation>
+    </message>
+    <message>
+        <source>A message takes up to 8 pictures, 32 MB in all.</source>
+        <translation>한 메시지에는 이미지를 8개까지, 모두 합쳐 32MB까지 넣을 수 있어요.</translation>
+    </message>
     <message>
         <source>Approve</source>
         <translation>승인</translation>

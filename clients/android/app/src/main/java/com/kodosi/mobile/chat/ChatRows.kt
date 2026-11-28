@@ -10,7 +10,8 @@ data class ChatRow(val id: String, val at: Long, val kind: Kind) {
             val text: String,
             val by: ChatPerson?,
             val mentions: List<ChatMention>,
-            val handoff: ChatMention?
+            val handoff: ChatMention?,
+            val pictures: List<ChatPicture>
         ) : Kind
 
         data class Answer(val text: String, val live: Boolean) : Kind
@@ -66,7 +67,13 @@ data class ChatRow(val id: String, val at: Long, val kind: Kind) {
                 when (val body = item.body) {
                     is ChatBody.Person -> {
                         fold(ended = true)
-                        add(ChatRow(item.id, item.at, Kind.Person(body.text, body.by, body.mentions, body.handoff)))
+                        add(
+                            ChatRow(
+                                item.id,
+                                item.at,
+                                Kind.Person(body.text, body.by, body.mentions, body.handoff, body.pictures)
+                            )
+                        )
                     }
 
                     is ChatBody.Text, is ChatBody.Tool -> turn += item

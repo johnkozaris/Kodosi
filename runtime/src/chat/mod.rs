@@ -89,6 +89,9 @@ const MOST_COMMANDS: usize = 256;
 const MOST_SETTINGS: usize = 256;
 #[cfg(feature = "host")]
 const MOST_CHOICES: usize = 64;
+/// The pictures of one message.
+#[cfg(feature = "host")]
+const MOST_PICTURES: usize = 8;
 
 /// Host sends a `Snapshot` on attach, then sequential `Update` frames.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -221,6 +224,9 @@ pub enum ChatBody {
         /// The agent whose work the person handed to this one with this message.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         handoff: Option<ChatMention>,
+        /// The pictures that came with the words.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        pictures: Vec<ChatPicture>,
     },
     Text {
         text: String,
@@ -493,9 +499,14 @@ pub struct ChatQueued {
     pub mentions: Vec<ChatMention>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub handoff: Option<ChatMention>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pictures: Vec<ChatPicture>,
     /// The whole message that the agent gets: the words and the lines that Kodosi adds.
     #[serde(skip)]
     pub said: String,
+    /// The files of `pictures` on the terminal's computer, for the agent.
+    #[serde(skip)]
+    pub files: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub by: Option<ChatPerson>,
     /// Error from the agent if delivery was refused. The message waits until the user sends
@@ -506,10 +517,28 @@ pub struct ChatQueued {
     /// it, or only the terminal has it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub terminal: bool,
-    /// The agent has this message, so it can no longer be removed: the turn that runs reads it
-    /// before its next step, or the agent's terminal shows the command.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub given: bool,
+    /// The agent has this message, so it can no longer be removed, and when it reads it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub given: Option<ChatGiven>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum ChatGiven {
+    /// The turn that runs reads it before its next step.
+    Step,
+    /// The agent keeps it for its next turn, which starts when the one that runs ends, or its
+    /// terminal shows the command.
+    Turn,
+}
+
+/// A picture that came with a person's message, saved on the terminal's computer.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatPicture {
+    /// The name of its file there; empty for a picture that the agent's terminal took.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub name: String,
 }
 
 /// A slash command of the agent, as its own menu lists it.
@@ -683,8 +712,12 @@ pub enum ChatRequest {
     /// Queues a message while the agent is busy. Oversized messages are truncated in the middle
     /// so pasted logs keep both the start and the trailing prompt. Each peer that the words name
     /// with `@` gets a line after them that tells the agent who it is and how to message it.
+    /// The words may be empty when pictures come with them.
     Send {
         text: String,
+        /// Each picture's bytes in base64: PNG, JPEG, GIF or WebP, together up to 32 MB.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        pictures: Vec<String>,
     },
     /// Hands this agent the work of a peer's agent, which gets no message.
     HandOff {

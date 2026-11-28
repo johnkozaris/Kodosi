@@ -25,10 +25,11 @@ agent in the middle of a task, the header offers to continue it.
 
 A terminal supports both a terminal screen view and a chat view. It opens in whichever view its
 agent works in, the header switches between them, the terminal screen stays live while chat is
-shown, and you can switch the agent's model from either view. Pointing at a message or a finished
-answer in the chat shows a key that copies it whole, as written. Typing `@` lists your other running
-agents to mention, and dropping a terminal from the sidebar or its header onto a chat asks whether to
-mention its agent or hand its work over.
+shown, and you can switch the agent's model from either view. Pointing at a message, a finished
+answer, or a message that waits for the agent shows a key that copies it whole, as written. Typing
+`@` lists your other running agents to mention, and dropping a terminal from the sidebar or its
+header onto a chat asks whether to mention its agent or hand its work over. Pasting a picture into
+the message field, or dropping one on the chat, adds it to your next message.
 
 In the chat view, the mic key beside Send lets you talk instead of typing. Your words appear as your
 next message while you speak, after any words you typed, and the message sends after a long pause,

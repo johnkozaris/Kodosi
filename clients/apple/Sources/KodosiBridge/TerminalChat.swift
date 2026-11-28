@@ -14,6 +14,10 @@ public final class TerminalChat {
     public var draft = ""
     /// Counts the words that came into the draft from outside its field, which then takes the focus.
     public var drafted = 0
+    /// The pictures that go with the next message.
+    public private(set) var pictures: [ChatDraftPicture] = []
+    /// Why the last picture that the person added did not join them.
+    public private(set) var refusal: ChatDraftPicture.Refusal?
 
     @ObservationIgnored private let store: CanvasStore
     @ObservationIgnored let session: String
@@ -145,16 +149,42 @@ public final class TerminalChat {
     }
 
     /// Submitting text while a prompt is pending denies the prompt with that text as feedback so
-    /// the agent adjusts and continues.
+    /// the agent adjusts and continues; the pictures wait for the next message.
     public func submit() {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, canWrite else { return }
-        draft = ""
+        guard canWrite else { return }
         if let question {
+            guard !text.isEmpty else { return }
+            draft = ""
             answer(question, .deny(text))
-        } else {
-            request(.send(text))
+        } else if !text.isEmpty || !pictures.isEmpty {
+            draft = ""
+            request(.send(text, pictures: pictures.map(\.data)))
+            pictures = []
+            refusal = nil
         }
+    }
+
+    /// Adds a picture to the next message: PNG, JPEG, GIF or WebP bytes, which together stay within
+    /// what one message takes. `nil` bytes are a picture that could not be read.
+    public func attach(_ data: Data?) {
+        guard let data, ChatDraftPicture.isPicture(data) else {
+            refusal = .unreadable
+            return
+        }
+        guard pictures.count < ChatDraftPicture.most,
+              pictures.reduce(data.count, { $0 + $1.data.count }) <= ChatDraftPicture.mostBytes
+        else {
+            refusal = .full
+            return
+        }
+        pictures.append(ChatDraftPicture(data: data))
+        refusal = nil
+    }
+
+    public func remove(_ picture: ChatDraftPicture) {
+        pictures.removeAll { $0.id == picture.id }
+        refusal = nil
     }
 
     public func answer(_ ask: ChatAsk, _ answer: ChatAnswer) {

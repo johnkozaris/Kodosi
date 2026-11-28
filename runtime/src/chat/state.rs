@@ -1,8 +1,9 @@
 use super::{
-    ChatAsk, ChatBody, ChatChange, ChatCommand, ChatFacts, ChatItem, ChatNow, ChatPeer, ChatPerson,
-    ChatQueued, ChatSetting, ChatSnapshot, ChatState, ChatTask, ChatTool, ChatUpdate, MOST_ASKS,
-    MOST_COMMANDS, MOST_ITEMS, MOST_QUEUED, MOST_SETTINGS, MOST_TARGET, MOST_TASKS, MOST_TEXT,
-    ToolKind, ToolState, mention::Message,
+    ChatAsk, ChatBody, ChatChange, ChatCommand, ChatFacts, ChatGiven, ChatItem, ChatNow, ChatPeer,
+    ChatPerson, ChatQueued, ChatSetting, ChatSnapshot, ChatState, ChatTask, ChatTool, ChatUpdate,
+    MOST_ASKS, MOST_COMMANDS, MOST_ITEMS, MOST_QUEUED, MOST_SETTINGS, MOST_TARGET, MOST_TASKS,
+    MOST_TEXT, ToolKind, ToolState,
+    mention::{Message, picture},
 };
 
 #[derive(Default)]
@@ -243,10 +244,12 @@ impl Chat {
         &self.queued
     }
 
+    /// Queues a message with the pictures of `files`, which the terminal's computer keeps.
     pub(super) fn queue(
         &mut self,
         message: impl Into<Message>,
         by: Option<ChatPerson>,
+        files: Vec<String>,
     ) -> Option<String> {
         if self.queued.len() >= MOST_QUEUED {
             return None;
@@ -258,11 +261,13 @@ impl Chat {
             text: message.words,
             mentions: message.mentions,
             handoff: message.handoff,
+            pictures: files.iter().map(|file| picture(file)).collect(),
             said: message.said,
+            files,
             by,
             refused: None,
             terminal: false,
-            given: false,
+            given: None,
         });
         self.tell_queued();
         Some(id)
@@ -283,12 +288,12 @@ impl Chat {
         self.change_queued(id, |queued| queued.terminal = true);
     }
 
-    pub(super) fn give(&mut self, id: &str) {
-        self.change_queued(id, |queued| queued.given = true);
+    pub(super) fn give(&mut self, id: &str, given: ChatGiven) {
+        self.change_queued(id, |queued| queued.given = Some(given));
     }
 
     pub(super) fn take_back(&mut self, id: &str) {
-        self.change_queued(id, |queued| queued.given = false);
+        self.change_queued(id, |queued| queued.given = None);
     }
 
     fn change_queued(&mut self, id: &str, change: impl FnOnce(&mut ChatQueued)) {

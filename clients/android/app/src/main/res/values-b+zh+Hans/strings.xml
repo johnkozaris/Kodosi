@@ -596,6 +596,11 @@
     </plurals>
     <string name="chat_recap">回顾</string>
     <string name="chat_reads_before_next_step">%1$s 会在下一步之前读取此消息。</string>
+    <string name="chat_reads_after_turn">%1$s 会在这一轮结束后读取此消息。</string>
+    <string name="chat_add_picture">添加图片</string>
+    <string name="chat_picture">图片</string>
+    <string name="chat_picture_unreadable">Kodosi 无法读取此图片。</string>
+    <string name="chat_pictures_too_many">一条消息最多可包含 8 张图片，合计不超过 32 MB。</string>
     <string name="chat_waiting_for">正在等待 %1$s</string>
     <string name="chat_needs_terminal_view">此命令需要终端视图</string>
     <string name="chat_find_setting">查找设置</string>

@@ -250,7 +250,8 @@ struct ChatRowView: View {
                 }
                 .padding(.top, 18)
             } else {
-                PersonBubble(text: said.text, targets: targets, copies: true).padding(.top, 18)
+                PersonBubble(text: said.text, targets: targets, pictures: said.pictures.count, copies: true)
+                    .padding(.top, 18)
             }
         case let .answer(text, live):
             AgentProse(text: text, live: live).frame(maxWidth: .infinity, alignment: .leading)
@@ -294,12 +295,15 @@ private struct ChatOtherPerson: View {
                 Group {
                     if let handoff = said.handoff {
                         ChatHandOffLine(handoff: handoff)
-                    } else {
+                    } else if !said.text.isEmpty {
                         ProjectMessageText(text: said.text, targets: targets)
                             .appTextStyle(.body).lineSpacing(2).foregroundStyle(theme.colors.ink).messageTextSelection()
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                if !said.pictures.isEmpty {
+                    ChatPictureTiles(count: said.pictures.count)
+                }
             }
         }
     }

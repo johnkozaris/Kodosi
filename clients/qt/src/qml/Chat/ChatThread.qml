@@ -178,13 +178,14 @@ Item {
                     text: entry.line.text || ""
                     parts: Mentions.segments(mine.text, Mentions.mentionTargets(entry.line.mentions || [], root.chat.peers))
                     handoff: entry.line.handoff || null
+                    pictures: entry.line.pictures || 0
                     look: root.look
                     onLinkActivated: link => root.linkActivated(link)
 
                     CopyKey {
                         x: parent.width - width
                         y: -10
-                        enabled: !entry.line.handoff
+                        enabled: !entry.line.handoff && mine.text.length > 0
                         message: entry.line.text || ""
                         shown: hover.hovered
                         look: root.look
@@ -198,10 +199,13 @@ Item {
                 Item {
                     id: other
 
-                    readonly property var parts: Mentions.segments(entry.line.text || "",
+                    readonly property string text: entry.line.text || ""
+                    readonly property var parts: Mentions.segments(other.text,
                         Mentions.mentionTargets(entry.line.mentions || [], root.chat.peers))
+                    readonly property real wordsEnd: handed.active ? handed.y + handed.height
+                        : words.visible ? words.y + words.implicitHeight : who.height
 
-                    implicitHeight: Math.max(28, handed.active ? handed.y + handed.height : words.y + words.implicitHeight)
+                    implicitHeight: Math.max(28, tiles.visible ? tiles.y + tiles.height : other.wordsEnd)
                     Accessible.role: Accessible.StaticText
                     Accessible.name: qsTr("%1: %2").arg(entry.line.byName || "", (handed.item as ChatHandOff)?.words ?? entry.line.text ?? "")
 
@@ -237,7 +241,7 @@ Item {
                         x: 38
                         y: who.height + 4
                         width: parent.width - 38
-                        visible: !handed.active
+                        visible: !handed.active && other.text.length > 0
                         text: Prose.styled(Mentions.html(other.parts, "", root.look, true), root.look)
                         parts: other.parts
                         look: root.look
@@ -256,11 +260,19 @@ Item {
                             widest: other.width - 38
                         }
                     }
+                    ChatPictures {
+                        id: tiles
+
+                        x: 38
+                        y: other.wordsEnd + 8
+                        count: entry.line.pictures || 0
+                        look: root.look
+                    }
                     CopyKey {
                         x: parent.width - width
                         y: -10
-                        enabled: !entry.line.handoff
-                        message: entry.line.text || ""
+                        enabled: !entry.line.handoff && other.text.length > 0
+                        message: other.text
                         shown: hover.hovered
                         look: root.look
                         objectName: "chat.message.copy." + entry.line.id

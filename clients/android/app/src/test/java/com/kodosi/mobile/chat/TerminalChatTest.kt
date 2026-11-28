@@ -1,5 +1,7 @@
 package com.kodosi.mobile.chat
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.ColorPainter
 import com.kodosi.mobile.canvas.CanvasStore
 import com.kodosi.mobile.runtime.RuntimeJson
 import com.kodosi.mobile.runtime.SentCommands
@@ -12,6 +14,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -99,6 +105,56 @@ class TerminalChatTest {
         assertEquals(listOf(ChatPeer("t3", "Slate Wren", "codex", "lab")), chat.view.value.peers)
         assertTrue(chat.view.value.items.isEmpty())
     }
+
+    @Test
+    fun aQueuedMessageSaysWhenTheAgentReadsItAndMessagesKeepTheirPictures() = runTest {
+        watch()
+        send(
+            """{"snapshot":{"revision":1,"state":"working","facts":{},
+              "items":[{"id":"i1","at":1,"body":{"kind":"person","text":"What breaks here?",
+                "pictures":[{"name":"0f3a.png"},{}]}}],
+              "queued":[{"id":"q1","text":"And here?","pictures":[{"name":"9c2e.jpg"}],"given":"turn"},
+                {"id":"q2","text":"Keep the old error.","given":"step"},
+                {"id":"q3","text":"Then deploy."}]}}"""
+        )
+
+        val view = chat.view.value
+        assertEquals(
+            listOf(ChatPicture("0f3a.png"), ChatPicture()),
+            (view.items.single().body as ChatBody.Person).pictures
+        )
+        assertEquals(listOf(ChatGiven.TURN, ChatGiven.STEP, null), view.queued.map { it.given })
+        assertEquals(listOf(ChatPicture("9c2e.jpg")), view.queued.first().pictures)
+    }
+
+    @Test
+    fun picturesGoWithTheNextMessageAndNotWithAnAnswerToAQuestion() = runTest {
+        watch()
+        send(
+            """{"snapshot":{"revision":1,"state":"asking","facts":{},"items":[],"asks":[{"id":"a1",
+              "body":{"kind":"question","questions":[{"question":"Which database?","options":[{"label":"Local"}]}]}}]}}"""
+        )
+        val picture = DraftPicture(byteArrayOf(1, 2, 3), ColorPainter(Color.Black))
+        assertTrue(chat.attach(picture))
+
+        assertTrue(chat.submit("The staging one"))
+        assertEquals("answer", request().string("do"))
+        assertEquals(listOf(picture), chat.pictures.value)
+
+        send(
+            """{"update":{"revision":2,"changes":[{"change":"asks","asks":[]},{"change":"state","state":"working"}]}}"""
+        )
+        assertTrue(chat.submit(""))
+        val message = request()
+        assertEquals("send", message.string("do"))
+        assertEquals("", message.string("text"))
+        assertEquals(listOf("AQID"), message.getValue("pictures").jsonArray.map { it.jsonPrimitive.content })
+        assertTrue(chat.pictures.value.isEmpty())
+    }
+
+    private fun request(): JsonObject = RuntimeJson.parseToJsonElement(
+        Base64.getDecoder().decode(sent.last("document.send").string("data")).decodeToString()
+    ).jsonObject
 
     private fun TestScope.watch() {
         backgroundScope.launch { chat.watch() }

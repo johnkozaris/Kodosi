@@ -9,13 +9,15 @@ use serde_json::{Value, json};
 
 use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatCommand, ChatContext, ChatControl,
-    ChatMode, ChatNote, ChatNow, ChatPerson, ChatQuestion, ChatSetting, ChatSettingKind, ChatStep,
-    ChatTool, MOST_CALLS, MOST_CHOICES, MOST_OUTPUT, MOST_QUESTIONS, MOST_QUEUED, MOST_TARGET,
-    MOST_TEXT, PlanChoice, ToolDetail, ToolKind, ToolState, TurnEnd,
+    ChatGiven, ChatMode, ChatNote, ChatNow, ChatPerson, ChatPicture, ChatQuestion, ChatSetting,
+    ChatSettingKind, ChatStep, ChatTool, MOST_CALLS, MOST_CHOICES, MOST_OUTPUT, MOST_QUESTIONS,
+    MOST_QUEUED, MOST_TARGET, MOST_TEXT, PlanChoice, ToolDetail, ToolKind, ToolState, TurnEnd,
     agent::{
-        Agent, Places, Stop, answer, list, person, question, show_state, stop_open, text, words,
+        Agent, Places, Stop, answer, list, person, pictured, question, show_state, stop_open, text,
+        words,
     },
     diff,
+    mention::with_pictures,
     state::{Chat, ends_of, start_of},
 };
 
@@ -382,9 +384,19 @@ impl Claude {
         let helper = text(event, "agent");
         let door = text(event, "door");
         let mut closed = Vec::new();
+        // Claude Code keeps a picture that its terminal took as a block of the prompt beside its
+        // words.
+        let mut pictures = list(event, "content")
+            .filter(|block| text(block, "type") == "image")
+            .map(|_| ChatPicture {
+                name: String::new(),
+            })
+            .collect::<Vec<_>>();
         for block in list(event, "content") {
             match (door, text(block, "type")) {
-                ("prompt", "text") if helper.is_empty() => self.prompt(chat, event, block, at),
+                ("prompt", "text") if helper.is_empty() => {
+                    self.prompt(chat, event, block, std::mem::take(&mut pictures), at);
+                }
                 ("command", "text") if helper.is_empty() => {
                     self.command(chat, event, text(block, "text"), at);
                 }
@@ -406,12 +418,19 @@ impl Claude {
 
     /// Accepts only composer and chat-injected user prompts; other `"prompt"` rows are internal
     /// Claude Code notifications (such as subagent completions).
-    fn prompt(&mut self, chat: &mut Chat, event: &Value, block: &Value, at: u64) {
+    fn prompt(
+        &mut self,
+        chat: &mut Chat,
+        event: &Value,
+        block: &Value,
+        pictures: Vec<ChatPicture>,
+        at: u64,
+    ) {
         let origin = event.get("origin").unwrap_or(&Value::Null);
         let from_chat = text(origin, "kind") == "plugin"
             && origin.get("asUser").and_then(Value::as_bool) == Some(true);
         if from_chat || text(origin, "kind") == "composer" {
-            self.person_said(chat, text(block, "text"), from_chat, at);
+            self.person_said(chat, text(block, "text"), from_chat, pictures, at);
         }
     }
 
@@ -459,7 +478,7 @@ impl Claude {
             self.changes.pop_front();
             return;
         }
-        self.person_said(chat, words, from_chat, at);
+        self.person_said(chat, words, from_chat, Vec::new(), at);
     }
 
     /// Claude Code shows the recap of a conversation when a person comes back to it.
@@ -493,14 +512,21 @@ impl Claude {
         }
         if let Some(handed) = self.handed.iter().find(|handed| Some(handed.n) == n) {
             chat.in_terminal(&handed.queued);
-            chat.give(&handed.queued);
+            chat.give(&handed.queued, ChatGiven::Turn);
             if event.get("picker").and_then(Value::as_bool) == Some(true) {
                 self.picker = n;
             }
         }
     }
 
-    fn person_said(&mut self, chat: &mut Chat, words: &str, from_chat: bool, at: u64) {
+    fn person_said(
+        &mut self,
+        chat: &mut Chat,
+        words: &str,
+        from_chat: bool,
+        pictures: Vec<ChatPicture>,
+        at: u64,
+    ) {
         self.held &= from_chat;
         self.end_writing(chat, None);
         // Claude Code processes injected prompts FIFO and may rewrite their text, so fall back to
@@ -515,7 +541,7 @@ impl Claude {
             chat.unqueue(&handed.queued);
             handed.by
         });
-        chat.push(at, person(words, by));
+        chat.push(at, pictured(words, by, pictures));
     }
 
     fn write(&mut self, chat: &mut Chat, event: &Value, at: u64) {
@@ -973,16 +999,30 @@ impl Claude {
         if matches!(reason, "clear" | "resume") {
             return self.renew(chat);
         }
+        self.relinked(chat);
         self.lost(chat)
+    }
+
+    /// Claude Code can start a command now: no turn runs, no question is open and no earlier
+    /// message waits in Claude Code, other than a command whose picker can be open in the
+    /// terminal.
+    fn can_start(&self, chat: &Chat) -> bool {
+        self.turn.is_none()
+            && !self.compacting
+            && chat.asks().is_empty()
+            && self
+                .handed
+                .iter()
+                .all(|handed| Some(handed.n) == self.picker)
     }
 
     /// Handles completion of an injected prompt or slash command.
     ///
-    /// Dropped prompts stay queued and set `held`. A prompt that a stop dropped waits as before;
-    /// any other drop is a refusal, shown with its reason. Successful non-command prompts remain
-    /// in `handed` until their transcript row arrives, whereas slash commands such as `/clear` may
-    /// not emit a row in the current session, so they are shown as the person's message and
-    /// unqueued here.
+    /// Dropped prompts stay queued, taken back, and set `held`. A prompt that a stop dropped
+    /// waits as before; any other drop is a refusal, shown with its reason. Successful
+    /// non-command prompts remain in `handed` until their transcript row arrives, whereas slash
+    /// commands such as `/clear` may not emit a row in the current session, so they are shown as
+    /// the person's message and unqueued here.
     fn did(&mut self, chat: &mut Chat, event: &Value, at: u64) {
         let (error, drop) = (text(event, "error"), text(event, "drop"));
         let n = event.get("n").and_then(Value::as_u64);
@@ -1001,6 +1041,7 @@ impl Claude {
         if !drop.is_empty() {
             let refusal =
                 (!STOPPED.contains(&drop)).then(|| start_of(drop, MOST_TARGET).to_owned());
+            chat.take_back(&handed.queued);
             chat.refuse(&handed.queued, refusal);
             self.held = true;
             return;
@@ -1195,7 +1236,9 @@ impl Agent for Claude {
         for queued in shown {
             chat.unqueue(&queued);
         }
-        self.handed.clear();
+        // A prompt that Claude Code holds stays with it while its link is silent; the session's
+        // end or another link takes it back.
+        self.handed.retain(|handed| !handed.text.starts_with('/'));
         self.picker = None;
         self.changes.clear();
         for helper in self.helpers.values_mut() {
@@ -1213,6 +1256,14 @@ impl Agent for Claude {
             self.linked = true;
             self.show(chat);
         }
+    }
+
+    /// The prompts that Claude Code held wait in the chat's queue again.
+    fn relinked(&mut self, chat: &mut Chat) {
+        for handed in self.handed.drain(..) {
+            chat.take_back(&handed.queued);
+        }
+        self.picker = None;
     }
 
     fn is_linked(&self) -> bool {
@@ -1328,37 +1379,48 @@ impl Agent for Claude {
         true
     }
 
-    /// The next message of the queue, as a command for the module, when Claude Code can start it:
-    /// no turn runs, no question is open and no earlier message waits in Claude Code, other than a
-    /// command whose picker can be open in the terminal.
-    fn commands(&mut self, chat: &Chat) -> Vec<Value> {
-        if !self.linked
-            || self.held
-            || self.turn.is_some()
-            || self.compacting
-            || self
-                .handed
-                .iter()
-                .any(|handed| Some(handed.n) != self.picker)
-            || !chat.asks().is_empty()
-        {
+    /// The messages of the queue, in order, as commands for the module, each as soon as Claude
+    /// Code takes it. Claude Code keeps a plugin's prompt in its own queue while it works, as it
+    /// does a prompt typed in its terminal, but gives it to the model only once it is idle, not at
+    /// its next step; so a prompt goes to it at once, given. A command waits until Claude Code can
+    /// start it: no turn runs, no question is open and no earlier message waits in Claude Code,
+    /// other than a command whose picker can be open in the terminal.
+    fn commands(&mut self, chat: &mut Chat) -> Vec<Value> {
+        if !self.linked || self.held {
             return Vec::new();
         }
-        let Some(queued) = chat
-            .queued()
-            .iter()
-            .find(|queued| self.handed.iter().all(|handed| handed.queued != queued.id))
-        else {
-            return Vec::new();
-        };
-        self.sent += 1;
-        self.handed.push_back(Handed {
-            n: self.sent,
-            queued: queued.id.clone(),
-            text: queued.said.clone(),
-            by: queued.by.clone(),
-        });
-        vec![json!({"do": "prompt", "n": self.sent, "text": queued.said})]
+        let mut commands = Vec::new();
+        let mut given = Vec::new();
+        for queued in chat.queued() {
+            if self.handed.iter().any(|handed| handed.queued == queued.id) {
+                continue;
+            }
+            let command = queued.said.trim_start().starts_with('/');
+            if command && (!commands.is_empty() || !self.can_start(chat)) {
+                break;
+            }
+            self.sent += 1;
+            let text = if command {
+                queued.said.clone()
+            } else {
+                given.push(queued.id.clone());
+                with_pictures(&queued.said, &queued.files)
+            };
+            commands.push(json!({"do": "prompt", "n": self.sent, "text": text}));
+            self.handed.push_back(Handed {
+                n: self.sent,
+                queued: queued.id.clone(),
+                text,
+                by: queued.by.clone(),
+            });
+            if command {
+                break;
+            }
+        }
+        for queued in given {
+            chat.give(&queued, ChatGiven::Turn);
+        }
+        commands
     }
 
     fn change(&mut self, line: &str) -> Option<Value> {

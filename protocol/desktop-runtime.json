@@ -904,6 +904,19 @@
                                 },
                                 "type": "array"
                               },
+                              "pictures": {
+                                "items": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "name": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [],
+                                  "type": "object"
+                                },
+                                "type": "array"
+                              },
                               "text": {
                                 "type": "string"
                               }
@@ -1537,7 +1550,21 @@
                         ]
                       },
                       "given": {
-                        "type": "boolean"
+                        "anyOf": [
+                          {
+                            "oneOf": [
+                              {
+                                "const": "step"
+                              },
+                              {
+                                "const": "turn"
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       },
                       "handoff": {
                         "anyOf": [
@@ -1578,6 +1605,19 @@
                           "required": [
                             "name"
                           ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "pictures": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [],
                           "type": "object"
                         },
                         "type": "array"
@@ -1822,6 +1862,19 @@
                                           "required": [
                                             "name"
                                           ],
+                                          "type": "object"
+                                        },
+                                        "type": "array"
+                                      },
+                                      "pictures": {
+                                        "items": {
+                                          "additionalProperties": false,
+                                          "properties": {
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [],
                                           "type": "object"
                                         },
                                         "type": "array"
@@ -3005,7 +3058,21 @@
                                   ]
                                 },
                                 "given": {
-                                  "type": "boolean"
+                                  "anyOf": [
+                                    {
+                                      "oneOf": [
+                                        {
+                                          "const": "step"
+                                        },
+                                        {
+                                          "const": "turn"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
                                 },
                                 "handoff": {
                                   "anyOf": [
@@ -3046,6 +3113,19 @@
                                     "required": [
                                       "name"
                                     ],
+                                    "type": "object"
+                                  },
+                                  "type": "array"
+                                },
+                                "pictures": {
+                                  "items": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "name": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [],
                                     "type": "object"
                                   },
                                   "type": "array"
@@ -3641,6 +3721,12 @@
           "properties": {
             "do": {
               "const": "send"
+            },
+            "pictures": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             "text": {
               "type": "string"
@@ -20131,7 +20217,7 @@
     ]
   },
   "ffiAbiVersion": 13,
-  "protocolVersion": 119,
+  "protocolVersion": 120,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,
