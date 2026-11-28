@@ -77,6 +77,12 @@ private struct TerminalScreenContent: View {
         controller.session.map { model.terminals.face(of: $0) == .chat } == true
     }
 
+    /// The chat takes the keyboard where the terminal takes it by itself: with a hardware keyboard,
+    /// so that no keyboard comes up on the screen.
+    private var chatKeys: Int? {
+        keyboard.focusesTerminal(composing: composing) && keyboardAllowed ? 0 : nil
+    }
+
     private var face: Binding<TerminalFace> {
         Binding {
             chatting ? .chat : .terminal
@@ -346,7 +352,7 @@ private struct TerminalScreenContent: View {
                     TerminalChatView(chat: model.terminals.canvas.chat(session.id), agent: session.agent, me: model.terminals.userId,
                                      otherComputer: session.otherComputer,
                                      names: [session.name, session.projectName, session.folderName].compactMap(\.self),
-                                     openTerminal: open,
+                                     keys: chatKeys, openTerminal: open,
                                      goOn: session.offersContinue ? { model.terminals.continueTask(session) } : nil)
                     {
                         model.terminals.pick(.terminal, of: session.id, over: session.face)

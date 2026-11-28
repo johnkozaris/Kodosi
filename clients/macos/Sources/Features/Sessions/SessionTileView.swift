@@ -18,6 +18,8 @@ struct SessionTileView: View {
     @Environment(\.terminalAlone) private var alone
     @Environment(\.terminalJoined) private var joinsCanvas
     @Environment(\.terminalTileVisible) private var tileVisible
+    @Environment(\.terminalStageVisible) private var stageVisible
+    @Environment(\.terminalInteractionEnabled) private var interactionEnabled
     @Environment(\.tileRadius) private var radius
     let session: RuntimeSession
     let isFocused: Bool
@@ -44,6 +46,13 @@ struct SessionTileView: View {
 
     private var showsChat: Bool {
         deps.workbench.showsChat(session)
+    }
+
+    /// The chat of the picked terminal takes the keyboard as its terminal screen does, also when a
+    /// person picks the terminal again, unless a sheet or the name field has the keyboard.
+    private var chatKeys: Int? {
+        isSelected && showsChat && !renaming && interactionEnabled && stageVisible && tileVisible
+            ? deps.workbench.picks : nil
     }
 
     var body: some View {
@@ -171,7 +180,7 @@ struct SessionTileView: View {
                     TerminalChatView(chat: chat, agent: session.agent, me: deps.account.userId,
                                      otherComputer: session.otherComputer,
                                      names: [session.name, session.projectName, session.folderName].compactMap(\.self),
-                                     openTerminal: openTerminal)
+                                     keys: chatKeys, openTerminal: openTerminal)
                     {
                         deps.workbench.faces[session.id] = FacePick(.terminal, over: session.face)
                     } modelKey: { name, effort, open in

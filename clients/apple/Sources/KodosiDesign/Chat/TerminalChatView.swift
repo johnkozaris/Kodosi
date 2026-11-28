@@ -10,7 +10,9 @@ import SwiftUI
 /// `otherComputer` names the computer of a terminal that is not on this device, where its files
 /// are. `names`, such as the terminal's and its project's, help talking spell them right.
 /// `goOn` lets an agent that a restart stopped in the middle of a task go on. `openTerminal` opens
-/// the terminal of an agent that a message names.
+/// the terminal of an agent that a message names. `keys` counts the times that a person picked the
+/// terminal while its chat may take the keyboard: the message field takes the keyboard at each new
+/// count, while the chat takes messages.
 public struct TerminalChatView<ModelKey: View>: View {
     @Environment(\.theme) private var theme
     let chat: TerminalChat
@@ -18,6 +20,7 @@ public struct TerminalChatView<ModelKey: View>: View {
     let me: String?
     let otherComputer: String?
     let names: [String]
+    let keys: Int?
     let openTerminal: ((String) -> Void)?
     let goOn: (() -> Void)?
     let showTerminal: () -> Void
@@ -27,7 +30,8 @@ public struct TerminalChatView<ModelKey: View>: View {
 
     public init(
         chat: TerminalChat, agent: AgentKind, me: String?, otherComputer: String?, names: [String] = [],
-        openTerminal: ((String) -> Void)? = nil, goOn: (() -> Void)? = nil, showTerminal: @escaping () -> Void,
+        keys: Int? = nil, openTerminal: ((String) -> Void)? = nil, goOn: (() -> Void)? = nil,
+        showTerminal: @escaping () -> Void,
         @ContentBuilder modelKey: @escaping (_ model: String, _ effort: String?, _ open: Binding<Bool>) -> ModelKey,
     ) {
         self.chat = chat
@@ -35,6 +39,7 @@ public struct TerminalChatView<ModelKey: View>: View {
         self.me = me
         self.otherComputer = otherComputer
         self.names = names
+        self.keys = keys
         self.openTerminal = openTerminal
         self.goOn = goOn
         self.showTerminal = showTerminal
@@ -67,6 +72,10 @@ public struct TerminalChatView<ModelKey: View>: View {
             return .handled
         })
         .task { await chat.watch() }
+        .onChange(of: chat.canWrite ? keys : nil, initial: true) { _, keys in
+            guard keys != nil else { return }
+            Task { focused = true }
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("chat")
     }
