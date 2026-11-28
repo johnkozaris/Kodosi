@@ -82,8 +82,8 @@ Mac the phone's clipboard first.
 The screen and the shared browser handle what recovers by itself: while their picture comes back,
 they rest on the last one, dimmed, and say "Reconnecting" only if it takes a while. Opening an
 asleep browser wakes it. They use one line only when someone must act or wait (the Mac is locked,
-asleep, offline, on another account, not sharing, or not allowed to record), and offer Try again
-only after an unexpected failure.
+asleep, offline, on another account, not sharing, or not allowed to record or be controlled), and
+offer Try again only after an unexpected failure.
 
 While the phone runs hot, the shared browser and the screen show a softer picture, and a sharp one
 again once it cools down.

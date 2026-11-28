@@ -819,8 +819,8 @@
         <translation>画面全体を表示</translation>
     </message>
     <message>
-        <source>Allow control on %1</source>
-        <translation>%1 で操作を許可してください</translation>
+        <source>%1 does not allow control. Allow it in Kodosi&apos;s settings there.</source>
+        <translation>%1 は操作を許可していません。そこで Kodosi の設定から許可してください。</translation>
     </message>
     <message>
         <source>Can&apos;t show the screen</source>
@@ -829,10 +829,6 @@
     <message>
         <source>Copied</source>
         <translation>コピーしました</translation>
-    </message>
-    <message>
-        <source>View only</source>
-        <translation>表示のみ</translation>
     </message>
 </context>
 <context>

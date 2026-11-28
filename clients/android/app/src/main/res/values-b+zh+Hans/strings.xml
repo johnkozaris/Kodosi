@@ -346,14 +346,13 @@
     <string name="screen_window">窗口</string>
     <string name="screen_choose">显示其他显示器或窗口</string>
     <string name="screen_whole">显示整个屏幕</string>
-    <string name="screen_view_only">仅查看</string>
     <string name="screen_sharing_off">%1$s 上的共享已关闭</string>
     <string name="computer_offline">%1$s 已离线</string>
     <string name="screen_locked">%1$s 已锁定</string>
     <string name="screen_asleep">%1$s 正在睡眠</string>
     <string name="screen_another_account">%1$s 正在使用另一个账户</string>
     <string name="screen_allow_recording">请在 %1$s 上允许屏幕录制</string>
-    <string name="screen_allow_control">请在 %1$s 上允许控制</string>
+    <string name="screen_uncontrolled">%1$s 不允许控制。请在那里的 Kodosi 设置中允许。</string>
     <string name="screen_cant_show">无法显示屏幕</string>
     <string name="browser_cant_show">无法显示页面</string>
     <string name="wake_browser">打开浏览器</string>

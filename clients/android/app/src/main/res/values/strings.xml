@@ -358,14 +358,13 @@
     <string name="screen_window">Window</string>
     <string name="screen_choose">Show another display or window</string>
     <string name="screen_whole">Show the whole screen</string>
-    <string name="screen_view_only">View only</string>
     <string name="screen_sharing_off">Sharing is off on %1$s</string>
     <string name="computer_offline">%1$s is offline</string>
     <string name="screen_locked">%1$s is locked</string>
     <string name="screen_asleep">%1$s is asleep</string>
     <string name="screen_another_account">%1$s is on another account</string>
     <string name="screen_allow_recording">Allow screen recording on %1$s</string>
-    <string name="screen_allow_control">Allow control on %1$s</string>
+    <string name="screen_uncontrolled">%1$s does not allow control. Allow it in Kodosi\'s settings there.</string>
     <string name="screen_cant_show">Can\'t show the screen</string>
     <string name="browser_cant_show">Can\'t show the page</string>
     <string name="wake_browser">Open browser</string>

@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 
 import Kodosi 1.0
 import QtQuick
-import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import Kodosi.Models 1.0 as Models
 
@@ -94,23 +93,20 @@ Item {
                 objectName: "canvas.screen.whole"
                 onClicked: video.showWhole()
             }
-            Tag {
-                readonly property string explanation: qsTr("Allow control on %1").arg(root.computer)
-
-                visible: !root.controls && root.pictured
-                text: qsTr("View only")
-                tone: Tag.Caution
-                objectName: "canvas.screen.viewOnly"
-                Accessible.role: Accessible.StaticText
-                Accessible.name: text
-                Accessible.description: explanation
-                ToolTip.visible: viewOnlyHover.hovered
-                ToolTip.text: explanation
-                ToolTip.delay: Tip.delay
-
-                HoverHandler { id: viewOnlyHover }
-            }
             Item { Layout.fillWidth: true }
+        }
+        PlainLabel {
+            Layout.fillWidth: true
+            Layout.leftMargin: 12
+            Layout.rightMargin: 12
+            Layout.bottomMargin: 6
+            visible: !root.controls && root.pictured
+            text: qsTr("%1 does not allow control. Allow it in Kodosi's settings there.").arg(root.computer)
+            color: KodosiTheme.caution
+            font.pixelSize: KodosiTheme.fontFootnote
+            font.weight: Font.Medium
+            wrapMode: Text.Wrap
+            objectName: "canvas.screen.uncontrolled"
         }
         Rectangle {
             id: surface

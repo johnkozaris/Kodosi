@@ -162,7 +162,8 @@ The shared browser and a computer's screen show one state on their picture, calm
 picture alone while live; the last picture dimmed with a pulsing `glowOrange` dot while it comes
 back, which turns into a Reconnecting pill if that takes a while; one line under an icon in a well
 when the computer is away; and Try again only when something broke unexpectedly. A spinner without
-words appears only when there is no picture yet, and a green check says Copied for a moment.
+words appears only when there is no picture yet, and a green check says Copied for a moment. A
+screen that takes no input has one `caution` line between its bar and its picture.
 
 ### Conversation and Dosi
 Your own messages align right as bubbles; other people show an avatar and name, and agents show
