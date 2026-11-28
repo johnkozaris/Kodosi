@@ -29,6 +29,8 @@ final class WorkbenchState {
         didSet { selectedSessionId.map { looks.look(at: $0) } }
     }
 
+    /// Counts the times that a person picked a terminal, also one that was picked already.
+    private(set) var picks = 0
     var stagedSessionIds: [String] = []
     @ObservationIgnored var looks = LookOrder()
     /// The room that the terminal tiles share, in points.
@@ -189,6 +191,7 @@ final class WorkbenchState {
 
     func selectSession(_ id: String) {
         selectedSessionId = id
+        picks += 1
     }
 
     func resume(_ provider: Provider) {
@@ -209,6 +212,7 @@ final class WorkbenchState {
             selectedProjectId = projectId
         }
         selectedSessionId = id
+        picks += 1
         if !stagedSessionIds.contains(id) {
             stagedSessionIds.append(id)
         }
@@ -250,6 +254,7 @@ final class WorkbenchState {
         let index = selectedSessionId.flatMap { stagedSessionIds.firstIndex(of: $0) } ?? 0
         let next = stagedSessionIds[(index + offset + stagedSessionIds.count) % stagedSessionIds.count]
         selectedSessionId = next
+        picks += 1
         if focusedSessionId != nil {
             focusedSessionId = next
             followCanvas(to: next)
